@@ -8,17 +8,210 @@
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-slate-100 text-slate-900">
-  <!-- KODE DELT OPP FOR GITHUB LIMING -->
+ <div class="max-w-[1900px] mx-auto p-6 space-y-6">
+  <header class="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4">
+    <div>
+      <h1 class="text-3xl font-bold tracking-tight">Ressursplanlegging 2026</h1>
+      <p class="text-slate-600 mt-1">Enkel HTML-demo med kalender og ansatte.</p>
+    </div>
+    <div class="flex flex-wrap gap-2">
+      <span class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm">Demo</span>
+      <span class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm">Ingen innlogging</span>
+    </div>
+  </header>
 
-  <!-- LIM INN PART 2 UNDER HER -->
+  <section class="rounded-2xl bg-white border border-slate-200 shadow-sm">
+    <div class="p-4 border-b border-slate-200 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+      <div class="flex flex-wrap gap-2 items-center">
+        <input id="searchInput" class="w-[220px] rounded-2xl border border-slate-300 px-3 py-2" placeholder="Søk ansatt" />
+      </div>
+      <div class="flex gap-2">
+        <button id="prevBtn" class="rounded-2xl border border-slate-300 bg-white px-4 py-2">Tilbake</button>
+        <button id="nextBtn" class="rounded-2xl border border-slate-300 bg-white px-4 py-2">Frem</button>
+      </div>
+    </div>
+    <div class="p-4 border-b border-slate-200 text-sm text-slate-500">
+      Kalender med ansatte og perioder som sammenhengende blokker.
+    </div>
+    <div id="calendarWrap" class="overflow-auto p-4"></div>
+  </section>
+</div>
 
-  <!-- LIM INN PART 3 UNDER HER -->
+<script>
+const STORAGE_KEYS = {
+  employees: 'planner_html_employees_v1',
+  entries: 'planner_html_entries_v1',
+  startDate: 'planner_html_start_v1'
+};
+
+const state = {
+  employees: [],
+  entries: [],
+  startDate: new Date(load(STORAGE_KEYS.startDate, '2026-01-05T00:00:00')),
+  search: ''
+};
+
+function load(key, fallback) {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function saveAll() {
+  localStorage.setItem(STORAGE_KEYS.employees, JSON.stringify(state.employees));
+  localStorage.setItem(STORAGE_KEYS.entries, JSON.stringify(state.entries));
+  localStorage.setItem(STORAGE_KEYS.startDate, JSON.stringify(state.startDate.toISOString()));
+}
+
+function addDays(date, days) {
+  const d = new Date(date);
+  d.setDate(d.getDate() + days);
+  return d;
+}
+
+function isoDate(date) {
+  return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+}
+
+function formatDay(date) {
+  return date.toLocaleDateString('nb-NO', { day: '2-digit', month: '2-digit' });
+}
+
+function getVisibleDays() {
+  return Array.from({ length: 42 }, (_, i) => addDays(state.startDate, i));
+}
+
+function filteredEmployees() {
+  return state.employees.filter(e =>
+    e.name.toLowerCase().includes(state.search.toLowerCase())
+  );
+}
+
+function renderCalendar() {
+  const container = document.getElementById('calendarWrap');
+  const days = getVisibleDays();
+  const employees = filteredEmployees();
+  const dayWidth = 42;
+
+  const header = days.map(d => `
+    <div class="border-b p-1 text-center text-[10px] bg-slate-50 text-slate-600">
+      ${formatDay(d)}
+    </div>
+  `).join('');
+
+  const rows = employees.map(emp => {
+    const cells = days.map(d => `
+      <div class="border-r border-b min-h-[56px] bg-white"></div>
+    `).join('');
+
+    const blocks = state.entries
+      .filter(entry => entry.employee === emp.name)
+      .map(entry => {
+        const startIdx = Math.max(0, Math.floor((new Date(entry.start) - days[0]) / 86400000));
+        const endIdx = Math.min(days.length - 1, Math.floor((new Date(entry.end) - days[0]) / 86400000));
+        if (endIdx < 0 || startIdx > days.length - 1) return '';
+
+        const span = Math.max(1, endIdx - startIdx + 1);
+        const left = startIdx * dayWidth + 2;
+        const width = Math.max(36, span * dayWidth - 4);
+
+        return `
+          <div
+            class="absolute top-1 h-[48px] rounded-xl border bg-blue-500 text-white px-2 py-1 text-[10px] leading-tight overflow-hidden"
+            style="left:${left}px;width:${width}px;"
+            title="${entry.project}&#10;Ansatt: ${entry.employee}&#10;Periode: ${entry.start} til ${entry.end}"
+          >
+            <div class="font-semibold truncate">${entry.project}</div>
+          </div>
+        `;
+      }).join('');
+
+    return `
+      <div class="sticky left-0 z-20 bg-white border-r border-b border-slate-200 p-3 text-sm font-medium min-h-[56px] flex items-center">
+        ${emp.name}
+      </div>
+      <div class="relative border-b border-slate-200" style="grid-column: span ${days.length} / span ${days.length}; min-height: 56px;">
+        <div class="grid" style="grid-template-columns: repeat(${days.length}, minmax(${dayWidth}px, 1fr));">
+          ${cells}
+        </div>
+        ${blocks}
+      </div>
+    `;
+  }).join('');
+
+  container.innerHTML = `
+    <div class="min-w-[2200px]">
+      <div class="grid" style="grid-template-columns: 260px repeat(${days.length}, minmax(${dayWidth}px, 1fr));">
+        <div class="sticky left-0 z-30 bg-white border-r border-b border-slate-200 p-3 font-semibold">Ansatt</div>
+        ${header}
+        ${rows}
+      </div>
+    </div>
+  `;
+}
+
+function bindEvents() {
+  document.getElementById('searchInput').addEventListener('input', e => {
+    state.search = e.target.value;
+    renderCalendar();
+  });
+
+  document.getElementById('prevBtn').addEventListener('click', () => {
+    state.startDate = addDays(state.startDate, -7);
+    saveAll();
+    renderCalendar();
+  });
+
+  document.getElementById('nextBtn').addEventListener('click', () => {
+    state.startDate = addDays(state.startDate, 7);
+    saveAll();
+    renderCalendar();
+  });
+}
+
+state.employees = load(STORAGE_KEYS.employees, [
+  { name: 'Olis Hansen' },
+  { name: 'Kenneth Vallestad' },
+  { name: 'Paul Chilver' },
+  { name: 'Aliaksandr Skliarenka' },
+  { name: 'Stian Egelandsdal' },
+  { name: 'Sean Sarkic' },
+  { name: 'Henrik Ueland' },
+  { name: 'Erlend Skryten Johnsen' },
+  { name: 'Fredrik Johansen' },
+  { name: 'Tor-Marius Sande' },
+  { name: 'Bjørn Heidar Asmundsson' },
+  { name: 'Erling Sekse Bilstad' },
+  { name: 'Bjørn Erik Hansen' },
+  { name: 'Suzanne Sola Hestvik' },
+  { name: 'Steinar Engtrø' },
+  { name: 'Joar Bergsholm' },
+  { name: 'Joachim Fosse' }
+]);
+
+state.entries = load(STORAGE_KEYS.entries, [
+  { employee: 'Olis Hansen', project: 'Onshore', start: '2026-01-01', end: '2026-03-31' },
+  { employee: 'Kenneth Vallestad', project: 'Koordinering', start: '2026-01-01', end: '2026-03-31' },
+  { employee: 'Aliaksandr Skliarenka', project: 'PBF California', start: '2026-01-12', end: '2026-01-23' },
+  { employee: 'Sean Sarkic', project: 'IZO-30220 Tyrkia', start: '2026-01-13', end: '2026-01-24' },
+  { employee: 'Henrik Ueland', project: 'Shell Bukom', start: '2026-01-12', end: '2026-01-23' },
+  { employee: 'Fredrik Johansen', project: 'IZO-30220 Tyrkia', start: '2026-01-13', end: '2026-01-24' },
+  { employee: 'Tor-Marius Sande', project: 'PBF California', start: '2026-01-12', end: '2026-01-23' },
+  { employee: 'Bjørn Heidar Asmundsson', project: 'Kurs Kårstø', start: '2026-01-12', end: '2026-01-16' },
+  { employee: 'Erling Sekse Bilstad', project: 'Ferie', start: '2026-01-06', end: '2026-01-09' },
+  { employee: 'Steinar Engtrø', project: 'Åsgard A 18CL900', start: '2026-03-02', end: '2026-03-13' },
+  { employee: 'Joar Bergsholm', project: 'Åsgard A 18CL900', start: '2026-03-02', end: '2026-03-13' }
+]);
+
+bindEvents();
+renderCalendar();
+</script>
 
 </body>
 </html>
-
-
-<!-- ================= PART 2/3 ================= -->
 <script>
 // DATA + STATE
 const STORAGE_KEYS = {
