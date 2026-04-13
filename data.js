@@ -101,3 +101,21 @@ const DEFAULT_NOTIFICATION_LOG = [
   { id: 1, type: "SMS", recipient: "Aliaksandr Skliarenka", target: "PBF California", timestamp: "13.04.2026 11:36" },
   { id: 2, type: "E-post", recipient: "Aliaksandr Skliarenka", target: "PBF California", timestamp: "13.04.2026 11:36" }
 ];
+
+// DETTE ER DET APP.JS TRENGER
+const DATA = {
+  employees: DEFAULT_EMPLOYEES,
+  entries: DEFAULT_ENTRIES.map(entry => {
+    const project = DEFAULT_PROJECTS.find(p => p.id === entry.projectId);
+    return {
+      id: entry.id,
+      employee: entry.employee,
+      project: project ? project.name : "Ukjent prosjekt",
+      start: entry.start,
+      end: entry.end,
+      role: entry.role,
+      notes: entry.notes,
+      category: project ? project.category : "Project"
+    };
+  })
+};
