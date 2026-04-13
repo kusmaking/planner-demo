@@ -1,84 +1,100 @@
+console.log("[APP] Started");
+
+const STORAGE_KEYS = {
+  employees: "planner_simple_employees_v1",
+  entries: "planner_simple_entries_v1",
+  startDate: "planner_simple_startDate_v1",
+  viewMode: "planner_simple_viewMode_v1",
+  panelVisible: "planner_simple_panelVisible_v1"
+};
+
+const CATEGORY_COLORS = {
+  Project: "bg-green-500 border-green-600 text-white",
+  Travel: "bg-cyan-500 border-cyan-600 text-white",
+  Onshore: "bg-indigo-500 border-indigo-600 text-white",
+  Kurs: "bg-violet-500 border-violet-600 text-white",
+  Ferie: "bg-orange-400 border-orange-500 text-slate-900",
+  Syk: "bg-red-600 border-red-600 text-white",
+  Avspasering: "bg-amber-700 border-amber-800 text-white"
+};
+
 function load(key, fallback) {
   try {
     const raw = localStorage.getItem(key);
     return raw ? JSON.parse(raw) : fallback;
-  } catch {
+  } catch (err) {
+    console.error("[LOAD ERROR]", key, err);
     return fallback;
   }
 }
 
+function save(key, value) {
+  localStorage.setItem(key, JSON.stringify(value));
+}
+
+function inferCategory(projectName) {
+  const p = (projectName || "").toLowerCase();
+  if (p.includes("travel")) return "Travel";
+  if (p.includes("onshore")) return "Onshore";
+  if (p.includes("kurs") || p.includes("training")) return "Kurs";
+  if (p.includes("ferie")) return "Ferie";
+  if (p.includes("syk")) return "Syk";
+  if (p.includes("avsp")) return "Avspasering";
+  return "Project";
+}
+
+const defaultEmployees = DATA.employees.map(e => ({
+  ...e,
+  active: e.active ?? true,
+  email: e.email ?? "",
+  phone: e.phone ?? ""
+}));
+
+const defaultEntries = DATA.entries.map((e, idx) => ({
+  id: idx + 1,
+  employee: e.employee,
+  project: e.project,
+  start: e.start,
+  end: e.end,
+  category: e.category ?? inferCategory(e.project),
+  role: e.role ?? "Supervisor",
+  notes: e.notes ?? ""
+}));
+
 const state = {
-  employees: load(STORAGE_KEYS.employees, DEFAULT_EMPLOYEES),
-  projects: load(STORAGE_KEYS.projects, DEFAULT_PROJECTS),
-  entries: load(STORAGE_KEYS.entries, DEFAULT_ENTRIES),
-  auditLog: load(STORAGE_KEYS.auditLog, DEFAULT_AUDIT_LOG),
-  notificationLog: load(STORAGE_KEYS.notificationLog, DEFAULT_NOTIFICATION_LOG),
-  currentUser: "Olis Hansen",
-  employeeFilter: "Alle ansatte",
+  employees: load(STORAGE_KEYS.employees, defaultEmployees),
+  entries: load(STORAGE_KEYS.entries, defaultEntries),
+  startDate: new Date(load(STORAGE_KEYS.startDate, "2026-01-01T00:00:00")),
+  viewMode: load(STORAGE_KEYS.viewMode, "Måned"),
+  panelVisible: load(STORAGE_KEYS.panelVisible, true),
   search: "",
-  viewMode: load(STORAGE_KEYS.viewMode, "Uke"),
-  startDate: new Date(load(STORAGE_KEYS.startDate, "2026-01-05T00:00:00")),
   selectedEntryId: null
 };
 
 function saveAll() {
-  localStorage.setItem(STORAGE_KEYS.employees, JSON.stringify(state.employees));
-  localStorage.setItem(STORAGE_KEYS.projects, JSON.stringify(state.projects));
-  localStorage.setItem(STORAGE_KEYS.entries, JSON.stringify(state.entries));
-  localStorage.setItem(STORAGE_KEYS.auditLog, JSON.stringify(state.auditLog));
-  localStorage.setItem(STORAGE_KEYS.notificationLog, JSON.stringify(state.notificationLog));
-  localStorage.setItem(STORAGE_KEYS.startDate, JSON.stringify(state.startDate.toISOString()));
-  localStorage.setItem(STORAGE_KEYS.viewMode, JSON.stringify(state.viewMode));
-}
-
-function nowStamp() {
-  const d = new Date();
-  const pad = n => String(n).padStart(2, "0");
-  return `${pad(d.getDate())}.${pad(d.getMonth() + 1)}.${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
-
-function addAudit(action) {
-  state.auditLog.unshift({
-    id: Date.now() + Math.random(),
-    user: state.currentUser,
-    action,
-    timestamp: nowStamp()
-  });
-  saveAll();
-}
-
-function addNotification(employeeName, projectName) {
-  state.notificationLog.unshift({
-    id: Date.now() + 1,
-    type: "SMS",
-    recipient: employeeName,
-    target: projectName,
-    timestamp: nowStamp()
-  });
-  state.notificationLog.unshift({
-    id: Date.now() + 2,
-    type: "E-post",
-    recipient: employeeName,
-    target: projectName,
-    timestamp: nowStamp()
-  });
-  saveAll();
-}
-
-function formatDate(date) {
-  const d = new Date(date);
-  const pad = n => String(n).padStart(2, "0");
-  return `${pad(d.getDate())}.${pad(d.getMonth() + 1)}.${d.getFullYear()}`;
-}
-
-function isoDate(date) {
-  return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+  save(STORAGE_KEYS.employees, state.employees);
+  save(STORAGE_KEYS.entries, state.entries);
+  save(STORAGE_KEYS.startDate, state.startDate.toISOString());
+  save(STORAGE_KEYS.viewMode, state.viewMode);
+  save(STORAGE_KEYS.panelVisible, state.panelVisible);
 }
 
 function addDays(date, days) {
   const d = new Date(date);
   d.setDate(d.getDate() + days);
   return d;
+}
+
+function format(date) {
+  return date.toLocaleDateString("nb-NO", { day: "2-digit", month: "2-digit" });
+}
+
+function formatLong(date) {
+  return date.toLocaleDateString("nb-NO");
+}
+
+function isoDate(date) {
+  return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
 }
 
 function getISOWeek(date) {
@@ -94,49 +110,20 @@ function isWeekend(date) {
   return day === 0 || day === 6;
 }
 
-function getEasterSunday(year) {
-  const a = year % 19;
-  const b = Math.floor(year / 100);
-  const c = year % 100;
-  const d = Math.floor(b / 4);
-  const e = b % 4;
-  const f = Math.floor((b + 8) / 25);
-  const g = Math.floor((b - f + 1) / 3);
-  const h = (19 * a + b - d - g + 15) % 30;
-  const i = Math.floor(c / 4);
-  const k = c % 4;
-  const l = (32 + 2 * e + 2 * i - h - k) % 7;
-  const m = Math.floor((a + 11 * h + 22 * l) / 451);
-  const month = Math.floor((h + l - 7 * m + 114) / 31);
-  const day = ((h + l - 7 * m + 114) % 31) + 1;
-  return new Date(year, month - 1, day);
-}
-
-function getNorwegianHolidays(year) {
-  const easter = getEasterSunday(year);
-  return [
-    { date: new Date(year, 0, 1), label: "1. nyttårsdag" },
-    { date: addDays(easter, -3), label: "Skjærtorsdag" },
-    { date: addDays(easter, -2), label: "Langfredag" },
-    { date: addDays(easter, 0), label: "1. påskedag" },
-    { date: addDays(easter, 1), label: "2. påskedag" },
-    { date: new Date(year, 4, 1), label: "Arbeidernes dag" },
-    { date: new Date(year, 4, 14), label: "Kristi himmelfartsdag" },
-    { date: new Date(year, 4, 17), label: "Grunnlovsdag" },
-    { date: new Date(year, 4, 24), label: "1. pinsedag" },
-    { date: addDays(easter, 50), label: "2. pinsedag" },
-    { date: new Date(year, 11, 25), label: "1. juledag" },
-    { date: new Date(year, 11, 26), label: "2. juledag" }
-  ];
-}
-
 function getVisibleDays() {
-  if (state.viewMode === "Uke") return Array.from({ length: 42 }, (_, i) => addDays(state.startDate, i));
-  if (state.viewMode === "Måned") return Array.from({ length: 84 }, (_, i) => addDays(state.startDate, i));
-  return Array.from({ length: 365 }, (_, i) => addDays(new Date(2026, 0, 1), i));
+  if (state.viewMode === "Uke") return Array.from({ length: 7 }, (_, i) => addDays(state.startDate, i));
+  if (state.viewMode === "Måned") return Array.from({ length: 35 }, (_, i) => addDays(state.startDate, i));
+  return Array.from({ length: 90 }, (_, i) => addDays(state.startDate, i));
 }
 
-function overlaps(employee, start, end, ignoreId) {
+function filteredEmployees() {
+  return state.employees.filter(e =>
+    (e.active ?? true) &&
+    e.name.toLowerCase().includes(state.search.toLowerCase())
+  );
+}
+
+function overlapExists(employee, start, end, ignoreId = null) {
   const s = new Date(start);
   const e = new Date(end);
   return state.entries.some(entry => {
@@ -148,36 +135,67 @@ function overlaps(employee, start, end, ignoreId) {
   });
 }
 
-function showWarning(message) {
-  const box = document.getElementById("warningBox");
-  if (!message) {
-    box.classList.add("hidden");
-    box.textContent = "";
-    return;
+function buildShell() {
+  const root = document.getElementById("calendarWrap");
+  if (!root) {
+    console.error("[ERROR] calendarWrap not found");
+    return false;
   }
-  box.classList.remove("hidden");
-  box.textContent = message;
-}
 
-function filteredEmployees() {
-  return state.employees
-    .filter(e => e.active)
-    .filter(e => state.employeeFilter === "Alle ansatte" || e.name === state.employeeFilter)
-    .filter(e => e.name.toLowerCase().includes(state.search.toLowerCase()));
-}
+  root.innerHTML = `
+    <div class="space-y-4">
+      <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4" id="statsRow"></div>
 
-function getProject(id) {
-  return state.projects.find(p => p.id === id);
+      <div class="flex gap-4 items-start">
+        <div class="flex-1 rounded-2xl bg-white border border-slate-200 shadow-sm">
+          <div class="p-4 border-b border-slate-200 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+            <div class="flex flex-wrap gap-2 items-center">
+              <input id="searchInputInner" class="w-[220px] rounded-2xl border border-slate-300 px-3 py-2" placeholder="Søk ansatt" />
+              <select id="viewModeInner" class="rounded-2xl border border-slate-300 px-3 py-2">
+                <option value="Uke">Uke</option>
+                <option value="Måned">Måned</option>
+                <option value="År">År</option>
+              </select>
+            </div>
+            <div class="flex gap-2">
+              <button id="prevBtnInner" class="rounded-2xl border border-slate-300 bg-white px-4 py-2">Tilbake</button>
+              <button id="nextBtnInner" class="rounded-2xl border border-slate-300 bg-white px-4 py-2">Frem</button>
+              <button id="togglePanelBtn" class="rounded-2xl border border-slate-300 bg-white px-4 py-2"></button>
+            </div>
+          </div>
+          <div class="p-4 border-b border-slate-200 text-sm text-slate-500">
+            Kalenderen har hovedfokus. Høyrepanelet kan skjules og vises.
+          </div>
+          <div id="warningBox" class="hidden mx-4 mt-4 rounded-2xl border border-red-300 bg-red-50 p-4 text-red-700 text-sm"></div>
+          <div id="calendarCanvas" class="overflow-auto p-4"></div>
+        </div>
+
+        <div id="sidePanel" class="w-[380px] space-y-4">
+          <div class="rounded-2xl bg-white border border-slate-200 shadow-sm">
+            <div class="p-4 border-b border-slate-200"><h2 class="font-semibold">Kanban – prosjekter</h2></div>
+            <div id="kanbanBoard" class="p-4 grid gap-4"></div>
+          </div>
+
+          <div class="rounded-2xl bg-white border border-slate-200 shadow-sm">
+            <div class="p-4 border-b border-slate-200"><h2 class="font-semibold">Ansatte</h2></div>
+            <div id="employeeList" class="p-4 space-y-2 max-h-[260px] overflow-auto"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+  return true;
 }
 
 function renderStats() {
-  const items = [
-    ["Ansatte i visning", filteredEmployees().length],
-    ["Prosjekter", state.projects.length],
+  const stats = [
+    ["Ansatte", filteredEmployees().length],
     ["Tildelinger", state.entries.length],
-    ["Loggede endringer", state.auditLog.length]
+    ["Prosjekter", new Set(state.entries.map(e => e.project)).size],
+    ["Visning", state.viewMode]
   ];
-  document.getElementById("statsRow").innerHTML = items.map(([label, value]) => `
+
+  document.getElementById("statsRow").innerHTML = stats.map(([label, value]) => `
     <div class="rounded-2xl bg-white border border-slate-200 p-4 shadow-sm">
       <p class="text-sm text-slate-500">${label}</p>
       <p class="text-2xl font-semibold mt-1">${value}</p>
@@ -185,158 +203,105 @@ function renderStats() {
   `).join("");
 }
 
-function renderHolidayList() {
-  const holidays = getNorwegianHolidays(2026);
-  document.getElementById("holidayList").innerHTML = holidays.map(h => `
-    <div class="flex items-center justify-between rounded-xl border p-2">
-      <span>${h.label}</span>
-      <span class="text-slate-500">${formatDate(h.date)}</span>
-    </div>
-  `).join("");
-}
-
-function renderLegend() {
-  document.getElementById("legendList").innerHTML = Object.keys(CATEGORY_COLORS).map(key => `
-    <div class="flex items-center gap-2">
-      <span class="inline-block h-4 w-4 rounded-md border ${CATEGORY_COLORS[key]}"></span>
-      <span>${key}</span>
-    </div>
-  `).join("");
-}
-
-function renderSelects() {
-  const employeeOptions = ['<option>Alle ansatte</option>']
-    .concat(state.employees.filter(e => e.active).map(e => `<option>${e.name}</option>`));
-  document.getElementById("employeeFilter").innerHTML = employeeOptions.join("");
-  document.getElementById("employeeFilter").value = state.employeeFilter;
-
-  const employeeChoices = state.employees.filter(e => e.active).map(e => `<option>${e.name}</option>`).join("");
-  document.getElementById("assignEmployee").innerHTML = `<option value="">Velg ansatt</option>${employeeChoices}`;
-  document.getElementById("editEmployee").innerHTML = employeeChoices;
-
-  const projectChoices = state.projects.map(p => `<option value="${p.id}">${p.name} • ${p.category}</option>`).join("");
-  document.getElementById("assignProject").innerHTML = projectChoices;
-  document.getElementById("editProject").innerHTML = projectChoices;
-
-  document.getElementById("projectCategory").innerHTML = Object.keys(CATEGORY_COLORS).map(k => `<option>${k}</option>`).join("");
-  document.getElementById("projectStatus").innerHTML = Object.keys(STATUS_COLORS).map(k => `<option>${k}</option>`).join("");
-  document.getElementById("viewMode").value = state.viewMode;
-}
-
-function renderEmployeeList() {
-  document.getElementById("employeeList").innerHTML = state.employees.map(employee => `
-    <div class="rounded-2xl border p-3 text-sm space-y-2">
-      <div class="flex items-center justify-between gap-2">
-        <div>
-          <p class="font-medium">${employee.name}</p>
-          <p class="text-xs text-slate-500">${employee.email || ""} ${employee.phone ? "• " + employee.phone : ""}</p>
-        </div>
-        <button data-toggle-employee="${employee.name}" class="rounded-xl border border-slate-300 bg-white px-3 py-1 text-sm">
-          ${employee.active ? "Deaktiver" : "Aktiver"}
-        </button>
-      </div>
+function renderEmployees() {
+  document.getElementById("employeeList").innerHTML = filteredEmployees().map(emp => `
+    <div class="rounded-xl border p-3 text-sm">
+      <div class="font-medium">${emp.name}</div>
+      <div class="text-slate-500 text-xs">${emp.email || ""} ${emp.phone ? "• " + emp.phone : ""}</div>
     </div>
   `).join("");
 }
 
 function renderKanban() {
-  const columns = ["Planlagt", "Pågår", "Avventer", "Fullført"];
-  document.getElementById("kanbanBoard").innerHTML = columns.map(col => `
-    <div class="rounded-2xl bg-slate-50 p-3 space-y-3 min-h-[120px]">
-      <div class="flex items-center justify-between">
-        <h3 class="font-semibold text-sm">${col}</h3>
-        <span class="rounded-xl border border-slate-300 px-2 py-1 text-xs">${state.projects.filter(p => p.status === col).length}</span>
-      </div>
-      ${state.projects.filter(p => p.status === col).map(project => `
-        <div class="rounded-2xl border bg-white p-3 shadow-sm space-y-2">
-          <div class="flex items-start justify-between gap-2">
-            <p class="font-medium text-sm leading-snug">${project.name}</p>
-            <span class="text-[10px] px-2 py-1 rounded-full border ${STATUS_COLORS[project.status]}">${project.status}</span>
-          </div>
-          <div><span class="rounded-xl px-2 py-1 text-xs ${CATEGORY_COLORS[project.category]}">${project.category}</span></div>
-          <p class="text-xs text-slate-600">${project.notes || "Ingen notat"}</p>
+  const groups = ["Project", "Onshore", "Travel", "Kurs", "Ferie", "Syk", "Avspasering"];
+  const projectMap = new Map();
+
+  state.entries.forEach(entry => {
+    const key = `${entry.project}__${entry.category || inferCategory(entry.project)}`;
+    if (!projectMap.has(key)) {
+      projectMap.set(key, {
+        project: entry.project,
+        category: entry.category || inferCategory(entry.project),
+        people: []
+      });
+    }
+    projectMap.get(key).people.push(entry.employee);
+  });
+
+  document.getElementById("kanbanBoard").innerHTML = groups.map(group => {
+    const items = [...projectMap.values()].filter(p => p.category === group);
+    return `
+      <div class="rounded-2xl bg-slate-50 p-3 space-y-3">
+        <div class="flex items-center justify-between">
+          <h3 class="font-semibold text-sm">${group}</h3>
+          <span class="rounded-xl border border-slate-300 px-2 py-1 text-xs">${items.length}</span>
         </div>
-      `).join("")}
-    </div>
-  `).join("");
-}
-
-function renderNotifications() {
-  document.getElementById("notificationList").innerHTML = state.notificationLog.map(item => `
-    <div class="rounded-2xl border p-3 text-sm">
-      <p class="font-medium">${item.type} til ${item.recipient}</p>
-      <p class="text-slate-700">Prosjekt: ${item.target}</p>
-      <p class="text-xs text-slate-500 mt-1">${item.timestamp}</p>
-    </div>
-  `).join("");
-}
-
-function renderAudit() {
-  document.getElementById("auditList").innerHTML = state.auditLog.map(log => `
-    <div class="rounded-2xl border p-3 text-sm">
-      <p class="font-medium">${log.user}</p>
-      <p class="text-slate-700">${log.action}</p>
-      <p class="text-xs text-slate-500 mt-1">${log.timestamp}</p>
-    </div>
-  `).join("");
+        ${items.length ? items.map(item => `
+          <div class="rounded-2xl border bg-white p-3 shadow-sm">
+            <div class="font-medium text-sm">${item.project}</div>
+            <div class="text-xs text-slate-500 mt-1">${item.people.join(", ")}</div>
+          </div>
+        `).join("") : `<div class="text-xs text-slate-400">Ingen</div>`}
+      </div>
+    `;
+  }).join("");
 }
 
 function renderCalendar() {
-  const holidays = new Map(getNorwegianHolidays(2026).map(h => [isoDate(h.date), h.label]));
+  const container = document.getElementById("calendarCanvas");
+  const warning = document.getElementById("warningBox");
+  if (warning) {
+    warning.classList.add("hidden");
+    warning.textContent = "";
+  }
+
   const days = getVisibleDays();
   const employees = filteredEmployees();
-  const dayWidth = 40;
+  const dayWidth = 42;
 
-  const header = days.map(day => {
-    const key = isoDate(day);
-    const weekend = isWeekend(day);
-    const holiday = holidays.get(key);
-    const cls = holiday ? "bg-red-100 text-red-700" : weekend ? "bg-red-50 text-rose-700" : "bg-slate-50 text-slate-600";
-    return `<div class="border-b p-1 text-center text-[10px] ${cls}" title="${holiday || ""}">
-      <div class="font-semibold">U${getISOWeek(day)}</div>
-      <div>${formatDate(day).slice(0,5)}</div>
-      <div>${day.toLocaleDateString("nb-NO", { weekday: "short" })}</div>
-    </div>`;
-  }).join("");
+  const header = days.map(d => `
+    <div class="text-xs text-center border-b p-1 ${isWeekend(d) ? "bg-red-50 text-rose-700" : "bg-slate-50 text-slate-600"}">
+      <div class="font-semibold">U${getISOWeek(d)}</div>
+      <div>${format(d)}</div>
+    </div>
+  `).join("");
 
-  const rows = employees.map(employee => {
-    const cells = days.map(day => {
-      const key = isoDate(day);
-      const weekend = isWeekend(day);
-      const holiday = holidays.get(key);
-      const cellBg = holiday ? "bg-red-100" : weekend ? "bg-red-50" : "bg-white";
-      return `<div class="border-r border-b min-h-[56px] ${cellBg}"></div>`;
-    }).join("");
+  const rows = employees.map(emp => {
+    const cells = days.map(() => `<div class="border-r border-b h-12 bg-white"></div>`).join("");
 
-    const employeeEntries = state.entries
-      .filter(entry => entry.employee === employee.name)
-      .map(entry => ({ entry, project: getProject(entry.projectId) }))
-      .filter(item => item.project)
-      .filter(item => new Date(item.entry.end) >= days[0] && new Date(item.entry.start) <= days[days.length - 1]);
+    const blocks = state.entries
+      .filter(e => e.employee === emp.name)
+      .map(e => {
+        const start = new Date(e.start);
+        const end = new Date(e.end);
 
-    const blocks = employeeEntries.map(({ entry, project }) => {
-      const startIdx = Math.max(0, Math.floor((new Date(entry.start) - days[0]) / 86400000));
-      const endIdx = Math.min(days.length - 1, Math.floor((new Date(entry.end) - days[0]) / 86400000));
-      const span = Math.max(1, endIdx - startIdx + 1);
-      const left = startIdx * dayWidth + 2;
-      const width = Math.max(36, span * dayWidth - 4);
-      const title = `${project.name} (${project.category})\nAnsatt: ${entry.employee}\nRolle: ${entry.role || "Ikke satt"}\nPeriode: ${formatDate(entry.start)} - ${formatDate(entry.end)}${entry.notes ? "\nNotat: " + entry.notes : ""}`;
-      return `
-        <button
-          data-entry-id="${entry.id}"
-          title="${title.replace(/"/g, "&quot;")}"
-          class="absolute top-1 h-[48px] ${ROLE_CLASSES[entry.role] || ""} rounded-xl border px-2 py-1 text-[10px] leading-tight overflow-hidden text-left ${CATEGORY_COLORS[project.category]}"
-          style="left:${left}px;width:${width}px;"
-        >
-          <div class="font-semibold truncate">${project.name}</div>
-          <div class="truncate opacity-90">${entry.role || project.category}</div>
-        </button>`;
-    }).join("");
+        const startIdx = Math.max(0, Math.floor((start - days[0]) / 86400000));
+        const endIdx = Math.min(days.length - 1, Math.floor((end - days[0]) / 86400000));
+        if (endIdx < 0 || startIdx > days.length - 1) return "";
+
+        const width = Math.max(38, (endIdx - startIdx + 1) * dayWidth - 4);
+        const category = e.category || inferCategory(e.project);
+        const color = CATEGORY_COLORS[category] || CATEGORY_COLORS.Project;
+
+        return `
+          <button
+            data-entry-id="${e.id}"
+            title="${e.project}\nAnsatt: ${e.employee}\nPeriode: ${formatLong(e.start)} - ${formatLong(e.end)}\nRolle: ${e.role || "Supervisor"}"
+            class="absolute top-1 h-10 rounded-xl border px-2 py-1 text-left text-[10px] overflow-hidden ${color}"
+            style="left:${startIdx * dayWidth + 2}px;width:${width}px;"
+          >
+            <div class="font-semibold truncate">${e.project}</div>
+            <div class="truncate opacity-90">${e.role || "Supervisor"}</div>
+          </button>
+        `;
+      }).join("");
 
     return `
-      <div class="sticky left-0 z-20 bg-white border-r border-b border-slate-200 p-3 text-sm font-medium min-h-[56px] flex items-center">${employee.name}</div>
-      <div class="relative border-b border-slate-200" style="grid-column: span ${days.length} / span ${days.length}; min-height: 56px;">
-        <div class="grid" style="grid-template-columns: repeat(${days.length}, minmax(${dayWidth}px, 1fr));">
+      <div class="sticky left-0 z-20 bg-white border-r border-b p-3 text-sm font-medium h-12 flex items-center">
+        ${emp.name}
+      </div>
+      <div class="relative" style="grid-column: span ${days.length} / span ${days.length}; min-height:48px;">
+        <div class="grid" style="grid-template-columns: repeat(${days.length}, ${dayWidth}px)">
           ${cells}
         </div>
         ${blocks}
@@ -344,10 +309,10 @@ function renderCalendar() {
     `;
   }).join("");
 
-  document.getElementById("calendarWrap").innerHTML = `
+  container.innerHTML = `
     <div class="min-w-[2200px]">
-      <div class="grid" style="grid-template-columns: 260px repeat(${days.length}, minmax(${dayWidth}px, 1fr));">
-        <div class="sticky left-0 z-30 bg-white border-r border-b border-slate-200 p-3 font-semibold">Ansatt</div>
+      <div class="grid" style="grid-template-columns: 260px repeat(${days.length}, ${dayWidth}px);">
+        <div class="sticky left-0 z-30 bg-white border-r border-b p-3 font-semibold">Ansatt</div>
         ${header}
         ${rows}
       </div>
@@ -360,239 +325,100 @@ function renderCalendar() {
 }
 
 function openEditModal(entryId) {
-  state.selectedEntryId = entryId;
   const entry = state.entries.find(e => e.id === entryId);
   if (!entry) return;
-  document.getElementById("editProject").value = String(entry.projectId);
-  document.getElementById("editEmployee").value = entry.employee;
-  document.getElementById("editRole").value = entry.role || "Supervisor";
-  document.getElementById("editStart").value = entry.start;
-  document.getElementById("editEnd").value = entry.end;
-  document.getElementById("editNotes").value = entry.notes || "";
-  document.getElementById("editModal").classList.remove("hidden");
-  document.getElementById("editModal").classList.add("flex");
-}
 
-function closeEditModal() {
-  document.getElementById("editModal").classList.add("hidden");
-  document.getElementById("editModal").classList.remove("flex");
-  state.selectedEntryId = null;
-}
+  const nextProject = prompt("Prosjekt:", entry.project);
+  if (nextProject === null) return;
 
-function createProject() {
-  const name = document.getElementById("projectName").value.trim();
-  const category = document.getElementById("projectCategory").value;
-  const status = document.getElementById("projectStatus").value;
-  const notes = document.getElementById("projectNotes").value.trim();
-  if (!name) return;
-  state.projects.unshift({ id: Date.now(), name, category, status, notes });
-  addAudit(`Opprettet prosjekt ${name} i kategori ${category}`);
-  document.getElementById("projectName").value = "";
-  document.getElementById("projectNotes").value = "";
-  renderAll();
-}
+  const nextStart = prompt("Startdato (YYYY-MM-DD):", entry.start);
+  if (nextStart === null) return;
 
-function assignProject() {
-  showWarning("");
-  const projectId = Number(document.getElementById("assignProject").value);
-  const employee = document.getElementById("assignEmployee").value;
-  const role = document.getElementById("assignRole").value;
-  const start = document.getElementById("assignStart").value;
-  const end = document.getElementById("assignEnd").value;
-  const notes = document.getElementById("assignNotes").value.trim();
+  const nextEnd = prompt("Sluttdato (YYYY-MM-DD):", entry.end);
+  if (nextEnd === null) return;
 
-  if (!projectId || !employee || !start || !end) return;
-  if (end < start) {
-    showWarning("Sluttdato kan ikke være før startdato.");
-    return;
-  }
-  if (overlaps(employee, start, end)) {
-    showWarning(`Overlapp oppdaget for ${employee}. Personen er allerede planlagt i samme periode.`);
+  if (nextEnd < nextStart) {
+    const warning = document.getElementById("warningBox");
+    warning.textContent = "Sluttdato kan ikke være før startdato.";
+    warning.classList.remove("hidden");
     return;
   }
 
-  const projectName = getProject(projectId)?.name || "prosjekt";
-  state.entries.unshift({
-    id: Date.now(),
-    projectId,
-    employee,
-    role,
-    start,
-    end,
-    notes
-  });
-  addAudit(`Tildelte ${projectName} til ${employee} fra ${start} til ${end}`);
-  addNotification(employee, projectName);
-  document.getElementById("assignNotes").value = "";
-  renderAll();
-}
-
-function addEmployeeSingle() {
-  const name = document.getElementById("employeeName").value.trim();
-  const email = document.getElementById("employeeEmail").value.trim();
-  const phone = document.getElementById("employeePhone").value.trim();
-  if (!name) return;
-  state.employees.unshift({ name, email, phone, active: true });
-  addAudit(`La til ansatt ${name}`);
-  document.getElementById("employeeName").value = "";
-  document.getElementById("employeeEmail").value = "";
-  document.getElementById("employeePhone").value = "";
-  renderAll();
-}
-
-function bulkAddEmployees() {
-  const text = document.getElementById("bulkEmployees").value.trim();
-  if (!text) return;
-  const lines = text.split("\n").map(l => l.trim()).filter(Boolean);
-  lines.forEach(name => {
-    state.employees.unshift({
-      name,
-      email: `${name.toLowerCase().replace(/\s+/g, ".")}@firma.no`,
-      phone: `+47 9${Math.floor(1000000 + Math.random() * 9000000)}`,
-      active: true
-    });
-  });
-  addAudit(`La til ${lines.length} ansatte via bulk import`);
-  document.getElementById("bulkEmployees").value = "";
-  renderAll();
-}
-
-function toggleEmployee(name) {
-  const employee = state.employees.find(e => e.name === name);
-  if (!employee) return;
-  employee.active = !employee.active;
-  addAudit(`Endret ansattstatus for ${name}`);
-  renderAll();
-}
-
-function saveEdit() {
-  const entry = state.entries.find(e => e.id === state.selectedEntryId);
-  if (!entry) return;
-
-  const projectId = Number(document.getElementById("editProject").value);
-  const employee = document.getElementById("editEmployee").value;
-  const role = document.getElementById("editRole").value;
-  const start = document.getElementById("editStart").value;
-  const end = document.getElementById("editEnd").value;
-  const notes = document.getElementById("editNotes").value.trim();
-
-  if (end < start) {
-    showWarning("Sluttdato kan ikke være før startdato.");
-    return;
-  }
-  if (overlaps(employee, start, end, entry.id)) {
-    showWarning(`Overlapp oppdaget for ${employee}.`);
+  if (overlapExists(entry.employee, nextStart, nextEnd, entry.id)) {
+    const warning = document.getElementById("warningBox");
+    warning.textContent = `Overlapp oppdaget for ${entry.employee}.`;
+    warning.classList.remove("hidden");
     return;
   }
 
-  entry.projectId = projectId;
-  entry.employee = employee;
-  entry.role = role;
-  entry.start = start;
-  entry.end = end;
-  entry.notes = notes;
+  entry.project = nextProject;
+  entry.start = nextStart;
+  entry.end = nextEnd;
+  entry.category = inferCategory(nextProject);
 
-  const projectName = getProject(projectId)?.name || "prosjekt";
-  addAudit(`Redigerte tildeling ${projectName} for ${employee}`);
-  addNotification(employee, projectName);
-  closeEditModal();
-  showWarning("");
-  renderAll();
-}
-
-function deleteEdit() {
-  const entry = state.entries.find(e => e.id === state.selectedEntryId);
-  if (!entry) return;
-  const projectName = getProject(entry.projectId)?.name || "prosjekt";
-  state.entries = state.entries.filter(e => e.id !== entry.id);
-  addAudit(`Fjernet tildeling ${projectName} fra ${entry.employee}`);
-  closeEditModal();
-  renderAll();
-}
-
-function resetDemo() {
-  if (!confirm("Vil du nullstille alle lagrede demoendringer i denne nettleseren?")) return;
-  Object.values(STORAGE_KEYS).forEach(k => localStorage.removeItem(k));
-  location.reload();
-}
-
-function renderAll() {
-  renderStats();
-  renderHolidayList();
-  renderLegend();
-  renderSelects();
-  renderEmployeeList();
-  renderKanban();
-  renderNotifications();
-  renderAudit();
-  renderCalendar();
   saveAll();
+  renderAll();
 }
 
-let panelVisible = true;
+function renderPanelState() {
+  const panel = document.getElementById("sidePanel");
+  const btn = document.getElementById("togglePanelBtn");
+  if (!panel || !btn) return;
+
+  panel.style.display = state.panelVisible ? "block" : "none";
+  btn.textContent = state.panelVisible ? "Skjul sidepanel" : "Vis sidepanel";
+}
 
 function bindEvents() {
-  document.getElementById("searchInput").addEventListener("input", e => {
+  document.getElementById("searchInputInner").value = state.search;
+  document.getElementById("viewModeInner").value = state.viewMode;
+
+  document.getElementById("searchInputInner").addEventListener("input", e => {
     state.search = e.target.value;
     renderAll();
   });
 
-  document.getElementById("employeeFilter").addEventListener("change", e => {
-    state.employeeFilter = e.target.value;
-    renderAll();
-  });
-
-  document.getElementById("viewMode").addEventListener("change", e => {
+  document.getElementById("viewModeInner").addEventListener("change", e => {
     state.viewMode = e.target.value;
+    saveAll();
     renderAll();
   });
 
-  document.getElementById("prevBtn").addEventListener("click", () => {
-    const step = state.viewMode === "År" ? -365 : state.viewMode === "Måned" ? -28 : -7;
+  document.getElementById("prevBtnInner").addEventListener("click", () => {
+    const step = state.viewMode === "Uke" ? -7 : state.viewMode === "Måned" ? -35 : -90;
     state.startDate = addDays(state.startDate, step);
+    saveAll();
     renderAll();
   });
 
-  document.getElementById("nextBtn").addEventListener("click", () => {
-    const step = state.viewMode === "År" ? 365 : state.viewMode === "Måned" ? 28 : 7;
+  document.getElementById("nextBtnInner").addEventListener("click", () => {
+    const step = state.viewMode === "Uke" ? 7 : state.viewMode === "Måned" ? 35 : 90;
     state.startDate = addDays(state.startDate, step);
+    saveAll();
     renderAll();
   });
 
-  document.getElementById("resetBtn").addEventListener("click", resetDemo);
-
-document.getElementById("togglePanelBtn").addEventListener("click", () => {
-  const panel = document.getElementById("sidePanel");
-  const btn = document.getElementById("togglePanelBtn");
-
-  panelVisible = !panelVisible;
-
-  if (panelVisible) {
-    panel.style.display = "block";
-    btn.textContent = "Skjul sidepanel";
-  } else {
-    panel.style.display = "none";
-    btn.textContent = "Vis sidepanel";
-  }
-});
-  document.getElementById("createProjectBtn").addEventListener("click", createProject);
-  document.getElementById("assignBtn").addEventListener("click", assignProject);
-  document.getElementById("addEmployeeBtn").addEventListener("click", addEmployeeSingle);
-  document.getElementById("bulkAddBtn").addEventListener("click", bulkAddEmployees);
-
-  document.getElementById("employeeList").addEventListener("click", e => {
-    const btn = e.target.closest("[data-toggle-employee]");
-    if (!btn) return;
-    toggleEmployee(btn.dataset.toggleEmployee);
+  document.getElementById("togglePanelBtn").addEventListener("click", () => {
+    state.panelVisible = !state.panelVisible;
+    saveAll();
+    renderPanelState();
   });
 
-  document.getElementById("closeModalBtn").addEventListener("click", closeEditModal);
-  document.getElementById("saveEditBtn").addEventListener("click", saveEdit);
-  document.getElementById("deleteEditBtn").addEventListener("click", deleteEdit);
-
-  document.getElementById("assignStart").value = "2026-01-12";
-  document.getElementById("assignEnd").value = "2026-01-23";
+  document.getElementById("resetBtnInner")?.addEventListener("click", () => {
+    Object.values(STORAGE_KEYS).forEach(k => localStorage.removeItem(k));
+    location.reload();
+  });
 }
 
-bindEvents();
+function renderAll() {
+  if (!buildShell()) return;
+  renderStats();
+  renderEmployees();
+  renderKanban();
+  renderCalendar();
+  renderPanelState();
+  bindEvents();
+}
+
 renderAll();
+console.log("[APP] Done");
