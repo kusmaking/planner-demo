@@ -529,6 +529,8 @@ function renderAll() {
   saveAll();
 }
 
+let panelVisible = true;
+
 function bindEvents() {
   document.getElementById("searchInput").addEventListener("input", e => {
     state.search = e.target.value;
@@ -558,6 +560,21 @@ function bindEvents() {
   });
 
   document.getElementById("resetBtn").addEventListener("click", resetDemo);
+
+document.getElementById("togglePanelBtn").addEventListener("click", () => {
+  const panel = document.getElementById("sidePanel");
+  const btn = document.getElementById("togglePanelBtn");
+
+  panelVisible = !panelVisible;
+
+  if (panelVisible) {
+    panel.style.display = "block";
+    btn.textContent = "Skjul sidepanel";
+  } else {
+    panel.style.display = "none";
+    btn.textContent = "Vis sidepanel";
+  }
+});
   document.getElementById("createProjectBtn").addEventListener("click", createProject);
   document.getElementById("assignBtn").addEventListener("click", assignProject);
   document.getElementById("addEmployeeBtn").addEventListener("click", addEmployeeSingle);
