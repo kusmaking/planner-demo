@@ -365,7 +365,7 @@ function renderCalendar() {
 
 function openEditModal(entryId) {
   state.selectedEntryId = entryId;
-  const entry = state.entries.find(e => e.id === entryId);
+  const entry = state.entries.find(e => e.id === state.selectedEntryId);
   if (!entry) return;
   document.getElementById("editProject").value = String(entry.projectId);
   document.getElementById("editEmployee").value = entry.employee;
@@ -551,10 +551,9 @@ async function toggleEmployee(name) {
   const employee = state.employees.find(e => e.name === name);
   if (!employee) return;
 
-  const nextActive = !employee.active;
   const { error } = await supabase
     .from("employees")
-    .update({ active: nextActive })
+    .update({ active: !employee.active })
     .eq("name", name);
 
   if (error) {
@@ -616,6 +615,7 @@ async function saveEdit() {
 async function deleteEdit() {
   const entry = state.entries.find(e => e.id === state.selectedEntryId);
   if (!entry) return;
+
   const projectName = getProject(entry.projectId)?.name || "prosjekt";
 
   const { error } = await supabase.from("entries").delete().eq("id", entry.id);
