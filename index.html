@@ -20,16 +20,19 @@
           Demo med kalender, ansatte, prosjekter, Kanban, varsler og lokal lagring i nettleseren.
         </p>
       </div>
-      <div class="flex flex-wrap gap-2">
-        <span class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm">Demo</span>
-        <span class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm">LocalStorage</span>
-      </div>
+    <div class="flex flex-wrap gap-2">
+  <span class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm">Demo</span>
+  <span class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm">LocalStorage</span>
+  <button id="togglePanelBtn" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm">
+    Skjul sidepanel
+  </button>
+</div>
     </header>
 
     <section id="statsRow" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4"></section>
 
-    <section class="grid grid-cols-1 xl:grid-cols-4 gap-4">
-      <div class="xl:col-span-3 rounded-2xl bg-white border border-slate-200 shadow-sm">
+   <section class="flex gap-4 items-start">
+      <div id="mainCalendar" class="flex-1 rounded-2xl bg-white border border-slate-200 shadow-sm">
         <div class="p-4 border-b border-slate-200 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
           <div class="flex flex-wrap gap-2 items-center">
             <input id="searchInput" class="w-[220px] rounded-2xl border border-slate-300 px-3 py-2" placeholder="Søk ansatt" />
@@ -53,7 +56,7 @@
         <div id="calendarWrap" class="overflow-auto p-4 scrollbar-thin"></div>
       </div>
 
-      <div class="space-y-4">
+      <div id="sidePanel" class="w-[380px] space-y-4 transition-all duration-300">
         <div class="rounded-2xl bg-white border border-slate-200 shadow-sm">
           <div class="p-4 border-b border-slate-200"><h2 class="font-semibold">Røde dager</h2></div>
           <div id="holidayList" class="p-4 space-y-2 text-sm max-h-[240px] overflow-auto scrollbar-thin"></div>
