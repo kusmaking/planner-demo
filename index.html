@@ -39,7 +39,7 @@
             <button id="resetBtn" class="rounded-2xl border border-slate-300 bg-white px-4 py-2">Nullstill demo</button>
           </div>
         </div>
-        <div class="p-4 border-b border-slate-200 text-sm text-slate-500">Hover over blokkene for detaljer. Klikk på en blokk for å redigere. Dra og slipp blokkene for å flytte dem.</div>
+        <div class="p-4 border-b border-slate-200 text-sm text-slate-500">Hver tildeling vises som én sammenhengende bar over hele perioden. Hover over blokken for detaljer, klikk for å redigere, og dra den for å flytte.</div>
         <div id="warningBox" class="hidden mx-4 mt-4 rounded-2xl border border-red-300 bg-red-50 p-4 text-red-700 text-sm"></div>
         <div id="calendarWrap" class="overflow-auto p-4"></div>
       </div>
@@ -530,7 +530,7 @@
       const holidays = new Map(getNorwegianHolidays(2026).map(h => [isoDate(h.date), h.label]));
       const days = getVisibleDays();
       const employees = filteredEmployees();
-      const dayWidth = 34;
+      const dayWidth = 40;
 
       const header = days.map(day => {
         const key = isoDate(day);
@@ -541,8 +541,6 @@
       }).join('');
 
       const rows = employees.map(employee => {
-        const employeeEntries = state.entries.filter(item => item.employee === employee.name);
-
         const cells = days.map(day => {
           const key = isoDate(day);
           const weekend = isWeekend(day);
@@ -551,33 +549,26 @@
           return `<div class="border-r border-b relative min-h-[56px] ${cellBg}" data-drop-employee="${employee.name}" data-drop-date="${key}"></div>`;
         }).join('');
 
-        const blocks = employeeEntries.map(entry => {
-          const project = getProject(entry.projectId);
-          if (!project) return '';
+        const employeeEntries = state.entries
+          .filter(entry => entry.employee === employee.name)
+          .map(entry => ({ entry, project: getProject(entry.projectId) }))
+          .filter(item => item.project)
+          .filter(item => new Date(item.entry.end) >= days[0] && new Date(item.entry.start) <= days[days.length - 1]);
 
-          const startIndex = days.findIndex(day => isoDate(day) === entry.start);
-          const endIndex = days.findIndex(day => isoDate(day) === entry.end);
-          if (startIndex === -1 && endIndex === -1) return '';
-
-          const visibleStart = startIndex === -1 ? 0 : startIndex;
-          const visibleEnd = endIndex === -1 ? days.length - 1 : endIndex;
-          const span = Math.max(1, visibleEnd - visibleStart + 1);
-          const left = visibleStart * dayWidth + 4;
-          const width = span * dayWidth - 8;
-          const roleClass = roleClasses[entry.role] || '';
-          const title = `${project.name} (${project.category})
-Ansatt: ${entry.employee}
-Rolle: ${entry.role || 'Ikke satt'}
-Periode: ${formatDate(entry.start)} - ${formatDate(entry.end)}${entry.notes ? '
-Notat: ' + entry.notes : ''}`;
-
+        const blocks = employeeEntries.map(({ entry, project }) => {
+          const startIdx = Math.max(0, Math.floor((new Date(entry.start) - days[0]) / 86400000));
+          const endIdx = Math.min(days.length - 1, Math.floor((new Date(entry.end) - days[0]) / 86400000));
+          const span = Math.max(1, endIdx - startIdx + 1);
+          const left = startIdx * dayWidth + 2;
+          const width = Math.max(36, span * dayWidth - 4);
+          const title = `${project.name} (${project.category})\nAnsatt: ${entry.employee}\nRolle: ${entry.role || 'Ikke satt'}\nPeriode: ${formatDate(entry.start)} - ${formatDate(entry.end)}${entry.notes ? '\nNotat: ' + entry.notes : ''}`;
           return `
             <button
               draggable="true"
               data-entry-id="${entry.id}"
               title="${title.replace(/"/g, '&quot;')}"
-              class="absolute top-1 h-[48px] ${roleClass} border px-2 py-1 text-[10px] leading-tight overflow-hidden text-left rounded-xl ${categoryColors[project.category]}"
-              style="left:${left}px; width:${width}px; z-index:5;"
+              class="absolute top-1 h-[48px] ${roleClasses[entry.role] || ''} rounded-xl border px-2 py-1 text-[10px] leading-tight overflow-hidden text-left ${categoryColors[project.category]}"
+              style="left:${left}px;width:${width}px;"
             >
               <div class="font-semibold truncate">${project.name}</div>
               <div class="truncate opacity-90">${entry.role || project.category}</div>
@@ -586,12 +577,13 @@ Notat: ' + entry.notes : ''}`;
 
         return `
           <div class="sticky left-0 z-20 bg-white border-r border-b border-slate-200 p-3 text-sm font-medium min-h-[56px] flex items-center">${employee.name}</div>
-          <div class="relative col-span-${days.length}" style="grid-column: span ${days.length};">
+          <div class="relative border-b border-slate-200" style="grid-column: span ${days.length} / span ${days.length}; min-height: 56px;">
             <div class="grid" style="grid-template-columns: repeat(${days.length}, minmax(${dayWidth}px, 1fr));">
               ${cells}
             </div>
             ${blocks}
-          </div>`;
+          </div>
+        `;
       }).join('');
 
       document.getElementById('calendarWrap').innerHTML = `
@@ -604,6 +596,43 @@ Notat: ' + entry.notes : ''}`;
         </div>`;
 
       bindCalendarEvents();
+    }
+
+    function bindCalendarEvents() {
+      document.querySelectorAll('[data-entry-id]').forEach(btn => {
+        btn.addEventListener('click', () => openEditModal(Number(btn.dataset.entryId)));
+        btn.addEventListener('dragstart', () => {
+          state.draggingEntryId = Number(btn.dataset.entryId);
+        });
+      });
+
+      document.querySelectorAll('[data-drop-date]').forEach(cell => {
+        cell.addEventListener('dragover', e => e.preventDefault());
+        cell.addEventListener('drop', () => {
+          if (!state.draggingEntryId) return;
+          const entry = state.entries.find(e => e.id === state.draggingEntryId);
+          if (!entry) return;
+          const targetEmployee = cell.dataset.dropEmployee;
+          const targetDate = cell.dataset.dropDate;
+          const duration = Math.round((new Date(entry.end) - new Date(entry.start)) / 86400000);
+          const newStart = targetDate;
+          const newEndDate = addDays(new Date(targetDate), duration);
+          const newEnd = isoDate(newEndDate);
+          if (overlaps(targetEmployee, newStart, newEnd, entry.id)) {
+            showWarning(`Kan ikke slippe her. ${targetEmployee} har allerede en aktivitet i denne perioden.`);
+            state.draggingEntryId = null;
+            return;
+          }
+          entry.employee = targetEmployee;
+          entry.start = newStart;
+          entry.end = newEnd;
+          addAudit(`Flyttet ${getProject(entry.projectId)?.name || 'prosjekt'} til ${targetEmployee} via drag-and-drop`);
+          addNotification(targetEmployee, getProject(entry.projectId)?.name || 'prosjekt');
+          state.draggingEntryId = null;
+          saveAll();
+          renderAll();
+        });
+      });
     }
 
     function openEditModal(entryId) {
@@ -748,51 +777,4 @@ Notat: ' + entry.notes : ''}`;
       const entry = state.entries.find(e => e.id === state.selectedEntryId);
       if (!entry) return;
       const projectName = getProject(entry.projectId)?.name || 'prosjekt';
-      state.entries = state.entries.filter(e => e.id !== entry.id);
-      addAudit(`Fjernet tildeling ${projectName} fra ${entry.employee}`);
-      closeEditModal();
-      renderAll();
-    }
-
-    function resetDemo() {
-      if (!confirm('Vil du nullstille alle lagrede demoendringer i denne nettleseren?')) return;
-      Object.values(STORAGE_KEYS).forEach(k => localStorage.removeItem(k));
-      location.reload();
-    }
-
-    function bindEvents() {
-      document.getElementById('searchInput').addEventListener('input', e => { state.search = e.target.value; renderAll(); });
-      document.getElementById('employeeFilter').addEventListener('change', e => { state.employeeFilter = e.target.value; renderAll(); });
-      document.getElementById('viewMode').addEventListener('change', e => { state.viewMode = e.target.value; renderAll(); });
-      document.getElementById('prevBtn').addEventListener('click', () => {
-        const days = state.viewMode === 'Uke' ? 42 : state.viewMode === 'Måned' ? 84 : 365;
-        state.startDate = addDays(state.startDate, -days);
-        renderAll();
-      });
-      document.getElementById('nextBtn').addEventListener('click', () => {
-        const days = state.viewMode === 'Uke' ? 42 : state.viewMode === 'Måned' ? 84 : 365;
-        state.startDate = addDays(state.startDate, days);
-        renderAll();
-      });
-      document.getElementById('resetBtn').addEventListener('click', resetDemo);
-      document.getElementById('createProjectBtn').addEventListener('click', createProject);
-      document.getElementById('assignBtn').addEventListener('click', assignProject);
-      document.getElementById('addEmployeeBtn').addEventListener('click', addEmployeeSingle);
-      document.getElementById('bulkAddBtn').addEventListener('click', bulkAddEmployees);
-      document.getElementById('closeModalBtn').addEventListener('click', closeEditModal);
-      document.getElementById('saveEditBtn').addEventListener('click', saveEdit);
-      document.getElementById('deleteEditBtn').addEventListener('click', deleteEdit);
-      document.getElementById('employeeList').addEventListener('click', e => {
-        const btn = e.target.closest('[data-toggle-employee]');
-        if (btn) toggleEmployee(btn.dataset.toggleEmployee);
-      });
-    }
-
-    bindEvents();
-    renderAll();
-
-    document.getElementById('assignStart').value = '2026-01-12';
-    document.getElementById('assignEnd').value = '2026-01-23';
-  </script>
-</body>
-</html>
+      state.entries = state.entries.filter(e => e.id !=
