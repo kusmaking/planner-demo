@@ -530,6 +530,8 @@
       const holidays = new Map(getNorwegianHolidays(2026).map(h => [isoDate(h.date), h.label]));
       const days = getVisibleDays();
       const employees = filteredEmployees();
+      const dayWidth = 34;
+
       const header = days.map(day => {
         const key = isoDate(day);
         const weekend = isWeekend(day);
@@ -539,44 +541,62 @@
       }).join('');
 
       const rows = employees.map(employee => {
+        const employeeEntries = state.entries.filter(item => item.employee === employee.name);
+
         const cells = days.map(day => {
           const key = isoDate(day);
           const weekend = isWeekend(day);
           const holiday = holidays.get(key);
           const cellBg = holiday ? 'bg-red-100' : weekend ? 'bg-red-50' : 'bg-white';
-          const entry = state.entries.find(item => item.employee === employee.name && new Date(day) >= new Date(item.start) && new Date(day) <= new Date(item.end));
-          const project = entry ? getProject(entry.projectId) : null;
-          const isStart = entry && key === entry.start;
-          const isEnd = entry && key === entry.end;
+          return `<div class="border-r border-b relative min-h-[56px] ${cellBg}" data-drop-employee="${employee.name}" data-drop-date="${key}"></div>`;
+        }).join('');
 
-          if (!entry || !project) {
-            return `<div class="border-r border-b relative min-h-[56px] ${cellBg}" data-drop-employee="${employee.name}" data-drop-date="${key}"></div>`;
-          }
+        const blocks = employeeEntries.map(entry => {
+          const project = getProject(entry.projectId);
+          if (!project) return '';
 
-          const title = `${project.name} (${project.category})\nAnsatt: ${entry.employee}\nRolle: ${entry.role || 'Ikke satt'}\nPeriode: ${formatDate(entry.start)} - ${formatDate(entry.end)}${entry.notes ? '\nNotat: ' + entry.notes : ''}`;
+          const startIndex = days.findIndex(day => isoDate(day) === entry.start);
+          const endIndex = days.findIndex(day => isoDate(day) === entry.end);
+          if (startIndex === -1 && endIndex === -1) return '';
+
+          const visibleStart = startIndex === -1 ? 0 : startIndex;
+          const visibleEnd = endIndex === -1 ? days.length - 1 : endIndex;
+          const span = Math.max(1, visibleEnd - visibleStart + 1);
+          const left = visibleStart * dayWidth + 4;
+          const width = span * dayWidth - 8;
+          const roleClass = roleClasses[entry.role] || '';
+          const title = `${project.name} (${project.category})
+Ansatt: ${entry.employee}
+Rolle: ${entry.role || 'Ikke satt'}
+Periode: ${formatDate(entry.start)} - ${formatDate(entry.end)}${entry.notes ? '
+Notat: ' + entry.notes : ''}`;
+
           return `
-            <div class="border-r border-b relative min-h-[56px] ${cellBg}" data-drop-employee="${employee.name}" data-drop-date="${key}">
-              <button
-                draggable="true"
-                data-entry-id="${entry.id}"
-                title="${title.replace(/"/g, '&quot;')}"
-                class="absolute inset-y-1 ${roleClasses[entry.role] || ''} ${isStart ? 'left-1 rounded-l-xl' : 'left-0 rounded-l-none'} ${isEnd ? 'right-1 rounded-r-xl' : 'right-0 rounded-r-none'} border px-1 py-1 text-[10px] leading-tight overflow-hidden text-left ${categoryColors[project.category]}"
-              >
-                <div class="font-semibold truncate">${project.name}</div>
-                <div class="truncate opacity-90">${entry.role || project.category}</div>
-              </button>
-            </div>`;
+            <button
+              draggable="true"
+              data-entry-id="${entry.id}"
+              title="${title.replace(/"/g, '&quot;')}"
+              class="absolute top-1 h-[48px] ${roleClass} border px-2 py-1 text-[10px] leading-tight overflow-hidden text-left rounded-xl ${categoryColors[project.category]}"
+              style="left:${left}px; width:${width}px; z-index:5;"
+            >
+              <div class="font-semibold truncate">${project.name}</div>
+              <div class="truncate opacity-90">${entry.role || project.category}</div>
+            </button>`;
         }).join('');
 
         return `
           <div class="sticky left-0 z-20 bg-white border-r border-b border-slate-200 p-3 text-sm font-medium min-h-[56px] flex items-center">${employee.name}</div>
-          ${cells}
-        `;
+          <div class="relative col-span-${days.length}" style="grid-column: span ${days.length};">
+            <div class="grid" style="grid-template-columns: repeat(${days.length}, minmax(${dayWidth}px, 1fr));">
+              ${cells}
+            </div>
+            ${blocks}
+          </div>`;
       }).join('');
 
       document.getElementById('calendarWrap').innerHTML = `
         <div class="min-w-[2200px]">
-          <div class="grid" style="grid-template-columns: 260px repeat(${days.length}, minmax(34px, 1fr));">
+          <div class="grid" style="grid-template-columns: 260px repeat(${days.length}, minmax(${dayWidth}px, 1fr));">
             <div class="sticky left-0 z-30 bg-white border-r border-b border-slate-200 p-3 font-semibold">Ansatt</div>
             ${header}
             ${rows}
@@ -584,43 +604,6 @@
         </div>`;
 
       bindCalendarEvents();
-    }
-
-    function bindCalendarEvents() {
-      document.querySelectorAll('[data-entry-id]').forEach(btn => {
-        btn.addEventListener('click', () => openEditModal(Number(btn.dataset.entryId)));
-        btn.addEventListener('dragstart', () => {
-          state.draggingEntryId = Number(btn.dataset.entryId);
-        });
-      });
-
-      document.querySelectorAll('[data-drop-date]').forEach(cell => {
-        cell.addEventListener('dragover', e => e.preventDefault());
-        cell.addEventListener('drop', () => {
-          if (!state.draggingEntryId) return;
-          const entry = state.entries.find(e => e.id === state.draggingEntryId);
-          if (!entry) return;
-          const targetEmployee = cell.dataset.dropEmployee;
-          const targetDate = cell.dataset.dropDate;
-          const duration = Math.round((new Date(entry.end) - new Date(entry.start)) / 86400000);
-          const newStart = targetDate;
-          const newEndDate = addDays(new Date(targetDate), duration);
-          const newEnd = isoDate(newEndDate);
-          if (overlaps(targetEmployee, newStart, newEnd, entry.id)) {
-            showWarning(`Kan ikke slippe her. ${targetEmployee} har allerede en aktivitet i denne perioden.`);
-            state.draggingEntryId = null;
-            return;
-          }
-          entry.employee = targetEmployee;
-          entry.start = newStart;
-          entry.end = newEnd;
-          addAudit(`Flyttet ${getProject(entry.projectId)?.name || 'prosjekt'} til ${targetEmployee} via drag-and-drop`);
-          addNotification(targetEmployee, getProject(entry.projectId)?.name || 'prosjekt');
-          state.draggingEntryId = null;
-          saveAll();
-          renderAll();
-        });
-      });
     }
 
     function openEditModal(entryId) {
