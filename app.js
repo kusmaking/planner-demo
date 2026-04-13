@@ -1,8 +1,14 @@
-
 const supabase = window.supabase.createClient(
   "https://glyftmrkjherfrapbnjx.supabase.co",
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+  "DIN_KEY_HER"
 );
+
+async function testConnection() {
+  const { data, error } = await supabase.from("employees").select("*");
+  console.log("SUPABASE TEST:", data, error);
+}
+
+testConnection();
 
 
 function load(key, fallback) {
