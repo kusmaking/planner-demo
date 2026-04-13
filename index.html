@@ -162,32 +162,24 @@
     </div>
   </div>
 
- <script src="./data.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
-<script src="./app.js"></script>
+  <script src="./data.js"></script>
+  <script src="./app.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
 
-<script>
-  const supabaseTest = window.supabase.createClient(
-    "https://glyftmrkjherfrapbnjx.supabase.co",
-    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdseWZ0bXJramhlcmZyYXBibmp4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYwOTUwMzAsImV4cCI6MjA5MTY3MTAzMH0.6XEGISHw8D_HddO4iglkc9PdNRo-s3y_Ejxy80ALLfE"
-  );
+  <script>
+    window.addEventListener("load", async () => {
+      try {
+        const supabaseTest = window.supabase.createClient(
+          "https://glyftmrkjherfrapbnjx.supabase.co",
+          "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdseWZ0bXJramhlcmZyYXBibmp4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYwOTUwMzAsImV4cCI6MjA5MTY3MTAzMH0.6XEGISHw8D_HddO4iglkc9PdNRo-s3y_Ejxy80ALLfE"
+        );
 
-  async function testSupabaseConnection() {
-    const { data, error } = await supabaseTest.from("employees").select("*");
-    console.log("SUPABASE TEST:", data, error);
-  }
-
-  testSupabaseConnection();
-</script>
-</body>
-</html>
-
-    async function testSupabaseConnection() {
-      const { data, error } = await supabaseTest.from("employees").select("*");
-      console.log("SUPABASE TEST:", data, error);
-    }
-
-    testSupabaseConnection();
+        const { data, error } = await supabaseTest.from("employees").select("*");
+        console.log("SUPABASE TEST:", data, error);
+      } catch (err) {
+        console.error("SUPABASE TEST CRASH:", err);
+      }
+    });
   </script>
 </body>
 </html>
