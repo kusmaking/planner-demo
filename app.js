@@ -1,13 +1,5 @@
 console.log("[APP] Started");
 
-const STORAGE_KEYS = {
-  employees: "planner_simple_employees_v1",
-  entries: "planner_simple_entries_v1",
-  startDate: "planner_simple_startDate_v1",
-  viewMode: "planner_simple_viewMode_v1",
-  panelVisible: "planner_simple_panelVisible_v1"
-};
-
 const CATEGORY_COLORS = {
   Project: "bg-green-500 border-green-600 text-white",
   Travel: "bg-cyan-500 border-cyan-600 text-white",
@@ -18,12 +10,18 @@ const CATEGORY_COLORS = {
   Avspasering: "bg-amber-700 border-amber-800 text-white"
 };
 
+const STORAGE_KEYS = {
+  employees: "planner_full_demo_employees_v1",
+  entries: "planner_full_demo_entries_v1",
+  startDate: "planner_full_demo_start_v1",
+  viewMode: "planner_full_demo_view_v1"
+};
+
 function load(key, fallback) {
   try {
     const raw = localStorage.getItem(key);
     return raw ? JSON.parse(raw) : fallback;
-  } catch (err) {
-    console.error("[LOAD ERROR]", key, err);
+  } catch {
     return fallback;
   }
 }
@@ -66,9 +64,7 @@ const state = {
   entries: load(STORAGE_KEYS.entries, defaultEntries),
   startDate: new Date(load(STORAGE_KEYS.startDate, "2026-01-01T00:00:00")),
   viewMode: load(STORAGE_KEYS.viewMode, "Måned"),
-  panelVisible: load(STORAGE_KEYS.panelVisible, true),
-  search: "",
-  selectedEntryId: null
+  search: ""
 };
 
 function saveAll() {
@@ -76,7 +72,6 @@ function saveAll() {
   save(STORAGE_KEYS.entries, state.entries);
   save(STORAGE_KEYS.startDate, state.startDate.toISOString());
   save(STORAGE_KEYS.viewMode, state.viewMode);
-  save(STORAGE_KEYS.panelVisible, state.panelVisible);
 }
 
 function addDays(date, days) {
@@ -90,11 +85,7 @@ function format(date) {
 }
 
 function formatLong(date) {
-  return date.toLocaleDateString("nb-NO");
-}
-
-function isoDate(date) {
-  return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+  return new Date(date).toLocaleDateString("nb-NO");
 }
 
 function getISOWeek(date) {
@@ -123,68 +114,49 @@ function filteredEmployees() {
   );
 }
 
-function overlapExists(employee, start, end, ignoreId = null) {
-  const s = new Date(start);
-  const e = new Date(end);
-  return state.entries.some(entry => {
-    if (ignoreId && entry.id === ignoreId) return false;
-    if (entry.employee !== employee) return false;
-    const es = new Date(entry.start);
-    const ee = new Date(entry.end);
-    return s <= ee && e >= es;
-  });
+function getEasterSunday(year) {
+  const a = year % 19;
+  const b = Math.floor(year / 100);
+  const c = year % 100;
+  const d = Math.floor(b / 4);
+  const e = b % 4;
+  const f = Math.floor((b + 8) / 25);
+  const g = Math.floor((b - f + 1) / 3);
+  const h = (19 * a + b - d - g + 15) % 30;
+  const i = Math.floor(c / 4);
+  const k = c % 4;
+  const l = (32 + 2 * e + 2 * i - h - k) % 7;
+  const m = Math.floor((a + 11 * h + 22 * l) / 451);
+  const month = Math.floor((h + l - 7 * m + 114) / 31);
+  const day = ((h + l - 7 * m + 114) % 31) + 1;
+  return new Date(year, month - 1, day);
 }
 
-function buildShell() {
-  const root = document.getElementById("calendarWrap");
-  if (!root) {
-    console.error("[ERROR] calendarWrap not found");
-    return false;
+function getNorwegianHolidays(year) {
+  const easter = getEasterSunday(year);
+  return [
+    { date: new Date(year, 0, 1), label: "1. nyttårsdag" },
+    { date: addDays(easter, -3), label: "Skjærtorsdag" },
+    { date: addDays(easter, -2), label: "Langfredag" },
+    { date: addDays(easter, 0), label: "1. påskedag" },
+    { date: addDays(easter, 1), label: "2. påskedag" },
+    { date: new Date(year, 4, 1), label: "Arbeidernes dag" },
+    { date: new Date(year, 4, 17), label: "Grunnlovsdag" },
+    { date: new Date(year, 11, 25), label: "1. juledag" },
+    { date: new Date(year, 11, 26), label: "2. juledag" }
+  ];
+}
+
+function showWarning(message) {
+  const box = document.getElementById("warningBox");
+  if (!box) return;
+  if (!message) {
+    box.classList.add("hidden");
+    box.textContent = "";
+    return;
   }
-
-  root.innerHTML = `
-    <div class="space-y-4">
-      <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4" id="statsRow"></div>
-
-      <div class="flex gap-4 items-start">
-        <div class="flex-1 rounded-2xl bg-white border border-slate-200 shadow-sm">
-          <div class="p-4 border-b border-slate-200 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
-            <div class="flex flex-wrap gap-2 items-center">
-              <input id="searchInputInner" class="w-[220px] rounded-2xl border border-slate-300 px-3 py-2" placeholder="Søk ansatt" />
-              <select id="viewModeInner" class="rounded-2xl border border-slate-300 px-3 py-2">
-                <option value="Uke">Uke</option>
-                <option value="Måned">Måned</option>
-                <option value="År">År</option>
-              </select>
-            </div>
-            <div class="flex gap-2">
-              <button id="prevBtnInner" class="rounded-2xl border border-slate-300 bg-white px-4 py-2">Tilbake</button>
-              <button id="nextBtnInner" class="rounded-2xl border border-slate-300 bg-white px-4 py-2">Frem</button>
-              <button id="togglePanelBtn" class="rounded-2xl border border-slate-300 bg-white px-4 py-2"></button>
-            </div>
-          </div>
-          <div class="p-4 border-b border-slate-200 text-sm text-slate-500">
-            Kalenderen har hovedfokus. Høyrepanelet kan skjules og vises.
-          </div>
-          <div id="warningBox" class="hidden mx-4 mt-4 rounded-2xl border border-red-300 bg-red-50 p-4 text-red-700 text-sm"></div>
-          <div id="calendarCanvas" class="overflow-auto p-4"></div>
-        </div>
-
-        <div id="sidePanel" class="w-[380px] space-y-4">
-          <div class="rounded-2xl bg-white border border-slate-200 shadow-sm">
-            <div class="p-4 border-b border-slate-200"><h2 class="font-semibold">Kanban – prosjekter</h2></div>
-            <div id="kanbanBoard" class="p-4 grid gap-4"></div>
-          </div>
-
-          <div class="rounded-2xl bg-white border border-slate-200 shadow-sm">
-            <div class="p-4 border-b border-slate-200"><h2 class="font-semibold">Ansatte</h2></div>
-            <div id="employeeList" class="p-4 space-y-2 max-h-[260px] overflow-auto"></div>
-          </div>
-        </div>
-      </div>
-    </div>
-  `;
-  return true;
+  box.classList.remove("hidden");
+  box.textContent = message;
 }
 
 function renderStats() {
@@ -203,6 +175,33 @@ function renderStats() {
   `).join("");
 }
 
+function renderHolidayList() {
+  const holidays = getNorwegianHolidays(2026);
+  document.getElementById("holidayList").innerHTML = holidays.map(h => `
+    <div class="flex items-center justify-between rounded-xl border p-2">
+      <span>${h.label}</span>
+      <span class="text-slate-500">${formatLong(h.date)}</span>
+    </div>
+  `).join("");
+}
+
+function renderLegend() {
+  document.getElementById("legendList").innerHTML = Object.keys(CATEGORY_COLORS).map(key => `
+    <div class="flex items-center gap-2">
+      <span class="inline-block h-4 w-4 rounded-md border ${CATEGORY_COLORS[key]}"></span>
+      <span>${key}</span>
+    </div>
+  `).join("");
+}
+
+function renderEmployeeFilter() {
+  const select = document.getElementById("employeeFilter");
+  select.innerHTML = `<option>Alle ansatte</option>` + state.employees
+    .filter(e => e.active ?? true)
+    .map(e => `<option>${e.name}</option>`)
+    .join("");
+}
+
 function renderEmployees() {
   document.getElementById("employeeList").innerHTML = filteredEmployees().map(emp => `
     <div class="rounded-xl border p-3 text-sm">
@@ -217,13 +216,10 @@ function renderKanban() {
   const projectMap = new Map();
 
   state.entries.forEach(entry => {
-    const key = `${entry.project}__${entry.category || inferCategory(entry.project)}`;
+    const category = entry.category || inferCategory(entry.project);
+    const key = `${entry.project}__${category}`;
     if (!projectMap.has(key)) {
-      projectMap.set(key, {
-        project: entry.project,
-        category: entry.category || inferCategory(entry.project),
-        people: []
-      });
+      projectMap.set(key, { project: entry.project, category, people: [] });
     }
     projectMap.get(key).people.push(entry.employee);
   });
@@ -247,13 +243,24 @@ function renderKanban() {
   }).join("");
 }
 
+function renderProjectAndEmployeeSelectors() {
+  const uniqueProjects = [...new Set(state.entries.map(e => e.project))];
+  const assignProject = document.getElementById("assignProject");
+  const editProject = document.getElementById("editProject");
+  const assignEmployee = document.getElementById("assignEmployee");
+  const editEmployee = document.getElementById("editEmployee");
+  const projectCategory = document.getElementById("projectCategory");
+
+  assignProject.innerHTML = uniqueProjects.map(p => `<option>${p}</option>`).join("");
+  editProject.innerHTML = uniqueProjects.map(p => `<option>${p}</option>`).join("");
+  assignEmployee.innerHTML = state.employees.map(e => `<option>${e.name}</option>`).join("");
+  editEmployee.innerHTML = state.employees.map(e => `<option>${e.name}</option>`).join("");
+  projectCategory.innerHTML = Object.keys(CATEGORY_COLORS).map(c => `<option>${c}</option>`).join("");
+}
+
 function renderCalendar() {
-  const container = document.getElementById("calendarCanvas");
-  const warning = document.getElementById("warningBox");
-  if (warning) {
-    warning.classList.add("hidden");
-    warning.textContent = "";
-  }
+  const container = document.getElementById("calendarWrap");
+  showWarning("");
 
   const days = getVisibleDays();
   const employees = filteredEmployees();
@@ -338,16 +345,7 @@ function openEditModal(entryId) {
   if (nextEnd === null) return;
 
   if (nextEnd < nextStart) {
-    const warning = document.getElementById("warningBox");
-    warning.textContent = "Sluttdato kan ikke være før startdato.";
-    warning.classList.remove("hidden");
-    return;
-  }
-
-  if (overlapExists(entry.employee, nextStart, nextEnd, entry.id)) {
-    const warning = document.getElementById("warningBox");
-    warning.textContent = `Overlapp oppdaget for ${entry.employee}.`;
-    warning.classList.remove("hidden");
+    showWarning("Sluttdato kan ikke være før startdato.");
     return;
   }
 
@@ -360,63 +358,96 @@ function openEditModal(entryId) {
   renderAll();
 }
 
-function renderPanelState() {
-  const panel = document.getElementById("sidePanel");
-  const btn = document.getElementById("togglePanelBtn");
-  if (!panel || !btn) return;
+function createProject() {
+  const name = document.getElementById("projectName").value.trim();
+  if (!name) return;
+  state.entries.push({
+    id: Date.now(),
+    employee: state.employees[0]?.name || "Olis Hansen",
+    project: name,
+    start: "2026-01-01",
+    end: "2026-01-03",
+    category: inferCategory(name),
+    role: "Supervisor",
+    notes: document.getElementById("projectNotes").value.trim()
+  });
+  saveAll();
+  renderAll();
+}
 
-  panel.style.display = state.panelVisible ? "block" : "none";
-  btn.textContent = state.panelVisible ? "Skjul sidepanel" : "Vis sidepanel";
+function assignProject() {
+  const project = document.getElementById("assignProject").value;
+  const employee = document.getElementById("assignEmployee").value;
+  const start = document.getElementById("assignStart").value;
+  const end = document.getElementById("assignEnd").value;
+  const role = document.getElementById("assignRole").value;
+  const notes = document.getElementById("assignNotes").value.trim();
+
+  if (!project || !employee || !start || !end) return;
+
+  state.entries.push({
+    id: Date.now(),
+    employee,
+    project,
+    start,
+    end,
+    category: inferCategory(project),
+    role,
+    notes
+  });
+
+  saveAll();
+  renderAll();
+}
+
+function resetDemo() {
+  Object.values(STORAGE_KEYS).forEach(k => localStorage.removeItem(k));
+  location.reload();
 }
 
 function bindEvents() {
-  document.getElementById("searchInputInner").value = state.search;
-  document.getElementById("viewModeInner").value = state.viewMode;
+  document.getElementById("searchInput").value = state.search;
+  document.getElementById("viewMode").value = state.viewMode;
 
-  document.getElementById("searchInputInner").addEventListener("input", e => {
+  document.getElementById("searchInput").addEventListener("input", e => {
     state.search = e.target.value;
     renderAll();
   });
 
-  document.getElementById("viewModeInner").addEventListener("change", e => {
+  document.getElementById("viewMode").addEventListener("change", e => {
     state.viewMode = e.target.value;
     saveAll();
     renderAll();
   });
 
-  document.getElementById("prevBtnInner").addEventListener("click", () => {
+  document.getElementById("prevBtn").addEventListener("click", () => {
     const step = state.viewMode === "Uke" ? -7 : state.viewMode === "Måned" ? -35 : -90;
     state.startDate = addDays(state.startDate, step);
     saveAll();
     renderAll();
   });
 
-  document.getElementById("nextBtnInner").addEventListener("click", () => {
+  document.getElementById("nextBtn").addEventListener("click", () => {
     const step = state.viewMode === "Uke" ? 7 : state.viewMode === "Måned" ? 35 : 90;
     state.startDate = addDays(state.startDate, step);
     saveAll();
     renderAll();
   });
 
-  document.getElementById("togglePanelBtn").addEventListener("click", () => {
-    state.panelVisible = !state.panelVisible;
-    saveAll();
-    renderPanelState();
-  });
-
-  document.getElementById("resetBtnInner")?.addEventListener("click", () => {
-    Object.values(STORAGE_KEYS).forEach(k => localStorage.removeItem(k));
-    location.reload();
-  });
+  document.getElementById("resetBtn").addEventListener("click", resetDemo);
+  document.getElementById("createProjectBtn").addEventListener("click", createProject);
+  document.getElementById("assignBtn").addEventListener("click", assignProject);
 }
 
 function renderAll() {
-  if (!buildShell()) return;
   renderStats();
+  renderHolidayList();
+  renderLegend();
+  renderEmployeeFilter();
   renderEmployees();
   renderKanban();
+  renderProjectAndEmployeeSelectors();
   renderCalendar();
-  renderPanelState();
   bindEvents();
 }
 
