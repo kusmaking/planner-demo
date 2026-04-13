@@ -1,16 +1,3 @@
-const supabase = window.supabase.createClient(
-  "https://glyftmrkjherfrapbnjx.supabase.co",
-  "DIN_KEY_HER"
-);
-
-async function testConnection() {
-  const { data, error } = await supabase.from("employees").select("*");
-  console.log("SUPABASE TEST:", data, error);
-}
-
-testConnection();
-
-
 function load(key, fallback) {
   try {
     const raw = localStorage.getItem(key);
