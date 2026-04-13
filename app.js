@@ -1,3 +1,8 @@
+const supabase = window.supabase.createClient(
+  "https://glyftmrkjherfrapbnjx.supabase.co",
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdseWZ0bXJramhlcmZyYXBibmp4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYwOTUwMzAsImV4cCI6MjA5MTY3MTAzMH0.6XEGISHw8D_HddO4iglkc9PdNRo-s3y_Ejxy80ALLfE"
+);
+
 function load(key, fallback) {
   try {
     const raw = localStorage.getItem(key);
@@ -228,7 +233,7 @@ function renderEmployeeList() {
       <div class="flex items-center justify-between gap-2">
         <div>
           <p class="font-medium">${employee.name}</p>
-          <p class="text-xs text-slate-500">${employee.email} • ${employee.phone}</p>
+          <p class="text-xs text-slate-500">${employee.email || ""} • ${employee.phone || ""}</p>
         </div>
         <button data-toggle-employee="${employee.name}" class="rounded-xl border border-slate-300 bg-white px-3 py-1 text-sm">
           ${employee.active ? "Deaktiver" : "Aktiver"}
@@ -378,20 +383,80 @@ function closeEditModal() {
   state.selectedEntryId = null;
 }
 
-function createProject() {
+async function loadFromSupabase() {
+  try {
+    const [{ data: employees, error: e1 }, { data: projects, error: e2 }, { data: entries, error: e3 }] = await Promise.all([
+      supabase.from("employees").select("*").order("id"),
+      supabase.from("projects").select("*").order("id"),
+      supabase.from("entries").select("*").order("id")
+    ]);
+
+    console.log("SUPABASE LOAD:", { employees, projects, entries, e1, e2, e3 });
+
+    if (e1 || e2 || e3) return;
+
+    state.employees = (employees || []).map(e => ({
+      id: e.id,
+      name: e.name,
+      email: e.email || "",
+      phone: e.phone || "",
+      active: e.active ?? true
+    }));
+
+    state.projects = (projects || []).map(p => ({
+      id: p.id,
+      name: p.name,
+      category: p.category || "Project",
+      status: p.status || "Planlagt",
+      notes: p.notes || ""
+    }));
+
+    state.entries = (entries || []).map(entry => {
+      const projectMatch = state.projects.find(p => p.name === entry.project);
+      return {
+        id: entry.id,
+        projectId: projectMatch ? projectMatch.id : null,
+        employee: entry.employee,
+        role: entry.role || "Supervisor",
+        start: entry.start_date,
+        end: entry.end_date,
+        notes: entry.notes || ""
+      };
+    }).filter(e => e.projectId !== null);
+
+    saveAll();
+    renderAll();
+  } catch (err) {
+    console.error("SUPABASE LOAD CRASH:", err);
+  }
+}
+
+async function createProject() {
   const name = document.getElementById("projectName").value.trim();
   const category = document.getElementById("projectCategory").value;
   const status = document.getElementById("projectStatus").value;
   const notes = document.getElementById("projectNotes").value.trim();
   if (!name) return;
-  state.projects.unshift({ id: Date.now(), name, category, status, notes });
+
+  const { error } = await supabase.from("projects").insert({
+    name,
+    category,
+    status,
+    notes
+  });
+
+  if (error) {
+    console.error("CREATE PROJECT ERROR:", error);
+    return;
+  }
+
   addAudit(`Opprettet prosjekt ${name} i kategori ${category}`);
   document.getElementById("projectName").value = "";
   document.getElementById("projectNotes").value = "";
-  renderAll();
+  await loadFromSupabase();
 }
 
-function assignProject() {
+async function assignProject() {
   showWarning("");
   const projectId = Number(document.getElementById("assignProject").value);
   const employee = document.getElementById("assignEmployee").value;
@@ -410,62 +475,98 @@ function assignProject() {
     return;
   }
 
-  const projectName = getProject(projectId)?.name || "prosjekt";
-  state.entries.unshift({
-    id: Date.now(),
-    projectId,
+  const project = getProject(projectId);
+  if (!project) return;
+
+  const { error } = await supabase.from("entries").insert({
     employee,
+    project: project.name,
+    start_date: start,
+    end_date: end,
     role,
-    start,
-    end,
     notes
   });
 
-  addAudit(`Tildelte ${projectName} til ${employee} fra ${start} til ${end}`);
-  addNotification(employee, projectName);
+  if (error) {
+    console.error("ASSIGN ERROR:", error);
+    return;
+  }
+
+  addAudit(`Tildelte ${project.name} til ${employee} fra ${start} til ${end}`);
+  addNotification(employee, project.name);
   document.getElementById("assignNotes").value = "";
-  renderAll();
+  await loadFromSupabase();
 }
 
-function addEmployeeSingle() {
+async function addEmployeeSingle() {
   const name = document.getElementById("employeeName").value.trim();
   const email = document.getElementById("employeeEmail").value.trim();
   const phone = document.getElementById("employeePhone").value.trim();
   if (!name) return;
-  state.employees.unshift({ name, email, phone, active: true });
+
+  const { error } = await supabase.from("employees").insert({
+    name,
+    email,
+    phone,
+    active: true
+  });
+
+  if (error) {
+    console.error("ADD EMPLOYEE ERROR:", error);
+    return;
+  }
+
   addAudit(`La til ansatt ${name}`);
   document.getElementById("employeeName").value = "";
   document.getElementById("employeeEmail").value = "";
   document.getElementById("employeePhone").value = "";
-  renderAll();
+  await loadFromSupabase();
 }
 
-function bulkAddEmployees() {
+async function bulkAddEmployees() {
   const text = document.getElementById("bulkEmployees").value.trim();
   if (!text) return;
+
   const lines = text.split("\n").map(l => l.trim()).filter(Boolean);
-  lines.forEach(name => {
-    state.employees.unshift({
-      name,
-      email: `${name.toLowerCase().replace(/\s+/g, ".")}@firma.no`,
-      phone: `+47 9${Math.floor(1000000 + Math.random() * 9000000)}`,
-      active: true
-    });
-  });
+  const rows = lines.map(name => ({
+    name,
+    email: `${name.toLowerCase().replace(/\s+/g, ".")}@firma.no`,
+    phone: `+47 9${Math.floor(1000000 + Math.random() * 9000000)}`,
+    active: true
+  }));
+
+  const { error } = await supabase.from("employees").insert(rows);
+
+  if (error) {
+    console.error("BULK ADD ERROR:", error);
+    return;
+  }
+
   addAudit(`La til ${lines.length} ansatte via bulk import`);
   document.getElementById("bulkEmployees").value = "";
-  renderAll();
+  await loadFromSupabase();
 }
 
-function toggleEmployee(name) {
+async function toggleEmployee(name) {
   const employee = state.employees.find(e => e.name === name);
   if (!employee) return;
-  employee.active = !employee.active;
+
+  const nextActive = !employee.active;
+  const { error } = await supabase
+    .from("employees")
+    .update({ active: nextActive })
+    .eq("name", name);
+
+  if (error) {
+    console.error("TOGGLE EMPLOYEE ERROR:", error);
+    return;
+  }
+
   addAudit(`Endret ansattstatus for ${name}`);
-  renderAll();
+  await loadFromSupabase();
 }
 
-function saveEdit() {
+async function saveEdit() {
   const entry = state.entries.find(e => e.id === state.selectedEntryId);
   if (!entry) return;
 
@@ -485,29 +586,48 @@ function saveEdit() {
     return;
   }
 
-  entry.projectId = projectId;
-  entry.employee = employee;
-  entry.role = role;
-  entry.start = start;
-  entry.end = end;
-  entry.notes = notes;
+  const project = getProject(projectId);
+  if (!project) return;
 
-  const projectName = getProject(projectId)?.name || "prosjekt";
-  addAudit(`Redigerte tildeling ${projectName} for ${employee}`);
-  addNotification(employee, projectName);
+  const { error } = await supabase
+    .from("entries")
+    .update({
+      employee,
+      project: project.name,
+      role,
+      start_date: start,
+      end_date: end,
+      notes
+    })
+    .eq("id", entry.id);
+
+  if (error) {
+    console.error("SAVE EDIT ERROR:", error);
+    return;
+  }
+
+  addAudit(`Redigerte tildeling ${project.name} for ${employee}`);
+  addNotification(employee, project.name);
   closeEditModal();
   showWarning("");
-  renderAll();
+  await loadFromSupabase();
 }
 
-function deleteEdit() {
+async function deleteEdit() {
   const entry = state.entries.find(e => e.id === state.selectedEntryId);
   if (!entry) return;
   const projectName = getProject(entry.projectId)?.name || "prosjekt";
-  state.entries = state.entries.filter(e => e.id !== entry.id);
+
+  const { error } = await supabase.from("entries").delete().eq("id", entry.id);
+
+  if (error) {
+    console.error("DELETE ERROR:", error);
+    return;
+  }
+
   addAudit(`Fjernet tildeling ${projectName} fra ${entry.employee}`);
   closeEditModal();
-  renderAll();
+  await loadFromSupabase();
 }
 
 function resetDemo() {
@@ -579,3 +699,4 @@ function renderAll() {
 
 bindEvents();
 renderAll();
+loadFromSupabase();
