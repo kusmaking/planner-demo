@@ -1,25 +1,420 @@
 <!DOCTYPE html>
-<html>
+<html lang="no">
 <head>
-  <meta charset="UTF-8">
-  <title>Planner Demo</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Planner Workshop Demo</title>
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="bg-slate-100">
+<body class="bg-slate-100 text-slate-900">
+  <div class="max-w-[1600px] mx-auto p-6 space-y-6">
+    <header class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+      <div>
+        <h1 class="text-3xl font-bold">Ressursplanlegging 2026</h1>
+        <p class="text-slate-600 mt-1">
+          Delbar demo for verkstedplanlegging med prosjekter, roller, ansatte og kalenderoversikt.
+        </p>
+      </div>
+      <div class="flex flex-wrap gap-2">
+        <span class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm">Demo uten ekte SSO</span>
+        <span class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm">Microsoft Entra ID i produksjon</span>
+      </div>
+    </header>
 
-<div class="p-6">
-  <h1 class="text-2xl font-bold mb-4">Planner Demo</h1>
+    <section class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+      <div class="rounded-2xl bg-white border border-slate-200 p-4 shadow-sm">
+        <p class="text-sm text-slate-500">Ansatte i visning</p>
+        <p class="text-2xl font-semibold mt-1">12</p>
+      </div>
+      <div class="rounded-2xl bg-white border border-slate-200 p-4 shadow-sm">
+        <p class="text-sm text-slate-500">Prosjekter</p>
+        <p class="text-2xl font-semibold mt-1">5</p>
+      </div>
+      <div class="rounded-2xl bg-white border border-slate-200 p-4 shadow-sm">
+        <p class="text-sm text-slate-500">Tildelinger</p>
+        <p class="text-2xl font-semibold mt-1">9</p>
+      </div>
+      <div class="rounded-2xl bg-white border border-slate-200 p-4 shadow-sm">
+        <p class="text-sm text-slate-500">Varsler</p>
+        <p class="text-2xl font-semibold mt-1">4</p>
+      </div>
+    </section>
 
-  <div class="bg-white p-4 rounded-xl shadow space-y-2">
-    <p><strong>Status:</strong> Demo live</p>
-    <p><strong>Dette er første steg</strong></p>
+    <section class="grid grid-cols-1 xl:grid-cols-4 gap-4">
+      <div class="xl:col-span-3 rounded-2xl bg-white border border-slate-200 shadow-sm">
+        <div class="p-4 border-b border-slate-200 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+          <div class="flex flex-wrap gap-2">
+            <input
+              id="searchInput"
+              type="text"
+              placeholder="Søk ansatt"
+              class="w-[220px] rounded-2xl border border-slate-300 px-3 py-2"
+              oninput="filterTable()"
+            />
+            <select class="rounded-2xl border border-slate-300 px-3 py-2">
+              <option>Uke</option>
+              <option>Måned</option>
+              <option>År</option>
+            </select>
+          </div>
+          <div class="text-sm text-slate-500">
+            Hover over blokkene for detaljer
+          </div>
+        </div>
 
-    <p class="mt-3">
-      Neste steg blir å legge inn hele systemet du har laget.
-    </p>
+        <div class="overflow-auto">
+          <table class="min-w-[1200px] w-full border-collapse">
+            <thead>
+              <tr class="bg-slate-50">
+                <th class="sticky left-0 bg-slate-50 border-b border-r border-slate-200 px-3 py-3 text-left">Ansatt</th>
+                <th class="border-b border-r border-slate-200 px-3 py-3 text-center">Uke 2</th>
+                <th class="border-b border-r border-slate-200 px-3 py-3 text-center">Uke 3</th>
+                <th class="border-b border-r border-slate-200 px-3 py-3 text-center">Uke 4</th>
+                <th class="border-b border-r border-slate-200 px-3 py-3 text-center">Uke 5</th>
+                <th class="border-b border-r border-slate-200 px-3 py-3 text-center bg-red-50 text-red-700">Helg</th>
+                <th class="border-b border-r border-slate-200 px-3 py-3 text-center">Uke 6</th>
+                <th class="border-b border-r border-slate-200 px-3 py-3 text-center">Uke 7</th>
+                <th class="border-b border-r border-slate-200 px-3 py-3 text-center">Uke 8</th>
+              </tr>
+            </thead>
+            <tbody id="plannerBody">
+              <tr data-name="Olis Hansen">
+                <td class="sticky left-0 bg-white border-b border-r border-slate-200 px-3 py-3 font-medium">Olis Hansen</td>
+                <td class="border-b border-r border-slate-200 p-2"></td>
+                <td class="border-b border-r border-slate-200 p-2">
+                  <button
+                    class="w-full rounded-xl bg-indigo-500 text-white px-2 py-2 text-left text-xs"
+                    title="Onshore (Onshore)&#10;Ansatt: Olis Hansen&#10;Rolle: Supervisor&#10;Periode: Uke 3-8"
+                    onclick="openModal('Onshore', 'Onshore', 'Olis Hansen', 'Supervisor', 'Uke 3-8', 'Fast kapasitet / koordinering')"
+                  >
+                    <div class="font-semibold truncate">Onshore</div>
+                    <div class="truncate opacity-90">Supervisor</div>
+                  </button>
+                </td>
+                <td class="border-b border-r border-slate-200 p-2 bg-slate-50"></td>
+                <td class="border-b border-r border-slate-200 p-2 bg-slate-50"></td>
+                <td class="border-b border-r border-slate-200 p-2 bg-red-50"></td>
+                <td class="border-b border-r border-slate-200 p-2 bg-slate-50"></td>
+                <td class="border-b border-r border-slate-200 p-2 bg-slate-50"></td>
+                <td class="border-b border-r border-slate-200 p-2 bg-slate-50"></td>
+              </tr>
+
+              <tr data-name="Kenneth Vallestad">
+                <td class="sticky left-0 bg-white border-b border-r border-slate-200 px-3 py-3 font-medium">Kenneth Vallestad</td>
+                <td class="border-b border-r border-slate-200 p-2"></td>
+                <td class="border-b border-r border-slate-200 p-2">
+                  <button
+                    class="w-full rounded-xl bg-indigo-500 text-white px-2 py-2 text-left text-xs"
+                    title="Koordinering (Onshore)&#10;Ansatt: Kenneth Vallestad&#10;Rolle: Supervisor&#10;Periode: Uke 3-8"
+                    onclick="openModal('Koordinering', 'Onshore', 'Kenneth Vallestad', 'Supervisor', 'Uke 3-8', 'Støtte planlegging')"
+                  >
+                    <div class="font-semibold truncate">Koordinering</div>
+                    <div class="truncate opacity-90">Supervisor</div>
+                  </button>
+                </td>
+                <td class="border-b border-r border-slate-200 p-2 bg-slate-50"></td>
+                <td class="border-b border-r border-slate-200 p-2 bg-slate-50"></td>
+                <td class="border-b border-r border-slate-200 p-2 bg-red-50"></td>
+                <td class="border-b border-r border-slate-200 p-2 bg-slate-50"></td>
+                <td class="border-b border-r border-slate-200 p-2 bg-slate-50"></td>
+                <td class="border-b border-r border-slate-200 p-2 bg-slate-50"></td>
+              </tr>
+
+              <tr data-name="Aliaksandr Skliarenka">
+                <td class="sticky left-0 bg-white border-b border-r border-slate-200 px-3 py-3 font-medium">Aliaksandr Skliarenka</td>
+                <td class="border-b border-r border-slate-200 p-2">
+                  <button
+                    class="w-full rounded-xl bg-violet-500 text-white px-2 py-2 text-left text-xs"
+                    title="Training (Kurs)&#10;Ansatt: Aliaksandr Skliarenka&#10;Rolle: Mekaniker 1&#10;Periode: Uke 2"
+                    onclick="openModal('Training', 'Kurs', 'Aliaksandr Skliarenka', 'Mekaniker 1', 'Uke 2', 'Opplæring')"
+                  >
+                    <div class="font-semibold truncate">Training</div>
+                    <div class="truncate opacity-90">Mekaniker 1</div>
+                  </button>
+                </td>
+                <td class="border-b border-r border-slate-200 p-2">
+                  <button
+                    class="w-full rounded-xl bg-green-500 text-white px-2 py-2 text-left text-xs"
+                    title="PBF California (Project)&#10;Ansatt: Aliaksandr Skliarenka&#10;Rolle: Mekaniker 1&#10;Periode: Uke 3-4"
+                    onclick="openModal('PBF California', 'Project', 'Aliaksandr Skliarenka', 'Mekaniker 1', 'Uke 3-4', 'Fra eksisterende plan')"
+                  >
+                    <div class="font-semibold truncate">PBF California</div>
+                    <div class="truncate opacity-90">Mekaniker 1</div>
+                  </button>
+                </td>
+                <td class="border-b border-r border-slate-200 p-2 bg-slate-50"></td>
+                <td class="border-b border-r border-slate-200 p-2 bg-slate-50"></td>
+                <td class="border-b border-r border-slate-200 p-2 bg-red-50"></td>
+                <td class="border-b border-r border-slate-200 p-2"></td>
+                <td class="border-b border-r border-slate-200 p-2"></td>
+                <td class="border-b border-r border-slate-200 p-2"></td>
+              </tr>
+
+              <tr data-name="Sean Sarkic">
+                <td class="sticky left-0 bg-white border-b border-r border-slate-200 px-3 py-3 font-medium">Sean Sarkic</td>
+                <td class="border-b border-r border-slate-200 p-2">
+                  <button
+                    class="w-full rounded-xl bg-cyan-500 text-white px-2 py-2 text-left text-xs"
+                    title="Travel (Travel)&#10;Ansatt: Sean Sarkic&#10;Rolle: Supervisor&#10;Periode: Uke 2"
+                    onclick="openModal('Travel', 'Travel', 'Sean Sarkic', 'Supervisor', 'Uke 2', 'Reiseblokk')"
+                  >
+                    <div class="font-semibold truncate">Travel</div>
+                    <div class="truncate opacity-90">Supervisor</div>
+                  </button>
+                </td>
+                <td class="border-b border-r border-slate-200 p-2">
+                  <button
+                    class="w-full rounded-xl bg-green-500 text-white px-2 py-2 text-left text-xs"
+                    title="IZO-30220 Tyrkia (Project)&#10;Ansatt: Sean Sarkic&#10;Rolle: Supervisor&#10;Periode: Uke 3-4"
+                    onclick="openModal('IZO-30220 Tyrkia', 'Project', 'Sean Sarkic', 'Supervisor', 'Uke 3-4', 'Pågående prosjekt')"
+                  >
+                    <div class="font-semibold truncate">IZO-30220 Tyrkia</div>
+                    <div class="truncate opacity-90">Supervisor</div>
+                  </button>
+                </td>
+                <td class="border-b border-r border-slate-200 p-2 bg-slate-50"></td>
+                <td class="border-b border-r border-slate-200 p-2 bg-slate-50"></td>
+                <td class="border-b border-r border-slate-200 p-2 bg-red-50"></td>
+                <td class="border-b border-r border-slate-200 p-2"></td>
+                <td class="border-b border-r border-slate-200 p-2"></td>
+                <td class="border-b border-r border-slate-200 p-2"></td>
+              </tr>
+
+              <tr data-name="Henrik Ueland">
+                <td class="sticky left-0 bg-white border-b border-r border-slate-200 px-3 py-3 font-medium">Henrik Ueland</td>
+                <td class="border-b border-r border-slate-200 p-2"></td>
+                <td class="border-b border-r border-slate-200 p-2">
+                  <button
+                    class="w-full rounded-xl bg-green-500 text-white px-2 py-2 text-left text-xs"
+                    title="Shell Bukom (Project)&#10;Ansatt: Henrik Ueland&#10;Rolle: Mekaniker 2&#10;Periode: Uke 3-4"
+                    onclick="openModal('Shell Bukom', 'Project', 'Henrik Ueland', 'Mekaniker 2', 'Uke 3-4', 'Fra eksisterende plan')"
+                  >
+                    <div class="font-semibold truncate">Shell Bukom</div>
+                    <div class="truncate opacity-90">Mekaniker 2</div>
+                  </button>
+                </td>
+                <td class="border-b border-r border-slate-200 p-2 bg-slate-50"></td>
+                <td class="border-b border-r border-slate-200 p-2 bg-slate-50"></td>
+                <td class="border-b border-r border-slate-200 p-2 bg-red-50"></td>
+                <td class="border-b border-r border-slate-200 p-2"></td>
+                <td class="border-b border-r border-slate-200 p-2"></td>
+                <td class="border-b border-r border-slate-200 p-2"></td>
+              </tr>
+
+              <tr data-name="Fredrik Johansen">
+                <td class="sticky left-0 bg-white border-b border-r border-slate-200 px-3 py-3 font-medium">Fredrik Johansen</td>
+                <td class="border-b border-r border-slate-200 p-2"></td>
+                <td class="border-b border-r border-slate-200 p-2">
+                  <button
+                    class="w-full rounded-xl bg-green-500 text-white px-2 py-2 text-left text-xs"
+                    title="IZO-30220 Tyrkia (Project)&#10;Ansatt: Fredrik Johansen&#10;Rolle: Mekaniker 1&#10;Periode: Uke 3-4"
+                    onclick="openModal('IZO-30220 Tyrkia', 'Project', 'Fredrik Johansen', 'Mekaniker 1', 'Uke 3-4', 'Pågående prosjekt')"
+                  >
+                    <div class="font-semibold truncate">IZO-30220 Tyrkia</div>
+                    <div class="truncate opacity-90">Mekaniker 1</div>
+                  </button>
+                </td>
+                <td class="border-b border-r border-slate-200 p-2 bg-slate-50"></td>
+                <td class="border-b border-r border-slate-200 p-2 bg-slate-50"></td>
+                <td class="border-b border-r border-slate-200 p-2 bg-red-50"></td>
+                <td class="border-b border-r border-slate-200 p-2"></td>
+                <td class="border-b border-r border-slate-200 p-2"></td>
+                <td class="border-b border-r border-slate-200 p-2"></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="space-y-4">
+        <div class="rounded-2xl bg-white border border-slate-200 shadow-sm">
+          <div class="p-4 border-b border-slate-200">
+            <h2 class="font-semibold">Legg inn prosjekt</h2>
+          </div>
+          <div class="p-4 space-y-3">
+            <input class="w-full rounded-2xl border border-slate-300 px-3 py-2" placeholder="Prosjektnavn" />
+            <select class="w-full rounded-2xl border border-slate-300 px-3 py-2">
+              <option>Project</option>
+              <option>Travel</option>
+              <option>Onshore</option>
+              <option>Kurs</option>
+              <option>Ferie</option>
+              <option>Syk</option>
+              <option>Avspasering</option>
+            </select>
+            <select class="w-full rounded-2xl border border-slate-300 px-3 py-2">
+              <option>Planlagt</option>
+              <option>Pågår</option>
+              <option>Avventer</option>
+              <option>Fullført</option>
+            </select>
+            <textarea class="w-full rounded-2xl border border-slate-300 px-3 py-2" rows="3" placeholder="Notater"></textarea>
+            <button class="w-full rounded-2xl bg-slate-900 text-white px-4 py-2">Opprett prosjekt</button>
+          </div>
+        </div>
+
+        <div class="rounded-2xl bg-white border border-slate-200 shadow-sm">
+          <div class="p-4 border-b border-slate-200">
+            <h2 class="font-semibold">Tildel prosjekt</h2>
+          </div>
+          <div class="p-4 space-y-3">
+            <select class="w-full rounded-2xl border border-slate-300 px-3 py-2">
+              <option>PBF California</option>
+              <option>IZO-30220 Tyrkia</option>
+              <option>Shell Bukom</option>
+            </select>
+            <select class="w-full rounded-2xl border border-slate-300 px-3 py-2">
+              <option>Aliaksandr Skliarenka</option>
+              <option>Sean Sarkic</option>
+              <option>Henrik Ueland</option>
+            </select>
+            <select class="w-full rounded-2xl border border-slate-300 px-3 py-2">
+              <option>Supervisor</option>
+              <option>Mekaniker 1</option>
+              <option>Mekaniker 2</option>
+              <option>Mekaniker 3</option>
+            </select>
+            <div class="grid grid-cols-2 gap-2">
+              <input type="date" class="rounded-2xl border border-slate-300 px-3 py-2" />
+              <input type="date" class="rounded-2xl border border-slate-300 px-3 py-2" />
+            </div>
+            <button class="w-full rounded-2xl bg-slate-900 text-white px-4 py-2">Legg i kalender</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="grid grid-cols-1 xl:grid-cols-3 gap-4">
+      <div class="rounded-2xl bg-white border border-slate-200 shadow-sm">
+        <div class="p-4 border-b border-slate-200">
+          <h2 class="font-semibold">Ansatte</h2>
+        </div>
+        <div class="p-4 space-y-3 max-h-[400px] overflow-auto">
+          <div class="rounded-2xl border border-slate-200 p-3">
+            <p class="font-medium">Olis Hansen</p>
+            <p class="text-xs text-slate-500">olis@firma.no • +47 90000001</p>
+          </div>
+          <div class="rounded-2xl border border-slate-200 p-3">
+            <p class="font-medium">Kenneth Vallestad</p>
+            <p class="text-xs text-slate-500">kenneth@firma.no • +47 90000002</p>
+          </div>
+          <div class="rounded-2xl border border-slate-200 p-3">
+            <p class="font-medium">Aliaksandr Skliarenka</p>
+            <p class="text-xs text-slate-500">aliaksandr@firma.no • +47 90000004</p>
+          </div>
+          <div class="rounded-2xl border border-slate-200 p-3">
+            <p class="font-medium">Sean Sarkic</p>
+            <p class="text-xs text-slate-500">sean@firma.no • +47 90000006</p>
+          </div>
+          <div class="rounded-2xl border border-slate-200 p-3">
+            <p class="font-medium">Henrik Ueland</p>
+            <p class="text-xs text-slate-500">henrik@firma.no • +47 90000007</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="rounded-2xl bg-white border border-slate-200 shadow-sm">
+        <div class="p-4 border-b border-slate-200">
+          <h2 class="font-semibold">Kanban – prosjekter</h2>
+        </div>
+        <div class="p-4 grid gap-4">
+          <div class="rounded-2xl bg-slate-50 p-3">
+            <p class="font-semibold text-sm mb-2">Pågår</p>
+            <div class="rounded-2xl border bg-white p-3">
+              <p class="font-medium text-sm">PBF California</p>
+              <p class="text-xs text-slate-600 mt-1">Kategori: Project</p>
+            </div>
+          </div>
+          <div class="rounded-2xl bg-slate-50 p-3">
+            <p class="font-semibold text-sm mb-2">Planlagt</p>
+            <div class="rounded-2xl border bg-white p-3">
+              <p class="font-medium text-sm">Kurs Kårstø</p>
+              <p class="text-xs text-slate-600 mt-1">Kategori: Kurs</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="space-y-4">
+        <div class="rounded-2xl bg-white border border-slate-200 shadow-sm">
+          <div class="p-4 border-b border-slate-200">
+            <h2 class="font-semibold">Varsellogg</h2>
+          </div>
+          <div class="p-4 space-y-3">
+            <div class="rounded-2xl border border-slate-200 p-3">
+              <p class="font-medium">SMS til Aliaksandr Skliarenka</p>
+              <p class="text-sm text-slate-700">Prosjekt: PBF California</p>
+            </div>
+            <div class="rounded-2xl border border-slate-200 p-3">
+              <p class="font-medium">E-post til Sean Sarkic</p>
+              <p class="text-sm text-slate-700">Prosjekt: IZO-30220 Tyrkia</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="rounded-2xl bg-white border border-slate-200 shadow-sm">
+          <div class="p-4 border-b border-slate-200">
+            <h2 class="font-semibold">Endringslogg</h2>
+          </div>
+          <div class="p-4 space-y-3">
+            <div class="rounded-2xl border border-slate-200 p-3">
+              <p class="font-medium">Olis Hansen</p>
+              <p class="text-sm text-slate-700">Importerte grunnplan</p>
+            </div>
+            <div class="rounded-2xl border border-slate-200 p-3">
+              <p class="font-medium">Olis Hansen</p>
+              <p class="text-sm text-slate-700">La inn prosjekt og roller</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
   </div>
-</div>
 
+  <div id="modal" class="fixed inset-0 bg-black/40 hidden items-center justify-center p-4">
+    <div class="w-full max-w-lg rounded-2xl bg-white shadow-xl">
+      <div class="p-4 border-b border-slate-200 flex items-center justify-between">
+        <h2 class="font-semibold">Detaljer</h2>
+        <button onclick="closeModal()" class="rounded-lg border border-slate-300 px-3 py-1 text-sm">Lukk</button>
+      </div>
+      <div class="p-4 space-y-2">
+        <p><strong>Prosjekt:</strong> <span id="mProject"></span></p>
+        <p><strong>Kategori:</strong> <span id="mCategory"></span></p>
+        <p><strong>Ansatt:</strong> <span id="mEmployee"></span></p>
+        <p><strong>Rolle:</strong> <span id="mRole"></span></p>
+        <p><strong>Periode:</strong> <span id="mPeriod"></span></p>
+        <p><strong>Notat:</strong> <span id="mNote"></span></p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function filterTable() {
+      const value = document.getElementById('searchInput').value.toLowerCase();
+      const rows = document.querySelectorAll('#plannerBody tr');
+      rows.forEach(row => {
+        const name = row.getAttribute('data-name').toLowerCase();
+        row.style.display = name.includes(value) ? '' : 'none';
+      });
+    }
+
+    function openModal(project, category, employee, role, period, note) {
+      document.getElementById('mProject').textContent = project;
+      document.getElementById('mCategory').textContent = category;
+      document.getElementById('mEmployee').textContent = employee;
+      document.getElementById('mRole').textContent = role;
+      document.getElementById('mPeriod').textContent = period;
+      document.getElementById('mNote').textContent = note;
+      const modal = document.getElementById('modal');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+
+    function closeModal() {
+      const modal = document.getElementById('modal');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+  </script>
 </body>
 </html>
-<p>live test</p>
