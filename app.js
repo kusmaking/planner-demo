@@ -29,9 +29,9 @@ function renderCalendar() {
   const days = Array.from({ length: 30 }, (_, i) => addDays(state.startDate, i));
 
   container.innerHTML = `
-    <div class="grid" style="grid-template-columns:200px repeat(${days.length},1fr)">
+    <div class="grid" style="grid-template-columns:200px repeat(${days.length},40px)">
       <div></div>
-      ${days.map(d => `<div class="text-xs text-center">${format(d)}</div>`).join('')}
+      ${days.map(d => `<div class="text-xs text-center border">${format(d)}</div>`).join('')}
 
       ${state.employees.map(emp => {
         console.log("[EMP]", emp);
@@ -49,13 +49,13 @@ function renderCalendar() {
 
             console.log("[BLOCK]", e.project, startIdx, endIdx);
 
-            return `<div style="position:absolute;left:${startIdx*40}px;width:${width}px" class="bg-blue-500 text-white text-xs p-1 rounded">${e.project}</div>`;
+            return `<div style="position:absolute;left:${startIdx * 40}px;top:4px;width:${width}px" class="bg-blue-500 text-white text-xs p-1 rounded overflow-hidden whitespace-nowrap">${e.project}</div>`;
           }).join('');
 
         return `
-          <div class="font-medium">${emp.name}</div>
-          <div class="relative" style="grid-column: span ${days.length}">
-            <div class="grid" style="grid-template-columns: repeat(${days.length},1fr)">
+          <div class="font-medium border p-2 h-10">${emp.name}</div>
+          <div class="relative" style="grid-column: span ${days.length} / span ${days.length}; min-height:40px;">
+            <div class="grid" style="grid-template-columns: repeat(${days.length},40px)">
               ${days.map(() => `<div class="border h-10"></div>`).join('')}
             </div>
             ${blocks}
