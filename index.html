@@ -17,22 +17,19 @@
       <div>
         <h1 class="text-3xl font-bold tracking-tight">Ressursplanlegging 2026</h1>
         <p class="text-slate-600 mt-1">
-          Demo med kalender, ansatte, prosjekter, Kanban, varsler og lokal lagring i nettleseren.
+          Full demo med kalender, ansatte, prosjekter, Kanban, varsler og testdata.
         </p>
       </div>
-    <div class="flex flex-wrap gap-2">
-  <span class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm">Demo</span>
-  <span class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm">LocalStorage</span>
-  <button id="togglePanelBtn" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm">
-    Skjul sidepanel
-  </button>
-</div>
+      <div class="flex flex-wrap gap-2">
+        <span class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm">Demo</span>
+        <span class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm">LocalStorage</span>
+      </div>
     </header>
 
     <section id="statsRow" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4"></section>
 
-   <section class="flex gap-4 items-start">
-      <div id="mainCalendar" class="flex-1 rounded-2xl bg-white border border-slate-200 shadow-sm">
+    <section class="grid grid-cols-1 xl:grid-cols-4 gap-4">
+      <div class="xl:col-span-3 rounded-2xl bg-white border border-slate-200 shadow-sm">
         <div class="p-4 border-b border-slate-200 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
           <div class="flex flex-wrap gap-2 items-center">
             <input id="searchInput" class="w-[220px] rounded-2xl border border-slate-300 px-3 py-2" placeholder="Søk ansatt" />
@@ -50,13 +47,13 @@
           </div>
         </div>
         <div class="p-4 border-b border-slate-200 text-sm text-slate-500">
-          Hver tildeling vises som én sammenhengende bar over hele perioden. Hover for detaljer. Klikk for å redigere.
+          Hver tildeling vises som én sammenhengende bar over hele perioden. Hover over blokken for detaljer. Klikk for å redigere.
         </div>
         <div id="warningBox" class="hidden mx-4 mt-4 rounded-2xl border border-red-300 bg-red-50 p-4 text-red-700 text-sm"></div>
         <div id="calendarWrap" class="overflow-auto p-4 scrollbar-thin"></div>
       </div>
 
-      <div id="sidePanel" class="w-[380px] space-y-4 transition-all duration-300">
+      <div class="space-y-4">
         <div class="rounded-2xl bg-white border border-slate-200 shadow-sm">
           <div class="p-4 border-b border-slate-200"><h2 class="font-semibold">Røde dager</h2></div>
           <div id="holidayList" class="p-4 space-y-2 text-sm max-h-[240px] overflow-auto scrollbar-thin"></div>
