@@ -1,3 +1,10 @@
+
+const supabase = window.supabase.createClient(
+  "https://glyftmrkjherfrapbnjx.supabase.co",
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+);
+
+
 function load(key, fallback) {
   try {
     const raw = localStorage.getItem(key);
