@@ -1,5 +1,5 @@
 const SUPABASE_URL = "https://glyftmrkjherfrapbnjx.supabase.co";
-const SUPABASE_ANON_KEY = "SETT_INN_DIN_ANON_KEY_HER";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdseWZ0bXJramhlcmZyYXBibmp4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYwOTUwMzAsImV4cCI6MjA5MTY3MTAzMH0.6XEGISHw8D_HddO4iglkc9PdNRo-s3y_Ejxy80ALLfE";
 
 const STORAGE_KEYS = {
   employees: "planner_employees_v31",
