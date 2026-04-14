@@ -36,12 +36,6 @@
   window.addEventListener("resize", debounce(() => renderCalendar(), 120));
 
   async function init() {
-    // hide reset demo button safely
-    setTimeout(() => {
-      const btn = document.getElementById("resetDemoBtn");
-      if (btn) btn.style.display = "none";
-    }, 0);
-
     cacheElements();
     setupStaticOptions();
     bindEvents();
