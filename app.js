@@ -31,6 +31,13 @@
     justDraggedEntryId: null
   };
 
+  const EMPLOYEE_TYPE_OPTIONS = ["Offshore", "Onshore", "Innleid / 3.part"];
+  const EMPLOYEE_TYPE_ORDER = {
+    "Offshore": 0,
+    "Onshore": 1,
+    "Innleid / 3.part": 2
+  };
+
   const els = {};
   let saveStatusTimer = null;
   let calendarScrollSyncRaf = null;
@@ -41,6 +48,8 @@
   async function init() {
     cacheElements();
     ensureAccountPanel();
+    ensureEmployeeTypeField();
+    relocateSystemStatusCard();
     setupStaticOptions();
     bindEvents();
 
@@ -67,7 +76,7 @@
       "projectName", "projectCategory", "projectStatus", "projectPlannedStart", "projectPlannedEnd",
       "projectLocation", "projectHeadcount", "projectNotes", "saveProjectBtn", "deleteProjectBtn",
       "newEmployeeBtn", "employeeModal", "employeeModalTitle", "closeEmployeeModalBtn",
-      "employeeName", "employeeEmail", "employeePhone", "employeeTitle", "employeeActive", "saveEmployeeBtn", "deleteEmployeeBtn",
+      "employeeName", "employeeEmail", "employeePhone", "employeeTitle", "employeeType", "employeeActive", "saveEmployeeBtn", "deleteEmployeeBtn",
       "accountPanel", "accountUserInfo", "accountMenu", "accountMenuBtn", "changePasswordBtn", "resetPasswordBtn", "logoutBtn"
     ];
 
@@ -218,6 +227,7 @@
       alert(`Kunne ikke logge ut: ${error.message}`);
       return;
     }
+
     window.location.reload();
   }
 
@@ -225,6 +235,72 @@
     if (!els.accountMenu) return;
     const shouldOpen = forceOpen === null ? els.accountMenu.classList.contains("hidden") : forceOpen;
     els.accountMenu.classList.toggle("hidden", !shouldOpen);
+  }
+
+  function normalizeEmployeeType(value) {
+    const raw = String(value || "").trim().toLowerCase();
+    if (raw === "offshore") return "Offshore";
+    if (raw === "onshore" || raw === "verksted") return "Onshore";
+    if (raw === "innleid" || raw === "3.part" || raw === "3 part" || raw === "3-part" || raw === "innleid / 3.part") return "Innleid / 3.part";
+    return "Onshore";
+  }
+
+  function compareEmployees(a, b) {
+    const typeDiff = (EMPLOYEE_TYPE_ORDER[a.employee_type] ?? 99) - (EMPLOYEE_TYPE_ORDER[b.employee_type] ?? 99);
+    if (typeDiff !== 0) return typeDiff;
+    return a.name.localeCompare(b.name, "no");
+  }
+
+  function ensureEmployeeTypeField() {
+    if (document.getElementById("employeeType")) {
+      els.employeeType = document.getElementById("employeeType");
+      return;
+    }
+
+    if (!els.employeeModal) return;
+
+    const saveContainer = els.saveEmployeeBtn?.parentElement;
+    if (!saveContainer) return;
+
+    const wrapper = document.createElement("label");
+    wrapper.className = "block";
+    wrapper.innerHTML = `
+      <span class="block text-sm font-medium text-slate-700 mb-1">Personellkategori</span>
+      <select id="employeeType" class="w-full rounded-xl border border-slate-300 px-3 py-2 bg-white">
+        ${EMPLOYEE_TYPE_OPTIONS.map(v => `<option value="${v}">${v}</option>`).join("")}
+      </select>
+    `;
+
+    const modalBody = saveContainer.parentElement;
+    modalBody.insertBefore(wrapper, saveContainer);
+    els.employeeType = document.getElementById("employeeType");
+  }
+
+  function findBlockContainer(el) {
+    let node = el;
+    for (let i = 0; i < 5 && node?.parentElement; i++) {
+      const cls = String(node.className || "");
+      if (cls.includes("rounded") || cls.includes("border") || cls.includes("shadow")) return node;
+      node = node.parentElement;
+    }
+    return el;
+  }
+
+  function relocateSystemStatusCard() {
+    if (!els.systemStatus || !els.kanbanBoard) return;
+    const systemBlock = findBlockContainer(els.systemStatus);
+    const kanbanBlock = findBlockContainer(els.kanbanBoard);
+    if (!systemBlock?.parentElement || !kanbanBlock?.parentElement) return;
+    if (systemBlock === kanbanBlock) return;
+
+    if (kanbanBlock.parentElement === systemBlock.parentElement) {
+      kanbanBlock.insertAdjacentElement("afterend", systemBlock);
+    } else {
+      kanbanBlock.parentElement.appendChild(systemBlock);
+    }
+
+    systemBlock.classList.add("mt-6");
+    systemBlock.style.opacity = "0.88";
   }
 
   function setupStaticOptions() {
@@ -468,10 +544,13 @@
   }
 
   function normalizeEmployees(list) {
-    return (list || []).map(emp => ({
-      ...emp,
-      title: emp?.title || ""
-    }));
+    return (list || [])
+      .map(emp => ({
+        ...emp,
+        title: emp?.title || "",
+        employee_type: normalizeEmployeeType(emp?.employee_type || emp?.personelltype || emp?.employeeType)
+      }))
+      .sort(compareEmployees);
   }
 
   function normalizeProjects(list) {
@@ -700,8 +779,8 @@
     state.entries = structuredClone(DEFAULT_ENTRIES);
     state.auditLog = structuredClone(DEFAULT_AUDIT_LOG);
     state.notificationLog = structuredClone(DEFAULT_NOTIFICATION_LOG);
-    state.startDate = new Date("2026-01-05");
-    state.viewMode = "Uke";
+    state.startDate = startOfCurrentMonth();
+    state.viewMode = "Måned";
     state.calendarMode = "personal";
     rebuildDerivedState();
     persistUiState();
@@ -998,6 +1077,9 @@
     els.employeeEmail.value = employee?.email || "";
     els.employeePhone.value = employee?.phone || "";
     els.employeeTitle.value = employee?.title || "";
+    if (els.employeeType) {
+      fillSelect(els.employeeType, EMPLOYEE_TYPE_OPTIONS, employee?.employee_type || "Onshore");
+    }
     els.employeeActive.checked = employee?.active ?? true;
     els.deleteEmployeeBtn.style.display = employee ? "inline-flex" : "none";
 
@@ -1016,6 +1098,7 @@
     const email = els.employeeEmail.value.trim();
     const phone = els.employeePhone.value.trim();
     const title = els.employeeTitle.value.trim();
+    const employeeType = normalizeEmployeeType(els.employeeType?.value || "Onshore");
     const active = els.employeeActive.checked;
 
     if (!name) {
@@ -1039,6 +1122,7 @@
       employee.email = email;
       employee.phone = phone;
       employee.title = title;
+      employee.employee_type = employeeType;
       employee.active = active;
 
       if (oldName !== name) {
@@ -1059,6 +1143,7 @@
         email,
         phone,
         title,
+        employee_type: employeeType,
         active
       };
       state.employees.push(employee);
@@ -1124,6 +1209,7 @@
         email: "",
         phone: "",
         title: "",
+        employee_type: "Onshore",
         active: true
       };
 
@@ -1187,6 +1273,7 @@
     renderNotifications();
     renderAudit();
     renderSystemStatus();
+    relocateSystemStatusCard();
     updateBadge();
     applyRoleChrome();
   }
@@ -1295,7 +1382,10 @@
       <button data-employee-id="${escapeHtml(emp.id)}" class="w-full text-left rounded-xl border border-slate-200 p-3 bg-slate-50 hover:bg-slate-100">
         <div class="flex items-center justify-between gap-2">
           <div class="font-medium">${escapeHtml(emp.name)}</div>
-          <span class="text-xs ${emp.active ? "text-green-700" : "text-amber-700"}">${emp.active ? "Aktiv" : "Inaktiv"}</span>
+          <div class="flex items-center gap-2">
+            <span class="rounded-full border px-2 py-0.5 text-[11px] text-slate-600 border-slate-200 bg-white">${escapeHtml(emp.employee_type || "Onshore")}</span>
+            <span class="text-xs ${emp.active ? "text-green-700" : "text-amber-700"}">${emp.active ? "Aktiv" : "Inaktiv"}</span>
+          </div>
         </div>
         <div class="text-xs text-slate-500 mt-1">${escapeHtml(emp.email || "Ingen e-post")}</div>
         <div class="text-xs text-slate-500">${escapeHtml(emp.phone || "Ingen telefon")}</div>
