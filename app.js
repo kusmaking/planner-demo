@@ -21,6 +21,9 @@
   const els = {};
 
   document.addEventListener("DOMContentLoaded", init);
+  window.addEventListener("resize", debounce(() => {
+    renderCalendar();
+  }, 120));
 
   async function init() {
     cacheElements();
@@ -122,6 +125,7 @@
   }
 
   function fillSelect(selectEl, values, selected = null, labelKey = null, valueKey = null) {
+    if (!selectEl) return;
     selectEl.innerHTML = "";
 
     values.forEach(item => {
@@ -340,7 +344,6 @@
 
     els.projectName.value = "";
     els.projectNotes.value = "";
-
     renderAll();
   }
 
@@ -376,7 +379,6 @@
     els.employeeName.value = "";
     els.employeeEmail.value = "";
     els.employeePhone.value = "";
-
     renderAll();
   }
 
@@ -634,7 +636,11 @@
   }
 
   function populateDynamicSelects() {
-    const employeeFilterItems = [{ name: "Alle ansatte", id: "Alle ansatte" }, ...state.employees.map(e => ({ id: e.name, name: e.name }))];
+    const employeeFilterItems = [
+      { name: "Alle ansatte", id: "Alle ansatte" },
+      ...state.employees.map(e => ({ id: e.name, name: e.name }))
+    ];
+
     fillSelect(els.employeeFilter, employeeFilterItems, state.employeeFilter, "name", "id");
     fillSelect(els.assignEmployee, state.employees, state.employees[0]?.name || "", "name", "name");
     fillSelect(els.editEmployee, state.employees, state.employees[0]?.name || "", "name", "name");
@@ -710,7 +716,7 @@
 
     els.kanbanBoard.innerHTML = groups.map(group => `
       <div class="rounded-2xl border border-slate-200 bg-slate-50">
-        <div class="p-3 border-b border-slate-200 font-medium">${escapeHtml(group.status)} (${group.projects.length})}</div>
+        <div class="p-3 border-b border-slate-200 font-medium">${escapeHtml(group.status)} (${group.projects.length})</div>
         <div class="p-3 space-y-2">
           ${group.projects.length ? group.projects.map(project => `
             <div class="rounded-xl border border-slate-200 bg-white p-3">
@@ -760,6 +766,7 @@
   }
 
   function renderCalendar() {
+    if (!els.calendarWrap) return;
     els.rangeTitle.innerHTML = getRangeTitle();
 
     if (state.viewMode === "År") {
@@ -774,13 +781,14 @@
     const range = getCurrentRange();
     const days = getDaysBetween(range.start, range.end);
     const employees = getFilteredEmployees();
-    const calendarWrapWidth = Math.max(els.calendarWrap.clientWidth - 32, 900);
+
+    const calendarWrapWidth = Math.max(els.calendarWrap.clientWidth - 8, 900);
     const stickyWidth = 280;
-    const usableWidth = Math.max(calendarWrapWidth - stickyWidth, 560);
+    const usableWidth = Math.max(calendarWrapWidth - stickyWidth, state.viewMode === "Uke" ? 980 : 1100);
     const colWidth = usableWidth / days.length;
     const totalWidth = colWidth * days.length;
 
-    let html = `<div class="calendar-shell">`;
+    let html = `<div class="calendar-shell" style="width:${stickyWidth + totalWidth}px;">`;
 
     html += `
       <div class="day-grid border border-slate-200 rounded-2xl overflow-hidden" style="grid-template-columns:${stickyWidth}px repeat(${days.length}, ${colWidth}px);">
@@ -792,11 +800,12 @@
     for (const day of days) {
       const weekend = isWeekend(day);
       const isTodayFlag = sameDate(day, new Date());
+      const weekLabel = state.viewMode === "Uke" ? `<div>Uke ${getIsoWeek(day)}</div>` : "";
 
       html += `
         <div class="border-b border-r border-slate-200 px-2 py-2 text-center text-xs ${weekend ? "bg-slate-50" : "bg-white"} ${isTodayFlag ? "text-blue-700 font-semibold" : "text-slate-600"}">
           <div class="font-semibold">${weekdayShort(day)}</div>
-          <div>Uke ${getIsoWeek(day)}</div>
+          ${weekLabel}
           <div class="font-semibold">${day.getDate()}</div>
           <div>${monthShort(day)}</div>
         </div>
@@ -875,13 +884,14 @@
     const employees = getFilteredEmployees();
     const year = state.startDate.getFullYear();
     const months = Array.from({ length: 12 }, (_, i) => new Date(year, i, 1));
-    const calendarWrapWidth = Math.max(els.calendarWrap.clientWidth - 32, 900);
+
+    const calendarWrapWidth = Math.max(els.calendarWrap.clientWidth - 8, 900);
     const stickyWidth = 280;
-    const usableWidth = Math.max(calendarWrapWidth - stickyWidth, 720);
+    const usableWidth = Math.max(calendarWrapWidth - stickyWidth, 1000);
     const monthWidth = usableWidth / 12;
     const totalWidth = monthWidth * 12;
 
-    let html = `<div class="calendar-shell">`;
+    let html = `<div class="calendar-shell" style="width:${stickyWidth + totalWidth}px;">`;
 
     html += `
       <div class="month-summary-grid border border-slate-200 rounded-2xl overflow-hidden" style="grid-template-columns:${stickyWidth}px repeat(12, ${monthWidth}px);">
@@ -1024,7 +1034,7 @@
     }
 
     if (state.viewMode === "Måned") {
-      return `Månedsvisning: ${monthLong(range.start)} ${range.start.getFullYear()}`;
+      return `Månedsvisning: ${capitalize(monthLong(range.start))} ${range.start.getFullYear()}`;
     }
 
     return `Årsvisning: ${range.start.getFullYear()}`;
@@ -1080,7 +1090,7 @@
   }
 
   function formatYearBarLabel(start, end) {
-    return `${monthShort(new Date(start))}–${monthShort(new Date(end))}`;
+    return `${capitalize(monthShort(new Date(start)))}–${capitalize(monthShort(new Date(end)))}`;
   }
 
   function toIsoDate(date) {
@@ -1145,7 +1155,7 @@
   }
 
   function weekdayShort(date) {
-    return new Intl.DateTimeFormat("no-NO", { weekday: "short" }).format(date);
+    return capitalize(new Intl.DateTimeFormat("no-NO", { weekday: "short" }).format(date));
   }
 
   function monthShort(date) {
@@ -1166,6 +1176,19 @@
 
   function uniqueArray(arr) {
     return [...new Set(arr)];
+  }
+
+  function capitalize(value) {
+    const str = String(value || "");
+    return str.charAt(0).toUpperCase() + str.slice(1);
+  }
+
+  function debounce(fn, wait = 100) {
+    let timeout;
+    return (...args) => {
+      clearTimeout(timeout);
+      timeout = setTimeout(() => fn(...args), wait);
+    };
   }
 
   function escapeHtml(value) {
