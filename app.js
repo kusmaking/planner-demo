@@ -206,9 +206,9 @@
       }
 
       const hasData =
-        employeesRes.data.length ||
-        projectsRes.data.length ||
-        entriesRes.data.length;
+        (employeesRes.data?.length || 0) > 0 ||
+        (projectsRes.data?.length || 0) > 0 ||
+        (entriesRes.data?.length || 0) > 0;
 
       if (!hasData && initial) {
         await seedSupabaseWithCurrentState();
@@ -241,7 +241,11 @@
   }
 
   async function replaceSupabaseTable(table, rows) {
-    const { error: deleteError } = await supabaseClient.from(table).delete().neq("id", "__none__");
+    const { error: deleteError } = await supabaseClient
+      .from(table)
+      .delete()
+      .not("id", "is", null);
+
     if (deleteError) throw deleteError;
 
     if (rows.length > 0) {
@@ -588,7 +592,11 @@
 
   async function replaceSingleTable(table, rows) {
     try {
-      const { error: deleteError } = await supabaseClient.from(table).delete().neq("id", "__none__");
+      const { error: deleteError } = await supabaseClient
+        .from(table)
+        .delete()
+        .not("id", "is", null);
+
       if (deleteError) throw deleteError;
 
       if (rows.length > 0) {
