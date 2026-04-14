@@ -9,6 +9,55 @@
     .scrollbar-thin::-webkit-scrollbar { height: 10px; width: 10px; }
     .scrollbar-thin::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 9999px; }
     .scrollbar-thin::-webkit-scrollbar-track { background: #f8fafc; }
+
+    .calendar-grid {
+      display: grid;
+      gap: 0;
+      min-width: 1200px;
+    }
+
+    .calendar-sticky-col {
+      position: sticky;
+      left: 0;
+      z-index: 20;
+      background: white;
+    }
+
+    .entry-bar {
+      position: absolute;
+      top: 6px;
+      bottom: 6px;
+      border-width: 1px;
+      border-radius: 14px;
+      padding: 6px 10px;
+      font-size: 12px;
+      line-height: 1.15;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+      cursor: pointer;
+      box-shadow: 0 1px 2px rgba(15, 23, 42, 0.12);
+    }
+
+    .entry-row {
+      position: relative;
+      min-height: 56px;
+    }
+
+    .day-cell {
+      min-height: 56px;
+      border-right: 1px solid #e2e8f0;
+      border-bottom: 1px solid #e2e8f0;
+      background: #fff;
+    }
+
+    .day-cell.weekend {
+      background: #f8fafc;
+    }
+
+    .day-cell.today {
+      background: #eff6ff;
+    }
   </style>
 </head>
 <body class="bg-slate-100 text-slate-900">
@@ -17,12 +66,13 @@
       <div>
         <h1 class="text-3xl font-bold tracking-tight">Ressursplanlegging 2026</h1>
         <p class="text-slate-600 mt-1">
-          Full demo med kalender, ansatte, prosjekter, Kanban, varsler og testdata.
+          Stabil planlegging med Supabase, fler-dagers blokker og lokal fallback.
         </p>
       </div>
-      <div class="flex flex-wrap gap-2">
-        <span class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm">Demo</span>
-        <span class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm">Supabase + LocalStorage fallback</span>
+      <div class="flex flex-wrap gap-2 items-center">
+        <span id="storageBadge" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm">Laster...</span>
+        <button id="syncNowBtn" class="rounded-2xl border border-slate-300 bg-white px-4 py-2 text-sm">Synkroniser nå</button>
+        <button id="resetDemoBtn" class="rounded-2xl border border-slate-300 bg-white px-4 py-2 text-sm">Nullstill demo</button>
       </div>
     </header>
 
@@ -37,30 +87,35 @@
             <select id="viewMode" class="rounded-2xl border border-slate-300 px-3 py-2">
               <option value="Uke">Uke</option>
               <option value="Måned">Måned</option>
-              <option value="År">År</option>
             </select>
           </div>
           <div class="flex gap-2">
             <button id="prevBtn" class="rounded-2xl border border-slate-300 bg-white px-4 py-2">Tilbake</button>
+            <button id="todayBtn" class="rounded-2xl border border-slate-300 bg-white px-4 py-2">I dag</button>
             <button id="nextBtn" class="rounded-2xl border border-slate-300 bg-white px-4 py-2">Frem</button>
-            <button id="resetBtn" class="rounded-2xl border border-slate-300 bg-white px-4 py-2">Nullstill demo</button>
           </div>
         </div>
+
         <div class="p-4 border-b border-slate-200 text-sm text-slate-500">
-          Hver tildeling vises som én sammenhengende bar over hele perioden. Hover over blokken for detaljer. Klikk for å redigere.
+          Hver tildeling vises som én sammenhengende blokk over hele perioden. Klikk på en blokk for å redigere.
         </div>
+
         <div id="warningBox" class="hidden mx-4 mt-4 rounded-2xl border border-red-300 bg-red-50 p-4 text-red-700 text-sm"></div>
         <div id="calendarWrap" class="overflow-auto p-4 scrollbar-thin"></div>
       </div>
 
       <div class="space-y-4">
         <div class="rounded-2xl bg-white border border-slate-200 shadow-sm">
-          <div class="p-4 border-b border-slate-200"><h2 class="font-semibold">Røde dager</h2></div>
-          <div id="holidayList" class="p-4 space-y-2 text-sm max-h-[240px] overflow-auto scrollbar-thin"></div>
+          <div class="p-4 border-b border-slate-200">
+            <h2 class="font-semibold">Systemstatus</h2>
+          </div>
+          <div id="systemStatus" class="p-4 text-sm space-y-2"></div>
         </div>
 
         <div class="rounded-2xl bg-white border border-slate-200 shadow-sm">
-          <div class="p-4 border-b border-slate-200"><h2 class="font-semibold">Farger og status</h2></div>
+          <div class="p-4 border-b border-slate-200">
+            <h2 class="font-semibold">Farger og status</h2>
+          </div>
           <div id="legendList" class="p-4 space-y-2 text-sm"></div>
         </div>
       </div>
@@ -69,7 +124,9 @@
     <section class="grid grid-cols-1 xl:grid-cols-4 gap-4">
       <div class="xl:col-span-3 grid grid-cols-1 xl:grid-cols-2 gap-4">
         <div class="rounded-2xl bg-white border border-slate-200 shadow-sm">
-          <div class="p-4 border-b border-slate-200"><h2 class="font-semibold">Legg inn prosjekt</h2></div>
+          <div class="p-4 border-b border-slate-200">
+            <h2 class="font-semibold">Legg inn prosjekt</h2>
+          </div>
           <div class="p-4 space-y-3">
             <input id="projectName" class="w-full rounded-2xl border border-slate-300 px-3 py-2" placeholder="Prosjektnavn" />
             <select id="projectCategory" class="w-full rounded-2xl border border-slate-300 px-3 py-2"></select>
@@ -80,16 +137,13 @@
         </div>
 
         <div class="rounded-2xl bg-white border border-slate-200 shadow-sm">
-          <div class="p-4 border-b border-slate-200"><h2 class="font-semibold">Tildel prosjekt i kalender</h2></div>
+          <div class="p-4 border-b border-slate-200">
+            <h2 class="font-semibold">Tildel prosjekt i kalender</h2>
+          </div>
           <div class="p-4 space-y-3">
             <select id="assignProject" class="w-full rounded-2xl border border-slate-300 px-3 py-2"></select>
             <select id="assignEmployee" class="w-full rounded-2xl border border-slate-300 px-3 py-2"></select>
-            <select id="assignRole" class="w-full rounded-2xl border border-slate-300 px-3 py-2">
-              <option>Supervisor</option>
-              <option>Mekaniker 1</option>
-              <option>Mekaniker 2</option>
-              <option>Mekaniker 3</option>
-            </select>
+            <select id="assignRole" class="w-full rounded-2xl border border-slate-300 px-3 py-2"></select>
             <div class="grid grid-cols-2 gap-2">
               <input id="assignStart" type="date" class="rounded-2xl border border-slate-300 px-3 py-2" />
               <input id="assignEnd" type="date" class="rounded-2xl border border-slate-300 px-3 py-2" />
@@ -102,7 +156,9 @@
 
       <div class="space-y-4">
         <div class="rounded-2xl bg-white border border-slate-200 shadow-sm">
-          <div class="p-4 border-b border-slate-200"><h2 class="font-semibold">Ansatte</h2></div>
+          <div class="p-4 border-b border-slate-200">
+            <h2 class="font-semibold">Ansatte</h2>
+          </div>
           <div class="p-4 space-y-3">
             <textarea id="bulkEmployees" class="w-full rounded-2xl border border-slate-300 px-3 py-2" rows="4" placeholder="Lim inn flere navn, ett per linje"></textarea>
             <button id="bulkAddBtn" class="w-full rounded-2xl border border-slate-300 bg-white px-4 py-2">Legg til mange ansatte</button>
@@ -118,17 +174,23 @@
 
     <section class="grid grid-cols-1 xl:grid-cols-3 gap-4">
       <div class="rounded-2xl bg-white border border-slate-200 shadow-sm">
-        <div class="p-4 border-b border-slate-200"><h2 class="font-semibold">Kanban – prosjekter og kategorier</h2></div>
+        <div class="p-4 border-b border-slate-200">
+          <h2 class="font-semibold">Kanban – prosjekter</h2>
+        </div>
         <div id="kanbanBoard" class="p-4 grid grid-cols-1 gap-4"></div>
       </div>
 
       <div class="rounded-2xl bg-white border border-slate-200 shadow-sm">
-        <div class="p-4 border-b border-slate-200"><h2 class="font-semibold">Varsellogg</h2></div>
+        <div class="p-4 border-b border-slate-200">
+          <h2 class="font-semibold">Varsellogg</h2>
+        </div>
         <div id="notificationList" class="p-4 space-y-3 max-h-[300px] overflow-auto scrollbar-thin"></div>
       </div>
 
       <div class="rounded-2xl bg-white border border-slate-200 shadow-sm">
-        <div class="p-4 border-b border-slate-200"><h2 class="font-semibold">Endringslogg</h2></div>
+        <div class="p-4 border-b border-slate-200">
+          <h2 class="font-semibold">Endringslogg</h2>
+        </div>
         <div id="auditList" class="p-4 space-y-3 max-h-[300px] overflow-auto scrollbar-thin"></div>
       </div>
     </section>
@@ -143,12 +205,7 @@
       <div class="p-4 space-y-4">
         <select id="editProject" class="w-full rounded-2xl border border-slate-300 px-3 py-2"></select>
         <select id="editEmployee" class="w-full rounded-2xl border border-slate-300 px-3 py-2"></select>
-        <select id="editRole" class="w-full rounded-2xl border border-slate-300 px-3 py-2">
-          <option>Supervisor</option>
-          <option>Mekaniker 1</option>
-          <option>Mekaniker 2</option>
-          <option>Mekaniker 3</option>
-        </select>
+        <select id="editRole" class="w-full rounded-2xl border border-slate-300 px-3 py-2"></select>
         <div class="grid grid-cols-2 gap-2">
           <input id="editStart" type="date" class="rounded-2xl border border-slate-300 px-3 py-2" />
           <input id="editEnd" type="date" class="rounded-2xl border border-slate-300 px-3 py-2" />
@@ -163,7 +220,7 @@
   </div>
 
   <script src="./data.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="./app.js"></script>
 </body>
 </html>
