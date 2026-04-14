@@ -2,21 +2,31 @@ const SUPABASE_URL = "https://glyftmrkjherfrapbnjx.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdseWZ0bXJramhlcmZyYXBibmp4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYwOTUwMzAsImV4cCI6MjA5MTY3MTAzMH0.6XEGISHw8D_HddO4iglkc9PdNRo-s3y_Ejxy80ALLfE";
 
 const STORAGE_KEYS = {
-  employees: "planner_employees_v31",
-  projects: "planner_projects_v31",
-  entries: "planner_entries_v31",
-  auditLog: "planner_audit_v31",
-  notificationLog: "planner_notifications_v31",
-  startDate: "planner_start_v31",
-  viewMode: "planner_view_v31",
-  calendarMode: "planner_calendar_mode_v31"
+  employees: "planner_employees_v41",
+  projects: "planner_projects_v41",
+  entries: "planner_entries_v41",
+  auditLog: "planner_audit_v41",
+  notificationLog: "planner_notifications_v41",
+  startDate: "planner_start_v41",
+  viewMode: "planner_view_v41",
+  calendarMode: "planner_calendar_mode_v41"
+};
+
+const LEGACY_STORAGE_KEYS = {
+  employees: ["planner_employees_v31"],
+  projects: ["planner_projects_v31"],
+  entries: ["planner_entries_v31"],
+  auditLog: ["planner_audit_v31"],
+  notificationLog: ["planner_notifications_v31"],
+  startDate: ["planner_start_v31"],
+  viewMode: ["planner_view_v31"],
+  calendarMode: ["planner_calendar_mode_v31"]
 };
 
 const CATEGORY_COLORS = {
-  Project: "bg-green-500 border-green-600 text-white",
+  Offshore: "bg-green-500 border-green-600 text-white",
   Travel: "bg-cyan-500 border-cyan-600 text-white",
   Onshore: "bg-indigo-500 border-indigo-600 text-white",
-  Trainee: "bg-sky-500 border-sky-600 text-white",
   Kurs: "bg-violet-500 border-violet-600 text-white",
   Ferie: "bg-orange-400 border-orange-500 text-slate-900",
   Syk: "bg-red-600 border-red-700 text-white",
@@ -27,6 +37,7 @@ const STATUS_COLORS = {
   Planlagt: "bg-blue-100 text-blue-800 border-blue-200",
   "Pågår": "bg-green-100 text-green-800 border-green-200",
   Avventer: "bg-yellow-100 text-yellow-800 border-yellow-200",
+  Avsluttet: "bg-slate-200 text-slate-700 border-slate-300",
   "Fullført": "bg-slate-200 text-slate-700 border-slate-300"
 };
 
@@ -38,8 +49,8 @@ const ROLE_CLASSES = {
 };
 
 const ROLE_OPTIONS = ["Supervisor", "Mekaniker 1", "Mekaniker 2", "Mekaniker 3"];
-const CATEGORY_OPTIONS = ["Project", "Travel", "Onshore", "Trainee", "Kurs", "Ferie", "Syk", "Avspasering"];
-const STATUS_OPTIONS = ["Planlagt", "Pågår", "Avventer", "Fullført"];
+const CATEGORY_OPTIONS = ["Offshore", "Travel", "Onshore", "Kurs", "Ferie", "Syk", "Avspasering"];
+const STATUS_OPTIONS = ["Planlagt", "Pågår", "Avventer", "Avsluttet"];
 
 const DEFAULT_EMPLOYEES = [
   { id: crypto.randomUUID(), name: "Olis Hansen", email: "olis@firma.no", phone: "+47 90000001", active: true },
@@ -73,7 +84,7 @@ const DEFAULT_PROJECTS = [
   {
     id: crypto.randomUUID(),
     name: "PBF California",
-    category: "Project",
+    category: "Offshore",
     status: "Pågår",
     planned_start_date: "2026-01-10",
     planned_end_date: "2026-01-25",
@@ -84,7 +95,7 @@ const DEFAULT_PROJECTS = [
   {
     id: crypto.randomUUID(),
     name: "IZO-30220 Tyrkia",
-    category: "Project",
+    category: "Offshore",
     status: "Pågår",
     planned_start_date: "2026-01-12",
     planned_end_date: "2026-01-26",
@@ -95,7 +106,7 @@ const DEFAULT_PROJECTS = [
   {
     id: crypto.randomUUID(),
     name: "Shell Bukom",
-    category: "Project",
+    category: "Offshore",
     status: "Pågår",
     planned_start_date: "2026-01-12",
     planned_end_date: "2026-01-23",
@@ -161,7 +172,7 @@ const DEFAULT_PROJECTS = [
   {
     id: crypto.randomUUID(),
     name: "Åsgard A 18CL900",
-    category: "Project",
+    category: "Offshore",
     status: "Planlagt",
     planned_start_date: "2026-03-02",
     planned_end_date: "2026-03-13",
@@ -172,7 +183,7 @@ const DEFAULT_PROJECTS = [
   {
     id: crypto.randomUUID(),
     name: "New Platform Upgrade",
-    category: "Project",
+    category: "Offshore",
     status: "Planlagt",
     planned_start_date: "2026-04-06",
     planned_end_date: "2026-04-22",
@@ -202,7 +213,7 @@ const DEFAULT_ENTRIES = [
 ];
 
 const DEFAULT_AUDIT_LOG = [
-  { id: crypto.randomUUID(), user_name: "Olis Hansen", action_text: "Initialiserte planleggingsverktøy versjon 3.1", created_at: new Date().toISOString() }
+  { id: crypto.randomUUID(), user_name: "Olis Hansen", action_text: "Initialiserte planleggingsverktøy versjon 4.1", created_at: new Date().toISOString() }
 ];
 
 const DEFAULT_NOTIFICATION_LOG = [];
