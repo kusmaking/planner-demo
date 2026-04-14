@@ -7,13 +7,16 @@
     entries: [],
     auditLog: [],
     notificationLog: [],
-    currentUser: "Olis Hansen",
-    isAuthenticated: false,
+    currentUser: "Ikke innlogget",
+    currentUserEmail: "",
+    currentRole: "",
+    authReady: false,
     employeeFilter: "Alle ansatte",
+    employeeTypeFilter: "Alle",
     search: "",
-    viewMode: load(STORAGE_KEYS.viewMode, "Uke"),
+    viewMode: "Måned",
     calendarMode: load(STORAGE_KEYS.calendarMode, "personal"),
-    startDate: new Date(load(STORAGE_KEYS.startDate, "2026-01-05")),
+    startDate: startOfCurrentMonth(),
     selectedEntryId: null,
     selectedProjectId: null,
     selectedEmployeeId: null,
@@ -38,17 +41,26 @@
 
   async function init() {
     cacheElements();
+    ensureAccountPanel();
+    ensureEmployeeTypeFilter();
+    ensureEmployeeTypeField();
     setupStaticOptions();
     bindEvents();
+
+    state.viewMode = "Måned";
+    state.startDate = startOfCurrentMonth();
+    persistUiState();
+
+    await loadAuthUser();
     await bootData();
-    await checkAuthAndToggleUI();
     rebuildDerivedState();
     renderAll();
+    applyRoleChrome();
   }
 
   function cacheElements() {
     const ids = [
-      "statsRow", "searchInput", "employeeFilter", "viewMode", "calendarMode", "prevBtn", "nextBtn", "todayBtn",
+      "statsRow", "searchInput", "employeeFilter", "employeeTypeFilter", "viewMode", "calendarMode", "prevBtn", "nextBtn", "todayBtn",
       "calendarWrap", "warningBox", "legendList", "projectList", "assignProject", "assignEmployee", "assignRole",
       "assignStart", "assignEnd", "assignNotes", "assignBtn", "bulkEmployees", "bulkAddBtn",
       "employeeList", "kanbanBoard", "notificationList", "auditList", "editModal", "closeModalBtn",
@@ -58,14 +70,178 @@
       "projectName", "projectCategory", "projectStatus", "projectPlannedStart", "projectPlannedEnd",
       "projectLocation", "projectHeadcount", "projectNotes", "saveProjectBtn", "deleteProjectBtn",
       "newEmployeeBtn", "employeeModal", "employeeModalTitle", "closeEmployeeModalBtn",
-      "employeeName", "employeeEmail", "employeePhone", "employeeTitle", "employeeActive", "saveEmployeeBtn", "deleteEmployeeBtn"
+      "employeeName", "employeeEmail", "employeePhone", "employeeTitle", "employeeType", "employeeActive", "saveEmployeeBtn", "deleteEmployeeBtn",
+      "accountPanel", "accountUserInfo", "changePasswordBtn", "resetPasswordBtn"
     ];
 
     ids.forEach(id => els[id] = document.getElementById(id));
   }
 
+
+  function ensureAccountPanel() {
+    if (document.getElementById("accountPanel")) {
+      els.accountPanel = document.getElementById("accountPanel");
+      els.accountUserInfo = document.getElementById("accountUserInfo");
+      els.changePasswordBtn = document.getElementById("changePasswordBtn");
+      els.resetPasswordBtn = document.getElementById("resetPasswordBtn");
+      return;
+    }
+
+    const panel = document.createElement("div");
+    panel.id = "accountPanel";
+    panel.className = "flex flex-wrap items-center justify-end gap-2";
+    panel.innerHTML = `
+      <div id="accountUserInfo" class="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700">Ikke innlogget</div>
+      <button id="changePasswordBtn" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm hover:bg-slate-50">Endre passord</button>
+      <button id="resetPasswordBtn" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm hover:bg-slate-50">Send reset-link</button>
+    `;
+
+    const anchor = els.storageBadge?.parentElement || document.body.firstElementChild || document.body;
+    anchor.appendChild(panel);
+
+    els.accountPanel = panel;
+    els.accountUserInfo = document.getElementById("accountUserInfo");
+    els.changePasswordBtn = document.getElementById("changePasswordBtn");
+    els.resetPasswordBtn = document.getElementById("resetPasswordBtn");
+  }
+
+  async function loadAuthUser() {
+    if (!supabaseClient?.auth) {
+      state.authReady = true;
+      return;
+    }
+
+    try {
+      const { data: userData, error: userError } = await supabaseClient.auth.getUser();
+      if (userError) throw userError;
+
+      const user = userData?.user || null;
+      state.currentUserEmail = user?.email || "";
+      state.currentUser = user?.user_metadata?.full_name || user?.email || "Ikke innlogget";
+
+      try {
+        const { data, error } = await supabaseClient.rpc("get_my_profile");
+        if (!error && Array.isArray(data) && data[0]) {
+          state.currentRole = data[0].role || "";
+          if (data[0].full_name) state.currentUser = data[0].full_name;
+          if (data[0].email) state.currentUserEmail = data[0].email;
+        }
+      } catch (_) {}
+
+      state.authReady = true;
+      updateAccountPanel();
+    } catch (err) {
+      state.authReady = true;
+      state.supabaseError = err?.message || state.supabaseError;
+      updateAccountPanel();
+    }
+  }
+
+  function isSuperadmin() {
+    return state.currentRole === "superadmin";
+  }
+
+  function updateAccountPanel() {
+    if (!els.accountUserInfo) return;
+    const roleText = state.currentRole ? ` • ${state.currentRole}` : "";
+    const nameText = state.currentUser || state.currentUserEmail || "Ikke innlogget";
+    els.accountUserInfo.textContent = `${nameText}${roleText}`;
+  }
+
+  function applyRoleChrome() {
+    updateAccountPanel();
+
+    if (els.storageBadge) {
+      els.storageBadge.style.display = isSuperadmin() ? "" : "none";
+    }
+
+    if (els.saveStatus) {
+      els.saveStatus.style.display = isSuperadmin() ? "" : "none";
+    }
+
+    if (els.resetDemoBtn) {
+      els.resetDemoBtn.style.display = isSuperadmin() ? "" : "none";
+    }
+  }
+
+  async function handleChangePassword() {
+    if (!supabaseClient?.auth) return;
+
+    const newPassword = prompt("Nytt passord:");
+    if (!newPassword) return;
+    if (newPassword.length < 6) {
+      alert("Passordet må være minst 6 tegn.");
+      return;
+    }
+
+    const { error } = await supabaseClient.auth.updateUser({ password: newPassword });
+    if (error) {
+      alert(`Kunne ikke endre passord: ${error.message}`);
+      return;
+    }
+
+    alert("Passordet er endret.");
+  }
+
+  async function handleResetPassword() {
+    if (!supabaseClient?.auth) return;
+    const email = state.currentUserEmail || prompt("E-postadresse:");
+    if (!email) return;
+
+    const { error } = await supabaseClient.auth.resetPasswordForEmail(email, {
+      redirectTo: window.location.origin
+    });
+
+    if (error) {
+      alert(`Kunne ikke sende reset-link: ${error.message}`);
+      return;
+    }
+
+    alert("Reset-link er sendt på e-post.");
+  }
+
+
+
+  function ensureEmployeeTypeField() {
+    if (document.getElementById("employeeType")) {
+      els.employeeType = document.getElementById("employeeType");
+      return;
+    }
+
+    if (!els.employeeTitle || !els.employeeTitle.parentElement) return;
+
+    const wrapper = document.createElement("div");
+    wrapper.innerHTML = `
+      <label class="block text-sm font-medium text-slate-700 mb-1">Personelltype</label>
+      <select id="employeeType" class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm">
+        <option value="Offshore">Offshore</option>
+        <option value="Onshore">Onshore</option>
+      </select>
+    `;
+    els.employeeTitle.parentElement.insertAdjacentElement("afterend", wrapper);
+    els.employeeType = document.getElementById("employeeType");
+  }
+
+  function ensureEmployeeTypeFilter() {
+    if (document.getElementById("employeeTypeFilter")) {
+      els.employeeTypeFilter = document.getElementById("employeeTypeFilter");
+      return;
+    }
+
+    if (!els.employeeFilter || !els.employeeFilter.parentElement) return;
+
+    const select = document.createElement("select");
+    select.id = "employeeTypeFilter";
+    select.className = els.employeeFilter.className || "rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm";
+    els.employeeFilter.parentElement.insertBefore(select, els.employeeFilter.nextSibling);
+
+    els.employeeTypeFilter = select;
+  }
+
   function setupStaticOptions() {
     fillSelect(els.projectCategory, CATEGORY_OPTIONS);
+    fillSelect(els.employeeTypeFilter, ["Alle", "Offshore", "Onshore"], state.employeeTypeFilter || "Alle");
+    fillSelect(els.employeeType, ["Offshore", "Onshore"], "Onshore");
     fillSelect(els.projectStatus, STATUS_OPTIONS, "Planlagt");
     fillSelect(els.assignRole, ROLE_OPTIONS, "Supervisor");
     fillSelect(els.editRole, ROLE_OPTIONS, "Supervisor");
@@ -83,6 +259,15 @@
       renderStats();
       renderCalendar();
     });
+
+    if (els.employeeTypeFilter) {
+      els.employeeTypeFilter.addEventListener("change", e => {
+        state.employeeTypeFilter = e.target.value;
+        renderStats();
+        renderEmployees();
+        renderCalendar();
+      });
+    }
 
     els.viewMode.addEventListener("change", e => {
       state.viewMode = e.target.value;
@@ -113,7 +298,9 @@
     els.todayBtn.addEventListener("click", () => {
       state.startDate = state.viewMode === "År"
         ? new Date(new Date().getFullYear(), 0, 1)
-        : startOfWeek(new Date());
+        : state.viewMode === "Måned"
+          ? startOfCurrentMonth()
+          : startOfWeek(new Date());
       persistUiState();
       renderStats();
       renderCalendar();
@@ -122,7 +309,7 @@
     els.assignProject.addEventListener("change", syncAssignDatesFromProject);
     els.assignBtn.addEventListener("click", createEntry);
     els.bulkAddBtn.addEventListener("click", bulkAddEmployees);
-    if(els.resetDemoBtn){ els.resetDemoBtn.style.display="none"; }
+    els.resetDemoBtn.addEventListener("click", resetDemo);
 
     els.closeModalBtn.addEventListener("click", closeEditModal);
     els.saveEditBtn.addEventListener("click", saveEditedEntry);
@@ -149,6 +336,14 @@
     els.employeeModal.addEventListener("click", e => {
       if (e.target === els.employeeModal) closeEmployeeModal();
     });
+
+    if (els.changePasswordBtn) {
+      els.changePasswordBtn.addEventListener("click", handleChangePassword);
+    }
+
+    if (els.resetPasswordBtn) {
+      els.resetPasswordBtn.addEventListener("click", handleResetPassword);
+    }
   }
 
   function fillSelect(selectEl, values, selected = null, labelKey = null, valueKey = null) {
@@ -270,7 +465,8 @@
   function normalizeEmployees(list) {
     return (list || []).map(emp => ({
       ...emp,
-      title: emp?.title || ""
+      title: emp?.title || "",
+      employee_type: emp?.employee_type || "Onshore"
     }));
   }
 
@@ -347,6 +543,7 @@
   }
 
   function updateBadge() {
+    if (!els.storageBadge) return;
     if (state.storageMode === "supabase") {
       els.storageBadge.textContent = "Supabase aktiv";
       els.storageBadge.className = "rounded-xl border border-green-300 bg-green-50 text-green-700 px-3 py-2 text-sm";
@@ -443,8 +640,15 @@
     state.auditLog = state.auditLog.slice(0, 100);
     saveAllLocal();
 
-    if (state.supabaseReady) {
-      await supabaseClient.from("planner_audit_log").insert(row);
+    if (!state.supabaseReady) return { ok: true };
+
+    try {
+      const { error } = await supabaseClient.from("planner_audit_log").insert(row);
+      if (error) throw error;
+      return { ok: true };
+    } catch (err) {
+      console.error("Audit log feilet:", err);
+      return { ok: false, error: err };
     }
   }
 
@@ -461,8 +665,15 @@
     state.notificationLog = state.notificationLog.slice(0, 100);
     saveAllLocal();
 
-    if (state.supabaseReady) {
-      await supabaseClient.from("planner_notification_log").insert(row);
+    if (!state.supabaseReady) return { ok: true };
+
+    try {
+      const { error } = await supabaseClient.from("planner_notification_log").insert(row);
+      if (error) throw error;
+      return { ok: true };
+    } catch (err) {
+      console.error("Notification log feilet:", err);
+      return { ok: false, error: err };
     }
   }
 
@@ -527,7 +738,6 @@
   }
 
   async function createEntry() {
-    if(!state.isAuthenticated){ alert("Kun planlegger kan endre"); return; }
     const projectId = els.assignProject.value;
     const employeeName = els.assignEmployee.value;
     const role = els.assignRole.value;
@@ -579,11 +789,11 @@
       return;
     }
 
-    await addAudit(`La inn tildeling: ${employeeName} → ${project.name}`);
-    await addNotification(employeeName, project.name);
-
     els.assignNotes.value = "";
     renderAll();
+
+    void addAudit(`La inn tildeling: ${employeeName} → ${project.name}`);
+    void addNotification(employeeName, project.name);
   }
 
   function openEditModal(entryId) {
@@ -630,9 +840,9 @@
     if (!result.ok) return;
 
     const project = getProjectById(entry.project_id);
-    await addAudit(`Redigerte tildeling: ${entry.employee_name} → ${project?.name || "Ukjent prosjekt"}`);
     closeEditModal();
     renderAll();
+    void addAudit(`Redigerte tildeling: ${entry.employee_name} → ${project?.name || "Ukjent prosjekt"}`);
   }
 
   async function deleteEditedEntry() {
@@ -651,9 +861,9 @@
     }
 
     const project = getProjectById(entry.project_id);
-    await addAudit(`Slettet tildeling: ${entry.employee_name} → ${project?.name || "Ukjent prosjekt"}`);
     closeEditModal();
     renderAll();
+    void addAudit(`Slettet tildeling: ${entry.employee_name} → ${project?.name || "Ukjent prosjekt"}`);
   }
 
   function openProjectModal(projectId = null) {
@@ -682,7 +892,6 @@
   }
 
   async function saveProjectFromModal() {
-    if(!state.isAuthenticated){ alert("Kun planlegger kan endre"); return; }
     const name = els.projectName.value.trim();
     const category = els.projectCategory.value;
     const status = els.projectStatus.value;
@@ -743,9 +952,9 @@
     const result = await saveRow("planner_projects", project);
     if (!result.ok) return;
 
-    await addAudit(`${state.selectedProjectId ? "Redigerte" : "Opprettet"} prosjekt: ${name}`);
     closeProjectModal();
     renderAll();
+    void addAudit(`${state.selectedProjectId ? "Redigerte" : "Opprettet"} prosjekt: ${name}`);
   }
 
   async function deleteProjectFromModal() {
@@ -771,9 +980,9 @@
       return;
     }
 
-    await addAudit(`Slettet prosjekt: ${project.name}`);
     closeProjectModal();
     renderAll();
+    void addAudit(`Slettet prosjekt: ${project.name}`);
   }
 
   function openEmployeeModal(employeeId = null) {
@@ -785,6 +994,7 @@
     els.employeeEmail.value = employee?.email || "";
     els.employeePhone.value = employee?.phone || "";
     els.employeeTitle.value = employee?.title || "";
+    if (els.employeeType) els.employeeType.value = employee?.employee_type || "Onshore";
     els.employeeActive.checked = employee?.active ?? true;
     els.deleteEmployeeBtn.style.display = employee ? "inline-flex" : "none";
 
@@ -799,11 +1009,11 @@
   }
 
   async function saveEmployeeFromModal() {
-    if(!state.isAuthenticated){ alert("Kun planlegger kan endre"); return; }
     const name = els.employeeName.value.trim();
     const email = els.employeeEmail.value.trim();
     const phone = els.employeePhone.value.trim();
     const title = els.employeeTitle.value.trim();
+    const employeeType = els.employeeType?.value || "Onshore";
     const active = els.employeeActive.checked;
 
     if (!name) {
@@ -827,6 +1037,7 @@
       employee.email = email;
       employee.phone = phone;
       employee.title = title;
+      employee.employee_type = employeeType;
       employee.active = active;
 
       if (oldName !== name) {
@@ -847,6 +1058,7 @@
         email,
         phone,
         title,
+        employee_type: employeeType,
         active
       };
       state.employees.push(employee);
@@ -859,9 +1071,9 @@
     const result = await saveRow("planner_employees", employee);
     if (!result.ok) return;
 
-    await addAudit(`${state.selectedEmployeeId ? "Redigerte" : "Opprettet"} ansatt: ${name}`);
     closeEmployeeModal();
     renderAll();
+    void addAudit(`${state.selectedEmployeeId ? "Redigerte" : "Opprettet"} ansatt: ${name}`);
   }
 
   async function deleteEmployeeFromModal() {
@@ -887,9 +1099,9 @@
       return;
     }
 
-    await addAudit(`Slettet ansatt: ${employee.name}`);
     closeEmployeeModal();
     renderAll();
+    void addAudit(`Slettet ansatt: ${employee.name}`);
   }
 
   async function bulkAddEmployees() {
@@ -912,6 +1124,7 @@
         email: "",
         phone: "",
         title: "",
+        employee_type: "Onshore",
         active: true
       };
 
@@ -933,9 +1146,9 @@
       }
     }
 
-    await addAudit(`La til ${count} ansatte via masseimport`);
     els.bulkEmployees.value = "";
     renderAll();
+    void addAudit(`La til ${count} ansatte via masseimport`);
   }
 
   function rebuildDerivedState() {
@@ -976,6 +1189,7 @@
     renderAudit();
     renderSystemStatus();
     updateBadge();
+    applyRoleChrome();
   }
 
   function populateDynamicSelects() {
@@ -985,6 +1199,7 @@
     ];
 
     fillSelect(els.employeeFilter, employeeFilterItems, state.employeeFilter, "name", "id");
+    fillSelect(els.employeeTypeFilter, ["Alle", "Offshore", "Onshore"], state.employeeTypeFilter || "Alle");
     fillSelect(els.assignEmployee, state.employees.filter(e => e.active !== false), state.employees.find(e => e.active !== false)?.name || "", "name", "name");
     fillSelect(els.editEmployee, state.employees.filter(e => e.active !== false), null, "name", "name");
     fillSelect(els.assignProject, state.projects, state.projects[0]?.id || "", "name", "id");
@@ -1078,11 +1293,16 @@
   }
 
   function renderEmployees() {
-    els.employeeList.innerHTML = state.employees.map(emp => `
-      <button data-employee-id="${escapeHtml(emp.id)}" class="w-full text-left rounded-xl border border-slate-200 p-3 bg-slate-50 hover:bg-slate-100">
+    const sortedEmployees = getSortedEmployees(state.employees);
+
+    els.employeeList.innerHTML = sortedEmployees.map(emp => `
+      <button data-employee-id="${escapeHtml(emp.id)}" class="w-full text-left rounded-xl border p-3 ${getEmployeeTypeClasses(emp.employee_type)}">
         <div class="flex items-center justify-between gap-2">
           <div class="font-medium">${escapeHtml(emp.name)}</div>
-          <span class="text-xs ${emp.active ? "text-green-700" : "text-amber-700"}">${emp.active ? "Aktiv" : "Inaktiv"}</span>
+          <div class="flex items-center gap-2">
+            ${getEmployeeTypeBadge(emp.employee_type)}
+            <span class="text-xs ${emp.active ? "text-green-700" : "text-amber-700"}">${emp.active ? "Aktiv" : "Inaktiv"}</span>
+          </div>
         </div>
         <div class="text-xs text-slate-500 mt-1">${escapeHtml(emp.email || "Ingen e-post")}</div>
         <div class="text-xs text-slate-500">${escapeHtml(emp.phone || "Ingen telefon")}</div>
@@ -1656,18 +1876,54 @@
     }, 250);
 
     const project = getProjectById(entry.project_id);
-    await addAudit(`Flyttet tildeling: ${project?.name || "Ukjent prosjekt"} fra ${previous.employee_name} (${previous.start_date}–${previous.end_date}) til ${entry.employee_name} (${entry.start_date}–${entry.end_date})`);
     renderProjects();
     renderEmployees();
     renderSystemStatus();
+    void addAudit(`Flyttet tildeling: ${project?.name || "Ukjent prosjekt"} fra ${previous.employee_name} (${previous.start_date}–${previous.end_date}) til ${entry.employee_name} (${entry.start_date}–${entry.end_date})`);
+  }
+
+
+  function getEmployeeTypePriority(employeeType) {
+    if (employeeType === "Offshore") return 0;
+    if (employeeType === "Onshore") return 1;
+    return 2;
+  }
+
+  function getEmployeeTypeClasses(employeeType) {
+    if (employeeType === "Offshore") {
+      return "border-blue-200 bg-blue-50 hover:bg-blue-100";
+    }
+    if (employeeType === "Onshore") {
+      return "border-emerald-200 bg-emerald-50 hover:bg-emerald-100";
+    }
+    return "border-slate-200 bg-slate-50 hover:bg-slate-100";
+  }
+
+  function getEmployeeTypeBadge(employeeType) {
+    if (employeeType === "Offshore") {
+      return '<span class="text-xs rounded-full border border-blue-200 bg-blue-100 px-2 py-0.5 text-blue-700">Offshore</span>';
+    }
+    if (employeeType === "Onshore") {
+      return '<span class="text-xs rounded-full border border-emerald-200 bg-emerald-100 px-2 py-0.5 text-emerald-700">Onshore</span>';
+    }
+    return '<span class="text-xs rounded-full border border-slate-200 bg-slate-100 px-2 py-0.5 text-slate-700">Ukjent</span>';
+  }
+
+  function getSortedEmployees(list) {
+    return [...(list || [])].sort((a, b) => {
+      const typeCompare = getEmployeeTypePriority(a.employee_type) - getEmployeeTypePriority(b.employee_type);
+      if (typeCompare !== 0) return typeCompare;
+      return a.name.localeCompare(b.name, "no");
+    });
   }
 
   function getFilteredEmployees() {
-    return state.employees.filter(emp => {
+    return getSortedEmployees(state.employees).filter(emp => {
       const isActive = emp.active !== false;
       const matchesFilter = state.employeeFilter === "Alle ansatte" || emp.name === state.employeeFilter;
+      const matchesType = state.employeeTypeFilter === "Alle" || (emp.employee_type || "Onshore") === state.employeeTypeFilter;
       const matchesSearch = !state.search || emp.name.toLowerCase().includes(state.search);
-      return isActive && matchesFilter && matchesSearch;
+      return isActive && matchesFilter && matchesType && matchesSearch;
     });
   }
 
@@ -1777,6 +2033,12 @@
 
   function formatYearBarLabel(start, end) {
     return `${capitalize(monthShort(new Date(start)))}–${capitalize(monthShort(new Date(end)))}`;
+  }
+
+
+  function startOfCurrentMonth() {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), 1);
   }
 
   function toIsoDate(date) {
