@@ -2,13 +2,13 @@ const SUPABASE_URL = "https://glyftmrkjherfrapbnjx.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdseWZ0bXJramhlcmZyYXBibmp4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYwOTUwMzAsImV4cCI6MjA5MTY3MTAzMH0.6XEGISHw8D_HddO4iglkc9PdNRo-s3y_Ejxy80ALLfE";
 
 const STORAGE_KEYS = {
-  employees: "planner_employees_v3",
-  projects: "planner_projects_v3",
-  entries: "planner_entries_v3",
-  auditLog: "planner_audit_v3",
-  notificationLog: "planner_notifications_v3",
-  startDate: "planner_start_v3",
-  viewMode: "planner_view_v3"
+  employees: "planner_employees_v4",
+  projects: "planner_projects_v4",
+  entries: "planner_entries_v4",
+  auditLog: "planner_audit_v4",
+  notificationLog: "planner_notifications_v4",
+  startDate: "planner_start_v4",
+  viewMode: "planner_view_v4"
 };
 
 const CATEGORY_COLORS = {
@@ -100,9 +100,7 @@ const DEFAULT_ENTRIES = [
 ];
 
 const DEFAULT_AUDIT_LOG = [
-  { id: crypto.randomUUID(), user_name: "Olis Hansen", action_text: "Initialiserte planleggingsverktøy versjon 2", created_at: "2026-04-14T07:00:00.000Z" }
+  { id: crypto.randomUUID(), user_name: "Olis Hansen", action_text: "Initialiserte planleggingsverktøy versjon 3 stabil", created_at: new Date().toISOString() }
 ];
 
-const DEFAULT_NOTIFICATION_LOG = [
-  { id: crypto.randomUUID(), type: "System", recipient: "Aliaksandr Skliarenka", target: "PBF California", created_at: "2026-04-14T07:05:00.000Z" }
-];
+const DEFAULT_NOTIFICATION_LOG = [];
