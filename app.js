@@ -30,6 +30,7 @@
 
   const els = {};
   let saveStatusTimer = null;
+  let calendarScrollSyncRaf = null;
 
   document.addEventListener("DOMContentLoaded", init);
   window.addEventListener("resize", debounce(() => renderCalendar(), 120));
@@ -39,6 +40,7 @@
     setupStaticOptions();
     bindEvents();
     await bootData();
+    rebuildDerivedState();
     renderAll();
   }
 
@@ -94,10 +96,6 @@
       renderCalendar();
     });
 
-    els.assignProject.addEventListener("change", () => {
-      syncAssignDatesFromProject();
-    });
-
     els.prevBtn.addEventListener("click", () => {
       shiftPeriod(-1);
       renderStats();
@@ -119,6 +117,7 @@
       renderCalendar();
     });
 
+    els.assignProject.addEventListener("change", syncAssignDatesFromProject);
     els.assignBtn.addEventListener("click", createEntry);
     els.bulkAddBtn.addEventListener("click", bulkAddEmployees);
     els.resetDemoBtn.addEventListener("click", resetDemo);
@@ -170,13 +169,11 @@
 
   async function bootData() {
     const localData = loadAllLocal();
-    state.employees = localData.employees;
-    state.projects = localData.projects;
+    state.employees = normalizeEmployees(localData.employees);
+    state.projects = normalizeProjects(localData.projects);
     state.entries = localData.entries;
     state.auditLog = localData.auditLog;
     state.notificationLog = localData.notificationLog;
-    normalizeStateData();
-    rebuildDerivedState();
 
     if (!supabaseClient) {
       state.storageMode = "local";
@@ -197,23 +194,17 @@
     }
 
     await fetchFromSupabase();
-    normalizeStateData();
-    rebuildDerivedState();
 
     const hasMainData = state.employees.length || state.projects.length || state.entries.length;
     if (!hasMainData) {
-      state.employees = structuredClone(DEFAULT_EMPLOYEES);
-      state.projects = structuredClone(DEFAULT_PROJECTS);
+      state.employees = normalizeEmployees(structuredClone(DEFAULT_EMPLOYEES));
+      state.projects = normalizeProjects(structuredClone(DEFAULT_PROJECTS));
       state.entries = structuredClone(DEFAULT_ENTRIES);
       state.auditLog = structuredClone(DEFAULT_AUDIT_LOG);
       state.notificationLog = structuredClone(DEFAULT_NOTIFICATION_LOG);
-      normalizeStateData();
-      rebuildDerivedState();
       saveAllLocal();
-      await seedDemoDataRowByRow();
+      await seedDemoDataBatch();
       await fetchFromSupabase();
-      normalizeStateData();
-      rebuildDerivedState();
     }
 
     setSaveStatus("Lagret", "ok");
@@ -256,14 +247,12 @@
         if (r.error) throw r.error;
       });
 
-      state.employees = employeesRes.data || [];
-      state.projects = projectsRes.data || [];
+      state.employees = normalizeEmployees(employeesRes.data || []);
+      state.projects = normalizeProjects(projectsRes.data || []);
       state.entries = entriesRes.data || [];
       state.auditLog = auditRes.data || [];
       state.notificationLog = notificationRes.data || [];
 
-      normalizeStateData();
-      rebuildDerivedState();
       saveAllLocal();
       state.storageMode = "supabase";
       state.supabaseError = null;
@@ -276,34 +265,47 @@
     }
   }
 
+  function normalizeEmployees(list) {
+    return (list || []).map(emp => ({
+      ...emp,
+      title: emp?.title || ""
+    }));
+  }
+
+  function normalizeProjects(list) {
+    return (list || []).map(project => ({
+      ...project,
+      category: project?.category === "Project" ? "Offshore" : project?.category,
+      status: project?.status === "Fullført" ? "Avsluttet" : project?.status
+    }));
+  }
+
+  function loadLegacyValue(currentKey, legacyKeys, fallback) {
+    const current = load(currentKey, null);
+    if (current !== null) return current;
+    for (const key of legacyKeys || []) {
+      const legacy = load(key, null);
+      if (legacy !== null) return legacy;
+    }
+    return fallback;
+  }
+
   function load(key, fallback) {
     try {
       const raw = localStorage.getItem(key);
-      if (raw) return JSON.parse(raw);
-
-      const legacyKeys = LEGACY_STORAGE_KEYS[keyToStorageField(key)] || [];
-      for (const legacyKey of legacyKeys) {
-        const legacyRaw = localStorage.getItem(legacyKey);
-        if (legacyRaw) return JSON.parse(legacyRaw);
-      }
-
-      return fallback;
+      return raw ? JSON.parse(raw) : fallback;
     } catch {
       return fallback;
     }
   }
 
-  function keyToStorageField(storageKey) {
-    return Object.entries(STORAGE_KEYS).find(([, value]) => value === storageKey)?.[0] || "";
-  }
-
   function loadAllLocal() {
     return {
-      employees: load(STORAGE_KEYS.employees, structuredClone(DEFAULT_EMPLOYEES)),
-      projects: load(STORAGE_KEYS.projects, structuredClone(DEFAULT_PROJECTS)),
-      entries: load(STORAGE_KEYS.entries, structuredClone(DEFAULT_ENTRIES)),
-      auditLog: load(STORAGE_KEYS.auditLog, structuredClone(DEFAULT_AUDIT_LOG)),
-      notificationLog: load(STORAGE_KEYS.notificationLog, structuredClone(DEFAULT_NOTIFICATION_LOG))
+      employees: loadLegacyValue(STORAGE_KEYS.employees, LEGACY_STORAGE_KEYS.employees, structuredClone(DEFAULT_EMPLOYEES)),
+      projects: loadLegacyValue(STORAGE_KEYS.projects, LEGACY_STORAGE_KEYS.projects, structuredClone(DEFAULT_PROJECTS)),
+      entries: loadLegacyValue(STORAGE_KEYS.entries, LEGACY_STORAGE_KEYS.entries, structuredClone(DEFAULT_ENTRIES)),
+      auditLog: loadLegacyValue(STORAGE_KEYS.auditLog, LEGACY_STORAGE_KEYS.auditLog, structuredClone(DEFAULT_AUDIT_LOG)),
+      notificationLog: loadLegacyValue(STORAGE_KEYS.notificationLog, LEGACY_STORAGE_KEYS.notificationLog, structuredClone(DEFAULT_NOTIFICATION_LOG))
     };
   }
 
@@ -314,64 +316,6 @@
     localStorage.setItem(STORAGE_KEYS.auditLog, JSON.stringify(state.auditLog));
     localStorage.setItem(STORAGE_KEYS.notificationLog, JSON.stringify(state.notificationLog));
   }
-
-
-  function normalizeStateData() {
-    state.projects = (state.projects || []).map(project => ({
-      ...project,
-      category: normalizeProjectCategory(project.category),
-      status: normalizeProjectStatus(project.status)
-    }));
-  }
-
-  function normalizeProjectCategory(category) {
-    if (category === "Project") return "Offshore";
-    if (category === "Trainee") return "Kurs";
-    return category || "Offshore";
-  }
-
-  function normalizeProjectStatus(status) {
-    if (status === "Fullført") return "Avsluttet";
-    return status || "Planlagt";
-  }
-
-  function rebuildDerivedState() {
-    const projectById = new Map();
-    const entriesByEmployee = new Map();
-    const entryCountByProject = new Map();
-
-    for (const project of state.projects) {
-      projectById.set(project.id, project);
-    }
-
-    for (const entry of state.entries) {
-      if (!entriesByEmployee.has(entry.employee_name)) {
-        entriesByEmployee.set(entry.employee_name, []);
-      }
-      entriesByEmployee.get(entry.employee_name).push(entry);
-      entryCountByProject.set(entry.project_id, (entryCountByProject.get(entry.project_id) || 0) + 1);
-    }
-
-    state.derived.projectById = projectById;
-    state.derived.entriesByEmployee = entriesByEmployee;
-    state.derived.entryCountByProject = entryCountByProject;
-  }
-
-  function syncAssignDatesFromProject() {
-    const project = getProjectById(els.assignProject.value);
-    if (!project) return;
-    els.assignStart.value = project.planned_start_date || "";
-    els.assignEnd.value = project.planned_end_date || "";
-  }
-
-  function getEntryBarClasses(project, role = "") {
-    const projectStatus = normalizeProjectStatus(project?.status);
-    if (projectStatus === "Avsluttet") {
-      return `bg-slate-300 border-slate-400 text-slate-800 ${ROLE_CLASSES[role] || ""}`.trim();
-    }
-    return `${CATEGORY_COLORS[normalizeProjectCategory(project?.category)] || "bg-slate-500 border-slate-600 text-white"} ${ROLE_CLASSES[role] || ""}`.trim();
-  }
-
 
   function persistUiState() {
     localStorage.setItem(STORAGE_KEYS.startDate, JSON.stringify(toIsoDate(state.startDate)));
@@ -424,6 +368,32 @@
       state.storageMode = "local";
       updateBadge();
       setSaveStatus("Feil ved lagring", "error");
+      renderSystemStatus();
+      return { ok: false, error };
+    }
+
+    state.storageMode = "supabase";
+    state.supabaseError = null;
+    updateBadge();
+    setSaveStatus("Lagret", "ok");
+    return { ok: true };
+  }
+
+  async function saveRows(table, rows) {
+    saveAllLocal();
+    if (!state.supabaseReady) {
+      setSaveStatus("Lagret lokalt", "warn");
+      return { ok: true };
+    }
+
+    setSaveStatus("Lagrer...", "saving");
+    const { error } = await supabaseClient.from(table).upsert(rows);
+    if (error) {
+      state.supabaseError = error.message;
+      state.storageMode = "local";
+      updateBadge();
+      setSaveStatus("Feil ved lagring", "error");
+      renderSystemStatus();
       return { ok: false, error };
     }
 
@@ -448,6 +418,7 @@
       state.storageMode = "local";
       updateBadge();
       setSaveStatus("Feil ved sletting", "error");
+      renderSystemStatus();
       return { ok: false, error };
     }
 
@@ -493,35 +464,38 @@
     }
   }
 
-  async function seedDemoDataRowByRow() {
-    for (const row of state.employees) await supabaseClient.from("planner_employees").upsert(row);
-    for (const row of state.projects) await supabaseClient.from("planner_projects").upsert(row);
-    for (const row of state.entries) await supabaseClient.from("planner_entries").upsert(row);
-    for (const row of state.auditLog) await supabaseClient.from("planner_audit_log").upsert(row);
-    for (const row of state.notificationLog) await supabaseClient.from("planner_notification_log").upsert(row);
+  async function seedDemoDataBatch() {
+    if (!state.supabaseReady) return;
+    await saveRows("planner_employees", state.employees);
+    await saveRows("planner_projects", state.projects);
+    await saveRows("planner_entries", state.entries);
+    await saveRows("planner_audit_log", state.auditLog);
+    if (state.notificationLog.length) {
+      await saveRows("planner_notification_log", state.notificationLog);
+    }
   }
 
   async function resetDemo() {
     if (!confirm("Vil du nullstille til demo-data?")) return;
 
-    state.employees = structuredClone(DEFAULT_EMPLOYEES);
-    state.projects = structuredClone(DEFAULT_PROJECTS);
+    state.employees = normalizeEmployees(structuredClone(DEFAULT_EMPLOYEES));
+    state.projects = normalizeProjects(structuredClone(DEFAULT_PROJECTS));
     state.entries = structuredClone(DEFAULT_ENTRIES);
     state.auditLog = structuredClone(DEFAULT_AUDIT_LOG);
     state.notificationLog = structuredClone(DEFAULT_NOTIFICATION_LOG);
-    normalizeStateData();
-    rebuildDerivedState();
     state.startDate = new Date("2026-01-05");
     state.viewMode = "Uke";
     state.calendarMode = "personal";
+    rebuildDerivedState();
     persistUiState();
     saveAllLocal();
 
     if (state.supabaseReady) {
       setSaveStatus("Nullstiller...", "saving");
       await clearAllTables();
-      await seedDemoDataRowByRow();
+      await seedDemoDataBatch();
       await fetchFromSupabase();
+      rebuildDerivedState();
       setSaveStatus("Lagret", "ok");
     }
 
@@ -541,6 +515,13 @@
       const { error } = await supabaseClient.from(table).delete().not("id", "is", null);
       if (error) throw error;
     }
+  }
+
+  function syncAssignDatesFromProject() {
+    const project = getProjectById(els.assignProject.value);
+    if (!project) return;
+    els.assignStart.value = project.planned_start_date || "";
+    els.assignEnd.value = project.planned_end_date || "";
   }
 
   async function createEntry() {
@@ -599,7 +580,6 @@
     await addNotification(employeeName, project.name);
 
     els.assignNotes.value = "";
-    rebuildDerivedState();
     renderAll();
   }
 
@@ -641,10 +621,10 @@
     entry.start_date = els.editStart.value;
     entry.end_date = els.editEnd.value;
     entry.notes = els.editNotes.value.trim();
+    rebuildDerivedState();
 
     const result = await saveRow("planner_entries", entry);
     if (!result.ok) return;
-    rebuildDerivedState();
 
     const project = getProjectById(entry.project_id);
     await addAudit(`Redigerte tildeling: ${entry.employee_name} → ${project?.name || "Ukjent prosjekt"}`);
@@ -679,8 +659,8 @@
 
     els.projectModalTitle.textContent = project ? "Rediger prosjekt" : "Nytt prosjekt";
     els.projectName.value = project?.name || "";
-    fillSelect(els.projectCategory, CATEGORY_OPTIONS, normalizeProjectCategory(project?.category) || "Offshore");
-    fillSelect(els.projectStatus, STATUS_OPTIONS, normalizeProjectStatus(project?.status) || "Planlagt");
+    fillSelect(els.projectCategory, CATEGORY_OPTIONS, project?.category || "Offshore");
+    fillSelect(els.projectStatus, STATUS_OPTIONS, project?.status || "Planlagt");
     els.projectPlannedStart.value = project?.planned_start_date || "";
     els.projectPlannedEnd.value = project?.planned_end_date || "";
     els.projectLocation.value = project?.location || "";
@@ -730,8 +710,8 @@
 
     if (project) {
       project.name = name;
-      project.category = normalizeProjectCategory(category);
-      project.status = normalizeProjectStatus(status);
+      project.category = category;
+      project.status = status;
       project.planned_start_date = plannedStart || null;
       project.planned_end_date = plannedEnd || null;
       project.location = location;
@@ -741,8 +721,8 @@
       project = {
         id: crypto.randomUUID(),
         name,
-        category: normalizeProjectCategory(category),
-        status: normalizeProjectStatus(status),
+        category,
+        status,
         planned_start_date: plannedStart || null,
         planned_end_date: plannedEnd || null,
         location,
@@ -752,9 +732,9 @@
       state.projects.push(project);
     }
 
-    normalizeStateData();
-    rebuildDerivedState();
+    state.projects = normalizeProjects(state.projects);
     state.projects.sort((a, b) => compareProjectDates(a, b));
+    rebuildDerivedState();
 
     const result = await saveRow("planner_projects", project);
     if (!result.ok) return;
@@ -781,9 +761,8 @@
     const result = await deleteRow("planner_projects", project.id);
     if (!result.ok) {
       state.projects.push(project);
-      normalizeStateData();
-      rebuildDerivedState();
       state.projects.sort((a, b) => compareProjectDates(a, b));
+      rebuildDerivedState();
       renderAll();
       return;
     }
@@ -849,8 +828,11 @@
         const affectedEntries = state.entries.filter(entry => entry.employee_name === oldName);
         for (const entry of affectedEntries) {
           entry.employee_name = name;
-          const result = await saveRow("planner_entries", entry);
-          if (!result.ok) return;
+        }
+        rebuildDerivedState();
+        if (affectedEntries.length) {
+          const saveEntriesResult = await saveRows("planner_entries", affectedEntries);
+          if (!saveEntriesResult.ok) return;
         }
       }
     } else {
@@ -865,8 +847,9 @@
       state.employees.push(employee);
     }
 
-    rebuildDerivedState();
+    state.employees = normalizeEmployees(state.employees);
     state.employees.sort((a, b) => a.name.localeCompare(b.name, "no"));
+    rebuildDerivedState();
 
     const result = await saveRow("planner_employees", employee);
     if (!result.ok) return;
@@ -893,8 +876,8 @@
     const result = await deleteRow("planner_employees", employee.id);
     if (!result.ok) {
       state.employees.push(employee);
-      rebuildDerivedState();
       state.employees.sort((a, b) => a.name.localeCompare(b.name, "no"));
+      rebuildDerivedState();
       renderAll();
       return;
     }
@@ -912,6 +895,8 @@
     }
 
     let count = 0;
+    const inserted = [];
+
     for (const name of names) {
       const exists = state.employees.some(e => e.name.toLowerCase() === name.toLowerCase());
       if (exists) continue;
@@ -921,28 +906,60 @@
         name,
         email: "",
         phone: "",
+        title: "",
         active: true
       };
 
       state.employees.push(employee);
-      rebuildDerivedState();
-      const result = await saveRow("planner_employees", employee);
-      if (!result.ok) {
-        state.employees = state.employees.filter(e => e.id !== employee.id);
-        continue;
-      }
+      inserted.push(employee);
       count++;
     }
 
     state.employees.sort((a, b) => a.name.localeCompare(b.name, "no"));
+    rebuildDerivedState();
+
+    if (inserted.length) {
+      const result = await saveRows("planner_employees", inserted);
+      if (!result.ok) {
+        state.employees = state.employees.filter(e => !inserted.some(i => i.id === e.id));
+        rebuildDerivedState();
+        renderAll();
+        return;
+      }
+    }
+
     await addAudit(`La til ${count} ansatte via masseimport`);
     els.bulkEmployees.value = "";
     renderAll();
   }
 
+  function rebuildDerivedState() {
+    const projectById = new Map();
+    const entriesByEmployee = new Map();
+    const entryCountByProject = new Map();
+
+    state.projects.forEach(project => {
+      projectById.set(project.id, project);
+    });
+
+    state.entries.forEach(entry => {
+      if (!entriesByEmployee.has(entry.employee_name)) {
+        entriesByEmployee.set(entry.employee_name, []);
+      }
+      entriesByEmployee.get(entry.employee_name).push(entry);
+      entryCountByProject.set(entry.project_id, (entryCountByProject.get(entry.project_id) || 0) + 1);
+    });
+
+    entriesByEmployee.forEach(list => {
+      list.sort((a, b) => a.start_date.localeCompare(b.start_date));
+    });
+
+    state.derived.projectById = projectById;
+    state.derived.entriesByEmployee = entriesByEmployee;
+    state.derived.entryCountByProject = entryCountByProject;
+  }
+
   function renderAll() {
-    normalizeStateData();
-    rebuildDerivedState();
     populateDynamicSelects();
     renderStats();
     renderLegend();
@@ -959,7 +976,7 @@
   function populateDynamicSelects() {
     const employeeFilterItems = [
       { name: "Alle ansatte", id: "Alle ansatte" },
-      ...state.employees.map(e => ({ id: e.name, name: e.name }))
+      ...state.employees.filter(e => e.active !== false).map(e => ({ id: e.name, name: e.name }))
     ];
 
     fillSelect(els.employeeFilter, employeeFilterItems, state.employeeFilter, "name", "id");
@@ -983,7 +1000,7 @@
     const unstaffedProjects = state.projects.filter(project => getProjectAssignedCount(project.id) === 0);
 
     const cards = [
-      { label: "Ansatte", value: state.employees.length },
+      { label: "Ansatte", value: state.employees.filter(e => e.active !== false).length },
       { label: "Prosjekter", value: state.projects.length },
       { label: "Prosjekter uten bemanning", value: unstaffedProjects.length },
       { label: "Tildelinger i visning", value: entriesInRange.length },
@@ -1026,20 +1043,21 @@
 
   function renderProjects() {
     els.projectList.innerHTML = state.projects
+      .slice()
       .sort((a, b) => compareProjectDates(a, b))
       .map(project => {
         const assigned = getProjectAssignedCount(project.id);
         const required = Number(project.headcount_required || 0);
         const staffing = getProjectStaffingLabel(project.id, required);
-        const normalizedStatus = normalizeProjectStatus(project.status);
-        const rowClass = normalizedStatus === "Avsluttet"
-          ? "w-full text-left rounded-xl border border-slate-300 p-3 bg-slate-200 hover:bg-slate-300"
+        const projectCardClasses = project.status === "Avsluttet"
+          ? "w-full text-left rounded-xl border border-slate-300 p-3 bg-slate-100 hover:bg-slate-200"
           : "w-full text-left rounded-xl border border-slate-200 p-3 bg-slate-50 hover:bg-slate-100";
+
         return `
-          <button data-project-id="${escapeHtml(project.id)}" class="${rowClass}">
+          <button data-project-id="${escapeHtml(project.id)}" class="${projectCardClasses}">
             <div class="flex items-center justify-between gap-2">
               <div class="font-medium">${escapeHtml(project.name)}</div>
-              <span class="rounded-full border px-2 py-0.5 text-xs ${STATUS_COLORS[normalizedStatus] || "bg-slate-100 border-slate-200 text-slate-700"}">${escapeHtml(normalizedStatus)}</span>
+              <span class="rounded-full border px-2 py-0.5 text-xs ${STATUS_COLORS[project.status] || "bg-slate-100 border-slate-200 text-slate-700"}">${escapeHtml(project.status)}</span>
             </div>
             <div class="text-xs text-slate-500 mt-1">${escapeHtml(project.category)}${project.location ? ` • ${escapeHtml(project.location)}` : ""}</div>
             <div class="text-xs text-slate-600 mt-1">${escapeHtml(formatProjectDateRange(project))}</div>
@@ -1075,7 +1093,7 @@
   function renderKanban() {
     const groups = STATUS_OPTIONS.map(status => ({
       status,
-      projects: state.projects.filter(p => normalizeProjectStatus(p.status) === status)
+      projects: state.projects.filter(p => p.status === status)
     }));
 
     els.kanbanBoard.innerHTML = groups.map(group => `
@@ -1083,9 +1101,9 @@
         <div class="p-3 border-b border-slate-200 font-medium">${escapeHtml(group.status)} (${group.projects.length})</div>
         <div class="p-3 space-y-2">
           ${group.projects.length ? group.projects.map(project => `
-            <div class="rounded-xl border border-slate-200 bg-white p-3">
+            <div class="rounded-xl border border-slate-200 ${project.status === "Avsluttet" ? "bg-slate-100" : "bg-white"} p-3">
               <div class="font-medium">${escapeHtml(project.name)}</div>
-              <div class="mt-1 text-xs text-slate-500">${escapeHtml(normalizeProjectCategory(project.category))}${project.location ? ` • ${escapeHtml(project.location)}` : ""}</div>
+              <div class="mt-1 text-xs text-slate-500">${escapeHtml(project.category)}${project.location ? ` • ${escapeHtml(project.location)}` : ""}</div>
               <div class="mt-1 text-xs text-slate-600">${escapeHtml(formatProjectDateRange(project))}</div>
               <div class="mt-2 text-xs text-slate-600">${escapeHtml(project.notes || "")}</div>
             </div>
@@ -1119,7 +1137,7 @@
     const lines = [
       `<div><span class="font-medium">Lagring:</span> ${state.storageMode === "supabase" ? "Supabase" : "Lokal fallback"}</div>`,
       `<div><span class="font-medium">Kalendervisning:</span> ${state.calendarMode === "project" ? "Prosjektplan" : "Personalplan"}</div>`,
-      `<div><span class="font-medium">Antall ansatte:</span> ${state.employees.length}</div>`,
+      `<div><span class="font-medium">Aktive ansatte:</span> ${state.employees.filter(e => e.active !== false).length}</div>`,
       `<div><span class="font-medium">Antall prosjekter:</span> ${state.projects.length}</div>`,
       `<div><span class="font-medium">Antall tildelinger:</span> ${state.entries.length}</div>`
     ];
@@ -1188,6 +1206,7 @@
         <div class="sticky-col border-r border-b border-slate-200 px-3 py-3">
           <div class="font-medium">${escapeHtml(employee.name)}</div>
           <div class="text-xs text-slate-500">${escapeHtml(employee.email || "")}</div>
+          <div class="text-xs text-slate-500">${escapeHtml(employee.title || "")}</div>
         </div>
       `;
 
@@ -1217,7 +1236,6 @@
             class="entry-bar ${getEntryBarClasses(project, entry.role)}"
             style="left:${left}px; width:${width}px;"
             data-entry-id="${escapeHtml(entry.id)}"
-            draggable="true"
             draggable="true"
             title="${escapeHtml(`${employee.name} | ${project.name} | ${entry.role} | ${entry.start_date} - ${entry.end_date}${entry.notes ? ` | ${entry.notes}` : ""}`)}"
           >
@@ -1276,6 +1294,7 @@
         <div class="sticky-col border-r border-b border-slate-200 px-3 py-3">
           <div class="font-medium">${escapeHtml(employee.name)}</div>
           <div class="text-xs text-slate-500">${escapeHtml(employee.email || "")}</div>
+          <div class="text-xs text-slate-500">${escapeHtml(employee.title || "")}</div>
         </div>
       `;
 
@@ -1369,14 +1388,14 @@
       const staffing = getProjectStaffingLabel(project.id, required);
 
       html += `
-        <div class="sticky-col border-r border-b border-slate-200 px-3 py-3">
+        <div class="sticky-col border-r border-b border-slate-200 px-3 py-3 ${project.status === "Avsluttet" ? "bg-slate-100" : ""}">
           <div class="font-medium">${escapeHtml(project.name)}</div>
           <div class="text-xs text-slate-500">${escapeHtml(project.location || "")}</div>
           <div class="text-xs ${staffing.variant} mt-1">${escapeHtml(staffing.text)}${required ? ` (${assigned}/${required})` : ""}</div>
         </div>
       `;
 
-      html += `<div class="row-overlay border-b border-slate-200 drop-row" data-employee-name="${escapeHtml(employee.name)}" data-range-start="${toIsoDate(range.start)}" data-col-width="${colWidth}" data-total-cols="${days.length}" data-time-unit="day" style="grid-column: span ${days.length}; width:${totalWidth}px;">`;
+      html += `<div class="row-overlay border-b border-slate-200" style="grid-column: span ${days.length}; width:${totalWidth}px;">`;
 
       for (let i = 0; i < days.length; i++) {
         const day = days[i];
@@ -1396,7 +1415,7 @@
 
         html += `
           <div
-            class="entry-bar ${getEntryBarClasses(project)}"
+            class="entry-bar ${getProjectBarClasses(project)}"
             style="left:${left}px; width:${width}px;"
             data-project-row-id="${escapeHtml(project.id)}"
             title="${escapeHtml(`${project.name} | ${formatProjectDateRange(project)} | ${staffing.text}`)}"
@@ -1445,7 +1464,7 @@
       const staffing = getProjectStaffingLabel(project.id, required);
 
       html += `
-        <div class="sticky-col border-r border-b border-slate-200 px-3 py-3">
+        <div class="sticky-col border-r border-b border-slate-200 px-3 py-3 ${project.status === "Avsluttet" ? "bg-slate-100" : ""}">
           <div class="font-medium">${escapeHtml(project.name)}</div>
           <div class="text-xs text-slate-500">${escapeHtml(project.location || "")}</div>
           <div class="text-xs ${staffing.variant} mt-1">${escapeHtml(staffing.text)}${required ? ` (${assigned}/${required})` : ""}</div>
@@ -1471,7 +1490,7 @@
 
         html += `
           <div
-            class="entry-bar ${getEntryBarClasses(project)}"
+            class="entry-bar ${getProjectBarClasses(project)}"
             style="left:${left}px; width:${width}px;"
             data-project-row-id="${escapeHtml(project.id)}"
             title="${escapeHtml(`${project.name} | ${formatProjectDateRange(project)} | ${staffing.text}`)}"
@@ -1558,93 +1577,92 @@
     });
   }
 
-
-async function moveEntryToEmployee(entryId, targetEmployeeName) {
-  return moveEntryByDrop(entryId, targetEmployeeName, null);
-}
-
-async function moveEntryByDrop(entryId, targetEmployeeName, dropMeta = null) {
-  const entry = state.entries.find(e => e.id === entryId);
-  if (!entry) return;
-
-  const previous = {
-    employee_name: entry.employee_name,
-    start_date: entry.start_date,
-    end_date: entry.end_date
-  };
-
-  let changed = false;
-
-  if (targetEmployeeName && entry.employee_name !== targetEmployeeName) {
-    entry.employee_name = targetEmployeeName;
-    changed = true;
+  async function moveEntryToEmployee(entryId, targetEmployeeName) {
+    return moveEntryByDrop(entryId, targetEmployeeName, null);
   }
 
-  if (dropMeta?.timeUnit === "day" && dropMeta.rangeStart && Number.isFinite(dropMeta.colIndex)) {
-    const durationDays = Math.max(0, diffDays(new Date(entry.start_date), new Date(entry.end_date)));
-    const newStart = addDays(new Date(dropMeta.rangeStart), dropMeta.colIndex);
-    const newEnd = addDays(newStart, durationDays);
-    const newStartIso = toIsoDate(newStart);
-    const newEndIso = toIsoDate(newEnd);
-    if (entry.start_date !== newStartIso || entry.end_date !== newEndIso) {
-      entry.start_date = newStartIso;
-      entry.end_date = newEndIso;
+  async function moveEntryByDrop(entryId, targetEmployeeName, dropMeta = null) {
+    const entry = state.entries.find(e => e.id === entryId);
+    if (!entry) return;
+
+    const previous = {
+      employee_name: entry.employee_name,
+      start_date: entry.start_date,
+      end_date: entry.end_date
+    };
+
+    let changed = false;
+
+    if (targetEmployeeName && entry.employee_name !== targetEmployeeName) {
+      entry.employee_name = targetEmployeeName;
       changed = true;
     }
-  }
 
-  if (dropMeta?.timeUnit === "month" && dropMeta.rangeStart && Number.isFinite(dropMeta.colIndex)) {
-    const durationDays = Math.max(0, diffDays(new Date(entry.start_date), new Date(entry.end_date)));
-    const originalStart = new Date(entry.start_date);
-    const targetMonthBase = new Date(dropMeta.rangeStart);
-    const shiftedStart = new Date(targetMonthBase.getFullYear(), targetMonthBase.getMonth() + dropMeta.colIndex, 1);
-    const clampedDay = Math.min(originalStart.getDate(), daysInMonth(shiftedStart.getFullYear(), shiftedStart.getMonth()));
-    shiftedStart.setDate(clampedDay);
-    const shiftedEnd = addDays(shiftedStart, durationDays);
-    const newStartIso = toIsoDate(shiftedStart);
-    const newEndIso = toIsoDate(shiftedEnd);
-    if (entry.start_date !== newStartIso || entry.end_date !== newEndIso) {
-      entry.start_date = newStartIso;
-      entry.end_date = newEndIso;
-      changed = true;
+    if (dropMeta?.timeUnit === "day" && dropMeta.rangeStart && Number.isFinite(dropMeta.colIndex)) {
+      const durationDays = Math.max(0, diffDays(new Date(entry.start_date), new Date(entry.end_date)));
+      const newStart = addDays(new Date(dropMeta.rangeStart), dropMeta.colIndex);
+      const newEnd = addDays(newStart, durationDays);
+      const newStartIso = toIsoDate(newStart);
+      const newEndIso = toIsoDate(newEnd);
+      if (entry.start_date !== newStartIso || entry.end_date !== newEndIso) {
+        entry.start_date = newStartIso;
+        entry.end_date = newEndIso;
+        changed = true;
+      }
     }
-  }
 
-  if (!changed) return;
+    if (dropMeta?.timeUnit === "month" && dropMeta.rangeStart && Number.isFinite(dropMeta.colIndex)) {
+      const durationDays = Math.max(0, diffDays(new Date(entry.start_date), new Date(entry.end_date)));
+      const originalStart = new Date(entry.start_date);
+      const targetMonthBase = new Date(dropMeta.rangeStart);
+      const shiftedStart = new Date(targetMonthBase.getFullYear(), targetMonthBase.getMonth() + dropMeta.colIndex, 1);
+      const clampedDay = Math.min(originalStart.getDate(), daysInMonth(shiftedStart.getFullYear(), shiftedStart.getMonth()));
+      shiftedStart.setDate(clampedDay);
+      const shiftedEnd = addDays(shiftedStart, durationDays);
+      const newStartIso = toIsoDate(shiftedStart);
+      const newEndIso = toIsoDate(shiftedEnd);
+      if (entry.start_date !== newStartIso || entry.end_date !== newEndIso) {
+        entry.start_date = newStartIso;
+        entry.end_date = newEndIso;
+        changed = true;
+      }
+    }
 
-  rebuildDerivedState();
-  renderStats();
-  renderCalendar();
+    if (!changed) return;
 
-  const result = await saveRow("planner_entries", entry);
-  if (!result.ok) {
-    entry.employee_name = previous.employee_name;
-    entry.start_date = previous.start_date;
-    entry.end_date = previous.end_date;
     rebuildDerivedState();
     renderStats();
     renderCalendar();
-    return;
+
+    const result = await saveRow("planner_entries", entry);
+    if (!result.ok) {
+      entry.employee_name = previous.employee_name;
+      entry.start_date = previous.start_date;
+      entry.end_date = previous.end_date;
+      rebuildDerivedState();
+      renderStats();
+      renderCalendar();
+      return;
+    }
+
+    state.justDraggedEntryId = entryId;
+    setTimeout(() => {
+      if (state.justDraggedEntryId === entryId) state.justDraggedEntryId = null;
+    }, 250);
+
+    const project = getProjectById(entry.project_id);
+    await addAudit(`Flyttet tildeling: ${project?.name || "Ukjent prosjekt"} fra ${previous.employee_name} (${previous.start_date}–${previous.end_date}) til ${entry.employee_name} (${entry.start_date}–${entry.end_date})`);
+    renderProjects();
+    renderEmployees();
+    renderSystemStatus();
   }
-
-  state.justDraggedEntryId = entryId;
-  setTimeout(() => {
-    if (state.justDraggedEntryId === entryId) state.justDraggedEntryId = null;
-  }, 250);
-
-  const project = getProjectById(entry.project_id);
-  await addAudit(`Flyttet tildeling: ${project?.name || "Ukjent prosjekt"} fra ${previous.employee_name} (${previous.start_date}–${previous.end_date}) til ${entry.employee_name} (${entry.start_date}–${entry.end_date})`);
-  renderProjects();
-  renderEmployees();
-  renderSystemStatus();
-}
-
 
   function getFilteredEmployees() {
     return state.employees.filter(emp => {
+      const isActive = emp.active !== false;
       const matchesFilter = state.employeeFilter === "Alle ansatte" || emp.name === state.employeeFilter;
       const matchesSearch = !state.search || emp.name.toLowerCase().includes(state.search);
-      return matchesFilter && matchesSearch;
+      return isActive && matchesFilter && matchesSearch;
     });
   }
 
@@ -1694,7 +1712,7 @@ async function moveEntryByDrop(entryId, targetEmployeeName, dropMeta = null) {
   }
 
   function getProjectById(id) {
-    return state.derived.projectById.get(id);
+    return state.derived.projectById.get(id) || null;
   }
 
   function getProjectAssignedCount(projectId) {
@@ -1837,30 +1855,42 @@ async function moveEntryByDrop(entryId, targetEmployeeName, dropMeta = null) {
     return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
   }
 
+  function getDropMetaFromRow(row, event) {
+    const rect = row.getBoundingClientRect();
+    const colWidth = Number(row.dataset.colWidth || 0);
+    const totalCols = Number(row.dataset.totalCols || 0);
+    const timeUnit = row.dataset.timeUnit || "day";
+    const rangeStart = row.dataset.rangeStart || null;
 
-function getDropMetaFromRow(row, event) {
-  const rect = row.getBoundingClientRect();
-  const colWidth = Number(row.dataset.colWidth || 0);
-  const totalCols = Number(row.dataset.totalCols || 0);
-  const timeUnit = row.dataset.timeUnit || "day";
-  const rangeStart = row.dataset.rangeStart || null;
+    if (!colWidth || !totalCols || !rangeStart) {
+      return { timeUnit, rangeStart, colIndex: null };
+    }
 
-  if (!colWidth || !totalCols || !rangeStart) {
-    return { timeUnit, rangeStart, colIndex: null };
+    const x = Math.max(0, Math.min(rect.width - 1, event.clientX - rect.left));
+    const colIndex = Math.max(0, Math.min(totalCols - 1, Math.floor(x / colWidth)));
+    return { timeUnit, rangeStart, colIndex };
   }
 
-  const x = Math.max(0, Math.min(rect.width - 1, event.clientX - rect.left));
-  const colIndex = Math.max(0, Math.min(totalCols - 1, Math.floor(x / colWidth)));
-  return { timeUnit, rangeStart, colIndex };
-}
-
-function daysInMonth(year, monthIndex) {
-  return new Date(year, monthIndex + 1, 0).getDate();
-}
+  function daysInMonth(year, monthIndex) {
+    return new Date(year, monthIndex + 1, 0).getDate();
+  }
 
   function capitalize(value) {
     const str = String(value || "");
     return str.charAt(0).toUpperCase() + str.slice(1);
+  }
+
+  function getEntryBarClasses(project, role) {
+    const categoryClasses = CATEGORY_COLORS[project.category] || "bg-slate-500 border-slate-600 text-white";
+    const roleClasses = ROLE_CLASSES[role] || "";
+    const endedClasses = project.status === "Avsluttet" ? " opacity-70 grayscale" : "";
+    return `${categoryClasses} ${roleClasses}${endedClasses}`;
+  }
+
+  function getProjectBarClasses(project) {
+    const categoryClasses = CATEGORY_COLORS[project.category] || "bg-slate-500 border-slate-600 text-white";
+    const endedClasses = project.status === "Avsluttet" ? " opacity-70 grayscale" : "";
+    return `${categoryClasses}${endedClasses}`;
   }
 
   function debounce(fn, wait = 100) {
