@@ -1293,7 +1293,7 @@
   }
 
   function renderEmployees() {
-    const sortedEmployees = getSortedEmployees(state.employees);
+    const sortedEmployees = getEmployeesAlphabetical(state.employees);
 
     els.employeeList.innerHTML = sortedEmployees.map(emp => `
       <button data-employee-id="${escapeHtml(emp.id)}" class="w-full text-left rounded-xl border p-3 ${getEmployeeTypeClasses(emp.employee_type)}">
@@ -1907,6 +1907,10 @@
       return '<span class="text-xs rounded-full border border-emerald-200 bg-emerald-100 px-2 py-0.5 text-emerald-700">Onshore</span>';
     }
     return '<span class="text-xs rounded-full border border-slate-200 bg-slate-100 px-2 py-0.5 text-slate-700">Ukjent</span>';
+  }
+
+  function getEmployeesAlphabetical(list) {
+    return [...(list || [])].sort((a, b) => a.name.localeCompare(b.name, "no"));
   }
 
   function getSortedEmployees(list) {
