@@ -7,12 +7,7 @@
     entries: [],
     auditLog: [],
     notificationLog: [],
-    currentUser: "",
-    currentUserEmail: "",
-    authUserId: null,
-    authProfile: null,
-    currentRole: null,
-    isAuthenticated: false,
+    currentUser: "Olis Hansen",
     employeeFilter: "Alle ansatte",
     search: "",
     viewMode: load(STORAGE_KEYS.viewMode, "Uke"),
@@ -36,23 +31,14 @@
   const els = {};
   let saveStatusTimer = null;
   let calendarScrollSyncRaf = null;
-  let authListenerBound = false;
 
   document.addEventListener("DOMContentLoaded", init);
   window.addEventListener("resize", debounce(() => renderCalendar(), 120));
 
   async function init() {
     cacheElements();
-    ensureAuthControls();
     setupStaticOptions();
     bindEvents();
-
-    const authOk = await initAuth();
-    if (!authOk) {
-      renderLoggedOutState();
-      return;
-    }
-
     await bootData();
     rebuildDerivedState();
     renderAll();
@@ -70,8 +56,7 @@
       "projectName", "projectCategory", "projectStatus", "projectPlannedStart", "projectPlannedEnd",
       "projectLocation", "projectHeadcount", "projectNotes", "saveProjectBtn", "deleteProjectBtn",
       "newEmployeeBtn", "employeeModal", "employeeModalTitle", "closeEmployeeModalBtn",
-      "employeeName", "employeeEmail", "employeePhone", "employeeTitle", "employeeActive", "saveEmployeeBtn", "deleteEmployeeBtn",
-      "loginBtn", "signupBtn", "logoutBtn", "userBadge", "authControls"
+      "employeeName", "employeeEmail", "employeePhone", "employeeTitle", "employeeActive", "saveEmployeeBtn", "deleteEmployeeBtn"
     ];
 
     ids.forEach(id => els[id] = document.getElementById(id));
@@ -162,336 +147,7 @@
     els.employeeModal.addEventListener("click", e => {
       if (e.target === els.employeeModal) closeEmployeeModal();
     });
-
-    if (els.loginBtn) {
-      els.loginBtn.addEventListener("click", signInWithEmail);
-    }
-
-    if (els.signupBtn) {
-      els.signupBtn.addEventListener("click", signUpWithEmail);
-    }
-
-    if (els.logoutBtn) {
-      els.logoutBtn.addEventListener("click", signOutUser);
-    }
   }
-
-  function ensureAuthControls() {
-    if (document.getElementById("authControls")) {
-      els.loginBtn = document.getElementById("loginBtn");
-      els.signupBtn = document.getElementById("signupBtn");
-      els.logoutBtn = document.getElementById("logoutBtn");
-      els.userBadge = document.getElementById("userBadge");
-      els.authControls = document.getElementById("authControls");
-      return;
-    }
-
-    const wrapper = document.createElement("div");
-    wrapper.id = "authControls";
-    wrapper.className = "flex items-center gap-2 flex-wrap";
-
-    wrapper.innerHTML = `
-      <button id="loginBtn" class="rounded-xl bg-slate-900 text-white px-4 py-2 text-sm hover:bg-slate-800">Login</button>
-      <button id="signupBtn" class="rounded-xl border border-slate-300 px-4 py-2 text-sm hover:bg-slate-50">Opprett bruker</button>
-      <button id="logoutBtn" class="rounded-xl border border-slate-300 px-4 py-2 text-sm hover:bg-slate-50" style="display:none;">Logout</button>
-      <span id="userBadge" class="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700">Ikke innlogget</span>
-    `;
-
-    const anchor = els.storageBadge?.parentElement || document.body.firstElementChild || document.body;
-    anchor.appendChild(wrapper);
-
-    els.loginBtn = document.getElementById("loginBtn");
-    els.signupBtn = document.getElementById("signupBtn");
-    els.logoutBtn = document.getElementById("logoutBtn");
-    els.userBadge = document.getElementById("userBadge");
-    els.authControls = document.getElementById("authControls");
-  }
-
-  async function initAuth() {
-    if (!supabaseClient) {
-      state.isAuthenticated = false;
-      state.supabaseError = "Supabase-klient ikke tilgjengelig.";
-      updateAuthUi();
-      return false;
-    }
-
-    try {
-      const { data, error } = await supabaseClient.auth.getSession();
-      if (error) throw error;
-
-      const session = data?.session || null;
-      if (!session) {
-        state.isAuthenticated = false;
-        state.currentUser = "";
-        state.currentUserEmail = "";
-        state.authUserId = null;
-        state.authProfile = null;
-        state.currentRole = null;
-        updateAuthUi();
-        listenForAuthChanges();
-        return false;
-      }
-
-      const { data: userData, error: userError } = await supabaseClient.auth.getUser();
-      if (userError) throw userError;
-
-      const user = userData?.user || session.user || null;
-      if (!user) {
-        state.isAuthenticated = false;
-        updateAuthUi();
-        listenForAuthChanges();
-        return false;
-      }
-
-      state.isAuthenticated = true;
-      state.authUserId = user.id;
-      state.currentUserEmail = user.email || "";
-      state.currentUser = user.user_metadata?.full_name || user.user_metadata?.name || user.email || "Innlogget bruker";
-
-      await loadMyProfile();
-      updateAuthUi();
-      listenForAuthChanges();
-      return true;
-    } catch (err) {
-      console.error("Auth init feilet:", err);
-      state.isAuthenticated = false;
-      state.supabaseError = err?.message || "Kunne ikke starte autentisering.";
-      updateAuthUi();
-      return false;
-    }
-  }
-
-  function listenForAuthChanges() {
-    if (authListenerBound || !supabaseClient?.auth) return;
-    authListenerBound = true;
-
-    supabaseClient.auth.onAuthStateChange(async (_event, session) => {
-      if (!session) {
-        state.isAuthenticated = false;
-        state.currentUser = "";
-        state.currentUserEmail = "";
-        state.authUserId = null;
-        state.authProfile = null;
-        state.currentRole = null;
-        updateAuthUi();
-        renderLoggedOutState();
-        return;
-      }
-
-      try {
-        const { data: userData } = await supabaseClient.auth.getUser();
-        const user = userData?.user || session.user || null;
-
-        state.isAuthenticated = true;
-        state.authUserId = user?.id || null;
-        state.currentUserEmail = user?.email || "";
-        state.currentUser = user?.user_metadata?.full_name || user?.user_metadata?.name || user?.email || "Innlogget bruker";
-
-        await loadMyProfile();
-        updateAuthUi();
-
-        await bootData();
-        rebuildDerivedState();
-        renderAll();
-      } catch (err) {
-        console.error("Auth state change feilet:", err);
-      }
-    });
-  }
-
-  async function loadMyProfile() {
-    try {
-      const { data, error } = await supabaseClient.rpc("get_my_profile");
-      if (error) throw error;
-
-      const profile = Array.isArray(data) ? data[0] : null;
-      state.authProfile = profile || null;
-      state.currentRole = profile?.role || null;
-
-      if (profile?.full_name) state.currentUser = profile.full_name;
-      if (profile?.email) state.currentUserEmail = profile.email;
-    } catch (err) {
-      console.error("Kunne ikke hente profil:", err);
-      state.authProfile = null;
-      state.currentRole = null;
-    }
-  }
-
-  async function signInWithEmail() {
-    const email = prompt("Email:");
-    const password = prompt("Password:");
-
-    if (!email || !password) return;
-
-    try {
-      const { error } = await supabaseClient.auth.signInWithPassword({
-        email,
-        password
-      });
-
-      if (error) throw error;
-    } catch (err) {
-      console.error("Login feilet:", err);
-      alert("Login feilet: " + (err?.message || "Ukjent feil"));
-    }
-  }
-
-  async function signUpWithEmail() {
-    const email = prompt("Email:");
-    const password = prompt("Password:");
-
-    if (!email || !password) return;
-
-    try {
-      const { error } = await supabaseClient.auth.signUp({
-        email,
-        password
-      });
-
-      if (error) throw error;
-      alert("Bruker opprettet. Du kan nå logge inn.");
-    } catch (err) {
-      console.error("Signup feilet:", err);
-      alert("Signup feilet: " + (err?.message || "Ukjent feil"));
-    }
-  }
-
-  async function signOutUser() {
-    try {
-      const { error } = await supabaseClient.auth.signOut();
-      if (error) throw error;
-    } catch (err) {
-      console.error("Logout feilet:", err);
-      alert("Logout feilet: " + (err?.message || "Ukjent feil"));
-    }
-  }
-
-  function updateAuthUi() {
-    if (els.loginBtn) {
-      els.loginBtn.style.display = state.isAuthenticated ? "none" : "inline-flex";
-    }
-
-    if (els.signupBtn) {
-      els.signupBtn.style.display = state.isAuthenticated ? "none" : "inline-flex";
-    }
-
-    if (els.logoutBtn) {
-      els.logoutBtn.style.display = state.isAuthenticated ? "inline-flex" : "none";
-    }
-
-    if (els.userBadge) {
-      if (state.isAuthenticated) {
-        const roleText = state.currentRole ? ` (${state.currentRole})` : "";
-        els.userBadge.textContent = `${state.currentUser || state.currentUserEmail}${roleText}`;
-      } else {
-        els.userBadge.textContent = "Ikke innlogget";
-      }
-    }
-  }
-
-  function renderLoggedOutState() {
-    updateAuthUi();
-
-    if (els.calendarWrap) {
-      els.calendarWrap.innerHTML = `
-        <div class="rounded-2xl border border-slate-200 bg-white p-8 text-center">
-          <h2 class="text-2xl font-bold mb-3">Innlogging kreves</h2>
-          <p class="text-slate-600 mb-5">Logg inn med e-post og passord for å bruke planleggingsverktøyet.</p>
-          <div class="flex justify-center gap-2 flex-wrap">
-            <button id="inlineLoginBtn" class="rounded-xl bg-slate-900 text-white px-4 py-2 hover:bg-slate-800">
-              Login
-            </button>
-            <button id="inlineSignupBtn" class="rounded-xl border border-slate-300 px-4 py-2 hover:bg-slate-50">
-              Opprett bruker
-            </button>
-          </div>
-        </div>
-      `;
-
-      const inlineLoginBtn = document.getElementById("inlineLoginBtn");
-      if (inlineLoginBtn) {
-        inlineLoginBtn.addEventListener("click", signInWithEmail);
-      }
-
-      const inlineSignupBtn = document.getElementById("inlineSignupBtn");
-      if (inlineSignupBtn) {
-        inlineSignupBtn.addEventListener("click", signUpWithEmail);
-      }
-    }
-
-    if (els.statsRow) els.statsRow.innerHTML = "";
-    if (els.projectList) els.projectList.innerHTML = "";
-    if (els.employeeList) els.employeeList.innerHTML = "";
-    if (els.notificationList) els.notificationList.innerHTML = "";
-    if (els.auditList) els.auditList.innerHTML = "";
-    if (els.kanbanBoard) els.kanbanBoard.innerHTML = "";
-    if (els.warningBox) {
-      els.warningBox.classList.add("hidden");
-      els.warningBox.innerHTML = "";
-    }
-  }
-
-  function hasRole(...roles) {
-    return !!state.currentRole && roles.includes(state.currentRole);
-  }
-
-  function canEditEmployees() {
-    return hasRole("superadmin", "admin", "planlegger");
-  }
-
-  function canDeleteEmployees() {
-    return hasRole("superadmin", "admin", "planlegger");
-  }
-
-  function canEditProjects() {
-    return hasRole("superadmin", "admin", "planlegger");
-  }
-
-  function canDeleteProjects() {
-    return hasRole("superadmin", "admin", "planlegger");
-  }
-
-  function canManageAssignments() {
-    return hasRole("superadmin", "admin", "planlegger");
-  }
-
-  function canViewLogs() {
-    return hasRole("superadmin", "admin");
-  }
-
-  function ensurePermission(condition, message) {
-    if (!condition) {
-      alert(message || "Du har ikke tilgang til denne handlingen.");
-      return false;
-    }
-    return true;
-  }
-
-  function applyAccessControl() {
-    if (els.newProjectBtn) els.newProjectBtn.style.display = canEditProjects() ? "inline-flex" : "none";
-    if (els.newEmployeeBtn) els.newEmployeeBtn.style.display = canEditEmployees() ? "inline-flex" : "none";
-    if (els.assignBtn) els.assignBtn.disabled = !canManageAssignments();
-    if (els.bulkAddBtn) els.bulkAddBtn.disabled = !canEditEmployees();
-    if (els.resetDemoBtn) els.resetDemoBtn.style.display = hasRole("superadmin") ? "inline-flex" : "none";
-
-    if (els.saveProjectBtn) els.saveProjectBtn.style.display = canEditProjects() ? "inline-flex" : "none";
-    if (els.deleteProjectBtn) els.deleteProjectBtn.style.display = canDeleteProjects() ? "inline-flex" : "none";
-
-    if (els.saveEmployeeBtn) els.saveEmployeeBtn.style.display = canEditEmployees() ? "inline-flex" : "none";
-    if (els.deleteEmployeeBtn) els.deleteEmployeeBtn.style.display = canDeleteEmployees() ? "inline-flex" : "none";
-
-    if (els.saveEditBtn) els.saveEditBtn.style.display = canManageAssignments() ? "inline-flex" : "none";
-    if (els.deleteEditBtn) els.deleteEditBtn.style.display = canManageAssignments() ? "inline-flex" : "none";
-
-    if (els.auditList?.parentElement) {
-      els.auditList.parentElement.style.display = canViewLogs() ? "" : "none";
-    }
-
-    if (els.notificationList?.parentElement) {
-      els.notificationList.parentElement.style.display = canViewLogs() ? "" : "none";
-    }
-  }
-
 
   function fillSelect(selectEl, values, selected = null, labelKey = null, valueKey = null) {
     if (!selectEl) return;
@@ -776,7 +432,7 @@
   async function addAudit(text) {
     const row = {
       id: crypto.randomUUID(),
-      user_name: state.currentUser || state.currentUserEmail || "System",
+      user_name: state.currentUser,
       action_text: text,
       created_at: new Date().toISOString()
     };
@@ -785,8 +441,15 @@
     state.auditLog = state.auditLog.slice(0, 100);
     saveAllLocal();
 
-    if (state.supabaseReady) {
-      await supabaseClient.from("planner_audit_log").insert(row);
+    if (!state.supabaseReady) return { ok: true };
+
+    try {
+      const { error } = await supabaseClient.from("planner_audit_log").insert(row);
+      if (error) throw error;
+      return { ok: true };
+    } catch (err) {
+      console.error("Audit log feilet:", err);
+      return { ok: false, error: err };
     }
   }
 
@@ -803,8 +466,15 @@
     state.notificationLog = state.notificationLog.slice(0, 100);
     saveAllLocal();
 
-    if (state.supabaseReady) {
-      await supabaseClient.from("planner_notification_log").insert(row);
+    if (!state.supabaseReady) return { ok: true };
+
+    try {
+      const { error } = await supabaseClient.from("planner_notification_log").insert(row);
+      if (error) throw error;
+      return { ok: true };
+    } catch (err) {
+      console.error("Notification log feilet:", err);
+      return { ok: false, error: err };
     }
   }
 
@@ -820,7 +490,6 @@
   }
 
   async function resetDemo() {
-    if (!ensurePermission(hasRole("superadmin"), "Kun superadmin kan nullstille demo-data.")) return;
     if (!confirm("Vil du nullstille til demo-data?")) return;
 
     state.employees = normalizeEmployees(structuredClone(DEFAULT_EMPLOYEES));
@@ -870,7 +539,6 @@
   }
 
   async function createEntry() {
-    if (!ensurePermission(canManageAssignments(), "Du har ikke tilgang til å opprette tildelinger.")) return;
     const projectId = els.assignProject.value;
     const employeeName = els.assignEmployee.value;
     const role = els.assignRole.value;
@@ -922,11 +590,11 @@
       return;
     }
 
-    await addAudit(`La inn tildeling: ${employeeName} → ${project.name}`);
-    await addNotification(employeeName, project.name);
-
     els.assignNotes.value = "";
     renderAll();
+
+    void addAudit(`La inn tildeling: ${employeeName} → ${project.name}`);
+    void addNotification(employeeName, project.name);
   }
 
   function openEditModal(entryId) {
@@ -953,7 +621,6 @@
   }
 
   async function saveEditedEntry() {
-    if (!ensurePermission(canManageAssignments(), "Du har ikke tilgang til å redigere tildelinger.")) return;
     const entry = state.entries.find(e => e.id === state.selectedEntryId);
     if (!entry) return;
 
@@ -974,13 +641,12 @@
     if (!result.ok) return;
 
     const project = getProjectById(entry.project_id);
-    await addAudit(`Redigerte tildeling: ${entry.employee_name} → ${project?.name || "Ukjent prosjekt"}`);
     closeEditModal();
     renderAll();
+    void addAudit(`Redigerte tildeling: ${entry.employee_name} → ${project?.name || "Ukjent prosjekt"}`);
   }
 
   async function deleteEditedEntry() {
-    if (!ensurePermission(canManageAssignments(), "Du har ikke tilgang til å slette tildelinger.")) return;
     const entry = state.entries.find(e => e.id === state.selectedEntryId);
     if (!entry) return;
     if (!confirm("Vil du fjerne denne tildelingen?")) return;
@@ -996,9 +662,9 @@
     }
 
     const project = getProjectById(entry.project_id);
-    await addAudit(`Slettet tildeling: ${entry.employee_name} → ${project?.name || "Ukjent prosjekt"}`);
     closeEditModal();
     renderAll();
+    void addAudit(`Slettet tildeling: ${entry.employee_name} → ${project?.name || "Ukjent prosjekt"}`);
   }
 
   function openProjectModal(projectId = null) {
@@ -1027,7 +693,6 @@
   }
 
   async function saveProjectFromModal() {
-    if (!ensurePermission(canEditProjects(), "Du har ikke tilgang til å lagre prosjekter.")) return;
     const name = els.projectName.value.trim();
     const category = els.projectCategory.value;
     const status = els.projectStatus.value;
@@ -1088,13 +753,12 @@
     const result = await saveRow("planner_projects", project);
     if (!result.ok) return;
 
-    await addAudit(`${state.selectedProjectId ? "Redigerte" : "Opprettet"} prosjekt: ${name}`);
     closeProjectModal();
     renderAll();
+    void addAudit(`${state.selectedProjectId ? "Redigerte" : "Opprettet"} prosjekt: ${name}`);
   }
 
   async function deleteProjectFromModal() {
-    if (!ensurePermission(canDeleteProjects(), "Du har ikke tilgang til å slette prosjekter.")) return;
     const project = state.projects.find(p => p.id === state.selectedProjectId);
     if (!project) return;
 
@@ -1117,9 +781,9 @@
       return;
     }
 
-    await addAudit(`Slettet prosjekt: ${project.name}`);
     closeProjectModal();
     renderAll();
+    void addAudit(`Slettet prosjekt: ${project.name}`);
   }
 
   function openEmployeeModal(employeeId = null) {
@@ -1145,7 +809,6 @@
   }
 
   async function saveEmployeeFromModal() {
-    if (!ensurePermission(canEditEmployees(), "Du har ikke tilgang til å lagre ansatte.")) return;
     const name = els.employeeName.value.trim();
     const email = els.employeeEmail.value.trim();
     const phone = els.employeePhone.value.trim();
@@ -1205,13 +868,12 @@
     const result = await saveRow("planner_employees", employee);
     if (!result.ok) return;
 
-    await addAudit(`${state.selectedEmployeeId ? "Redigerte" : "Opprettet"} ansatt: ${name}`);
     closeEmployeeModal();
     renderAll();
+    void addAudit(`${state.selectedEmployeeId ? "Redigerte" : "Opprettet"} ansatt: ${name}`);
   }
 
   async function deleteEmployeeFromModal() {
-    if (!ensurePermission(canDeleteEmployees(), "Du har ikke tilgang til å slette ansatte.")) return;
     const employee = state.employees.find(e => e.id === state.selectedEmployeeId);
     if (!employee) return;
 
@@ -1234,13 +896,12 @@
       return;
     }
 
-    await addAudit(`Slettet ansatt: ${employee.name}`);
     closeEmployeeModal();
     renderAll();
+    void addAudit(`Slettet ansatt: ${employee.name}`);
   }
 
   async function bulkAddEmployees() {
-    if (!ensurePermission(canEditEmployees(), "Du har ikke tilgang til å masseimportere ansatte.")) return;
     const names = els.bulkEmployees.value.split("\n").map(v => v.trim()).filter(Boolean);
     if (!names.length) {
       alert("Lim inn minst ett navn.");
@@ -1281,9 +942,9 @@
       }
     }
 
-    await addAudit(`La til ${count} ansatte via masseimport`);
     els.bulkEmployees.value = "";
     renderAll();
+    void addAudit(`La til ${count} ansatte via masseimport`);
   }
 
   function rebuildDerivedState() {
@@ -1324,8 +985,6 @@
     renderAudit();
     renderSystemStatus();
     updateBadge();
-    updateAuthUi();
-    applyAccessControl();
   }
 
   function populateDynamicSelects() {
@@ -1937,7 +1596,6 @@
   }
 
   async function moveEntryByDrop(entryId, targetEmployeeName, dropMeta = null) {
-    if (!ensurePermission(canManageAssignments(), "Du har ikke tilgang til å flytte tildelinger.")) return;
     const entry = state.entries.find(e => e.id === entryId);
     if (!entry) return;
 
@@ -2007,10 +1665,10 @@
     }, 250);
 
     const project = getProjectById(entry.project_id);
-    await addAudit(`Flyttet tildeling: ${project?.name || "Ukjent prosjekt"} fra ${previous.employee_name} (${previous.start_date}–${previous.end_date}) til ${entry.employee_name} (${entry.start_date}–${entry.end_date})`);
     renderProjects();
     renderEmployees();
     renderSystemStatus();
+    void addAudit(`Flyttet tildeling: ${project?.name || "Ukjent prosjekt"} fra ${previous.employee_name} (${previous.start_date}–${previous.end_date}) til ${entry.employee_name} (${entry.start_date}–${entry.end_date})`);
   }
 
   function getFilteredEmployees() {
