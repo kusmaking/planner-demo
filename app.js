@@ -8,6 +8,7 @@
     auditLog: [],
     notificationLog: [],
     currentUser: "Olis Hansen",
+    isAuthenticated: false,
     employeeFilter: "Alle ansatte",
     search: "",
     viewMode: load(STORAGE_KEYS.viewMode, "Uke"),
@@ -40,6 +41,7 @@
     setupStaticOptions();
     bindEvents();
     await bootData();
+    await checkAuthAndToggleUI();
     rebuildDerivedState();
     renderAll();
   }
@@ -120,7 +122,7 @@
     els.assignProject.addEventListener("change", syncAssignDatesFromProject);
     els.assignBtn.addEventListener("click", createEntry);
     els.bulkAddBtn.addEventListener("click", bulkAddEmployees);
-    els.resetDemoBtn.addEventListener("click", resetDemo);
+    if(els.resetDemoBtn){ els.resetDemoBtn.style.display="none"; }
 
     els.closeModalBtn.addEventListener("click", closeEditModal);
     els.saveEditBtn.addEventListener("click", saveEditedEntry);
@@ -525,6 +527,7 @@
   }
 
   async function createEntry() {
+    if(!state.isAuthenticated){ alert("Kun planlegger kan endre"); return; }
     const projectId = els.assignProject.value;
     const employeeName = els.assignEmployee.value;
     const role = els.assignRole.value;
@@ -679,6 +682,7 @@
   }
 
   async function saveProjectFromModal() {
+    if(!state.isAuthenticated){ alert("Kun planlegger kan endre"); return; }
     const name = els.projectName.value.trim();
     const category = els.projectCategory.value;
     const status = els.projectStatus.value;
@@ -795,6 +799,7 @@
   }
 
   async function saveEmployeeFromModal() {
+    if(!state.isAuthenticated){ alert("Kun planlegger kan endre"); return; }
     const name = els.employeeName.value.trim();
     const email = els.employeeEmail.value.trim();
     const phone = els.employeePhone.value.trim();
