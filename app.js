@@ -23,7 +23,9 @@
       projectById: new Map(),
       entriesByEmployee: new Map(),
       entryCountByProject: new Map()
-    }
+    },
+    dragEntryId: null,
+    justDraggedEntryId: null
   };
 
   const els = {};
@@ -1184,7 +1186,7 @@
         </div>
       `;
 
-      html += `<div class="row-overlay border-b border-slate-200" style="grid-column: span ${days.length}; width:${totalWidth}px;">`;
+      html += `<div class="row-overlay border-b border-slate-200 drop-row" data-employee-name="${escapeHtml(employee.name)}" style="grid-column: span ${days.length}; width:${totalWidth}px;">`;
 
       for (let i = 0; i < days.length; i++) {
         const day = days[i];
@@ -1210,6 +1212,8 @@
             class="entry-bar ${getEntryBarClasses(project, entry.role)}"
             style="left:${left}px; width:${width}px;"
             data-entry-id="${escapeHtml(entry.id)}"
+            draggable="true"
+            draggable="true"
             title="${escapeHtml(`${employee.name} | ${project.name} | ${entry.role} | ${entry.start_date} - ${entry.end_date}${entry.notes ? ` | ${entry.notes}` : ""}`)}"
           >
             <div class="font-semibold">${escapeHtml(project.name)}</div>
@@ -1260,8 +1264,7 @@
     const yearEnd = new Date(year, 11, 31);
 
     for (const employee of employees) {
-      const employeeEntries = state.entries
-        .filter(entry => entry.employee_name === employee.name)
+      const employeeEntries = (state.derived.entriesByEmployee.get(employee.name) || [])
         .filter(entry => overlaps(entry.start_date, entry.end_date, yearStart, yearEnd));
 
       html += `
@@ -1271,7 +1274,7 @@
         </div>
       `;
 
-      html += `<div class="row-overlay border-b border-slate-200" style="grid-column: span 12; width:${totalWidth}px;">`;
+      html += `<div class="row-overlay border-b border-slate-200 drop-row" data-employee-name="${escapeHtml(employee.name)}" style="grid-column: span 12; width:${totalWidth}px;">`;
 
       for (let i = 0; i < 12; i++) {
         html += `<div class="month-cell" style="position:absolute; left:${i * monthWidth}px; width:${monthWidth}px;"></div>`;
@@ -1296,6 +1299,7 @@
             class="entry-bar ${getEntryBarClasses(project, entry.role)}"
             style="left:${left}px; width:${width}px;"
             data-entry-id="${escapeHtml(entry.id)}"
+            draggable="true"
             title="${escapeHtml(`${employee.name} | ${project.name} | ${entry.role} | ${entry.start_date} - ${entry.end_date}`)}"
           >
             <div class="font-semibold">${escapeHtml(project.name)}</div>
@@ -1367,7 +1371,7 @@
         </div>
       `;
 
-      html += `<div class="row-overlay border-b border-slate-200" style="grid-column: span ${days.length}; width:${totalWidth}px;">`;
+      html += `<div class="row-overlay border-b border-slate-200 drop-row" data-employee-name="${escapeHtml(employee.name)}" style="grid-column: span ${days.length}; width:${totalWidth}px;">`;
 
       for (let i = 0; i < days.length; i++) {
         const day = days[i];
@@ -1504,8 +1508,79 @@
 
   function bindEntryClicks() {
     els.calendarWrap.querySelectorAll("[data-entry-id]").forEach(el => {
-      el.addEventListener("click", () => openEditModal(el.dataset.entryId));
+      el.addEventListener("click", () => {
+        if (state.justDraggedEntryId === el.dataset.entryId) return;
+        openEditModal(el.dataset.entryId);
+      });
+
+      el.addEventListener("dragstart", event => {
+        state.dragEntryId = el.dataset.entryId;
+        event.dataTransfer.effectAllowed = "move";
+        event.dataTransfer.setData("text/plain", el.dataset.entryId);
+        requestAnimationFrame(() => {
+          el.classList.add("opacity-60");
+        });
+      });
+
+      el.addEventListener("dragend", () => {
+        el.classList.remove("opacity-60");
+        state.dragEntryId = null;
+      });
     });
+
+    els.calendarWrap.querySelectorAll(".drop-row").forEach(row => {
+      row.addEventListener("dragover", event => {
+        if (!state.dragEntryId) return;
+        event.preventDefault();
+        event.dataTransfer.dropEffect = "move";
+        row.classList.add("ring-2", "ring-sky-300", "ring-inset");
+      });
+
+      row.addEventListener("dragleave", () => {
+        row.classList.remove("ring-2", "ring-sky-300", "ring-inset");
+      });
+
+      row.addEventListener("drop", async event => {
+        event.preventDefault();
+        row.classList.remove("ring-2", "ring-sky-300", "ring-inset");
+        const entryId = event.dataTransfer.getData("text/plain") || state.dragEntryId;
+        const targetEmployeeName = row.dataset.employeeName;
+        if (!entryId || !targetEmployeeName) return;
+        await moveEntryToEmployee(entryId, targetEmployeeName);
+      });
+    });
+  }
+
+  async function moveEntryToEmployee(entryId, targetEmployeeName) {
+    const entry = state.entries.find(e => e.id === entryId);
+    if (!entry) return;
+    if (entry.employee_name === targetEmployeeName) return;
+
+    const previousEmployeeName = entry.employee_name;
+    entry.employee_name = targetEmployeeName;
+    rebuildDerivedState();
+    renderStats();
+    renderCalendar();
+
+    const result = await saveRow("planner_entries", entry);
+    if (!result.ok) {
+      entry.employee_name = previousEmployeeName;
+      rebuildDerivedState();
+      renderStats();
+      renderCalendar();
+      return;
+    }
+
+    state.justDraggedEntryId = entryId;
+    setTimeout(() => {
+      if (state.justDraggedEntryId === entryId) state.justDraggedEntryId = null;
+    }, 250);
+
+    const project = getProjectById(entry.project_id);
+    await addAudit(`Flyttet tildeling: ${project?.name || "Ukjent prosjekt"} fra ${previousEmployeeName} til ${targetEmployeeName}`);
+    renderProjects();
+    renderEmployees();
+    renderSystemStatus();
   }
 
   function getFilteredEmployees() {
