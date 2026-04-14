@@ -8,7 +8,7 @@
     auditLog: [],
     notificationLog: [],
     currentUser: "Olis Hansen",
-    employeeFilter: "Alle ansatte",
+    employeeFilter: "Alle ansatte",
     search: "",
     viewMode: load(STORAGE_KEYS.viewMode, "Uke"),
     calendarMode: load(STORAGE_KEYS.calendarMode, "personal"),
