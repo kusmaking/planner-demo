@@ -12,7 +12,6 @@
     currentRole: "",
     authReady: false,
     employeeFilter: "Alle ansatte",
-    employeeTypeFilter: "Alle",
     search: "",
     viewMode: "Måned",
     calendarMode: load(STORAGE_KEYS.calendarMode, "personal"),
@@ -42,8 +41,6 @@
   async function init() {
     cacheElements();
     ensureAccountPanel();
-    ensureEmployeeTypeFilter();
-    ensureEmployeeTypeField();
     setupStaticOptions();
     bindEvents();
 
@@ -60,7 +57,7 @@
 
   function cacheElements() {
     const ids = [
-      "statsRow", "searchInput", "employeeFilter", "employeeTypeFilter", "viewMode", "calendarMode", "prevBtn", "nextBtn", "todayBtn",
+      "statsRow", "searchInput", "employeeFilter", "viewMode", "calendarMode", "prevBtn", "nextBtn", "todayBtn",
       "calendarWrap", "warningBox", "legendList", "projectList", "assignProject", "assignEmployee", "assignRole",
       "assignStart", "assignEnd", "assignNotes", "assignBtn", "bulkEmployees", "bulkAddBtn",
       "employeeList", "kanbanBoard", "notificationList", "auditList", "editModal", "closeModalBtn",
@@ -70,7 +67,7 @@
       "projectName", "projectCategory", "projectStatus", "projectPlannedStart", "projectPlannedEnd",
       "projectLocation", "projectHeadcount", "projectNotes", "saveProjectBtn", "deleteProjectBtn",
       "newEmployeeBtn", "employeeModal", "employeeModalTitle", "closeEmployeeModalBtn",
-      "employeeName", "employeeEmail", "employeePhone", "employeeTitle", "employeeType", "employeeActive", "saveEmployeeBtn", "deleteEmployeeBtn",
+      "employeeName", "employeeEmail", "employeePhone", "employeeTitle", "employeeActive", "saveEmployeeBtn", "deleteEmployeeBtn",
       "accountPanel", "accountUserInfo", "changePasswordBtn", "resetPasswordBtn"
     ];
 
@@ -200,48 +197,8 @@
     alert("Reset-link er sendt på e-post.");
   }
 
-
-
-  function ensureEmployeeTypeField() {
-    if (document.getElementById("employeeType")) {
-      els.employeeType = document.getElementById("employeeType");
-      return;
-    }
-
-    if (!els.employeeTitle || !els.employeeTitle.parentElement) return;
-
-    const wrapper = document.createElement("div");
-    wrapper.innerHTML = `
-      <label class="block text-sm font-medium text-slate-700 mb-1">Personelltype</label>
-      <select id="employeeType" class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm">
-        <option value="Offshore">Offshore</option>
-        <option value="Onshore">Onshore</option>
-      </select>
-    `;
-    els.employeeTitle.parentElement.insertAdjacentElement("afterend", wrapper);
-    els.employeeType = document.getElementById("employeeType");
-  }
-
-  function ensureEmployeeTypeFilter() {
-    if (document.getElementById("employeeTypeFilter")) {
-      els.employeeTypeFilter = document.getElementById("employeeTypeFilter");
-      return;
-    }
-
-    if (!els.employeeFilter || !els.employeeFilter.parentElement) return;
-
-    const select = document.createElement("select");
-    select.id = "employeeTypeFilter";
-    select.className = els.employeeFilter.className || "rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm";
-    els.employeeFilter.parentElement.insertBefore(select, els.employeeFilter.nextSibling);
-
-    els.employeeTypeFilter = select;
-  }
-
   function setupStaticOptions() {
     fillSelect(els.projectCategory, CATEGORY_OPTIONS);
-    fillSelect(els.employeeTypeFilter, ["Alle", "Offshore", "Onshore"], state.employeeTypeFilter || "Alle");
-    fillSelect(els.employeeType, ["Offshore", "Onshore"], "Onshore");
     fillSelect(els.projectStatus, STATUS_OPTIONS, "Planlagt");
     fillSelect(els.assignRole, ROLE_OPTIONS, "Supervisor");
     fillSelect(els.editRole, ROLE_OPTIONS, "Supervisor");
@@ -259,15 +216,6 @@
       renderStats();
       renderCalendar();
     });
-
-    if (els.employeeTypeFilter) {
-      els.employeeTypeFilter.addEventListener("change", e => {
-        state.employeeTypeFilter = e.target.value;
-        renderStats();
-        renderEmployees();
-        renderCalendar();
-      });
-    }
 
     els.viewMode.addEventListener("change", e => {
       state.viewMode = e.target.value;
@@ -309,7 +257,9 @@
     els.assignProject.addEventListener("change", syncAssignDatesFromProject);
     els.assignBtn.addEventListener("click", createEntry);
     els.bulkAddBtn.addEventListener("click", bulkAddEmployees);
-    els.resetDemoBtn.addEventListener("click", resetDemo);
+    if (els.resetDemoBtn) {
+      els.resetDemoBtn.style.display = "none";
+    }
 
     els.closeModalBtn.addEventListener("click", closeEditModal);
     els.saveEditBtn.addEventListener("click", saveEditedEntry);
@@ -465,8 +415,7 @@
   function normalizeEmployees(list) {
     return (list || []).map(emp => ({
       ...emp,
-      title: emp?.title || "",
-      employee_type: emp?.employee_type || "Onshore"
+      title: emp?.title || ""
     }));
   }
 
@@ -994,7 +943,6 @@
     els.employeeEmail.value = employee?.email || "";
     els.employeePhone.value = employee?.phone || "";
     els.employeeTitle.value = employee?.title || "";
-    if (els.employeeType) els.employeeType.value = employee?.employee_type || "Onshore";
     els.employeeActive.checked = employee?.active ?? true;
     els.deleteEmployeeBtn.style.display = employee ? "inline-flex" : "none";
 
@@ -1013,7 +961,6 @@
     const email = els.employeeEmail.value.trim();
     const phone = els.employeePhone.value.trim();
     const title = els.employeeTitle.value.trim();
-    const employeeType = els.employeeType?.value || "Onshore";
     const active = els.employeeActive.checked;
 
     if (!name) {
@@ -1037,7 +984,6 @@
       employee.email = email;
       employee.phone = phone;
       employee.title = title;
-      employee.employee_type = employeeType;
       employee.active = active;
 
       if (oldName !== name) {
@@ -1058,7 +1004,6 @@
         email,
         phone,
         title,
-        employee_type: employeeType,
         active
       };
       state.employees.push(employee);
@@ -1124,7 +1069,6 @@
         email: "",
         phone: "",
         title: "",
-        employee_type: "Onshore",
         active: true
       };
 
@@ -1199,7 +1143,6 @@
     ];
 
     fillSelect(els.employeeFilter, employeeFilterItems, state.employeeFilter, "name", "id");
-    fillSelect(els.employeeTypeFilter, ["Alle", "Offshore", "Onshore"], state.employeeTypeFilter || "Alle");
     fillSelect(els.assignEmployee, state.employees.filter(e => e.active !== false), state.employees.find(e => e.active !== false)?.name || "", "name", "name");
     fillSelect(els.editEmployee, state.employees.filter(e => e.active !== false), null, "name", "name");
     fillSelect(els.assignProject, state.projects, state.projects[0]?.id || "", "name", "id");
@@ -1293,16 +1236,11 @@
   }
 
   function renderEmployees() {
-    const sortedEmployees = getSortedEmployees(state.employees);
-
-    els.employeeList.innerHTML = sortedEmployees.map(emp => `
-      <button data-employee-id="${escapeHtml(emp.id)}" class="w-full text-left rounded-xl border p-3 ${getEmployeeTypeClasses(emp.employee_type)}">
+    els.employeeList.innerHTML = state.employees.map(emp => `
+      <button data-employee-id="${escapeHtml(emp.id)}" class="w-full text-left rounded-xl border border-slate-200 p-3 bg-slate-50 hover:bg-slate-100">
         <div class="flex items-center justify-between gap-2">
           <div class="font-medium">${escapeHtml(emp.name)}</div>
-          <div class="flex items-center gap-2">
-            ${getEmployeeTypeBadge(emp.employee_type)}
-            <span class="text-xs ${emp.active ? "text-green-700" : "text-amber-700"}">${emp.active ? "Aktiv" : "Inaktiv"}</span>
-          </div>
+          <span class="text-xs ${emp.active ? "text-green-700" : "text-amber-700"}">${emp.active ? "Aktiv" : "Inaktiv"}</span>
         </div>
         <div class="text-xs text-slate-500 mt-1">${escapeHtml(emp.email || "Ingen e-post")}</div>
         <div class="text-xs text-slate-500">${escapeHtml(emp.phone || "Ingen telefon")}</div>
@@ -1882,48 +1820,12 @@
     void addAudit(`Flyttet tildeling: ${project?.name || "Ukjent prosjekt"} fra ${previous.employee_name} (${previous.start_date}–${previous.end_date}) til ${entry.employee_name} (${entry.start_date}–${entry.end_date})`);
   }
 
-
-  function getEmployeeTypePriority(employeeType) {
-    if (employeeType === "Offshore") return 0;
-    if (employeeType === "Onshore") return 1;
-    return 2;
-  }
-
-  function getEmployeeTypeClasses(employeeType) {
-    if (employeeType === "Offshore") {
-      return "border-blue-200 bg-blue-50 hover:bg-blue-100";
-    }
-    if (employeeType === "Onshore") {
-      return "border-emerald-200 bg-emerald-50 hover:bg-emerald-100";
-    }
-    return "border-slate-200 bg-slate-50 hover:bg-slate-100";
-  }
-
-  function getEmployeeTypeBadge(employeeType) {
-    if (employeeType === "Offshore") {
-      return '<span class="text-xs rounded-full border border-blue-200 bg-blue-100 px-2 py-0.5 text-blue-700">Offshore</span>';
-    }
-    if (employeeType === "Onshore") {
-      return '<span class="text-xs rounded-full border border-emerald-200 bg-emerald-100 px-2 py-0.5 text-emerald-700">Onshore</span>';
-    }
-    return '<span class="text-xs rounded-full border border-slate-200 bg-slate-100 px-2 py-0.5 text-slate-700">Ukjent</span>';
-  }
-
-  function getSortedEmployees(list) {
-    return [...(list || [])].sort((a, b) => {
-      const typeCompare = getEmployeeTypePriority(a.employee_type) - getEmployeeTypePriority(b.employee_type);
-      if (typeCompare !== 0) return typeCompare;
-      return a.name.localeCompare(b.name, "no");
-    });
-  }
-
   function getFilteredEmployees() {
-    return getSortedEmployees(state.employees).filter(emp => {
+    return state.employees.filter(emp => {
       const isActive = emp.active !== false;
       const matchesFilter = state.employeeFilter === "Alle ansatte" || emp.name === state.employeeFilter;
-      const matchesType = state.employeeTypeFilter === "Alle" || (emp.employee_type || "Onshore") === state.employeeTypeFilter;
       const matchesSearch = !state.search || emp.name.toLowerCase().includes(state.search);
-      return isActive && matchesFilter && matchesType && matchesSearch;
+      return isActive && matchesFilter && matchesSearch;
     });
   }
 
