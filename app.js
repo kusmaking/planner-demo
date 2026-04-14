@@ -10,9 +10,9 @@
     currentUser: "Olis Hansen",
     employeeFilter: "Alle ansatte",
     search: "",
-    viewMode: load(STORAGE_KEYS.viewMode, "Uke"),
+    viewMode: "Måned",
     calendarMode: load(STORAGE_KEYS.calendarMode, "personal"),
-    startDate: new Date(load(STORAGE_KEYS.startDate, "2026-01-05")),
+    startDate: startOfCurrentMonth(),
     selectedEntryId: null,
     selectedProjectId: null,
     selectedEmployeeId: null,
@@ -39,6 +39,11 @@
     cacheElements();
     setupStaticOptions();
     bindEvents();
+
+    state.viewMode = "Måned";
+    state.startDate = startOfCurrentMonth();
+    persistUiState();
+
     await bootData();
     rebuildDerivedState();
     renderAll();
@@ -1786,6 +1791,12 @@
 
   function formatYearBarLabel(start, end) {
     return `${capitalize(monthShort(new Date(start)))}–${capitalize(monthShort(new Date(end)))}`;
+  }
+
+
+  function startOfCurrentMonth() {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), 1);
   }
 
   function toIsoDate(date) {
