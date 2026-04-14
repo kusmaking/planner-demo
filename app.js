@@ -710,7 +710,7 @@
 
     els.kanbanBoard.innerHTML = groups.map(group => `
       <div class="rounded-2xl border border-slate-200 bg-slate-50">
-        <div class="p-3 border-b border-slate-200 font-medium">${escapeHtml(group.status)} (${group.projects.length})</div>
+        <div class="p-3 border-b border-slate-200 font-medium">${escapeHtml(group.status)} (${group.projects.length})}</div>
         <div class="p-3 space-y-2">
           ${group.projects.length ? group.projects.map(project => `
             <div class="rounded-xl border border-slate-200 bg-white p-3">
@@ -774,16 +774,19 @@
     const range = getCurrentRange();
     const days = getDaysBetween(range.start, range.end);
     const employees = getFilteredEmployees();
-
-    const colWidth = 44;
-    const stickyWidth = 260;
-    const totalWidth = days.length * colWidth;
+    const calendarWrapWidth = Math.max(els.calendarWrap.clientWidth - 32, 900);
+    const stickyWidth = 280;
+    const usableWidth = Math.max(calendarWrapWidth - stickyWidth, 560);
+    const colWidth = usableWidth / days.length;
+    const totalWidth = colWidth * days.length;
 
     let html = `<div class="calendar-shell">`;
 
     html += `
       <div class="day-grid border border-slate-200 rounded-2xl overflow-hidden" style="grid-template-columns:${stickyWidth}px repeat(${days.length}, ${colWidth}px);">
-        <div class="sticky-col z-30 border-b border-r border-slate-200 bg-slate-50 px-3 py-3 font-semibold">Ansatt</div>
+        <div class="sticky-col z-30 border-b border-r border-slate-200 bg-slate-50 px-3 py-3 font-semibold">
+          Ansatt
+        </div>
     `;
 
     for (const day of days) {
@@ -792,7 +795,8 @@
 
       html += `
         <div class="border-b border-r border-slate-200 px-2 py-2 text-center text-xs ${weekend ? "bg-slate-50" : "bg-white"} ${isTodayFlag ? "text-blue-700 font-semibold" : "text-slate-600"}">
-          <div>${weekdayShort(day)}</div>
+          <div class="font-semibold">${weekdayShort(day)}</div>
+          <div>Uke ${getIsoWeek(day)}</div>
           <div class="font-semibold">${day.getDate()}</div>
           <div>${monthShort(day)}</div>
         </div>
@@ -871,15 +875,19 @@
     const employees = getFilteredEmployees();
     const year = state.startDate.getFullYear();
     const months = Array.from({ length: 12 }, (_, i) => new Date(year, i, 1));
-    const monthWidth = 120;
-    const stickyWidth = 260;
-    const totalWidth = months.length * monthWidth;
+    const calendarWrapWidth = Math.max(els.calendarWrap.clientWidth - 32, 900);
+    const stickyWidth = 280;
+    const usableWidth = Math.max(calendarWrapWidth - stickyWidth, 720);
+    const monthWidth = usableWidth / 12;
+    const totalWidth = monthWidth * 12;
 
     let html = `<div class="calendar-shell">`;
 
     html += `
       <div class="month-summary-grid border border-slate-200 rounded-2xl overflow-hidden" style="grid-template-columns:${stickyWidth}px repeat(12, ${monthWidth}px);">
-        <div class="sticky-col z-30 border-b border-r border-slate-200 bg-slate-50 px-3 py-3 font-semibold">Ansatt</div>
+        <div class="sticky-col z-30 border-b border-r border-slate-200 bg-slate-50 px-3 py-3 font-semibold">
+          Ansatt
+        </div>
     `;
 
     for (const month of months) {
@@ -1012,7 +1020,7 @@
     const range = getCurrentRange();
 
     if (state.viewMode === "Uke") {
-      return `Ukevisning: ${formatDate(range.start)} – ${formatDate(range.end)}`;
+      return `Uke ${getIsoWeek(range.start)} • ${formatDate(range.start)} – ${formatDate(range.end)}`;
     }
 
     if (state.viewMode === "Måned") {
@@ -1146,6 +1154,14 @@
 
   function monthLong(date) {
     return new Intl.DateTimeFormat("no-NO", { month: "long" }).format(date);
+  }
+
+  function getIsoWeek(date) {
+    const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+    const dayNum = d.getUTCDay() || 7;
+    d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+    const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+    return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
   }
 
   function uniqueArray(arr) {
