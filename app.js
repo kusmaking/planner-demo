@@ -40,7 +40,7 @@
       "kanbanBoard", "notificationList", "auditList", "editModal", "closeModalBtn",
       "editProject", "editEmployee", "editRole", "editStart", "editEnd", "editNotes",
       "saveEditBtn", "deleteEditBtn", "storageBadge", "syncNowBtn", "resetDemoBtn",
-      "systemStatus"
+      "systemStatus", "rangeTitle"
     ];
 
     for (const id of ids) {
@@ -55,61 +55,45 @@
     fillSelect(els.editRole, ROLE_OPTIONS, "Supervisor");
   }
 
-  function fillSelect(selectEl, values, selected = null, labelKey = null, valueKey = null) {
-    selectEl.innerHTML = "";
-
-    values.forEach(item => {
-      const option = document.createElement("option");
-
-      if (typeof item === "object") {
-        option.value = valueKey ? item[valueKey] : item.id;
-        option.textContent = labelKey ? item[labelKey] : item.name;
-      } else {
-        option.value = item;
-        option.textContent = item;
-      }
-
-      if (selected !== null && option.value === selected) {
-        option.selected = true;
-      }
-
-      selectEl.appendChild(option);
-    });
-  }
-
   function bindEvents() {
     els.searchInput.addEventListener("input", e => {
       state.search = e.target.value.trim().toLowerCase();
-      renderCalendar();
       renderStats();
+      renderCalendar();
     });
 
     els.employeeFilter.addEventListener("change", e => {
       state.employeeFilter = e.target.value;
-      renderCalendar();
       renderStats();
+      renderCalendar();
     });
 
     els.viewMode.addEventListener("change", e => {
       state.viewMode = e.target.value;
       persistUiState();
       renderCalendar();
+      renderStats();
     });
 
     els.prevBtn.addEventListener("click", () => {
       shiftPeriod(-1);
       renderCalendar();
+      renderStats();
     });
 
     els.nextBtn.addEventListener("click", () => {
       shiftPeriod(1);
       renderCalendar();
+      renderStats();
     });
 
     els.todayBtn.addEventListener("click", () => {
-      state.startDate = startOfWeek(new Date());
+      state.startDate = state.viewMode === "År"
+        ? new Date(new Date().getFullYear(), 0, 1)
+        : startOfWeek(new Date());
       persistUiState();
       renderCalendar();
+      renderStats();
     });
 
     els.createProjectBtn.addEventListener("click", createProject);
@@ -137,6 +121,28 @@
     });
   }
 
+  function fillSelect(selectEl, values, selected = null, labelKey = null, valueKey = null) {
+    selectEl.innerHTML = "";
+
+    values.forEach(item => {
+      const option = document.createElement("option");
+
+      if (typeof item === "object") {
+        option.value = valueKey ? item[valueKey] : item.id;
+        option.textContent = labelKey ? item[labelKey] : item.name;
+      } else {
+        option.value = item;
+        option.textContent = item;
+      }
+
+      if (selected !== null && option.value === selected) {
+        option.selected = true;
+      }
+
+      selectEl.appendChild(option);
+    });
+  }
+
   async function bootData() {
     const localData = loadAllLocal();
 
@@ -147,9 +153,9 @@
     state.notificationLog = localData.notificationLog;
 
     if (!supabaseClient) {
+      state.storageMode = "local";
       state.supabaseReady = false;
       state.supabaseError = "Supabase-biblioteket ble ikke lastet.";
-      state.storageMode = "local";
       updateBadge();
       return;
     }
@@ -178,7 +184,7 @@
       return true;
     } catch (err) {
       state.supabaseReady = false;
-      state.supabaseError = err?.message || "Ukjent feil ved tilkobling til Supabase.";
+      state.supabaseError = err?.message || "Ukjent feil mot Supabase.";
       return false;
     }
   }
@@ -192,7 +198,7 @@
         projectsRes,
         entriesRes,
         auditRes,
-        notificationsRes
+        notificationRes
       ] = await Promise.all([
         supabaseClient.from("planner_employees").select("*").order("name", { ascending: true }),
         supabaseClient.from("planner_projects").select("*").order("name", { ascending: true }),
@@ -201,7 +207,7 @@
         supabaseClient.from("planner_notification_log").select("*").order("created_at", { ascending: false }).limit(100)
       ]);
 
-      for (const res of [employeesRes, projectsRes, entriesRes, auditRes, notificationsRes]) {
+      for (const res of [employeesRes, projectsRes, entriesRes, auditRes, notificationRes]) {
         if (res.error) throw res.error;
       }
 
@@ -219,14 +225,14 @@
       state.projects = projectsRes.data || [];
       state.entries = entriesRes.data || [];
       state.auditLog = auditRes.data || [];
-      state.notificationLog = notificationsRes.data || [];
+      state.notificationLog = notificationRes.data || [];
 
       saveAllLocal();
       state.storageMode = "supabase";
       state.supabaseError = null;
     } catch (err) {
       state.storageMode = "local";
-      state.supabaseError = err?.message || "Kunne ikke laste fra Supabase.";
+      state.supabaseError = err?.message || "Kunne ikke laste data fra Supabase.";
     }
 
     updateBadge();
@@ -262,6 +268,7 @@
     state.notificationLog = structuredClone(DEFAULT_NOTIFICATION_LOG);
     state.startDate = new Date("2026-01-05");
     state.viewMode = "Uke";
+
     persistUiState();
     saveAllLocal();
 
@@ -327,6 +334,7 @@
 
     state.projects.push(project);
     state.projects.sort((a, b) => a.name.localeCompare(b.name, "no"));
+
     await persistProjects();
     await addAudit(`Opprettet prosjekt: ${name}`);
 
@@ -361,6 +369,7 @@
 
     state.employees.push(employee);
     state.employees.sort((a, b) => a.name.localeCompare(b.name, "no"));
+
     await persistEmployees();
     await addAudit(`La til ansatt: ${name}`);
 
@@ -372,19 +381,19 @@
   }
 
   async function bulkAddEmployees() {
-    const rows = els.bulkEmployees.value
+    const names = els.bulkEmployees.value
       .split("\n")
       .map(v => v.trim())
       .filter(Boolean);
 
-    if (!rows.length) {
+    if (!names.length) {
       alert("Lim inn minst ett navn.");
       return;
     }
 
     let count = 0;
 
-    for (const name of rows) {
+    for (const name of names) {
       const exists = state.employees.some(e => e.name.toLowerCase() === name.toLowerCase());
       if (exists) continue;
 
@@ -448,6 +457,7 @@
 
   function openEditModal(entryId) {
     state.selectedEntryId = entryId;
+
     const entry = state.entries.find(e => e.id === entryId);
     if (!entry) return;
 
@@ -624,19 +634,22 @@
   }
 
   function populateDynamicSelects() {
-    const employees = [{ name: "Alle ansatte", id: "Alle ansatte" }, ...state.employees.map(e => ({ id: e.name, name: e.name }))];
-    fillSelect(els.employeeFilter, employees, state.employeeFilter, "name", "id");
+    const employeeFilterItems = [{ name: "Alle ansatte", id: "Alle ansatte" }, ...state.employees.map(e => ({ id: e.name, name: e.name }))];
+    fillSelect(els.employeeFilter, employeeFilterItems, state.employeeFilter, "name", "id");
     fillSelect(els.assignEmployee, state.employees, state.employees[0]?.name || "", "name", "name");
     fillSelect(els.editEmployee, state.employees, state.employees[0]?.name || "", "name", "name");
     fillSelect(els.assignProject, state.projects, state.projects[0]?.id || "", "name", "id");
     fillSelect(els.editProject, state.projects, state.projects[0]?.id || "", "name", "id");
-    fillSelect(els.viewMode, ["Uke", "Måned"], state.viewMode);
+    fillSelect(els.viewMode, ["Uke", "Måned", "År"], state.viewMode);
   }
 
   function renderStats() {
     const visibleEmployees = getFilteredEmployees();
-    const currentRange = getCurrentRange();
-    const entriesInRange = state.entries.filter(entry => overlaps(entry.start_date, entry.end_date, currentRange.start, currentRange.end));
+    const range = getCurrentRange();
+
+    const entriesInRange = state.entries.filter(entry =>
+      overlaps(entry.start_date, entry.end_date, range.start, range.end)
+    );
 
     const cards = [
       { label: "Ansatte", value: state.employees.length },
@@ -680,22 +693,20 @@
   }
 
   function renderEmployees() {
-    const html = state.employees.map(emp => `
+    els.employeeList.innerHTML = state.employees.map(emp => `
       <div class="rounded-xl border border-slate-200 p-3 bg-slate-50">
         <div class="font-medium">${escapeHtml(emp.name)}</div>
         <div class="text-xs text-slate-500 mt-1">${escapeHtml(emp.email || "Ingen e-post")}</div>
         <div class="text-xs text-slate-500">${escapeHtml(emp.phone || "Ingen telefon")}</div>
       </div>
-    `).join("");
-
-    els.employeeList.innerHTML = html || `<div class="text-sm text-slate-500">Ingen ansatte enda.</div>`;
+    `).join("") || `<div class="text-sm text-slate-500">Ingen ansatte enda.</div>`;
   }
 
   function renderKanban() {
-    const groups = STATUS_OPTIONS.map(status => {
-      const projects = state.projects.filter(p => p.status === status);
-      return { status, projects };
-    });
+    const groups = STATUS_OPTIONS.map(status => ({
+      status,
+      projects: state.projects.filter(p => p.status === status)
+    }));
 
     els.kanbanBoard.innerHTML = groups.map(group => `
       <div class="rounded-2xl border border-slate-200 bg-slate-50">
@@ -749,23 +760,36 @@
   }
 
   function renderCalendar() {
+    els.rangeTitle.innerHTML = getRangeTitle();
+
+    if (state.viewMode === "År") {
+      renderYearCalendar();
+      return;
+    }
+
+    renderDayBasedCalendar();
+  }
+
+  function renderDayBasedCalendar() {
     const range = getCurrentRange();
     const days = getDaysBetween(range.start, range.end);
     const employees = getFilteredEmployees();
 
-    const gridColumns = `260px repeat(${days.length}, minmax(44px, 1fr))`;
+    const colWidth = 44;
+    const stickyWidth = 260;
+    const totalWidth = days.length * colWidth;
 
-    let html = `
-      <div class="calendar-grid border border-slate-200 rounded-2xl overflow-hidden" style="grid-template-columns:${gridColumns}">
-    `;
+    let html = `<div class="calendar-shell">`;
 
     html += `
-      <div class="calendar-sticky-col z-30 border-b border-r border-slate-200 bg-slate-50 px-3 py-3 font-semibold">Ansatt</div>
+      <div class="day-grid border border-slate-200 rounded-2xl overflow-hidden" style="grid-template-columns:${stickyWidth}px repeat(${days.length}, ${colWidth}px);">
+        <div class="sticky-col z-30 border-b border-r border-slate-200 bg-slate-50 px-3 py-3 font-semibold">Ansatt</div>
     `;
 
     for (const day of days) {
       const weekend = isWeekend(day);
       const isTodayFlag = sameDate(day, new Date());
+
       html += `
         <div class="border-b border-r border-slate-200 px-2 py-2 text-center text-xs ${weekend ? "bg-slate-50" : "bg-white"} ${isTodayFlag ? "text-blue-700 font-semibold" : "text-slate-600"}">
           <div>${weekdayShort(day)}</div>
@@ -783,23 +807,22 @@
         .filter(entry => overlaps(entry.start_date, entry.end_date, range.start, range.end));
 
       html += `
-        <div class="calendar-sticky-col border-r border-b border-slate-200 px-3 py-3">
+        <div class="sticky-col border-r border-b border-slate-200 px-3 py-3">
           <div class="font-medium">${escapeHtml(employee.name)}</div>
           <div class="text-xs text-slate-500">${escapeHtml(employee.email || "")}</div>
         </div>
       `;
 
-      html += `<div class="entry-row col-span-${days.length}" style="grid-column: span ${days.length};">`;
+      html += `<div class="row-overlay border-b border-slate-200" style="grid-column: span ${days.length}; width:${totalWidth}px;">`;
 
       for (let i = 0; i < days.length; i++) {
         const day = days[i];
         const weekend = isWeekend(day);
         const isTodayFlag = sameDate(day, new Date());
-        html += `<div class="day-cell ${weekend ? "weekend" : ""} ${isTodayFlag ? "today" : ""}" style="position:absolute; left:${i * 44}px; width:44px;"></div>`;
+        html += `<div class="day-cell ${weekend ? "weekend" : ""} ${isTodayFlag ? "today" : ""}" style="position:absolute; left:${i * colWidth}px; width:${colWidth}px;"></div>`;
       }
 
-      const rowWidth = days.length * 44;
-      html += `<div style="position:relative; width:${rowWidth}px; min-height:56px;">`;
+      html += `<div style="position:relative; width:${totalWidth}px; min-height:56px;">`;
 
       for (const entry of employeeEntries) {
         const project = getProjectById(entry.project_id);
@@ -809,8 +832,8 @@
         const startIndex = diffDays(range.start, clipped.start);
         const spanDays = diffDays(clipped.start, clipped.end) + 1;
 
-        const left = startIndex * 44 + 2;
-        const width = Math.max(spanDays * 44 - 4, 40);
+        const left = startIndex * colWidth + 2;
+        const width = Math.max(spanDays * colWidth - 4, 40);
 
         html += `
           <div
@@ -837,14 +860,110 @@
       html += `</div></div>`;
     }
 
-    html += `</div>`;
-    els.calendarWrap.innerHTML = html;
+    html += `</div></div>`;
 
+    els.calendarWrap.innerHTML = html;
+    bindEntryClicks();
+    renderWarnings(uniqueArray(warnings));
+  }
+
+  function renderYearCalendar() {
+    const employees = getFilteredEmployees();
+    const year = state.startDate.getFullYear();
+    const months = Array.from({ length: 12 }, (_, i) => new Date(year, i, 1));
+    const monthWidth = 120;
+    const stickyWidth = 260;
+    const totalWidth = months.length * monthWidth;
+
+    let html = `<div class="calendar-shell">`;
+
+    html += `
+      <div class="month-summary-grid border border-slate-200 rounded-2xl overflow-hidden" style="grid-template-columns:${stickyWidth}px repeat(12, ${monthWidth}px);">
+        <div class="sticky-col z-30 border-b border-r border-slate-200 bg-slate-50 px-3 py-3 font-semibold">Ansatt</div>
+    `;
+
+    for (const month of months) {
+      html += `
+        <div class="border-b border-r border-slate-200 px-2 py-3 text-center text-sm bg-white text-slate-700 font-medium">
+          ${escapeHtml(monthLong(month))}
+        </div>
+      `;
+    }
+
+    const warnings = [];
+    const yearStart = new Date(year, 0, 1);
+    const yearEnd = new Date(year, 11, 31);
+
+    for (const employee of employees) {
+      const employeeEntries = state.entries
+        .filter(entry => entry.employee_name === employee.name)
+        .filter(entry => overlaps(entry.start_date, entry.end_date, yearStart, yearEnd));
+
+      html += `
+        <div class="sticky-col border-r border-b border-slate-200 px-3 py-3">
+          <div class="font-medium">${escapeHtml(employee.name)}</div>
+          <div class="text-xs text-slate-500">${escapeHtml(employee.email || "")}</div>
+        </div>
+      `;
+
+      html += `<div class="row-overlay border-b border-slate-200" style="grid-column: span 12; width:${totalWidth}px;">`;
+
+      for (let i = 0; i < 12; i++) {
+        html += `<div class="month-cell" style="position:absolute; left:${i * monthWidth}px; width:${monthWidth}px;"></div>`;
+      }
+
+      html += `<div style="position:relative; width:${totalWidth}px; min-height:56px;">`;
+
+      for (const entry of employeeEntries) {
+        const project = getProjectById(entry.project_id);
+        if (!project) continue;
+
+        const entryStart = new Date(entry.start_date);
+        const entryEnd = new Date(entry.end_date);
+
+        const startMonth = Math.max(0, entryStart.getFullYear() < year ? 0 : entryStart.getMonth());
+        const endMonth = Math.min(11, entryEnd.getFullYear() > year ? 11 : entryEnd.getMonth());
+        const spanMonths = (endMonth - startMonth) + 1;
+
+        const left = startMonth * monthWidth + 2;
+        const width = Math.max(spanMonths * monthWidth - 4, 40);
+
+        html += `
+          <div
+            class="entry-bar ${CATEGORY_COLORS[project.category] || "bg-slate-500 border-slate-600 text-white"} ${ROLE_CLASSES[entry.role] || ""}"
+            style="left:${left}px; width:${width}px;"
+            data-entry-id="${escapeHtml(entry.id)}"
+            title="${escapeHtml(`${employee.name} | ${project.name} | ${entry.role} | ${entry.start_date} - ${entry.end_date}`)}"
+          >
+            <div class="font-semibold">${escapeHtml(project.name)}</div>
+            <div class="text-[11px] opacity-90">${escapeHtml(formatYearBarLabel(entry.start_date, entry.end_date))}</div>
+          </div>
+        `;
+
+        const overlappingCount = employeeEntries.filter(other =>
+          other.id !== entry.id &&
+          overlaps(entry.start_date, entry.end_date, other.start_date, other.end_date)
+        ).length;
+
+        if (overlappingCount > 0) {
+          warnings.push(`${employee.name} har overlappende tildelinger i årsoversikten.`);
+        }
+      }
+
+      html += `</div></div>`;
+    }
+
+    html += `</div></div>`;
+
+    els.calendarWrap.innerHTML = html;
+    bindEntryClicks();
+    renderWarnings(uniqueArray(warnings));
+  }
+
+  function bindEntryClicks() {
     els.calendarWrap.querySelectorAll("[data-entry-id]").forEach(el => {
       el.addEventListener("click", () => openEditModal(el.dataset.entryId));
     });
-
-    renderWarnings(uniqueArray(warnings));
   }
 
   function renderWarnings(warnings) {
@@ -878,17 +997,40 @@
       return { start, end };
     }
 
-    const start = new Date(state.startDate.getFullYear(), state.startDate.getMonth(), 1);
-    const end = new Date(state.startDate.getFullYear(), state.startDate.getMonth() + 1, 0);
+    if (state.viewMode === "Måned") {
+      const start = new Date(state.startDate.getFullYear(), state.startDate.getMonth(), 1);
+      const end = new Date(state.startDate.getFullYear(), state.startDate.getMonth() + 1, 0);
+      return { start, end };
+    }
+
+    const start = new Date(state.startDate.getFullYear(), 0, 1);
+    const end = new Date(state.startDate.getFullYear(), 11, 31);
     return { start, end };
+  }
+
+  function getRangeTitle() {
+    const range = getCurrentRange();
+
+    if (state.viewMode === "Uke") {
+      return `Ukevisning: ${formatDate(range.start)} – ${formatDate(range.end)}`;
+    }
+
+    if (state.viewMode === "Måned") {
+      return `Månedsvisning: ${monthLong(range.start)} ${range.start.getFullYear()}`;
+    }
+
+    return `Årsvisning: ${range.start.getFullYear()}`;
   }
 
   function shiftPeriod(direction) {
     if (state.viewMode === "Uke") {
       state.startDate = addDays(startOfWeek(state.startDate), direction * 7);
-    } else {
+    } else if (state.viewMode === "Måned") {
       state.startDate = new Date(state.startDate.getFullYear(), state.startDate.getMonth() + direction, 1);
+    } else {
+      state.startDate = new Date(state.startDate.getFullYear() + direction, 0, 1);
     }
+
     persistUiState();
   }
 
@@ -920,10 +1062,21 @@
     }).format(d);
   }
 
+  function formatDate(value) {
+    const d = new Date(value);
+    return new Intl.DateTimeFormat("no-NO", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric"
+    }).format(d);
+  }
+
+  function formatYearBarLabel(start, end) {
+    return `${monthShort(new Date(start))}–${monthShort(new Date(end))}`;
+  }
+
   function toIsoDate(date) {
-    return new Date(date.getFullYear(), date.getMonth(), date.getDate())
-      .toISOString()
-      .slice(0, 10);
+    return new Date(date.getFullYear(), date.getMonth(), date.getDate()).toISOString().slice(0, 10);
   }
 
   function startOfWeek(date) {
@@ -973,9 +1126,9 @@
   }
 
   function sameDate(a, b) {
-    return a.getFullYear() === b.getFullYear() &&
-      a.getMonth() === b.getMonth() &&
-      a.getDate() === b.getDate();
+    return a.getFullYear() === b.getFullYear()
+      && a.getMonth() === b.getMonth()
+      && a.getDate() === b.getDate();
   }
 
   function isWeekend(date) {
@@ -989,6 +1142,10 @@
 
   function monthShort(date) {
     return new Intl.DateTimeFormat("no-NO", { month: "short" }).format(date);
+  }
+
+  function monthLong(date) {
+    return new Intl.DateTimeFormat("no-NO", { month: "long" }).format(date);
   }
 
   function uniqueArray(arr) {
