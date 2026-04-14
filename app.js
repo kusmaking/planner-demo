@@ -1203,17 +1203,14 @@
         .filter(entry => overlaps(entry.start_date, entry.end_date, range.start, range.end));
 
       html += `
-        <div class="sticky-col border-r border-b border-slate-200 px-3 py-3 ${getEmployeeCalendarClasses(employee.employee_type)}">
-          <div class="flex items-center justify-between gap-2">
-            <div class="font-medium">${escapeHtml(employee.name)}</div>
-            ${getEmployeeTypeBadge(employee.employee_type)}
-          </div>
+        <div class="sticky-col border-r border-b border-slate-200 px-3 py-3">
+          <div class="font-medium">${escapeHtml(employee.name)}</div>
           <div class="text-xs text-slate-500">${escapeHtml(employee.email || "")}</div>
           <div class="text-xs text-slate-500">${escapeHtml(employee.title || "")}</div>
         </div>
       `;
 
-      html += `<div class="row-overlay border-b border-slate-200 drop-row ${getEmployeeCalendarClasses(employee.employee_type)}" data-employee-name="${escapeHtml(employee.name)}" data-range-start="${toIsoDate(range.start)}" data-col-width="${colWidth}" data-total-cols="${days.length}" data-time-unit="day" style="grid-column: span ${days.length}; width:${totalWidth}px;">`;
+      html += `<div class="row-overlay border-b border-slate-200 drop-row" data-employee-name="${escapeHtml(employee.name)}" data-range-start="${toIsoDate(range.start)}" data-col-width="${colWidth}" data-total-cols="${days.length}" data-time-unit="day" style="grid-column: span ${days.length}; width:${totalWidth}px;">`;
 
       for (let i = 0; i < days.length; i++) {
         const day = days[i];
@@ -1294,17 +1291,14 @@
         .filter(entry => overlaps(entry.start_date, entry.end_date, yearStart, yearEnd));
 
       html += `
-        <div class="sticky-col border-r border-b border-slate-200 px-3 py-3 ${getEmployeeCalendarClasses(employee.employee_type)}">
-          <div class="flex items-center justify-between gap-2">
-            <div class="font-medium">${escapeHtml(employee.name)}</div>
-            ${getEmployeeTypeBadge(employee.employee_type)}
-          </div>
+        <div class="sticky-col border-r border-b border-slate-200 px-3 py-3">
+          <div class="font-medium">${escapeHtml(employee.name)}</div>
           <div class="text-xs text-slate-500">${escapeHtml(employee.email || "")}</div>
           <div class="text-xs text-slate-500">${escapeHtml(employee.title || "")}</div>
         </div>
       `;
 
-      html += `<div class="row-overlay border-b border-slate-200 drop-row ${getEmployeeCalendarClasses(employee.employee_type)}" data-employee-name="${escapeHtml(employee.name)}" data-range-start="${toIsoDate(yearStart)}" data-col-width="${monthWidth}" data-total-cols="12" data-time-unit="month" style="grid-column: span 12; width:${totalWidth}px;">`;
+      html += `<div class="row-overlay border-b border-slate-200 drop-row" data-employee-name="${escapeHtml(employee.name)}" data-range-start="${toIsoDate(yearStart)}" data-col-width="${monthWidth}" data-total-cols="12" data-time-unit="month" style="grid-column: span 12; width:${totalWidth}px;">`;
 
       for (let i = 0; i < 12; i++) {
         html += `<div class="month-cell" style="position:absolute; left:${i * monthWidth}px; width:${monthWidth}px;"></div>`;
