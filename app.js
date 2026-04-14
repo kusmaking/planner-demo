@@ -18,7 +18,12 @@
     selectedEmployeeId: null,
     storageMode: "local",
     supabaseReady: false,
-    supabaseError: null
+    supabaseError: null,
+    derived: {
+      projectById: new Map(),
+      entriesByEmployee: new Map(),
+      entryCountByProject: new Map()
+    }
   };
 
   const els = {};
@@ -85,6 +90,10 @@
       persistUiState();
       renderStats();
       renderCalendar();
+    });
+
+    els.assignProject.addEventListener("change", () => {
+      syncAssignDatesFromProject();
     });
 
     els.prevBtn.addEventListener("click", () => {
@@ -164,6 +173,8 @@
     state.entries = localData.entries;
     state.auditLog = localData.auditLog;
     state.notificationLog = localData.notificationLog;
+    normalizeStateData();
+    rebuildDerivedState();
 
     if (!supabaseClient) {
       state.storageMode = "local";
@@ -184,6 +195,8 @@
     }
 
     await fetchFromSupabase();
+    normalizeStateData();
+    rebuildDerivedState();
 
     const hasMainData = state.employees.length || state.projects.length || state.entries.length;
     if (!hasMainData) {
@@ -192,9 +205,13 @@
       state.entries = structuredClone(DEFAULT_ENTRIES);
       state.auditLog = structuredClone(DEFAULT_AUDIT_LOG);
       state.notificationLog = structuredClone(DEFAULT_NOTIFICATION_LOG);
+      normalizeStateData();
+      rebuildDerivedState();
       saveAllLocal();
       await seedDemoDataRowByRow();
       await fetchFromSupabase();
+      normalizeStateData();
+      rebuildDerivedState();
     }
 
     setSaveStatus("Lagret", "ok");
@@ -243,6 +260,8 @@
       state.auditLog = auditRes.data || [];
       state.notificationLog = notificationRes.data || [];
 
+      normalizeStateData();
+      rebuildDerivedState();
       saveAllLocal();
       state.storageMode = "supabase";
       state.supabaseError = null;
@@ -258,10 +277,22 @@
   function load(key, fallback) {
     try {
       const raw = localStorage.getItem(key);
-      return raw ? JSON.parse(raw) : fallback;
+      if (raw) return JSON.parse(raw);
+
+      const legacyKeys = LEGACY_STORAGE_KEYS[keyToStorageField(key)] || [];
+      for (const legacyKey of legacyKeys) {
+        const legacyRaw = localStorage.getItem(legacyKey);
+        if (legacyRaw) return JSON.parse(legacyRaw);
+      }
+
+      return fallback;
     } catch {
       return fallback;
     }
+  }
+
+  function keyToStorageField(storageKey) {
+    return Object.entries(STORAGE_KEYS).find(([, value]) => value === storageKey)?.[0] || "";
   }
 
   function loadAllLocal() {
@@ -281,6 +312,64 @@
     localStorage.setItem(STORAGE_KEYS.auditLog, JSON.stringify(state.auditLog));
     localStorage.setItem(STORAGE_KEYS.notificationLog, JSON.stringify(state.notificationLog));
   }
+
+
+  function normalizeStateData() {
+    state.projects = (state.projects || []).map(project => ({
+      ...project,
+      category: normalizeProjectCategory(project.category),
+      status: normalizeProjectStatus(project.status)
+    }));
+  }
+
+  function normalizeProjectCategory(category) {
+    if (category === "Project") return "Offshore";
+    if (category === "Trainee") return "Kurs";
+    return category || "Offshore";
+  }
+
+  function normalizeProjectStatus(status) {
+    if (status === "Fullført") return "Avsluttet";
+    return status || "Planlagt";
+  }
+
+  function rebuildDerivedState() {
+    const projectById = new Map();
+    const entriesByEmployee = new Map();
+    const entryCountByProject = new Map();
+
+    for (const project of state.projects) {
+      projectById.set(project.id, project);
+    }
+
+    for (const entry of state.entries) {
+      if (!entriesByEmployee.has(entry.employee_name)) {
+        entriesByEmployee.set(entry.employee_name, []);
+      }
+      entriesByEmployee.get(entry.employee_name).push(entry);
+      entryCountByProject.set(entry.project_id, (entryCountByProject.get(entry.project_id) || 0) + 1);
+    }
+
+    state.derived.projectById = projectById;
+    state.derived.entriesByEmployee = entriesByEmployee;
+    state.derived.entryCountByProject = entryCountByProject;
+  }
+
+  function syncAssignDatesFromProject() {
+    const project = getProjectById(els.assignProject.value);
+    if (!project) return;
+    els.assignStart.value = project.planned_start_date || "";
+    els.assignEnd.value = project.planned_end_date || "";
+  }
+
+  function getEntryBarClasses(project, role = "") {
+    const projectStatus = normalizeProjectStatus(project?.status);
+    if (projectStatus === "Avsluttet") {
+      return `bg-slate-300 border-slate-400 text-slate-800 ${ROLE_CLASSES[role] || ""}`.trim();
+    }
+    return `${CATEGORY_COLORS[normalizeProjectCategory(project?.category)] || "bg-slate-500 border-slate-600 text-white"} ${ROLE_CLASSES[role] || ""}`.trim();
+  }
+
 
   function persistUiState() {
     localStorage.setItem(STORAGE_KEYS.startDate, JSON.stringify(toIsoDate(state.startDate)));
@@ -418,6 +507,8 @@
     state.entries = structuredClone(DEFAULT_ENTRIES);
     state.auditLog = structuredClone(DEFAULT_AUDIT_LOG);
     state.notificationLog = structuredClone(DEFAULT_NOTIFICATION_LOG);
+    normalizeStateData();
+    rebuildDerivedState();
     state.startDate = new Date("2026-01-05");
     state.viewMode = "Uke";
     state.calendarMode = "personal";
@@ -493,9 +584,11 @@
     };
 
     state.entries.push(entry);
+    rebuildDerivedState();
     const result = await saveRow("planner_entries", entry);
     if (!result.ok) {
       state.entries = state.entries.filter(e => e.id !== entry.id);
+      rebuildDerivedState();
       renderAll();
       return;
     }
@@ -504,6 +597,7 @@
     await addNotification(employeeName, project.name);
 
     els.assignNotes.value = "";
+    rebuildDerivedState();
     renderAll();
   }
 
@@ -548,6 +642,7 @@
 
     const result = await saveRow("planner_entries", entry);
     if (!result.ok) return;
+    rebuildDerivedState();
 
     const project = getProjectById(entry.project_id);
     await addAudit(`Redigerte tildeling: ${entry.employee_name} → ${project?.name || "Ukjent prosjekt"}`);
@@ -561,9 +656,11 @@
     if (!confirm("Vil du fjerne denne tildelingen?")) return;
 
     state.entries = state.entries.filter(e => e.id !== state.selectedEntryId);
+    rebuildDerivedState();
     const result = await deleteRow("planner_entries", state.selectedEntryId);
     if (!result.ok) {
       state.entries.push(entry);
+      rebuildDerivedState();
       renderAll();
       return;
     }
@@ -580,8 +677,8 @@
 
     els.projectModalTitle.textContent = project ? "Rediger prosjekt" : "Nytt prosjekt";
     els.projectName.value = project?.name || "";
-    fillSelect(els.projectCategory, CATEGORY_OPTIONS, project?.category || "Project");
-    fillSelect(els.projectStatus, STATUS_OPTIONS, project?.status || "Planlagt");
+    fillSelect(els.projectCategory, CATEGORY_OPTIONS, normalizeProjectCategory(project?.category) || "Offshore");
+    fillSelect(els.projectStatus, STATUS_OPTIONS, normalizeProjectStatus(project?.status) || "Planlagt");
     els.projectPlannedStart.value = project?.planned_start_date || "";
     els.projectPlannedEnd.value = project?.planned_end_date || "";
     els.projectLocation.value = project?.location || "";
@@ -631,8 +728,8 @@
 
     if (project) {
       project.name = name;
-      project.category = category;
-      project.status = status;
+      project.category = normalizeProjectCategory(category);
+      project.status = normalizeProjectStatus(status);
       project.planned_start_date = plannedStart || null;
       project.planned_end_date = plannedEnd || null;
       project.location = location;
@@ -642,8 +739,8 @@
       project = {
         id: crypto.randomUUID(),
         name,
-        category,
-        status,
+        category: normalizeProjectCategory(category),
+        status: normalizeProjectStatus(status),
         planned_start_date: plannedStart || null,
         planned_end_date: plannedEnd || null,
         location,
@@ -653,6 +750,8 @@
       state.projects.push(project);
     }
 
+    normalizeStateData();
+    rebuildDerivedState();
     state.projects.sort((a, b) => compareProjectDates(a, b));
 
     const result = await saveRow("planner_projects", project);
@@ -676,9 +775,12 @@
     if (!confirm("Vil du slette dette prosjektet?")) return;
 
     state.projects = state.projects.filter(p => p.id !== project.id);
+    rebuildDerivedState();
     const result = await deleteRow("planner_projects", project.id);
     if (!result.ok) {
       state.projects.push(project);
+      normalizeStateData();
+      rebuildDerivedState();
       state.projects.sort((a, b) => compareProjectDates(a, b));
       renderAll();
       return;
@@ -757,6 +859,7 @@
       state.employees.push(employee);
     }
 
+    rebuildDerivedState();
     state.employees.sort((a, b) => a.name.localeCompare(b.name, "no"));
 
     const result = await saveRow("planner_employees", employee);
@@ -780,9 +883,11 @@
     if (!confirm("Vil du slette denne ansatte?")) return;
 
     state.employees = state.employees.filter(e => e.id !== employee.id);
+    rebuildDerivedState();
     const result = await deleteRow("planner_employees", employee.id);
     if (!result.ok) {
       state.employees.push(employee);
+      rebuildDerivedState();
       state.employees.sort((a, b) => a.name.localeCompare(b.name, "no"));
       renderAll();
       return;
@@ -814,6 +919,7 @@
       };
 
       state.employees.push(employee);
+      rebuildDerivedState();
       const result = await saveRow("planner_employees", employee);
       if (!result.ok) {
         state.employees = state.employees.filter(e => e.id !== employee.id);
@@ -829,6 +935,8 @@
   }
 
   function renderAll() {
+    normalizeStateData();
+    rebuildDerivedState();
     populateDynamicSelects();
     renderStats();
     renderLegend();
@@ -858,6 +966,7 @@
       { id: "personal", name: "Personalplan" },
       { id: "project", name: "Prosjektplan" }
     ], state.calendarMode, "name", "id");
+    syncAssignDatesFromProject();
   }
 
   function renderStats() {
@@ -916,11 +1025,15 @@
         const assigned = getProjectAssignedCount(project.id);
         const required = Number(project.headcount_required || 0);
         const staffing = getProjectStaffingLabel(project.id, required);
+        const normalizedStatus = normalizeProjectStatus(project.status);
+        const rowClass = normalizedStatus === "Avsluttet"
+          ? "w-full text-left rounded-xl border border-slate-300 p-3 bg-slate-200 hover:bg-slate-300"
+          : "w-full text-left rounded-xl border border-slate-200 p-3 bg-slate-50 hover:bg-slate-100";
         return `
-          <button data-project-id="${escapeHtml(project.id)}" class="w-full text-left rounded-xl border border-slate-200 p-3 bg-slate-50 hover:bg-slate-100">
+          <button data-project-id="${escapeHtml(project.id)}" class="${rowClass}">
             <div class="flex items-center justify-between gap-2">
               <div class="font-medium">${escapeHtml(project.name)}</div>
-              <span class="rounded-full border px-2 py-0.5 text-xs ${STATUS_COLORS[project.status] || "bg-slate-100 border-slate-200 text-slate-700"}">${escapeHtml(project.status)}</span>
+              <span class="rounded-full border px-2 py-0.5 text-xs ${STATUS_COLORS[normalizedStatus] || "bg-slate-100 border-slate-200 text-slate-700"}">${escapeHtml(normalizedStatus)}</span>
             </div>
             <div class="text-xs text-slate-500 mt-1">${escapeHtml(project.category)}${project.location ? ` • ${escapeHtml(project.location)}` : ""}</div>
             <div class="text-xs text-slate-600 mt-1">${escapeHtml(formatProjectDateRange(project))}</div>
@@ -955,7 +1068,7 @@
   function renderKanban() {
     const groups = STATUS_OPTIONS.map(status => ({
       status,
-      projects: state.projects.filter(p => p.status === status)
+      projects: state.projects.filter(p => normalizeProjectStatus(p.status) === status)
     }));
 
     els.kanbanBoard.innerHTML = groups.map(group => `
@@ -965,7 +1078,7 @@
           ${group.projects.length ? group.projects.map(project => `
             <div class="rounded-xl border border-slate-200 bg-white p-3">
               <div class="font-medium">${escapeHtml(project.name)}</div>
-              <div class="mt-1 text-xs text-slate-500">${escapeHtml(project.category)}${project.location ? ` • ${escapeHtml(project.location)}` : ""}</div>
+              <div class="mt-1 text-xs text-slate-500">${escapeHtml(normalizeProjectCategory(project.category))}${project.location ? ` • ${escapeHtml(project.location)}` : ""}</div>
               <div class="mt-1 text-xs text-slate-600">${escapeHtml(formatProjectDateRange(project))}</div>
               <div class="mt-2 text-xs text-slate-600">${escapeHtml(project.notes || "")}</div>
             </div>
@@ -1061,8 +1174,7 @@
     const warnings = [];
 
     for (const employee of employees) {
-      const employeeEntries = state.entries
-        .filter(entry => entry.employee_name === employee.name)
+      const employeeEntries = (state.derived.entriesByEmployee.get(employee.name) || [])
         .filter(entry => overlaps(entry.start_date, entry.end_date, range.start, range.end));
 
       html += `
@@ -1095,7 +1207,7 @@
 
         html += `
           <div
-            class="entry-bar ${CATEGORY_COLORS[project.category] || "bg-slate-500 border-slate-600 text-white"} ${ROLE_CLASSES[entry.role] || ""}"
+            class="entry-bar ${getEntryBarClasses(project, entry.role)}"
             style="left:${left}px; width:${width}px;"
             data-entry-id="${escapeHtml(entry.id)}"
             title="${escapeHtml(`${employee.name} | ${project.name} | ${entry.role} | ${entry.start_date} - ${entry.end_date}${entry.notes ? ` | ${entry.notes}` : ""}`)}"
@@ -1181,7 +1293,7 @@
 
         html += `
           <div
-            class="entry-bar ${CATEGORY_COLORS[project.category] || "bg-slate-500 border-slate-600 text-white"} ${ROLE_CLASSES[entry.role] || ""}"
+            class="entry-bar ${getEntryBarClasses(project, entry.role)}"
             style="left:${left}px; width:${width}px;"
             data-entry-id="${escapeHtml(entry.id)}"
             title="${escapeHtml(`${employee.name} | ${project.name} | ${entry.role} | ${entry.start_date} - ${entry.end_date}`)}"
@@ -1275,7 +1387,7 @@
 
         html += `
           <div
-            class="entry-bar ${CATEGORY_COLORS[project.category] || "bg-slate-500 border-slate-600 text-white"}"
+            class="entry-bar ${getEntryBarClasses(project)}"
             style="left:${left}px; width:${width}px;"
             data-project-row-id="${escapeHtml(project.id)}"
             title="${escapeHtml(`${project.name} | ${formatProjectDateRange(project)} | ${staffing.text}`)}"
@@ -1350,7 +1462,7 @@
 
         html += `
           <div
-            class="entry-bar ${CATEGORY_COLORS[project.category] || "bg-slate-500 border-slate-600 text-white"}"
+            class="entry-bar ${getEntryBarClasses(project)}"
             style="left:${left}px; width:${width}px;"
             data-project-row-id="${escapeHtml(project.id)}"
             title="${escapeHtml(`${project.name} | ${formatProjectDateRange(project)} | ${staffing.text}`)}"
@@ -1450,11 +1562,11 @@
   }
 
   function getProjectById(id) {
-    return state.projects.find(p => p.id === id);
+    return state.derived.projectById.get(id);
   }
 
   function getProjectAssignedCount(projectId) {
-    return state.entries.filter(e => e.project_id === projectId).length;
+    return state.derived.entryCountByProject.get(projectId) || 0;
   }
 
   function getProjectStaffingLabel(projectId, required) {
