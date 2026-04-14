@@ -12,6 +12,8 @@
     currentRole: "",
     authReady: false,
     employeeFilter: "Alle ansatte",
+    employeeTypeFilter: load("planner_employee_type_filter", "Alle typer"),
+    employeeTypeEnabled: false,
     search: "",
     viewMode: "Måned",
     calendarMode: load(STORAGE_KEYS.calendarMode, "personal"),
@@ -41,8 +43,10 @@
   async function init() {
     cacheElements();
     ensureAccountPanel();
+    ensureEmployeeTypeControls();
     setupStaticOptions();
     bindEvents();
+    applyLayoutTweaks();
 
     state.viewMode = "Måned";
     state.startDate = startOfCurrentMonth();
@@ -53,6 +57,7 @@
     rebuildDerivedState();
     renderAll();
     applyRoleChrome();
+    applyLayoutTweaks();
   }
 
   function cacheElements() {
@@ -68,74 +73,113 @@
       "projectLocation", "projectHeadcount", "projectNotes", "saveProjectBtn", "deleteProjectBtn",
       "newEmployeeBtn", "employeeModal", "employeeModalTitle", "closeEmployeeModalBtn",
       "employeeName", "employeeEmail", "employeePhone", "employeeTitle", "employeeActive", "saveEmployeeBtn", "deleteEmployeeBtn",
-      "accountPanel", "accountUserInfo", "changePasswordBtn", "resetPasswordBtn"
+      "accountPanel", "accountMenuButton", "accountMenuDropdown", "accountUserInfo", "changePasswordBtn", "resetPasswordBtn", "logoutBtn", "employeeTypeFilter", "employeeTypeInput"
     ];
 
     ids.forEach(id => els[id] = document.getElementById(id));
   }
 
 
+
   function ensureAccountPanel() {
     if (document.getElementById("accountPanel")) {
       els.accountPanel = document.getElementById("accountPanel");
+      els.accountMenuButton = document.getElementById("accountMenuButton");
+      els.accountMenuDropdown = document.getElementById("accountMenuDropdown");
       els.accountUserInfo = document.getElementById("accountUserInfo");
       els.changePasswordBtn = document.getElementById("changePasswordBtn");
       els.resetPasswordBtn = document.getElementById("resetPasswordBtn");
+      els.logoutBtn = document.getElementById("logoutBtn");
       return;
     }
 
     const panel = document.createElement("div");
     panel.id = "accountPanel";
-    panel.className = "flex flex-wrap items-center justify-end gap-2";
+    panel.className = "relative flex items-center justify-end";
     panel.innerHTML = `
-      <div id="accountUserInfo" class="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700">Ikke innlogget</div>
-      <button id="changePasswordBtn" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm hover:bg-slate-50">Endre passord</button>
-      <button id="resetPasswordBtn" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm hover:bg-slate-50">Send reset-link</button>
+      <button id="accountMenuButton" type="button" class="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2">
+        <span id="accountUserInfo">Ikke innlogget</span>
+        <span aria-hidden="true">▾</span>
+      </button>
+      <div id="accountMenuDropdown" class="hidden absolute right-0 top-full mt-2 min-w-[220px] rounded-2xl border border-slate-200 bg-white shadow-lg p-2 z-50">
+        <button id="changePasswordBtn" type="button" class="w-full text-left rounded-xl px-3 py-2 text-sm hover:bg-slate-50">Endre passord</button>
+        <button id="resetPasswordBtn" type="button" class="w-full text-left rounded-xl px-3 py-2 text-sm hover:bg-slate-50">Send reset-link</button>
+        <button id="logoutBtn" type="button" class="w-full text-left rounded-xl px-3 py-2 text-sm hover:bg-slate-50 text-red-700">Logg ut</button>
+      </div>
     `;
 
     const anchor = els.storageBadge?.parentElement || document.body.firstElementChild || document.body;
     anchor.appendChild(panel);
 
     els.accountPanel = panel;
+    els.accountMenuButton = document.getElementById("accountMenuButton");
+    els.accountMenuDropdown = document.getElementById("accountMenuDropdown");
     els.accountUserInfo = document.getElementById("accountUserInfo");
     els.changePasswordBtn = document.getElementById("changePasswordBtn");
     els.resetPasswordBtn = document.getElementById("resetPasswordBtn");
+    els.logoutBtn = document.getElementById("logoutBtn");
   }
 
-  async function loadAuthUser() {
-    if (!supabaseClient?.auth) {
-      state.authReady = true;
-      return;
+  function ensureEmployeeTypeControls() {
+    if (document.getElementById("employeeTypeFilter")) {
+      els.employeeTypeFilter = document.getElementById("employeeTypeFilter");
+    } else if (els.employeeFilter?.parentElement) {
+      const wrapper = document.createElement("div");
+      wrapper.className = "flex items-center gap-2 flex-wrap";
+      wrapper.innerHTML = `
+        <label class="text-sm text-slate-600" for="employeeTypeFilter">Personelltype</label>
+        <select id="employeeTypeFilter" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm">
+          <option value="Alle typer">Alle typer</option>
+          <option value="Offshore">Offshore</option>
+          <option value="Verksted">Verksted</option>
+          <option value="Begge">Begge</option>
+        </select>
+      `;
+      els.employeeFilter.parentElement.appendChild(wrapper);
+      els.employeeTypeFilter = document.getElementById("employeeTypeFilter");
+    }
+
+    if (els.employeeModal && !document.getElementById("employeeTypeInput")) {
+      const titleField = els.employeeTitle?.closest("label, div") || els.employeeTitle?.parentElement;
+      if (titleField?.parentElement) {
+        const typeWrap = document.createElement("div");
+        typeWrap.innerHTML = `
+          <label class="block text-sm font-medium text-slate-700 mt-3">
+            Personelltype
+            <select id="employeeTypeInput" class="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2">
+              <option value="Offshore">Offshore</option>
+              <option value="Verksted">Verksted</option>
+              <option value="Begge">Begge</option>
+            </select>
+          </label>
+        `;
+        titleField.parentElement.insertBefore(typeWrap, titleField.nextSibling);
+        els.employeeTypeInput = document.getElementById("employeeTypeInput");
+      }
+    }
+
+    if (els.employeeTypeFilter) {
+      els.employeeTypeFilter.value = state.employeeTypeFilter || "Alle typer";
+      els.employeeTypeFilter.style.display = state.employeeTypeEnabled ? "" : "none";
+      const label = els.employeeTypeFilter.previousElementSibling;
+      if (label) label.style.display = state.employeeTypeEnabled ? "" : "none";
+    }
+  }
+
+  async function detectEmployeeTypeSupport() {
+    if (!supabaseClient || !state.supabaseReady) {
+      state.employeeTypeEnabled = false;
+      return false;
     }
 
     try {
-      const { data: userData, error: userError } = await supabaseClient.auth.getUser();
-      if (userError) throw userError;
-
-      const user = userData?.user || null;
-      state.currentUserEmail = user?.email || "";
-      state.currentUser = user?.user_metadata?.full_name || user?.email || "Ikke innlogget";
-
-      try {
-        const { data, error } = await supabaseClient.rpc("get_my_profile");
-        if (!error && Array.isArray(data) && data[0]) {
-          state.currentRole = data[0].role || "";
-          if (data[0].full_name) state.currentUser = data[0].full_name;
-          if (data[0].email) state.currentUserEmail = data[0].email;
-        }
-      } catch (_) {}
-
-      state.authReady = true;
-      updateAccountPanel();
-    } catch (err) {
-      state.authReady = true;
-      state.supabaseError = err?.message || state.supabaseError;
-      updateAccountPanel();
+      const { error } = await supabaseClient.from("planner_employees").select("employee_type", { head: true, count: "exact" });
+      state.employeeTypeEnabled = !error;
+      return state.employeeTypeEnabled;
+    } catch {
+      state.employeeTypeEnabled = false;
+      return false;
     }
-  }
-
-  function isSuperadmin() {
-    return state.currentRole === "superadmin";
   }
 
   function updateAccountPanel() {
@@ -143,6 +187,15 @@
     const roleText = state.currentRole ? ` • ${state.currentRole}` : "";
     const nameText = state.currentUser || state.currentUserEmail || "Ikke innlogget";
     els.accountUserInfo.textContent = `${nameText}${roleText}`;
+  }
+
+  function toggleAccountMenu(forceOpen = null) {
+    if (!els.accountMenuDropdown) return;
+    const shouldOpen = forceOpen === null
+      ? els.accountMenuDropdown.classList.contains("hidden")
+      : !!forceOpen;
+
+    els.accountMenuDropdown.classList.toggle("hidden", !shouldOpen);
   }
 
   function applyRoleChrome() {
@@ -158,6 +211,11 @@
 
     if (els.resetDemoBtn) {
       els.resetDemoBtn.style.display = isSuperadmin() ? "" : "none";
+    }
+
+    const statusCard = els.systemStatus?.closest(".rounded-2xl, .rounded-xl, section, article, div");
+    if (statusCard) {
+      statusCard.style.display = isSuperadmin() ? "" : "none";
     }
   }
 
@@ -178,6 +236,7 @@
     }
 
     alert("Passordet er endret.");
+    toggleAccountMenu(false);
   }
 
   async function handleResetPassword() {
@@ -195,6 +254,70 @@
     }
 
     alert("Reset-link er sendt på e-post.");
+    toggleAccountMenu(false);
+  }
+
+  async function handleLogout() {
+    if (!supabaseClient?.auth) return;
+    const { error } = await supabaseClient.auth.signOut();
+    if (error) {
+      alert(`Kunne ikke logge ut: ${error.message}`);
+      return;
+    }
+    window.location.reload();
+  }
+
+  function applyLayoutTweaks() {
+    moveSystemStatusToBottom();
+    applyStickyPriorityPanels();
+    ensureEmployeeTypeControls();
+    applyRoleChrome();
+  }
+
+  function moveSystemStatusToBottom() {
+    const statusCard = els.systemStatus?.closest(".rounded-2xl, .rounded-xl, section, article, div");
+    if (!statusCard) return;
+
+    const container =
+      document.querySelector(".max-w-\[1800px\]") ||
+      document.querySelector("main") ||
+      document.body.firstElementChild;
+
+    if (!container || !container.appendChild) return;
+    if (statusCard.parentElement === container && statusCard === container.lastElementChild) return;
+
+    container.appendChild(statusCard);
+  }
+
+  function applyStickyPriorityPanels() {
+    const stickyTargets = [
+      els.projectList?.closest(".rounded-2xl, .rounded-xl, section, article, div"),
+      els.assignProject?.closest(".rounded-2xl, .rounded-xl, section, article, div")
+    ].filter(Boolean);
+
+    stickyTargets.forEach((el, idx) => {
+      if (window.innerWidth >= 1200) {
+        el.style.position = "sticky";
+        el.style.top = idx === 0 ? "1rem" : "20rem";
+        el.style.alignSelf = "start";
+        el.style.zIndex = "20";
+      } else {
+        el.style.position = "";
+        el.style.top = "";
+        el.style.alignSelf = "";
+        el.style.zIndex = "";
+      }
+    });
+  }
+
+  function matchesEmployeeTypeFilter(employeeType) {
+    if (!state.employeeTypeEnabled) return true;
+    const value = state.employeeTypeFilter || "Alle typer";
+    if (value === "Alle typer") return true;
+    if (value === "Offshore") return employeeType === "Offshore" || employeeType === "Begge";
+    if (value === "Verksted") return employeeType === "Verksted" || employeeType === "Begge";
+    if (value === "Begge") return employeeType === "Begge";
+    return true;
   }
 
   function setupStaticOptions() {
@@ -292,6 +415,31 @@
     if (els.resetPasswordBtn) {
       els.resetPasswordBtn.addEventListener("click", handleResetPassword);
     }
+
+    if (els.logoutBtn) {
+      els.logoutBtn.addEventListener("click", handleLogout);
+    }
+
+    if (els.accountMenuButton) {
+      els.accountMenuButton.addEventListener("click", e => {
+        e.stopPropagation();
+        toggleAccountMenu();
+      });
+    }
+
+    document.addEventListener("click", e => {
+      if (!els.accountPanel?.contains(e.target)) {
+        toggleAccountMenu(false);
+      }
+    });
+
+    if (els.employeeTypeFilter) {
+      els.employeeTypeFilter.addEventListener("change", e => {
+        state.employeeTypeFilter = e.target.value;
+        localStorage.setItem("planner_employee_type_filter", JSON.stringify(state.employeeTypeFilter));
+        renderEmployees();
+      });
+    }
   }
 
   function fillSelect(selectEl, values, selected = null, labelKey = null, valueKey = null) {
@@ -338,6 +486,7 @@
       return;
     }
 
+    await detectEmployeeTypeSupport();
     await fetchFromSupabase();
 
     const hasMainData = state.employees.length || state.projects.length || state.entries.length;
@@ -413,7 +562,8 @@
   function normalizeEmployees(list) {
     return (list || []).map(emp => ({
       ...emp,
-      title: emp?.title || ""
+      title: emp?.title || "",
+      employee_type: emp?.employee_type || "Offshore"
     }));
   }
 
@@ -643,8 +793,8 @@
     state.entries = structuredClone(DEFAULT_ENTRIES);
     state.auditLog = structuredClone(DEFAULT_AUDIT_LOG);
     state.notificationLog = structuredClone(DEFAULT_NOTIFICATION_LOG);
-    state.startDate = new Date("2026-01-05");
-    state.viewMode = "Uke";
+    state.startDate = startOfCurrentMonth();
+    state.viewMode = "Måned";
     state.calendarMode = "personal";
     rebuildDerivedState();
     persistUiState();
@@ -942,6 +1092,10 @@
     els.employeePhone.value = employee?.phone || "";
     els.employeeTitle.value = employee?.title || "";
     els.employeeActive.checked = employee?.active ?? true;
+    if (els.employeeTypeInput) {
+      els.employeeTypeInput.value = employee?.employee_type || "Offshore";
+      els.employeeTypeInput.parentElement.style.display = state.employeeTypeEnabled ? "" : "none";
+    }
     els.deleteEmployeeBtn.style.display = employee ? "inline-flex" : "none";
 
     els.employeeModal.classList.remove("hidden");
@@ -960,6 +1114,7 @@
     const phone = els.employeePhone.value.trim();
     const title = els.employeeTitle.value.trim();
     const active = els.employeeActive.checked;
+    const employeeType = els.employeeTypeInput?.value || "Offshore";
 
     if (!name) {
       alert("Legg inn navn.");
@@ -983,6 +1138,7 @@
       employee.phone = phone;
       employee.title = title;
       employee.active = active;
+      if (state.employeeTypeEnabled) employee.employee_type = employeeType;
 
       if (oldName !== name) {
         const affectedEntries = state.entries.filter(entry => entry.employee_name === oldName);
@@ -1002,7 +1158,8 @@
         email,
         phone,
         title,
-        active
+        active,
+        ...(state.employeeTypeEnabled ? { employee_type: employeeType } : {})
       };
       state.employees.push(employee);
     }
@@ -1067,7 +1224,8 @@
         email: "",
         phone: "",
         title: "",
-        active: true
+        active: true,
+        ...(state.employeeTypeEnabled ? { employee_type: "Offshore" } : {})
       };
 
       state.employees.push(employee);
@@ -1132,6 +1290,7 @@
     renderSystemStatus();
     updateBadge();
     applyRoleChrome();
+    applyLayoutTweaks();
   }
 
   function populateDynamicSelects() {
@@ -1151,6 +1310,15 @@
       { id: "project", name: "Prosjektplan" }
     ], state.calendarMode, "name", "id");
     syncAssignDatesFromProject();
+    if (els.employeeTypeFilter) {
+      els.employeeTypeFilter.value = state.employeeTypeFilter || "Alle typer";
+      els.employeeTypeFilter.style.display = state.employeeTypeEnabled ? "" : "none";
+      const label = els.employeeTypeFilter.previousElementSibling;
+      if (label) label.style.display = state.employeeTypeEnabled ? "" : "none";
+    }
+    if (els.employeeTypeInput?.parentElement) {
+      els.employeeTypeInput.parentElement.style.display = state.employeeTypeEnabled ? "" : "none";
+    }
   }
 
   function renderStats() {
@@ -1233,12 +1401,18 @@
     });
   }
 
+
   function renderEmployees() {
-    els.employeeList.innerHTML = state.employees.map(emp => `
+    const visibleEmployees = state.employees.filter(emp => matchesEmployeeTypeFilter(emp.employee_type || "Offshore"));
+
+    els.employeeList.innerHTML = visibleEmployees.map(emp => `
       <button data-employee-id="${escapeHtml(emp.id)}" class="w-full text-left rounded-xl border border-slate-200 p-3 bg-slate-50 hover:bg-slate-100">
         <div class="flex items-center justify-between gap-2">
           <div class="font-medium">${escapeHtml(emp.name)}</div>
-          <span class="text-xs ${emp.active ? "text-green-700" : "text-amber-700"}">${emp.active ? "Aktiv" : "Inaktiv"}</span>
+          <div class="flex items-center gap-2">
+            ${state.employeeTypeEnabled ? `<span class="text-xs rounded-full border px-2 py-0.5 ${emp.employee_type === "Verksted" ? "bg-amber-50 border-amber-200 text-amber-700" : emp.employee_type === "Begge" ? "bg-violet-50 border-violet-200 text-violet-700" : "bg-sky-50 border-sky-200 text-sky-700"}">${escapeHtml(emp.employee_type || "Offshore")}</span>` : ""}
+            <span class="text-xs ${emp.active ? "text-green-700" : "text-amber-700"}">${emp.active ? "Aktiv" : "Inaktiv"}</span>
+          </div>
         </div>
         <div class="text-xs text-slate-500 mt-1">${escapeHtml(emp.email || "Ingen e-post")}</div>
         <div class="text-xs text-slate-500">${escapeHtml(emp.phone || "Ingen telefon")}</div>
