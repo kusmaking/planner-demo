@@ -12,6 +12,7 @@
     currentRole: "",
     authReady: false,
     employeeFilter: "Alle ansatte",
+    employeeTypeFilter: "Alle",
     search: "",
     viewMode: "Måned",
     calendarMode: load(STORAGE_KEYS.calendarMode, "personal"),
@@ -31,13 +32,6 @@
     justDraggedEntryId: null
   };
 
-  const EMPLOYEE_TYPE_OPTIONS = ["Offshore", "Onshore", "Innleid / 3.part"];
-  const EMPLOYEE_TYPE_ORDER = {
-    "Offshore": 0,
-    "Onshore": 1,
-    "Innleid / 3.part": 2
-  };
-
   const els = {};
   let saveStatusTimer = null;
   let calendarScrollSyncRaf = null;
@@ -48,8 +42,8 @@
   async function init() {
     cacheElements();
     ensureAccountPanel();
+    ensureEmployeeTypeFilter();
     ensureEmployeeTypeField();
-    relocateSystemStatusCard();
     setupStaticOptions();
     bindEvents();
 
@@ -66,7 +60,7 @@
 
   function cacheElements() {
     const ids = [
-      "statsRow", "searchInput", "employeeFilter", "viewMode", "calendarMode", "prevBtn", "nextBtn", "todayBtn",
+      "statsRow", "searchInput", "employeeFilter", "employeeTypeFilter", "viewMode", "calendarMode", "prevBtn", "nextBtn", "todayBtn",
       "calendarWrap", "warningBox", "legendList", "projectList", "assignProject", "assignEmployee", "assignRole",
       "assignStart", "assignEnd", "assignNotes", "assignBtn", "bulkEmployees", "bulkAddBtn",
       "employeeList", "kanbanBoard", "notificationList", "auditList", "editModal", "closeModalBtn",
@@ -77,7 +71,7 @@
       "projectLocation", "projectHeadcount", "projectNotes", "saveProjectBtn", "deleteProjectBtn",
       "newEmployeeBtn", "employeeModal", "employeeModalTitle", "closeEmployeeModalBtn",
       "employeeName", "employeeEmail", "employeePhone", "employeeTitle", "employeeType", "employeeActive", "saveEmployeeBtn", "deleteEmployeeBtn",
-      "accountPanel", "accountUserInfo", "accountMenu", "accountMenuBtn", "changePasswordBtn", "resetPasswordBtn", "logoutBtn"
+      "accountPanel", "accountUserInfo", "changePasswordBtn", "resetPasswordBtn"
     ];
 
     ids.forEach(id => els[id] = document.getElementById(id));
@@ -88,28 +82,18 @@
     if (document.getElementById("accountPanel")) {
       els.accountPanel = document.getElementById("accountPanel");
       els.accountUserInfo = document.getElementById("accountUserInfo");
-      els.accountMenu = document.getElementById("accountMenu");
-      els.accountMenuBtn = document.getElementById("accountMenuBtn");
       els.changePasswordBtn = document.getElementById("changePasswordBtn");
       els.resetPasswordBtn = document.getElementById("resetPasswordBtn");
-      els.logoutBtn = document.getElementById("logoutBtn");
       return;
     }
 
     const panel = document.createElement("div");
     panel.id = "accountPanel";
-    panel.className = "relative flex flex-wrap items-center justify-end gap-2";
+    panel.className = "flex flex-wrap items-center justify-end gap-2";
     panel.innerHTML = `
-      <div class="relative">
-        <button id="accountMenuBtn" class="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-slate-50">
-          <span id="accountUserInfo">Ikke innlogget</span>
-        </button>
-        <div id="accountMenu" class="hidden absolute right-0 top-full mt-2 w-56 rounded-xl border border-slate-200 bg-white shadow-lg p-2 z-50">
-          <button id="changePasswordBtn" class="w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-slate-50">Endre passord</button>
-          <button id="resetPasswordBtn" class="w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-slate-50">Send reset-link</button>
-          <button id="logoutBtn" class="w-full rounded-lg px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50">Logg ut</button>
-        </div>
-      </div>
+      <div id="accountUserInfo" class="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700">Ikke innlogget</div>
+      <button id="changePasswordBtn" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm hover:bg-slate-50">Endre passord</button>
+      <button id="resetPasswordBtn" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm hover:bg-slate-50">Send reset-link</button>
     `;
 
     const anchor = els.storageBadge?.parentElement || document.body.firstElementChild || document.body;
@@ -117,11 +101,8 @@
 
     els.accountPanel = panel;
     els.accountUserInfo = document.getElementById("accountUserInfo");
-    els.accountMenu = document.getElementById("accountMenu");
-    els.accountMenuBtn = document.getElementById("accountMenuBtn");
     els.changePasswordBtn = document.getElementById("changePasswordBtn");
     els.resetPasswordBtn = document.getElementById("resetPasswordBtn");
-    els.logoutBtn = document.getElementById("logoutBtn");
   }
 
   async function loadAuthUser() {
@@ -164,12 +145,11 @@
     if (!els.accountUserInfo) return;
     const roleText = state.currentRole ? ` • ${state.currentRole}` : "";
     const nameText = state.currentUser || state.currentUserEmail || "Ikke innlogget";
-    els.accountUserInfo.textContent = `${nameText}${roleText} ▾`;
+    els.accountUserInfo.textContent = `${nameText}${roleText}`;
   }
 
   function applyRoleChrome() {
     updateAccountPanel();
-    toggleAccountMenu(false);
 
     if (els.storageBadge) {
       els.storageBadge.style.display = isSuperadmin() ? "" : "none";
@@ -220,36 +200,7 @@
     alert("Reset-link er sendt på e-post.");
   }
 
-  async function handleLogout() {
-    if (!supabaseClient?.auth) return;
-    const { error } = await supabaseClient.auth.signOut();
-    if (error) {
-      alert(`Kunne ikke logge ut: ${error.message}`);
-      return;
-    }
 
-    window.location.reload();
-  }
-
-  function toggleAccountMenu(forceOpen = null) {
-    if (!els.accountMenu) return;
-    const shouldOpen = forceOpen === null ? els.accountMenu.classList.contains("hidden") : forceOpen;
-    els.accountMenu.classList.toggle("hidden", !shouldOpen);
-  }
-
-  function normalizeEmployeeType(value) {
-    const raw = String(value || "").trim().toLowerCase();
-    if (raw === "offshore") return "Offshore";
-    if (raw === "onshore" || raw === "verksted") return "Onshore";
-    if (raw === "innleid" || raw === "3.part" || raw === "3 part" || raw === "3-part" || raw === "innleid / 3.part") return "Innleid / 3.part";
-    return "Onshore";
-  }
-
-  function compareEmployees(a, b) {
-    const typeDiff = (EMPLOYEE_TYPE_ORDER[a.employee_type] ?? 99) - (EMPLOYEE_TYPE_ORDER[b.employee_type] ?? 99);
-    if (typeDiff !== 0) return typeDiff;
-    return a.name.localeCompare(b.name, "no");
-  }
 
   function ensureEmployeeTypeField() {
     if (document.getElementById("employeeType")) {
@@ -257,54 +208,40 @@
       return;
     }
 
-    if (!els.employeeModal) return;
+    if (!els.employeeTitle || !els.employeeTitle.parentElement) return;
 
-    const saveContainer = els.saveEmployeeBtn?.parentElement;
-    if (!saveContainer) return;
-
-    const wrapper = document.createElement("label");
-    wrapper.className = "block";
+    const wrapper = document.createElement("div");
     wrapper.innerHTML = `
-      <span class="block text-sm font-medium text-slate-700 mb-1">Personellkategori</span>
-      <select id="employeeType" class="w-full rounded-xl border border-slate-300 px-3 py-2 bg-white">
-        ${EMPLOYEE_TYPE_OPTIONS.map(v => `<option value="${v}">${v}</option>`).join("")}
+      <label class="block text-sm font-medium text-slate-700 mb-1">Personelltype</label>
+      <select id="employeeType" class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm">
+        <option value="Offshore">Offshore</option>
+        <option value="Onshore">Onshore</option>
       </select>
     `;
-
-    const modalBody = saveContainer.parentElement;
-    modalBody.insertBefore(wrapper, saveContainer);
+    els.employeeTitle.parentElement.insertAdjacentElement("afterend", wrapper);
     els.employeeType = document.getElementById("employeeType");
   }
 
-  function findBlockContainer(el) {
-    let node = el;
-    for (let i = 0; i < 5 && node?.parentElement; i++) {
-      const cls = String(node.className || "");
-      if (cls.includes("rounded") || cls.includes("border") || cls.includes("shadow")) return node;
-      node = node.parentElement;
-    }
-    return el;
-  }
-
-  function relocateSystemStatusCard() {
-    if (!els.systemStatus || !els.kanbanBoard) return;
-    const systemBlock = findBlockContainer(els.systemStatus);
-    const kanbanBlock = findBlockContainer(els.kanbanBoard);
-    if (!systemBlock?.parentElement || !kanbanBlock?.parentElement) return;
-    if (systemBlock === kanbanBlock) return;
-
-    if (kanbanBlock.parentElement === systemBlock.parentElement) {
-      kanbanBlock.insertAdjacentElement("afterend", systemBlock);
-    } else {
-      kanbanBlock.parentElement.appendChild(systemBlock);
+  function ensureEmployeeTypeFilter() {
+    if (document.getElementById("employeeTypeFilter")) {
+      els.employeeTypeFilter = document.getElementById("employeeTypeFilter");
+      return;
     }
 
-    systemBlock.classList.add("mt-6");
-    systemBlock.style.opacity = "0.88";
+    if (!els.employeeFilter || !els.employeeFilter.parentElement) return;
+
+    const select = document.createElement("select");
+    select.id = "employeeTypeFilter";
+    select.className = els.employeeFilter.className || "rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm";
+    els.employeeFilter.parentElement.insertBefore(select, els.employeeFilter.nextSibling);
+
+    els.employeeTypeFilter = select;
   }
 
   function setupStaticOptions() {
     fillSelect(els.projectCategory, CATEGORY_OPTIONS);
+    fillSelect(els.employeeTypeFilter, ["Alle", "Offshore", "Onshore"], state.employeeTypeFilter || "Alle");
+    fillSelect(els.employeeType, ["Offshore", "Onshore"], "Onshore");
     fillSelect(els.projectStatus, STATUS_OPTIONS, "Planlagt");
     fillSelect(els.assignRole, ROLE_OPTIONS, "Supervisor");
     fillSelect(els.editRole, ROLE_OPTIONS, "Supervisor");
@@ -322,6 +259,15 @@
       renderStats();
       renderCalendar();
     });
+
+    if (els.employeeTypeFilter) {
+      els.employeeTypeFilter.addEventListener("change", e => {
+        state.employeeTypeFilter = e.target.value;
+        renderStats();
+        renderEmployees();
+        renderCalendar();
+      });
+    }
 
     els.viewMode.addEventListener("change", e => {
       state.viewMode = e.target.value;
@@ -391,39 +337,12 @@
       if (e.target === els.employeeModal) closeEmployeeModal();
     });
 
-    if (els.accountMenuBtn) {
-      els.accountMenuBtn.addEventListener("click", e => {
-        e.stopPropagation();
-        toggleAccountMenu();
-      });
-    }
-
-    document.addEventListener("click", e => {
-      if (!els.accountPanel) return;
-      if (!els.accountPanel.contains(e.target)) {
-        toggleAccountMenu(false);
-      }
-    });
-
     if (els.changePasswordBtn) {
-      els.changePasswordBtn.addEventListener("click", () => {
-        toggleAccountMenu(false);
-        handleChangePassword();
-      });
+      els.changePasswordBtn.addEventListener("click", handleChangePassword);
     }
 
     if (els.resetPasswordBtn) {
-      els.resetPasswordBtn.addEventListener("click", () => {
-        toggleAccountMenu(false);
-        handleResetPassword();
-      });
-    }
-
-    if (els.logoutBtn) {
-      els.logoutBtn.addEventListener("click", () => {
-        toggleAccountMenu(false);
-        handleLogout();
-      });
+      els.resetPasswordBtn.addEventListener("click", handleResetPassword);
     }
   }
 
@@ -544,13 +463,11 @@
   }
 
   function normalizeEmployees(list) {
-    return (list || [])
-      .map(emp => ({
-        ...emp,
-        title: emp?.title || "",
-        employee_type: normalizeEmployeeType(emp?.employee_type || emp?.personelltype || emp?.employeeType)
-      }))
-      .sort(compareEmployees);
+    return (list || []).map(emp => ({
+      ...emp,
+      title: emp?.title || "",
+      employee_type: emp?.employee_type || "Onshore"
+    }));
   }
 
   function normalizeProjects(list) {
@@ -779,8 +696,8 @@
     state.entries = structuredClone(DEFAULT_ENTRIES);
     state.auditLog = structuredClone(DEFAULT_AUDIT_LOG);
     state.notificationLog = structuredClone(DEFAULT_NOTIFICATION_LOG);
-    state.startDate = startOfCurrentMonth();
-    state.viewMode = "Måned";
+    state.startDate = new Date("2026-01-05");
+    state.viewMode = "Uke";
     state.calendarMode = "personal";
     rebuildDerivedState();
     persistUiState();
@@ -1077,9 +994,7 @@
     els.employeeEmail.value = employee?.email || "";
     els.employeePhone.value = employee?.phone || "";
     els.employeeTitle.value = employee?.title || "";
-    if (els.employeeType) {
-      fillSelect(els.employeeType, EMPLOYEE_TYPE_OPTIONS, employee?.employee_type || "Onshore");
-    }
+    if (els.employeeType) els.employeeType.value = employee?.employee_type || "Onshore";
     els.employeeActive.checked = employee?.active ?? true;
     els.deleteEmployeeBtn.style.display = employee ? "inline-flex" : "none";
 
@@ -1098,7 +1013,7 @@
     const email = els.employeeEmail.value.trim();
     const phone = els.employeePhone.value.trim();
     const title = els.employeeTitle.value.trim();
-    const employeeType = normalizeEmployeeType(els.employeeType?.value || "Onshore");
+    const employeeType = els.employeeType?.value || "Onshore";
     const active = els.employeeActive.checked;
 
     if (!name) {
@@ -1273,7 +1188,6 @@
     renderNotifications();
     renderAudit();
     renderSystemStatus();
-    relocateSystemStatusCard();
     updateBadge();
     applyRoleChrome();
   }
@@ -1285,6 +1199,7 @@
     ];
 
     fillSelect(els.employeeFilter, employeeFilterItems, state.employeeFilter, "name", "id");
+    fillSelect(els.employeeTypeFilter, ["Alle", "Offshore", "Onshore"], state.employeeTypeFilter || "Alle");
     fillSelect(els.assignEmployee, state.employees.filter(e => e.active !== false), state.employees.find(e => e.active !== false)?.name || "", "name", "name");
     fillSelect(els.editEmployee, state.employees.filter(e => e.active !== false), null, "name", "name");
     fillSelect(els.assignProject, state.projects, state.projects[0]?.id || "", "name", "id");
@@ -1378,12 +1293,14 @@
   }
 
   function renderEmployees() {
-    els.employeeList.innerHTML = state.employees.map(emp => `
-      <button data-employee-id="${escapeHtml(emp.id)}" class="w-full text-left rounded-xl border border-slate-200 p-3 bg-slate-50 hover:bg-slate-100">
+    const sortedEmployees = getSortedEmployees(state.employees);
+
+    els.employeeList.innerHTML = sortedEmployees.map(emp => `
+      <button data-employee-id="${escapeHtml(emp.id)}" class="w-full text-left rounded-xl border p-3 ${getEmployeeTypeClasses(emp.employee_type)}">
         <div class="flex items-center justify-between gap-2">
           <div class="font-medium">${escapeHtml(emp.name)}</div>
           <div class="flex items-center gap-2">
-            <span class="rounded-full border px-2 py-0.5 text-[11px] text-slate-600 border-slate-200 bg-white">${escapeHtml(emp.employee_type || "Onshore")}</span>
+            ${getEmployeeTypeBadge(emp.employee_type)}
             <span class="text-xs ${emp.active ? "text-green-700" : "text-amber-700"}">${emp.active ? "Aktiv" : "Inaktiv"}</span>
           </div>
         </div>
@@ -1965,12 +1882,48 @@
     void addAudit(`Flyttet tildeling: ${project?.name || "Ukjent prosjekt"} fra ${previous.employee_name} (${previous.start_date}–${previous.end_date}) til ${entry.employee_name} (${entry.start_date}–${entry.end_date})`);
   }
 
+
+  function getEmployeeTypePriority(employeeType) {
+    if (employeeType === "Offshore") return 0;
+    if (employeeType === "Onshore") return 1;
+    return 2;
+  }
+
+  function getEmployeeTypeClasses(employeeType) {
+    if (employeeType === "Offshore") {
+      return "border-blue-200 bg-blue-50 hover:bg-blue-100";
+    }
+    if (employeeType === "Onshore") {
+      return "border-emerald-200 bg-emerald-50 hover:bg-emerald-100";
+    }
+    return "border-slate-200 bg-slate-50 hover:bg-slate-100";
+  }
+
+  function getEmployeeTypeBadge(employeeType) {
+    if (employeeType === "Offshore") {
+      return '<span class="text-xs rounded-full border border-blue-200 bg-blue-100 px-2 py-0.5 text-blue-700">Offshore</span>';
+    }
+    if (employeeType === "Onshore") {
+      return '<span class="text-xs rounded-full border border-emerald-200 bg-emerald-100 px-2 py-0.5 text-emerald-700">Onshore</span>';
+    }
+    return '<span class="text-xs rounded-full border border-slate-200 bg-slate-100 px-2 py-0.5 text-slate-700">Ukjent</span>';
+  }
+
+  function getSortedEmployees(list) {
+    return [...(list || [])].sort((a, b) => {
+      const typeCompare = getEmployeeTypePriority(a.employee_type) - getEmployeeTypePriority(b.employee_type);
+      if (typeCompare !== 0) return typeCompare;
+      return a.name.localeCompare(b.name, "no");
+    });
+  }
+
   function getFilteredEmployees() {
-    return state.employees.filter(emp => {
+    return getSortedEmployees(state.employees).filter(emp => {
       const isActive = emp.active !== false;
       const matchesFilter = state.employeeFilter === "Alle ansatte" || emp.name === state.employeeFilter;
+      const matchesType = state.employeeTypeFilter === "Alle" || (emp.employee_type || "Onshore") === state.employeeTypeFilter;
       const matchesSearch = !state.search || emp.name.toLowerCase().includes(state.search);
-      return isActive && matchesFilter && matchesSearch;
+      return isActive && matchesFilter && matchesType && matchesSearch;
     });
   }
 
