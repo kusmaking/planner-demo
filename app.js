@@ -54,7 +54,7 @@
       "projectName", "projectCategory", "projectStatus", "projectPlannedStart", "projectPlannedEnd",
       "projectLocation", "projectHeadcount", "projectNotes", "saveProjectBtn", "deleteProjectBtn",
       "newEmployeeBtn", "employeeModal", "employeeModalTitle", "closeEmployeeModalBtn",
-      "employeeName", "employeeEmail", "employeePhone", "employeeActive", "saveEmployeeBtn", "deleteEmployeeBtn"
+      "employeeName", "employeeEmail", "employeePhone", "employeeTitle", "employeeActive", "saveEmployeeBtn", "deleteEmployeeBtn"
     ];
 
     ids.forEach(id => els[id] = document.getElementById(id));
@@ -801,6 +801,7 @@
     els.employeeName.value = employee?.name || "";
     els.employeeEmail.value = employee?.email || "";
     els.employeePhone.value = employee?.phone || "";
+    els.employeeTitle.value = employee?.title || "";
     els.employeeActive.checked = employee?.active ?? true;
     els.deleteEmployeeBtn.style.display = employee ? "inline-flex" : "none";
 
@@ -818,6 +819,7 @@
     const name = els.employeeName.value.trim();
     const email = els.employeeEmail.value.trim();
     const phone = els.employeePhone.value.trim();
+    const title = els.employeeTitle.value.trim();
     const active = els.employeeActive.checked;
 
     if (!name) {
@@ -840,6 +842,7 @@
       employee.name = name;
       employee.email = email;
       employee.phone = phone;
+      employee.title = title;
       employee.active = active;
 
       if (oldName !== name) {
@@ -856,6 +859,7 @@
         name,
         email,
         phone,
+        title,
         active
       };
       state.employees.push(employee);
@@ -1059,6 +1063,7 @@
         </div>
         <div class="text-xs text-slate-500 mt-1">${escapeHtml(emp.email || "Ingen e-post")}</div>
         <div class="text-xs text-slate-500">${escapeHtml(emp.phone || "Ingen telefon")}</div>
+        <div class="text-xs text-slate-500">${escapeHtml(emp.title || "Ingen stillingstittel")}</div>
       </button>
     `).join("") || `<div class="text-sm text-slate-500">Ingen ansatte enda.</div>`;
 
@@ -1186,7 +1191,7 @@
         </div>
       `;
 
-      html += `<div class="row-overlay border-b border-slate-200 drop-row" data-employee-name="${escapeHtml(employee.name)}" style="grid-column: span ${days.length}; width:${totalWidth}px;">`;
+      html += `<div class="row-overlay border-b border-slate-200 drop-row" data-employee-name="${escapeHtml(employee.name)}" data-range-start="${toIsoDate(range.start)}" data-col-width="${colWidth}" data-total-cols="${days.length}" data-time-unit="day" style="grid-column: span ${days.length}; width:${totalWidth}px;">`;
 
       for (let i = 0; i < days.length; i++) {
         const day = days[i];
@@ -1274,7 +1279,7 @@
         </div>
       `;
 
-      html += `<div class="row-overlay border-b border-slate-200 drop-row" data-employee-name="${escapeHtml(employee.name)}" style="grid-column: span 12; width:${totalWidth}px;">`;
+      html += `<div class="row-overlay border-b border-slate-200 drop-row" data-employee-name="${escapeHtml(employee.name)}" data-range-start="${toIsoDate(yearStart)}" data-col-width="${monthWidth}" data-total-cols="12" data-time-unit="month" style="grid-column: span 12; width:${totalWidth}px;">`;
 
       for (let i = 0; i < 12; i++) {
         html += `<div class="month-cell" style="position:absolute; left:${i * monthWidth}px; width:${monthWidth}px;"></div>`;
@@ -1371,7 +1376,7 @@
         </div>
       `;
 
-      html += `<div class="row-overlay border-b border-slate-200 drop-row" data-employee-name="${escapeHtml(employee.name)}" style="grid-column: span ${days.length}; width:${totalWidth}px;">`;
+      html += `<div class="row-overlay border-b border-slate-200 drop-row" data-employee-name="${escapeHtml(employee.name)}" data-range-start="${toIsoDate(range.start)}" data-col-width="${colWidth}" data-total-cols="${days.length}" data-time-unit="day" style="grid-column: span ${days.length}; width:${totalWidth}px;">`;
 
       for (let i = 0; i < days.length; i++) {
         const day = days[i];
@@ -1546,42 +1551,94 @@
         const entryId = event.dataTransfer.getData("text/plain") || state.dragEntryId;
         const targetEmployeeName = row.dataset.employeeName;
         if (!entryId || !targetEmployeeName) return;
-        await moveEntryToEmployee(entryId, targetEmployeeName);
+
+        const dropMeta = getDropMetaFromRow(row, event);
+        await moveEntryByDrop(entryId, targetEmployeeName, dropMeta);
       });
     });
   }
 
-  async function moveEntryToEmployee(entryId, targetEmployeeName) {
-    const entry = state.entries.find(e => e.id === entryId);
-    if (!entry) return;
-    if (entry.employee_name === targetEmployeeName) return;
 
-    const previousEmployeeName = entry.employee_name;
+async function moveEntryToEmployee(entryId, targetEmployeeName) {
+  return moveEntryByDrop(entryId, targetEmployeeName, null);
+}
+
+async function moveEntryByDrop(entryId, targetEmployeeName, dropMeta = null) {
+  const entry = state.entries.find(e => e.id === entryId);
+  if (!entry) return;
+
+  const previous = {
+    employee_name: entry.employee_name,
+    start_date: entry.start_date,
+    end_date: entry.end_date
+  };
+
+  let changed = false;
+
+  if (targetEmployeeName && entry.employee_name !== targetEmployeeName) {
     entry.employee_name = targetEmployeeName;
+    changed = true;
+  }
+
+  if (dropMeta?.timeUnit === "day" && dropMeta.rangeStart && Number.isFinite(dropMeta.colIndex)) {
+    const durationDays = Math.max(0, diffDays(new Date(entry.start_date), new Date(entry.end_date)));
+    const newStart = addDays(new Date(dropMeta.rangeStart), dropMeta.colIndex);
+    const newEnd = addDays(newStart, durationDays);
+    const newStartIso = toIsoDate(newStart);
+    const newEndIso = toIsoDate(newEnd);
+    if (entry.start_date !== newStartIso || entry.end_date !== newEndIso) {
+      entry.start_date = newStartIso;
+      entry.end_date = newEndIso;
+      changed = true;
+    }
+  }
+
+  if (dropMeta?.timeUnit === "month" && dropMeta.rangeStart && Number.isFinite(dropMeta.colIndex)) {
+    const durationDays = Math.max(0, diffDays(new Date(entry.start_date), new Date(entry.end_date)));
+    const originalStart = new Date(entry.start_date);
+    const targetMonthBase = new Date(dropMeta.rangeStart);
+    const shiftedStart = new Date(targetMonthBase.getFullYear(), targetMonthBase.getMonth() + dropMeta.colIndex, 1);
+    const clampedDay = Math.min(originalStart.getDate(), daysInMonth(shiftedStart.getFullYear(), shiftedStart.getMonth()));
+    shiftedStart.setDate(clampedDay);
+    const shiftedEnd = addDays(shiftedStart, durationDays);
+    const newStartIso = toIsoDate(shiftedStart);
+    const newEndIso = toIsoDate(shiftedEnd);
+    if (entry.start_date !== newStartIso || entry.end_date !== newEndIso) {
+      entry.start_date = newStartIso;
+      entry.end_date = newEndIso;
+      changed = true;
+    }
+  }
+
+  if (!changed) return;
+
+  rebuildDerivedState();
+  renderStats();
+  renderCalendar();
+
+  const result = await saveRow("planner_entries", entry);
+  if (!result.ok) {
+    entry.employee_name = previous.employee_name;
+    entry.start_date = previous.start_date;
+    entry.end_date = previous.end_date;
     rebuildDerivedState();
     renderStats();
     renderCalendar();
-
-    const result = await saveRow("planner_entries", entry);
-    if (!result.ok) {
-      entry.employee_name = previousEmployeeName;
-      rebuildDerivedState();
-      renderStats();
-      renderCalendar();
-      return;
-    }
-
-    state.justDraggedEntryId = entryId;
-    setTimeout(() => {
-      if (state.justDraggedEntryId === entryId) state.justDraggedEntryId = null;
-    }, 250);
-
-    const project = getProjectById(entry.project_id);
-    await addAudit(`Flyttet tildeling: ${project?.name || "Ukjent prosjekt"} fra ${previousEmployeeName} til ${targetEmployeeName}`);
-    renderProjects();
-    renderEmployees();
-    renderSystemStatus();
+    return;
   }
+
+  state.justDraggedEntryId = entryId;
+  setTimeout(() => {
+    if (state.justDraggedEntryId === entryId) state.justDraggedEntryId = null;
+  }, 250);
+
+  const project = getProjectById(entry.project_id);
+  await addAudit(`Flyttet tildeling: ${project?.name || "Ukjent prosjekt"} fra ${previous.employee_name} (${previous.start_date}–${previous.end_date}) til ${entry.employee_name} (${entry.start_date}–${entry.end_date})`);
+  renderProjects();
+  renderEmployees();
+  renderSystemStatus();
+}
+
 
   function getFilteredEmployees() {
     return state.employees.filter(emp => {
@@ -1779,6 +1836,27 @@
     const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
     return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
   }
+
+
+function getDropMetaFromRow(row, event) {
+  const rect = row.getBoundingClientRect();
+  const colWidth = Number(row.dataset.colWidth || 0);
+  const totalCols = Number(row.dataset.totalCols || 0);
+  const timeUnit = row.dataset.timeUnit || "day";
+  const rangeStart = row.dataset.rangeStart || null;
+
+  if (!colWidth || !totalCols || !rangeStart) {
+    return { timeUnit, rangeStart, colIndex: null };
+  }
+
+  const x = Math.max(0, Math.min(rect.width - 1, event.clientX - rect.left));
+  const colIndex = Math.max(0, Math.min(totalCols - 1, Math.floor(x / colWidth)));
+  return { timeUnit, rangeStart, colIndex };
+}
+
+function daysInMonth(year, monthIndex) {
+  return new Date(year, monthIndex + 1, 0).getDate();
+}
 
   function capitalize(value) {
     const str = String(value || "");
