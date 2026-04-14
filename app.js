@@ -7,15 +7,12 @@
     entries: [],
     auditLog: [],
     notificationLog: [],
-    currentUser: "Ikke innlogget",
-    currentUserEmail: "",
-    currentRole: "",
-    authReady: false,
+    currentUser: "Olis Hansen",
     employeeFilter: "Alle ansatte",
     search: "",
-    viewMode: "Måned",
+    viewMode: load(STORAGE_KEYS.viewMode, "Uke"),
     calendarMode: load(STORAGE_KEYS.calendarMode, "personal"),
-    startDate: startOfCurrentMonth(),
+    startDate: new Date(load(STORAGE_KEYS.startDate, "2026-01-05")),
     selectedEntryId: null,
     selectedProjectId: null,
     selectedEmployeeId: null,
@@ -39,20 +36,18 @@
   window.addEventListener("resize", debounce(() => renderCalendar(), 120));
 
   async function init() {
+    // hide reset demo button safely
+    setTimeout(() => {
+      const btn = document.getElementById("resetDemoBtn");
+      if (btn) btn.style.display = "none";
+    }, 0);
+
     cacheElements();
-    ensureAccountPanel();
     setupStaticOptions();
     bindEvents();
-
-    state.viewMode = "Måned";
-    state.startDate = startOfCurrentMonth();
-    persistUiState();
-
-    await loadAuthUser();
     await bootData();
     rebuildDerivedState();
     renderAll();
-    applyRoleChrome();
   }
 
   function cacheElements() {
@@ -67,134 +62,10 @@
       "projectName", "projectCategory", "projectStatus", "projectPlannedStart", "projectPlannedEnd",
       "projectLocation", "projectHeadcount", "projectNotes", "saveProjectBtn", "deleteProjectBtn",
       "newEmployeeBtn", "employeeModal", "employeeModalTitle", "closeEmployeeModalBtn",
-      "employeeName", "employeeEmail", "employeePhone", "employeeTitle", "employeeActive", "saveEmployeeBtn", "deleteEmployeeBtn",
-      "accountPanel", "accountUserInfo", "changePasswordBtn", "resetPasswordBtn"
+      "employeeName", "employeeEmail", "employeePhone", "employeeTitle", "employeeActive", "saveEmployeeBtn", "deleteEmployeeBtn"
     ];
 
     ids.forEach(id => els[id] = document.getElementById(id));
-  }
-
-
-  function ensureAccountPanel() {
-    if (document.getElementById("accountPanel")) {
-      els.accountPanel = document.getElementById("accountPanel");
-      els.accountUserInfo = document.getElementById("accountUserInfo");
-      els.changePasswordBtn = document.getElementById("changePasswordBtn");
-      els.resetPasswordBtn = document.getElementById("resetPasswordBtn");
-      return;
-    }
-
-    const panel = document.createElement("div");
-    panel.id = "accountPanel";
-    panel.className = "flex flex-wrap items-center justify-end gap-2";
-    panel.innerHTML = `
-      <div id="accountUserInfo" class="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700">Ikke innlogget</div>
-      <button id="changePasswordBtn" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm hover:bg-slate-50">Endre passord</button>
-      <button id="resetPasswordBtn" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm hover:bg-slate-50">Send reset-link</button>
-    `;
-
-    const anchor = els.storageBadge?.parentElement || document.body.firstElementChild || document.body;
-    anchor.appendChild(panel);
-
-    els.accountPanel = panel;
-    els.accountUserInfo = document.getElementById("accountUserInfo");
-    els.changePasswordBtn = document.getElementById("changePasswordBtn");
-    els.resetPasswordBtn = document.getElementById("resetPasswordBtn");
-  }
-
-  async function loadAuthUser() {
-    if (!supabaseClient?.auth) {
-      state.authReady = true;
-      return;
-    }
-
-    try {
-      const { data: userData, error: userError } = await supabaseClient.auth.getUser();
-      if (userError) throw userError;
-
-      const user = userData?.user || null;
-      state.currentUserEmail = user?.email || "";
-      state.currentUser = user?.user_metadata?.full_name || user?.email || "Ikke innlogget";
-
-      try {
-        const { data, error } = await supabaseClient.rpc("get_my_profile");
-        if (!error && Array.isArray(data) && data[0]) {
-          state.currentRole = data[0].role || "";
-          if (data[0].full_name) state.currentUser = data[0].full_name;
-          if (data[0].email) state.currentUserEmail = data[0].email;
-        }
-      } catch (_) {}
-
-      state.authReady = true;
-      updateAccountPanel();
-    } catch (err) {
-      state.authReady = true;
-      state.supabaseError = err?.message || state.supabaseError;
-      updateAccountPanel();
-    }
-  }
-
-  function isSuperadmin() {
-    return state.currentRole === "superadmin";
-  }
-
-  function updateAccountPanel() {
-    if (!els.accountUserInfo) return;
-    const roleText = state.currentRole ? ` • ${state.currentRole}` : "";
-    const nameText = state.currentUser || state.currentUserEmail || "Ikke innlogget";
-    els.accountUserInfo.textContent = `${nameText}${roleText}`;
-  }
-
-  function applyRoleChrome() {
-    updateAccountPanel();
-
-    if (els.storageBadge) {
-      els.storageBadge.style.display = isSuperadmin() ? "" : "none";
-    }
-
-    if (els.saveStatus) {
-      els.saveStatus.style.display = isSuperadmin() ? "" : "none";
-    }
-
-    if (els.resetDemoBtn) {
-      els.resetDemoBtn.style.display = isSuperadmin() ? "" : "none";
-    }
-  }
-
-  async function handleChangePassword() {
-    if (!supabaseClient?.auth) return;
-
-    const newPassword = prompt("Nytt passord:");
-    if (!newPassword) return;
-    if (newPassword.length < 6) {
-      alert("Passordet må være minst 6 tegn.");
-      return;
-    }
-
-    const { error } = await supabaseClient.auth.updateUser({ password: newPassword });
-    if (error) {
-      alert(`Kunne ikke endre passord: ${error.message}`);
-      return;
-    }
-
-    alert("Passordet er endret.");
-  }
-
-  async function handleResetPassword() {
-    if (!supabaseClient?.auth) return;
-    const email = state.currentUserEmail || prompt("E-postadresse:");
-    if (!email) return;
-
-    const { error } = await supabaseClient.auth.resetPasswordForEmail(email, {
-      redirectTo: window.location.origin
-    });
-
-    if (error) {
-      alert(`Kunne ikke sende reset-link: ${error.message}`);
-      return;
-    }
-
-    alert("Reset-link er sendt på e-post.");
   }
 
   function setupStaticOptions() {
@@ -246,9 +117,7 @@
     els.todayBtn.addEventListener("click", () => {
       state.startDate = state.viewMode === "År"
         ? new Date(new Date().getFullYear(), 0, 1)
-        : state.viewMode === "Måned"
-          ? startOfCurrentMonth()
-          : startOfWeek(new Date());
+        : startOfWeek(new Date());
       persistUiState();
       renderStats();
       renderCalendar();
@@ -257,9 +126,7 @@
     els.assignProject.addEventListener("change", syncAssignDatesFromProject);
     els.assignBtn.addEventListener("click", createEntry);
     els.bulkAddBtn.addEventListener("click", bulkAddEmployees);
-    if (els.resetDemoBtn) {
-      els.resetDemoBtn.style.display = "none";
-    }
+    els.resetDemoBtn.addEventListener("click", resetDemo);
 
     els.closeModalBtn.addEventListener("click", closeEditModal);
     els.saveEditBtn.addEventListener("click", saveEditedEntry);
@@ -286,14 +153,6 @@
     els.employeeModal.addEventListener("click", e => {
       if (e.target === els.employeeModal) closeEmployeeModal();
     });
-
-    if (els.changePasswordBtn) {
-      els.changePasswordBtn.addEventListener("click", handleChangePassword);
-    }
-
-    if (els.resetPasswordBtn) {
-      els.resetPasswordBtn.addEventListener("click", handleResetPassword);
-    }
   }
 
   function fillSelect(selectEl, values, selected = null, labelKey = null, valueKey = null) {
@@ -492,7 +351,6 @@
   }
 
   function updateBadge() {
-    if (!els.storageBadge) return;
     if (state.storageMode === "supabase") {
       els.storageBadge.textContent = "Supabase aktiv";
       els.storageBadge.className = "rounded-xl border border-green-300 bg-green-50 text-green-700 px-3 py-2 text-sm";
@@ -589,15 +447,8 @@
     state.auditLog = state.auditLog.slice(0, 100);
     saveAllLocal();
 
-    if (!state.supabaseReady) return { ok: true };
-
-    try {
-      const { error } = await supabaseClient.from("planner_audit_log").insert(row);
-      if (error) throw error;
-      return { ok: true };
-    } catch (err) {
-      console.error("Audit log feilet:", err);
-      return { ok: false, error: err };
+    if (state.supabaseReady) {
+      await supabaseClient.from("planner_audit_log").insert(row);
     }
   }
 
@@ -614,15 +465,8 @@
     state.notificationLog = state.notificationLog.slice(0, 100);
     saveAllLocal();
 
-    if (!state.supabaseReady) return { ok: true };
-
-    try {
-      const { error } = await supabaseClient.from("planner_notification_log").insert(row);
-      if (error) throw error;
-      return { ok: true };
-    } catch (err) {
-      console.error("Notification log feilet:", err);
-      return { ok: false, error: err };
+    if (state.supabaseReady) {
+      await supabaseClient.from("planner_notification_log").insert(row);
     }
   }
 
@@ -738,11 +582,11 @@
       return;
     }
 
+    await addAudit(`La inn tildeling: ${employeeName} → ${project.name}`);
+    await addNotification(employeeName, project.name);
+
     els.assignNotes.value = "";
     renderAll();
-
-    void addAudit(`La inn tildeling: ${employeeName} → ${project.name}`);
-    void addNotification(employeeName, project.name);
   }
 
   function openEditModal(entryId) {
@@ -789,9 +633,9 @@
     if (!result.ok) return;
 
     const project = getProjectById(entry.project_id);
+    await addAudit(`Redigerte tildeling: ${entry.employee_name} → ${project?.name || "Ukjent prosjekt"}`);
     closeEditModal();
     renderAll();
-    void addAudit(`Redigerte tildeling: ${entry.employee_name} → ${project?.name || "Ukjent prosjekt"}`);
   }
 
   async function deleteEditedEntry() {
@@ -810,9 +654,9 @@
     }
 
     const project = getProjectById(entry.project_id);
+    await addAudit(`Slettet tildeling: ${entry.employee_name} → ${project?.name || "Ukjent prosjekt"}`);
     closeEditModal();
     renderAll();
-    void addAudit(`Slettet tildeling: ${entry.employee_name} → ${project?.name || "Ukjent prosjekt"}`);
   }
 
   function openProjectModal(projectId = null) {
@@ -901,9 +745,9 @@
     const result = await saveRow("planner_projects", project);
     if (!result.ok) return;
 
+    await addAudit(`${state.selectedProjectId ? "Redigerte" : "Opprettet"} prosjekt: ${name}`);
     closeProjectModal();
     renderAll();
-    void addAudit(`${state.selectedProjectId ? "Redigerte" : "Opprettet"} prosjekt: ${name}`);
   }
 
   async function deleteProjectFromModal() {
@@ -929,9 +773,9 @@
       return;
     }
 
+    await addAudit(`Slettet prosjekt: ${project.name}`);
     closeProjectModal();
     renderAll();
-    void addAudit(`Slettet prosjekt: ${project.name}`);
   }
 
   function openEmployeeModal(employeeId = null) {
@@ -1016,9 +860,9 @@
     const result = await saveRow("planner_employees", employee);
     if (!result.ok) return;
 
+    await addAudit(`${state.selectedEmployeeId ? "Redigerte" : "Opprettet"} ansatt: ${name}`);
     closeEmployeeModal();
     renderAll();
-    void addAudit(`${state.selectedEmployeeId ? "Redigerte" : "Opprettet"} ansatt: ${name}`);
   }
 
   async function deleteEmployeeFromModal() {
@@ -1044,9 +888,9 @@
       return;
     }
 
+    await addAudit(`Slettet ansatt: ${employee.name}`);
     closeEmployeeModal();
     renderAll();
-    void addAudit(`Slettet ansatt: ${employee.name}`);
   }
 
   async function bulkAddEmployees() {
@@ -1090,9 +934,9 @@
       }
     }
 
+    await addAudit(`La til ${count} ansatte via masseimport`);
     els.bulkEmployees.value = "";
     renderAll();
-    void addAudit(`La til ${count} ansatte via masseimport`);
   }
 
   function rebuildDerivedState() {
@@ -1133,7 +977,6 @@
     renderAudit();
     renderSystemStatus();
     updateBadge();
-    applyRoleChrome();
   }
 
   function populateDynamicSelects() {
@@ -1814,10 +1657,10 @@
     }, 250);
 
     const project = getProjectById(entry.project_id);
+    await addAudit(`Flyttet tildeling: ${project?.name || "Ukjent prosjekt"} fra ${previous.employee_name} (${previous.start_date}–${previous.end_date}) til ${entry.employee_name} (${entry.start_date}–${entry.end_date})`);
     renderProjects();
     renderEmployees();
     renderSystemStatus();
-    void addAudit(`Flyttet tildeling: ${project?.name || "Ukjent prosjekt"} fra ${previous.employee_name} (${previous.start_date}–${previous.end_date}) til ${entry.employee_name} (${entry.start_date}–${entry.end_date})`);
   }
 
   function getFilteredEmployees() {
@@ -1935,12 +1778,6 @@
 
   function formatYearBarLabel(start, end) {
     return `${capitalize(monthShort(new Date(start)))}–${capitalize(monthShort(new Date(end)))}`;
-  }
-
-
-  function startOfCurrentMonth() {
-    const now = new Date();
-    return new Date(now.getFullYear(), now.getMonth(), 1);
   }
 
   function toIsoDate(date) {
