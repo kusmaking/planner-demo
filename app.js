@@ -13,17 +13,18 @@
     viewMode: load(STORAGE_KEYS.viewMode, "Uke"),
     startDate: new Date(load(STORAGE_KEYS.startDate, "2026-01-05")),
     selectedEntryId: null,
+    selectedProjectId: null,
+    selectedEmployeeId: null,
     storageMode: "local",
     supabaseReady: false,
     supabaseError: null
   };
 
   const els = {};
+  let saveStatusTimer = null;
 
   document.addEventListener("DOMContentLoaded", init);
-  window.addEventListener("resize", debounce(() => {
-    renderCalendar();
-  }, 120));
+  window.addEventListener("resize", debounce(() => renderCalendar(), 120));
 
   async function init() {
     cacheElements();
@@ -36,19 +37,18 @@
   function cacheElements() {
     const ids = [
       "statsRow", "searchInput", "employeeFilter", "viewMode", "prevBtn", "nextBtn", "todayBtn",
-      "calendarWrap", "warningBox", "legendList", "projectName", "projectCategory", "projectStatus",
-      "projectNotes", "createProjectBtn", "assignProject", "assignEmployee", "assignRole",
+      "calendarWrap", "warningBox", "legendList", "projectList", "assignProject", "assignEmployee", "assignRole",
       "assignStart", "assignEnd", "assignNotes", "assignBtn", "bulkEmployees", "bulkAddBtn",
-      "employeeName", "employeeEmail", "employeePhone", "addEmployeeBtn", "employeeList",
-      "kanbanBoard", "notificationList", "auditList", "editModal", "closeModalBtn",
+      "employeeList", "kanbanBoard", "notificationList", "auditList", "editModal", "closeModalBtn",
       "editProject", "editEmployee", "editRole", "editStart", "editEnd", "editNotes",
-      "saveEditBtn", "deleteEditBtn", "storageBadge", "syncNowBtn", "resetDemoBtn",
-      "systemStatus", "rangeTitle"
+      "saveEditBtn", "deleteEditBtn", "storageBadge", "resetDemoBtn", "systemStatus", "rangeTitle",
+      "saveStatus", "newProjectBtn", "projectModal", "projectModalTitle", "closeProjectModalBtn",
+      "projectName", "projectCategory", "projectStatus", "projectNotes", "saveProjectBtn", "deleteProjectBtn",
+      "newEmployeeBtn", "employeeModal", "employeeModalTitle", "closeEmployeeModalBtn",
+      "employeeName", "employeeEmail", "employeePhone", "employeeActive", "saveEmployeeBtn", "deleteEmployeeBtn"
     ];
 
-    for (const id of ids) {
-      els[id] = document.getElementById(id);
-    }
+    ids.forEach(id => els[id] = document.getElementById(id));
   }
 
   function setupStaticOptions() {
@@ -74,20 +74,20 @@
     els.viewMode.addEventListener("change", e => {
       state.viewMode = e.target.value;
       persistUiState();
-      renderCalendar();
       renderStats();
+      renderCalendar();
     });
 
     els.prevBtn.addEventListener("click", () => {
       shiftPeriod(-1);
-      renderCalendar();
       renderStats();
+      renderCalendar();
     });
 
     els.nextBtn.addEventListener("click", () => {
       shiftPeriod(1);
-      renderCalendar();
       renderStats();
+      renderCalendar();
     });
 
     els.todayBtn.addEventListener("click", () => {
@@ -95,32 +95,38 @@
         ? new Date(new Date().getFullYear(), 0, 1)
         : startOfWeek(new Date());
       persistUiState();
-      renderCalendar();
       renderStats();
+      renderCalendar();
     });
 
-    els.createProjectBtn.addEventListener("click", createProject);
-    els.addEmployeeBtn.addEventListener("click", createEmployee);
-    els.bulkAddBtn.addEventListener("click", bulkAddEmployees);
     els.assignBtn.addEventListener("click", createEntry);
+    els.bulkAddBtn.addEventListener("click", bulkAddEmployees);
+    els.resetDemoBtn.addEventListener("click", resetDemo);
 
     els.closeModalBtn.addEventListener("click", closeEditModal);
     els.saveEditBtn.addEventListener("click", saveEditedEntry);
     els.deleteEditBtn.addEventListener("click", deleteEditedEntry);
 
-    els.syncNowBtn.addEventListener("click", async () => {
-      await syncFromSupabase();
-      renderAll();
-    });
+    els.newProjectBtn.addEventListener("click", () => openProjectModal());
+    els.closeProjectModalBtn.addEventListener("click", closeProjectModal);
+    els.saveProjectBtn.addEventListener("click", saveProjectFromModal);
+    els.deleteProjectBtn.addEventListener("click", deleteProjectFromModal);
 
-    els.resetDemoBtn.addEventListener("click", async () => {
-      if (!confirm("Vil du nullstille til demo-data?")) return;
-      await resetToDemoData();
-      renderAll();
-    });
+    els.newEmployeeBtn.addEventListener("click", () => openEmployeeModal());
+    els.closeEmployeeModalBtn.addEventListener("click", closeEmployeeModal);
+    els.saveEmployeeBtn.addEventListener("click", saveEmployeeFromModal);
+    els.deleteEmployeeBtn.addEventListener("click", deleteEmployeeFromModal);
 
     els.editModal.addEventListener("click", e => {
       if (e.target === els.editModal) closeEditModal();
+    });
+
+    els.projectModal.addEventListener("click", e => {
+      if (e.target === els.projectModal) closeProjectModal();
+    });
+
+    els.employeeModal.addEventListener("click", e => {
+      if (e.target === els.employeeModal) closeEmployeeModal();
     });
   }
 
@@ -130,7 +136,6 @@
 
     values.forEach(item => {
       const option = document.createElement("option");
-
       if (typeof item === "object") {
         option.value = valueKey ? item[valueKey] : item.id;
         option.textContent = labelKey ? item[labelKey] : item.name;
@@ -138,18 +143,13 @@
         option.value = item;
         option.textContent = item;
       }
-
-      if (selected !== null && option.value === selected) {
-        option.selected = true;
-      }
-
+      if (selected !== null && option.value === selected) option.selected = true;
       selectEl.appendChild(option);
     });
   }
 
   async function bootData() {
     const localData = loadAllLocal();
-
     state.employees = localData.employees;
     state.projects = localData.projects;
     state.entries = localData.entries;
@@ -160,40 +160,53 @@
       state.storageMode = "local";
       state.supabaseReady = false;
       state.supabaseError = "Supabase-biblioteket ble ikke lastet.";
+      setSaveStatus("Lokal fallback", "warn");
       updateBadge();
       return;
     }
 
     const ok = await testSupabase();
-
     if (!ok) {
       state.storageMode = "local";
+      setSaveStatus("Lokal fallback", "warn");
       updateBadge();
+      renderAll();
       return;
     }
 
-    await syncFromSupabase(true);
+    await fetchFromSupabase();
+
+    const hasMainData = state.employees.length || state.projects.length || state.entries.length;
+    if (!hasMainData) {
+      state.employees = structuredClone(DEFAULT_EMPLOYEES);
+      state.projects = structuredClone(DEFAULT_PROJECTS);
+      state.entries = structuredClone(DEFAULT_ENTRIES);
+      state.auditLog = structuredClone(DEFAULT_AUDIT_LOG);
+      state.notificationLog = structuredClone(DEFAULT_NOTIFICATION_LOG);
+      saveAllLocal();
+      await seedDemoDataRowByRow();
+      await fetchFromSupabase();
+    }
+
+    setSaveStatus("Lagret", "ok");
   }
 
   async function testSupabase() {
     try {
-      const { error } = await supabaseClient
-        .from("planner_employees")
-        .select("id", { count: "exact", head: true });
-
+      const { error } = await supabaseClient.from("planner_employees").select("id", { head: true, count: "exact" });
       if (error) throw error;
-
       state.supabaseReady = true;
+      state.storageMode = "supabase";
       state.supabaseError = null;
       return true;
     } catch (err) {
       state.supabaseReady = false;
-      state.supabaseError = err?.message || "Ukjent feil mot Supabase.";
+      state.supabaseError = err?.message || "Ukjent Supabase-feil.";
       return false;
     }
   }
 
-  async function syncFromSupabase(initial = false) {
+  async function fetchFromSupabase() {
     if (!state.supabaseReady) return;
 
     try {
@@ -204,26 +217,16 @@
         auditRes,
         notificationRes
       ] = await Promise.all([
-        supabaseClient.from("planner_employees").select("*").order("name", { ascending: true }),
-        supabaseClient.from("planner_projects").select("*").order("name", { ascending: true }),
-        supabaseClient.from("planner_entries").select("*").order("start_date", { ascending: true }),
+        supabaseClient.from("planner_employees").select("*").order("name"),
+        supabaseClient.from("planner_projects").select("*").order("name"),
+        supabaseClient.from("planner_entries").select("*").order("start_date"),
         supabaseClient.from("planner_audit_log").select("*").order("created_at", { ascending: false }).limit(100),
         supabaseClient.from("planner_notification_log").select("*").order("created_at", { ascending: false }).limit(100)
       ]);
 
-      for (const res of [employeesRes, projectsRes, entriesRes, auditRes, notificationRes]) {
-        if (res.error) throw res.error;
-      }
-
-      const hasData =
-        (employeesRes.data?.length || 0) > 0 ||
-        (projectsRes.data?.length || 0) > 0 ||
-        (entriesRes.data?.length || 0) > 0;
-
-      if (!hasData && initial) {
-        await seedSupabaseWithCurrentState();
-        return await syncFromSupabase(false);
-      }
+      [employeesRes, projectsRes, entriesRes, auditRes, notificationRes].forEach(r => {
+        if (r.error) throw r.error;
+      });
 
       state.employees = employeesRes.data || [];
       state.projects = projectsRes.data || [];
@@ -234,54 +237,21 @@
       saveAllLocal();
       state.storageMode = "supabase";
       state.supabaseError = null;
+      updateBadge();
     } catch (err) {
       state.storageMode = "local";
-      state.supabaseError = err?.message || "Kunne ikke laste data fra Supabase.";
-    }
-
-    updateBadge();
-  }
-
-  async function seedSupabaseWithCurrentState() {
-    await replaceSupabaseTable("planner_employees", state.employees);
-    await replaceSupabaseTable("planner_projects", state.projects);
-    await replaceSupabaseTable("planner_entries", state.entries);
-    await replaceSupabaseTable("planner_audit_log", state.auditLog);
-    await replaceSupabaseTable("planner_notification_log", state.notificationLog);
-  }
-
-  async function replaceSupabaseTable(table, rows) {
-    const { error: deleteError } = await supabaseClient
-      .from(table)
-      .delete()
-      .not("id", "is", null);
-
-    if (deleteError) throw deleteError;
-
-    if (rows.length > 0) {
-      const { error: insertError } = await supabaseClient.from(table).insert(rows);
-      if (insertError) throw insertError;
-    }
-  }
-
-  async function resetToDemoData() {
-    state.employees = structuredClone(DEFAULT_EMPLOYEES);
-    state.projects = structuredClone(DEFAULT_PROJECTS);
-    state.entries = structuredClone(DEFAULT_ENTRIES);
-    state.auditLog = structuredClone(DEFAULT_AUDIT_LOG);
-    state.notificationLog = structuredClone(DEFAULT_NOTIFICATION_LOG);
-    state.startDate = new Date("2026-01-05");
-    state.viewMode = "Uke";
-
-    persistUiState();
-    saveAllLocal();
-
-    if (state.supabaseReady) {
-      await seedSupabaseWithCurrentState();
-      await syncFromSupabase(false);
-    } else {
-      state.storageMode = "local";
+      state.supabaseError = err?.message || "Kunne ikke hente data.";
       updateBadge();
+      setSaveStatus("Feil ved henting", "error");
+    }
+  }
+
+  function load(key, fallback) {
+    try {
+      const raw = localStorage.getItem(key);
+      return raw ? JSON.parse(raw) : fallback;
+    } catch {
+      return fallback;
     }
   }
 
@@ -293,15 +263,6 @@
       auditLog: load(STORAGE_KEYS.auditLog, structuredClone(DEFAULT_AUDIT_LOG)),
       notificationLog: load(STORAGE_KEYS.notificationLog, structuredClone(DEFAULT_NOTIFICATION_LOG))
     };
-  }
-
-  function load(key, fallback) {
-    try {
-      const raw = localStorage.getItem(key);
-      return raw ? JSON.parse(raw) : fallback;
-    } catch {
-      return fallback;
-    }
   }
 
   function saveAllLocal() {
@@ -317,254 +278,83 @@
     localStorage.setItem(STORAGE_KEYS.viewMode, JSON.stringify(state.viewMode));
   }
 
-  async function createProject() {
-    const name = els.projectName.value.trim();
-    const category = els.projectCategory.value;
-    const status = els.projectStatus.value;
-    const notes = els.projectNotes.value.trim();
-
-    if (!name) {
-      alert("Legg inn prosjektnavn.");
-      return;
-    }
-
-    const project = {
-      id: crypto.randomUUID(),
-      name,
-      category,
-      status,
-      notes
+  function setSaveStatus(text, variant = "neutral") {
+    clearTimeout(saveStatusTimer);
+    const base = "rounded-xl px-3 py-2 text-sm border ";
+    const map = {
+      neutral: "border-slate-300 bg-white text-slate-700",
+      saving: "border-blue-300 bg-blue-50 text-blue-700",
+      ok: "border-green-300 bg-green-50 text-green-700",
+      warn: "border-amber-300 bg-amber-50 text-amber-700",
+      error: "border-red-300 bg-red-50 text-red-700"
     };
+    els.saveStatus.textContent = text;
+    els.saveStatus.className = base + (map[variant] || map.neutral);
 
-    state.projects.push(project);
-    state.projects.sort((a, b) => a.name.localeCompare(b.name, "no"));
-
-    await persistProjects();
-    await addAudit(`Opprettet prosjekt: ${name}`);
-
-    els.projectName.value = "";
-    els.projectNotes.value = "";
-    renderAll();
-  }
-
-  async function createEmployee() {
-    const name = els.employeeName.value.trim();
-    const email = els.employeeEmail.value.trim();
-    const phone = els.employeePhone.value.trim();
-
-    if (!name) {
-      alert("Legg inn navn.");
-      return;
+    if (variant === "ok") {
+      saveStatusTimer = setTimeout(() => {
+        els.saveStatus.textContent = "Klar";
+        els.saveStatus.className = base + map.neutral;
+      }, 1800);
     }
-
-    if (state.employees.some(e => e.name.toLowerCase() === name.toLowerCase())) {
-      alert("Denne ansatte finnes allerede.");
-      return;
-    }
-
-    const employee = {
-      id: crypto.randomUUID(),
-      name,
-      email,
-      phone,
-      active: true
-    };
-
-    state.employees.push(employee);
-    state.employees.sort((a, b) => a.name.localeCompare(b.name, "no"));
-
-    await persistEmployees();
-    await addAudit(`La til ansatt: ${name}`);
-
-    els.employeeName.value = "";
-    els.employeeEmail.value = "";
-    els.employeePhone.value = "";
-    renderAll();
   }
 
-  async function bulkAddEmployees() {
-    const names = els.bulkEmployees.value
-      .split("\n")
-      .map(v => v.trim())
-      .filter(Boolean);
-
-    if (!names.length) {
-      alert("Lim inn minst ett navn.");
-      return;
-    }
-
-    let count = 0;
-
-    for (const name of names) {
-      const exists = state.employees.some(e => e.name.toLowerCase() === name.toLowerCase());
-      if (exists) continue;
-
-      state.employees.push({
-        id: crypto.randomUUID(),
-        name,
-        email: "",
-        phone: "",
-        active: true
-      });
-      count++;
-    }
-
-    state.employees.sort((a, b) => a.name.localeCompare(b.name, "no"));
-
-    await persistEmployees();
-    await addAudit(`La til ${count} ansatte via masseimport`);
-
-    els.bulkEmployees.value = "";
-    renderAll();
-  }
-
-  async function createEntry() {
-    const projectId = els.assignProject.value;
-    const employeeName = els.assignEmployee.value;
-    const role = els.assignRole.value;
-    const startDate = els.assignStart.value;
-    const endDate = els.assignEnd.value;
-    const notes = els.assignNotes.value.trim();
-
-    if (!projectId || !employeeName || !startDate || !endDate) {
-      alert("Fyll ut prosjekt, ansatt og datoer.");
-      return;
-    }
-
-    if (startDate > endDate) {
-      alert("Startdato kan ikke være etter sluttdato.");
-      return;
-    }
-
-    const entry = {
-      id: crypto.randomUUID(),
-      project_id: projectId,
-      employee_name: employeeName,
-      role,
-      start_date: startDate,
-      end_date: endDate,
-      notes
-    };
-
-    state.entries.push(entry);
-    await persistEntries();
-
-    const project = getProjectById(projectId);
-    await addAudit(`La inn tildeling: ${employeeName} → ${project?.name || "Ukjent prosjekt"}`);
-    await addNotification(employeeName, project?.name || "Ukjent prosjekt");
-
-    els.assignNotes.value = "";
-    renderAll();
-  }
-
-  function openEditModal(entryId) {
-    state.selectedEntryId = entryId;
-
-    const entry = state.entries.find(e => e.id === entryId);
-    if (!entry) return;
-
-    fillSelect(els.editProject, state.projects, entry.project_id, "name", "id");
-    fillSelect(els.editEmployee, state.employees, entry.employee_name, "name", "name");
-    fillSelect(els.editRole, ROLE_OPTIONS, entry.role);
-
-    els.editStart.value = entry.start_date;
-    els.editEnd.value = entry.end_date;
-    els.editNotes.value = entry.notes || "";
-
-    els.editModal.classList.remove("hidden");
-    els.editModal.classList.add("flex");
-  }
-
-  function closeEditModal() {
-    state.selectedEntryId = null;
-    els.editModal.classList.add("hidden");
-    els.editModal.classList.remove("flex");
-  }
-
-  async function saveEditedEntry() {
-    const entry = state.entries.find(e => e.id === state.selectedEntryId);
-    if (!entry) return;
-
-    if (els.editStart.value > els.editEnd.value) {
-      alert("Startdato kan ikke være etter sluttdato.");
-      return;
-    }
-
-    entry.project_id = els.editProject.value;
-    entry.employee_name = els.editEmployee.value;
-    entry.role = els.editRole.value;
-    entry.start_date = els.editStart.value;
-    entry.end_date = els.editEnd.value;
-    entry.notes = els.editNotes.value.trim();
-
-    await persistEntries();
-
-    const project = getProjectById(entry.project_id);
-    await addAudit(`Redigerte tildeling: ${entry.employee_name} → ${project?.name || "Ukjent prosjekt"}`);
-
-    closeEditModal();
-    renderAll();
-  }
-
-  async function deleteEditedEntry() {
-    const entry = state.entries.find(e => e.id === state.selectedEntryId);
-    if (!entry) return;
-
-    if (!confirm("Vil du fjerne denne tildelingen?")) return;
-
-    state.entries = state.entries.filter(e => e.id !== state.selectedEntryId);
-    await persistEntries();
-
-    const project = getProjectById(entry.project_id);
-    await addAudit(`Slettet tildeling: ${entry.employee_name} → ${project?.name || "Ukjent prosjekt"}`);
-
-    closeEditModal();
-    renderAll();
-  }
-
-  async function persistEmployees() {
-    saveAllLocal();
-    if (!state.supabaseReady) return;
-
-    const { error } = await replaceSingleTable("planner_employees", state.employees);
-    if (error) {
-      state.storageMode = "local";
-      state.supabaseError = error.message;
+  function updateBadge() {
+    if (state.storageMode === "supabase") {
+      els.storageBadge.textContent = "Supabase aktiv";
+      els.storageBadge.className = "rounded-xl border border-green-300 bg-green-50 text-green-700 px-3 py-2 text-sm";
     } else {
-      state.storageMode = "supabase";
-      state.supabaseError = null;
+      els.storageBadge.textContent = "Lokal fallback";
+      els.storageBadge.className = "rounded-xl border border-amber-300 bg-amber-50 text-amber-700 px-3 py-2 text-sm";
     }
-    updateBadge();
   }
 
-  async function persistProjects() {
+  async function saveRow(table, row) {
     saveAllLocal();
-    if (!state.supabaseReady) return;
-
-    const { error } = await replaceSingleTable("planner_projects", state.projects);
-    if (error) {
-      state.storageMode = "local";
-      state.supabaseError = error.message;
-    } else {
-      state.storageMode = "supabase";
-      state.supabaseError = null;
+    if (!state.supabaseReady) {
+      setSaveStatus("Lagret lokalt", "warn");
+      return { ok: true };
     }
+
+    setSaveStatus("Lagrer...", "saving");
+    const { error } = await supabaseClient.from(table).upsert(row);
+    if (error) {
+      state.supabaseError = error.message;
+      state.storageMode = "local";
+      updateBadge();
+      setSaveStatus("Feil ved lagring", "error");
+      return { ok: false, error };
+    }
+
+    state.storageMode = "supabase";
+    state.supabaseError = null;
     updateBadge();
+    setSaveStatus("Lagret", "ok");
+    return { ok: true };
   }
 
-  async function persistEntries() {
+  async function deleteRow(table, id) {
     saveAllLocal();
-    if (!state.supabaseReady) return;
-
-    const { error } = await replaceSingleTable("planner_entries", state.entries);
-    if (error) {
-      state.storageMode = "local";
-      state.supabaseError = error.message;
-    } else {
-      state.storageMode = "supabase";
-      state.supabaseError = null;
+    if (!state.supabaseReady) {
+      setSaveStatus("Slettet lokalt", "warn");
+      return { ok: true };
     }
+
+    setSaveStatus("Lagrer...", "saving");
+    const { error } = await supabaseClient.from(table).delete().eq("id", id);
+    if (error) {
+      state.supabaseError = error.message;
+      state.storageMode = "local";
+      updateBadge();
+      setSaveStatus("Feil ved sletting", "error");
+      return { ok: false, error };
+    }
+
+    state.storageMode = "supabase";
+    state.supabaseError = null;
     updateBadge();
+    setSaveStatus("Lagret", "ok");
+    return { ok: true };
   }
 
   async function addAudit(text) {
@@ -602,30 +392,407 @@
     }
   }
 
-  async function replaceSingleTable(table, rows) {
-    try {
-      const { error: deleteError } = await supabaseClient
-        .from(table)
-        .delete()
-        .not("id", "is", null);
+  async function seedDemoDataRowByRow() {
+    for (const row of state.employees) await supabaseClient.from("planner_employees").upsert(row);
+    for (const row of state.projects) await supabaseClient.from("planner_projects").upsert(row);
+    for (const row of state.entries) await supabaseClient.from("planner_entries").upsert(row);
+    for (const row of state.auditLog) await supabaseClient.from("planner_audit_log").upsert(row);
+    for (const row of state.notificationLog) await supabaseClient.from("planner_notification_log").upsert(row);
+  }
 
-      if (deleteError) throw deleteError;
+  async function resetDemo() {
+    if (!confirm("Vil du nullstille til demo-data?")) return;
 
-      if (rows.length > 0) {
-        const { error: insertError } = await supabaseClient.from(table).insert(rows);
-        if (insertError) throw insertError;
-      }
+    state.employees = structuredClone(DEFAULT_EMPLOYEES);
+    state.projects = structuredClone(DEFAULT_PROJECTS);
+    state.entries = structuredClone(DEFAULT_ENTRIES);
+    state.auditLog = structuredClone(DEFAULT_AUDIT_LOG);
+    state.notificationLog = structuredClone(DEFAULT_NOTIFICATION_LOG);
+    state.startDate = new Date("2026-01-05");
+    state.viewMode = "Uke";
+    persistUiState();
+    saveAllLocal();
 
-      return { error: null };
-    } catch (error) {
-      return { error };
+    if (state.supabaseReady) {
+      setSaveStatus("Nullstiller...", "saving");
+      await clearAllTables();
+      await seedDemoDataRowByRow();
+      await fetchFromSupabase();
+      setSaveStatus("Lagret", "ok");
     }
+
+    renderAll();
+  }
+
+  async function clearAllTables() {
+    const tables = [
+      "planner_entries",
+      "planner_projects",
+      "planner_employees",
+      "planner_audit_log",
+      "planner_notification_log"
+    ];
+
+    for (const table of tables) {
+      const { error } = await supabaseClient.from(table).delete().not("id", "is", null);
+      if (error) throw error;
+    }
+  }
+
+  async function createEntry() {
+    const projectId = els.assignProject.value;
+    const employeeName = els.assignEmployee.value;
+    const role = els.assignRole.value;
+    const startDate = els.assignStart.value;
+    const endDate = els.assignEnd.value;
+    const notes = els.assignNotes.value.trim();
+
+    if (!projectId || !employeeName || !startDate || !endDate) {
+      alert("Fyll ut prosjekt, ansatt og datoer.");
+      return;
+    }
+    if (startDate > endDate) {
+      alert("Startdato kan ikke være etter sluttdato.");
+      return;
+    }
+
+    const entry = {
+      id: crypto.randomUUID(),
+      project_id: projectId,
+      employee_name: employeeName,
+      role,
+      start_date: startDate,
+      end_date: endDate,
+      notes
+    };
+
+    state.entries.push(entry);
+    const result = await saveRow("planner_entries", entry);
+    if (!result.ok) {
+      state.entries = state.entries.filter(e => e.id !== entry.id);
+      renderAll();
+      return;
+    }
+
+    const project = getProjectById(projectId);
+    await addAudit(`La inn tildeling: ${employeeName} → ${project?.name || "Ukjent prosjekt"}`);
+    await addNotification(employeeName, project?.name || "Ukjent prosjekt");
+
+    els.assignNotes.value = "";
+    renderAll();
+  }
+
+  function openEditModal(entryId) {
+    state.selectedEntryId = entryId;
+    const entry = state.entries.find(e => e.id === entryId);
+    if (!entry) return;
+
+    fillSelect(els.editProject, state.projects, entry.project_id, "name", "id");
+    fillSelect(els.editEmployee, state.employees, entry.employee_name, "name", "name");
+    fillSelect(els.editRole, ROLE_OPTIONS, entry.role);
+
+    els.editStart.value = entry.start_date;
+    els.editEnd.value = entry.end_date;
+    els.editNotes.value = entry.notes || "";
+
+    els.editModal.classList.remove("hidden");
+    els.editModal.classList.add("flex");
+  }
+
+  function closeEditModal() {
+    state.selectedEntryId = null;
+    els.editModal.classList.add("hidden");
+    els.editModal.classList.remove("flex");
+  }
+
+  async function saveEditedEntry() {
+    const entry = state.entries.find(e => e.id === state.selectedEntryId);
+    if (!entry) return;
+
+    if (els.editStart.value > els.editEnd.value) {
+      alert("Startdato kan ikke være etter sluttdato.");
+      return;
+    }
+
+    entry.project_id = els.editProject.value;
+    entry.employee_name = els.editEmployee.value;
+    entry.role = els.editRole.value;
+    entry.start_date = els.editStart.value;
+    entry.end_date = els.editEnd.value;
+    entry.notes = els.editNotes.value.trim();
+
+    const result = await saveRow("planner_entries", entry);
+    if (!result.ok) return;
+
+    const project = getProjectById(entry.project_id);
+    await addAudit(`Redigerte tildeling: ${entry.employee_name} → ${project?.name || "Ukjent prosjekt"}`);
+
+    closeEditModal();
+    renderAll();
+  }
+
+  async function deleteEditedEntry() {
+    const entry = state.entries.find(e => e.id === state.selectedEntryId);
+    if (!entry) return;
+    if (!confirm("Vil du fjerne denne tildelingen?")) return;
+
+    state.entries = state.entries.filter(e => e.id !== state.selectedEntryId);
+    const result = await deleteRow("planner_entries", state.selectedEntryId);
+    if (!result.ok) {
+      state.entries.push(entry);
+      renderAll();
+      return;
+    }
+
+    const project = getProjectById(entry.project_id);
+    await addAudit(`Slettet tildeling: ${entry.employee_name} → ${project?.name || "Ukjent prosjekt"}`);
+
+    closeEditModal();
+    renderAll();
+  }
+
+  function openProjectModal(projectId = null) {
+    state.selectedProjectId = projectId;
+    const project = state.projects.find(p => p.id === projectId);
+
+    els.projectModalTitle.textContent = project ? "Rediger prosjekt" : "Nytt prosjekt";
+    els.projectName.value = project?.name || "";
+    fillSelect(els.projectCategory, CATEGORY_OPTIONS, project?.category || "Project");
+    fillSelect(els.projectStatus, STATUS_OPTIONS, project?.status || "Planlagt");
+    els.projectNotes.value = project?.notes || "";
+    els.deleteProjectBtn.style.display = project ? "inline-flex" : "none";
+
+    els.projectModal.classList.remove("hidden");
+    els.projectModal.classList.add("flex");
+  }
+
+  function closeProjectModal() {
+    state.selectedProjectId = null;
+    els.projectModal.classList.add("hidden");
+    els.projectModal.classList.remove("flex");
+  }
+
+  async function saveProjectFromModal() {
+    const name = els.projectName.value.trim();
+    const category = els.projectCategory.value;
+    const status = els.projectStatus.value;
+    const notes = els.projectNotes.value.trim();
+
+    if (!name) {
+      alert("Legg inn prosjektnavn.");
+      return;
+    }
+
+    const duplicate = state.projects.find(p =>
+      p.name.toLowerCase() === name.toLowerCase() && p.id !== state.selectedProjectId
+    );
+
+    if (duplicate) {
+      alert("Et prosjekt med dette navnet finnes allerede.");
+      return;
+    }
+
+    let project = state.projects.find(p => p.id === state.selectedProjectId);
+
+    if (project) {
+      project.name = name;
+      project.category = category;
+      project.status = status;
+      project.notes = notes;
+    } else {
+      project = {
+        id: crypto.randomUUID(),
+        name,
+        category,
+        status,
+        notes
+      };
+      state.projects.push(project);
+    }
+
+    state.projects.sort((a, b) => a.name.localeCompare(b.name, "no"));
+
+    const result = await saveRow("planner_projects", project);
+    if (!result.ok) return;
+
+    await addAudit(`${state.selectedProjectId ? "Redigerte" : "Opprettet"} prosjekt: ${name}`);
+    closeProjectModal();
+    renderAll();
+  }
+
+  async function deleteProjectFromModal() {
+    const project = state.projects.find(p => p.id === state.selectedProjectId);
+    if (!project) return;
+
+    const hasEntries = state.entries.some(e => e.project_id === project.id);
+    if (hasEntries) {
+      alert("Prosjektet kan ikke slettes før tilhørende tildelinger er fjernet.");
+      return;
+    }
+
+    if (!confirm("Vil du slette dette prosjektet?")) return;
+
+    state.projects = state.projects.filter(p => p.id !== project.id);
+    const result = await deleteRow("planner_projects", project.id);
+    if (!result.ok) {
+      state.projects.push(project);
+      state.projects.sort((a, b) => a.name.localeCompare(b.name, "no"));
+      renderAll();
+      return;
+    }
+
+    await addAudit(`Slettet prosjekt: ${project.name}`);
+    closeProjectModal();
+    renderAll();
+  }
+
+  function openEmployeeModal(employeeId = null) {
+    state.selectedEmployeeId = employeeId;
+    const employee = state.employees.find(e => e.id === employeeId);
+
+    els.employeeModalTitle.textContent = employee ? "Rediger ansatt" : "Ny ansatt";
+    els.employeeName.value = employee?.name || "";
+    els.employeeEmail.value = employee?.email || "";
+    els.employeePhone.value = employee?.phone || "";
+    els.employeeActive.checked = employee?.active ?? true;
+    els.deleteEmployeeBtn.style.display = employee ? "inline-flex" : "none";
+
+    els.employeeModal.classList.remove("hidden");
+    els.employeeModal.classList.add("flex");
+  }
+
+  function closeEmployeeModal() {
+    state.selectedEmployeeId = null;
+    els.employeeModal.classList.add("hidden");
+    els.employeeModal.classList.remove("flex");
+  }
+
+  async function saveEmployeeFromModal() {
+    const name = els.employeeName.value.trim();
+    const email = els.employeeEmail.value.trim();
+    const phone = els.employeePhone.value.trim();
+    const active = els.employeeActive.checked;
+
+    if (!name) {
+      alert("Legg inn navn.");
+      return;
+    }
+
+    const duplicate = state.employees.find(e =>
+      e.name.toLowerCase() === name.toLowerCase() && e.id !== state.selectedEmployeeId
+    );
+
+    if (duplicate) {
+      alert("En ansatt med dette navnet finnes allerede.");
+      return;
+    }
+
+    let employee = state.employees.find(e => e.id === state.selectedEmployeeId);
+
+    if (employee) {
+      const oldName = employee.name;
+      employee.name = name;
+      employee.email = email;
+      employee.phone = phone;
+      employee.active = active;
+
+      if (oldName !== name) {
+        state.entries.forEach(entry => {
+          if (entry.employee_name === oldName) entry.employee_name = name;
+        });
+        for (const entry of state.entries.filter(e => e.employee_name === name)) {
+          const result = await saveRow("planner_entries", entry);
+          if (!result.ok) return;
+        }
+      }
+    } else {
+      employee = {
+        id: crypto.randomUUID(),
+        name,
+        email,
+        phone,
+        active
+      };
+      state.employees.push(employee);
+    }
+
+    state.employees.sort((a, b) => a.name.localeCompare(b.name, "no"));
+
+    const result = await saveRow("planner_employees", employee);
+    if (!result.ok) return;
+
+    await addAudit(`${state.selectedEmployeeId ? "Redigerte" : "Opprettet"} ansatt: ${name}`);
+    closeEmployeeModal();
+    renderAll();
+  }
+
+  async function deleteEmployeeFromModal() {
+    const employee = state.employees.find(e => e.id === state.selectedEmployeeId);
+    if (!employee) return;
+
+    const hasEntries = state.entries.some(e => e.employee_name === employee.name);
+    if (hasEntries) {
+      alert("Ansatt kan ikke slettes før tilhørende tildelinger er fjernet. Sett eventuelt ansatt som inaktiv.");
+      return;
+    }
+
+    if (!confirm("Vil du slette denne ansatte?")) return;
+
+    state.employees = state.employees.filter(e => e.id !== employee.id);
+    const result = await deleteRow("planner_employees", employee.id);
+    if (!result.ok) {
+      state.employees.push(employee);
+      state.employees.sort((a, b) => a.name.localeCompare(b.name, "no"));
+      renderAll();
+      return;
+    }
+
+    await addAudit(`Slettet ansatt: ${employee.name}`);
+    closeEmployeeModal();
+    renderAll();
+  }
+
+  async function bulkAddEmployees() {
+    const names = els.bulkEmployees.value.split("\n").map(v => v.trim()).filter(Boolean);
+    if (!names.length) {
+      alert("Lim inn minst ett navn.");
+      return;
+    }
+
+    let count = 0;
+
+    for (const name of names) {
+      const exists = state.employees.some(e => e.name.toLowerCase() === name.toLowerCase());
+      if (exists) continue;
+
+      const employee = {
+        id: crypto.randomUUID(),
+        name,
+        email: "",
+        phone: "",
+        active: true
+      };
+
+      state.employees.push(employee);
+      const result = await saveRow("planner_employees", employee);
+      if (!result.ok) {
+        state.employees = state.employees.filter(e => e.id !== employee.id);
+        continue;
+      }
+      count++;
+    }
+
+    state.employees.sort((a, b) => a.name.localeCompare(b.name, "no"));
+    await addAudit(`La til ${count} ansatte via masseimport`);
+    els.bulkEmployees.value = "";
+    renderAll();
   }
 
   function renderAll() {
     populateDynamicSelects();
     renderStats();
     renderLegend();
+    renderProjects();
     renderEmployees();
     renderCalendar();
     renderKanban();
@@ -642,20 +809,17 @@
     ];
 
     fillSelect(els.employeeFilter, employeeFilterItems, state.employeeFilter, "name", "id");
-    fillSelect(els.assignEmployee, state.employees, state.employees[0]?.name || "", "name", "name");
-    fillSelect(els.editEmployee, state.employees, state.employees[0]?.name || "", "name", "name");
+    fillSelect(els.assignEmployee, state.employees.filter(e => e.active !== false), state.employees[0]?.name || "", "name", "name");
+    fillSelect(els.editEmployee, state.employees.filter(e => e.active !== false), null, "name", "name");
     fillSelect(els.assignProject, state.projects, state.projects[0]?.id || "", "name", "id");
-    fillSelect(els.editProject, state.projects, state.projects[0]?.id || "", "name", "id");
+    fillSelect(els.editProject, state.projects, null, "name", "id");
     fillSelect(els.viewMode, ["Uke", "Måned", "År"], state.viewMode);
   }
 
   function renderStats() {
     const visibleEmployees = getFilteredEmployees();
     const range = getCurrentRange();
-
-    const entriesInRange = state.entries.filter(entry =>
-      overlaps(entry.start_date, entry.end_date, range.start, range.end)
-    );
+    const entriesInRange = state.entries.filter(entry => overlaps(entry.start_date, entry.end_date, range.start, range.end));
 
     const cards = [
       { label: "Ansatte", value: state.employees.length },
@@ -698,14 +862,38 @@
     `;
   }
 
+  function renderProjects() {
+    els.projectList.innerHTML = state.projects.map(project => `
+      <button data-project-id="${escapeHtml(project.id)}" class="w-full text-left rounded-xl border border-slate-200 p-3 bg-slate-50 hover:bg-slate-100">
+        <div class="flex items-center justify-between gap-2">
+          <div class="font-medium">${escapeHtml(project.name)}</div>
+          <span class="rounded-full border px-2 py-0.5 text-xs ${STATUS_COLORS[project.status] || "bg-slate-100 border-slate-200 text-slate-700"}">${escapeHtml(project.status)}</span>
+        </div>
+        <div class="text-xs text-slate-500 mt-1">${escapeHtml(project.category)}</div>
+        <div class="text-xs text-slate-600 mt-1">${escapeHtml(project.notes || "")}</div>
+      </button>
+    `).join("") || `<div class="text-sm text-slate-500">Ingen prosjekter.</div>`;
+
+    els.projectList.querySelectorAll("[data-project-id]").forEach(btn => {
+      btn.addEventListener("click", () => openProjectModal(btn.dataset.projectId));
+    });
+  }
+
   function renderEmployees() {
     els.employeeList.innerHTML = state.employees.map(emp => `
-      <div class="rounded-xl border border-slate-200 p-3 bg-slate-50">
-        <div class="font-medium">${escapeHtml(emp.name)}</div>
+      <button data-employee-id="${escapeHtml(emp.id)}" class="w-full text-left rounded-xl border border-slate-200 p-3 bg-slate-50 hover:bg-slate-100">
+        <div class="flex items-center justify-between gap-2">
+          <div class="font-medium">${escapeHtml(emp.name)}</div>
+          <span class="text-xs ${emp.active ? "text-green-700" : "text-amber-700"}">${emp.active ? "Aktiv" : "Inaktiv"}</span>
+        </div>
         <div class="text-xs text-slate-500 mt-1">${escapeHtml(emp.email || "Ingen e-post")}</div>
         <div class="text-xs text-slate-500">${escapeHtml(emp.phone || "Ingen telefon")}</div>
-      </div>
+      </button>
     `).join("") || `<div class="text-sm text-slate-500">Ingen ansatte enda.</div>`;
+
+    els.employeeList.querySelectorAll("[data-employee-id]").forEach(btn => {
+      btn.addEventListener("click", () => openEmployeeModal(btn.dataset.employeeId));
+    });
   }
 
   function renderKanban() {
@@ -743,9 +931,9 @@
   function renderAudit() {
     els.auditList.innerHTML = state.auditLog.slice(0, 30).map(row => `
       <div class="rounded-xl border border-slate-200 p-3">
-        <div class="font-medium">${escapeHtml(row.user_name || row.user || "System")}</div>
-        <div class="text-sm text-slate-600">${escapeHtml(row.action_text || row.action || "")}</div>
-        <div class="text-xs text-slate-400 mt-1">${escapeHtml(formatDateTime(row.created_at || row.timestamp))}</div>
+        <div class="font-medium">${escapeHtml(row.user_name || "System")}</div>
+        <div class="text-sm text-slate-600">${escapeHtml(row.action_text || "")}</div>
+        <div class="text-xs text-slate-400 mt-1">${escapeHtml(formatDateTime(row.created_at))}</div>
       </div>
     `).join("") || `<div class="text-sm text-slate-500">Ingen endringer.</div>`;
   }
@@ -759,7 +947,7 @@
     ];
 
     if (state.supabaseError) {
-      lines.push(`<div class="text-red-600"><span class="font-medium">Supabase-feil:</span> ${escapeHtml(state.supabaseError)}</div>`);
+      lines.push(`<div class="text-red-600"><span class="font-medium">Feil:</span> ${escapeHtml(state.supabaseError)}</div>`);
     }
 
     els.systemStatus.innerHTML = lines.join("");
@@ -789,13 +977,8 @@
     const totalWidth = colWidth * days.length;
 
     let html = `<div class="calendar-shell" style="width:${stickyWidth + totalWidth}px;">`;
-
-    html += `
-      <div class="day-grid border border-slate-200 rounded-2xl overflow-hidden" style="grid-template-columns:${stickyWidth}px repeat(${days.length}, ${colWidth}px);">
-        <div class="sticky-col z-30 border-b border-r border-slate-200 bg-slate-50 px-3 py-3 font-semibold">
-          Ansatt
-        </div>
-    `;
+    html += `<div class="day-grid border border-slate-200 rounded-2xl overflow-hidden" style="grid-template-columns:${stickyWidth}px repeat(${days.length}, ${colWidth}px);">`;
+    html += `<div class="sticky-col z-30 border-b border-r border-slate-200 bg-slate-50 px-3 py-3 font-semibold">Ansatt</div>`;
 
     for (const day of days) {
       const weekend = isWeekend(day);
@@ -874,7 +1057,6 @@
     }
 
     html += `</div></div>`;
-
     els.calendarWrap.innerHTML = html;
     bindEntryClicks();
     renderWarnings(uniqueArray(warnings));
@@ -892,20 +1074,11 @@
     const totalWidth = monthWidth * 12;
 
     let html = `<div class="calendar-shell" style="width:${stickyWidth + totalWidth}px;">`;
-
-    html += `
-      <div class="month-summary-grid border border-slate-200 rounded-2xl overflow-hidden" style="grid-template-columns:${stickyWidth}px repeat(12, ${monthWidth}px);">
-        <div class="sticky-col z-30 border-b border-r border-slate-200 bg-slate-50 px-3 py-3 font-semibold">
-          Ansatt
-        </div>
-    `;
+    html += `<div class="month-summary-grid border border-slate-200 rounded-2xl overflow-hidden" style="grid-template-columns:${stickyWidth}px repeat(12, ${monthWidth}px);">`;
+    html += `<div class="sticky-col z-30 border-b border-r border-slate-200 bg-slate-50 px-3 py-3 font-semibold">Ansatt</div>`;
 
     for (const month of months) {
-      html += `
-        <div class="border-b border-r border-slate-200 px-2 py-3 text-center text-sm bg-white text-slate-700 font-medium">
-          ${escapeHtml(monthLong(month))}
-        </div>
-      `;
+      html += `<div class="border-b border-r border-slate-200 px-2 py-3 text-center text-sm bg-white text-slate-700 font-medium">${escapeHtml(capitalize(monthLong(month)))}</div>`;
     }
 
     const warnings = [];
@@ -938,7 +1111,6 @@
 
         const entryStart = new Date(entry.start_date);
         const entryEnd = new Date(entry.end_date);
-
         const startMonth = Math.max(0, entryStart.getFullYear() < year ? 0 : entryStart.getMonth());
         const endMonth = Math.min(11, entryEnd.getFullYear() > year ? 11 : entryEnd.getMonth());
         const spanMonths = (endMonth - startMonth) + 1;
@@ -972,7 +1144,6 @@
     }
 
     html += `</div></div>`;
-
     els.calendarWrap.innerHTML = html;
     bindEntryClicks();
     renderWarnings(uniqueArray(warnings));
@@ -1004,26 +1175,27 @@
     return state.employees.filter(emp => {
       const matchesFilter = state.employeeFilter === "Alle ansatte" || emp.name === state.employeeFilter;
       const matchesSearch = !state.search || emp.name.toLowerCase().includes(state.search);
-      return matchesFilter && matchesSearch && emp.active !== false;
+      return matchesFilter && matchesSearch;
     });
   }
 
   function getCurrentRange() {
     if (state.viewMode === "Uke") {
       const start = startOfWeek(state.startDate);
-      const end = addDays(start, 6);
-      return { start, end };
+      return { start, end: addDays(start, 6) };
     }
 
     if (state.viewMode === "Måned") {
-      const start = new Date(state.startDate.getFullYear(), state.startDate.getMonth(), 1);
-      const end = new Date(state.startDate.getFullYear(), state.startDate.getMonth() + 1, 0);
-      return { start, end };
+      return {
+        start: new Date(state.startDate.getFullYear(), state.startDate.getMonth(), 1),
+        end: new Date(state.startDate.getFullYear(), state.startDate.getMonth() + 1, 0)
+      };
     }
 
-    const start = new Date(state.startDate.getFullYear(), 0, 1);
-    const end = new Date(state.startDate.getFullYear(), 11, 31);
-    return { start, end };
+    return {
+      start: new Date(state.startDate.getFullYear(), 0, 1),
+      end: new Date(state.startDate.getFullYear(), 11, 31)
+    };
   }
 
   function getRangeTitle() {
@@ -1048,7 +1220,6 @@
     } else {
       state.startDate = new Date(state.startDate.getFullYear() + direction, 0, 1);
     }
-
     persistUiState();
   }
 
@@ -1056,36 +1227,19 @@
     return state.projects.find(p => p.id === id);
   }
 
-  function updateBadge() {
-    if (state.storageMode === "supabase") {
-      els.storageBadge.textContent = "Supabase aktiv";
-      els.storageBadge.className = "rounded-xl border border-green-300 bg-green-50 text-green-700 px-3 py-2 text-sm";
-    } else {
-      els.storageBadge.textContent = "Lokal fallback";
-      els.storageBadge.className = "rounded-xl border border-amber-300 bg-amber-50 text-amber-700 px-3 py-2 text-sm";
-    }
-  }
-
   function formatDateTime(value) {
     if (!value) return "";
     const d = new Date(value);
     if (Number.isNaN(d.getTime())) return String(value);
-
     return new Intl.DateTimeFormat("no-NO", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit"
+      day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit"
     }).format(d);
   }
 
   function formatDate(value) {
     const d = new Date(value);
     return new Intl.DateTimeFormat("no-NO", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric"
+      day: "2-digit", month: "2-digit", year: "numeric"
     }).format(d);
   }
 
@@ -1144,9 +1298,9 @@
   }
 
   function sameDate(a, b) {
-    return a.getFullYear() === b.getFullYear()
-      && a.getMonth() === b.getMonth()
-      && a.getDate() === b.getDate();
+    return a.getFullYear() === b.getFullYear() &&
+      a.getMonth() === b.getMonth() &&
+      a.getDate() === b.getDate();
   }
 
   function isWeekend(date) {
@@ -1174,10 +1328,6 @@
     return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
   }
 
-  function uniqueArray(arr) {
-    return [...new Set(arr)];
-  }
-
   function capitalize(value) {
     const str = String(value || "");
     return str.charAt(0).toUpperCase() + str.slice(1);
@@ -1189,6 +1339,10 @@
       clearTimeout(timeout);
       timeout = setTimeout(() => fn(...args), wait);
     };
+  }
+
+  function uniqueArray(arr) {
+    return [...new Set(arr)];
   }
 
   function escapeHtml(value) {
