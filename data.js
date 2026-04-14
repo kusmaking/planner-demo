@@ -1,14 +1,15 @@
 const SUPABASE_URL = "https://glyftmrkjherfrapbnjx.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdseWZ0bXJramhlcmZyYXBibmp4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYwOTUwMzAsImV4cCI6MjA5MTY3MTAzMH0.6XEGISHw8D_HddO4iglkc9PdNRo-s3y_Ejxy80ALLfE";
+const SUPABASE_ANON_KEY = "SETT_INN_DIN_ANON_KEY_HER";
 
 const STORAGE_KEYS = {
-  employees: "planner_employees_v4",
-  projects: "planner_projects_v4",
-  entries: "planner_entries_v4",
-  auditLog: "planner_audit_v4",
-  notificationLog: "planner_notifications_v4",
-  startDate: "planner_start_v4",
-  viewMode: "planner_view_v4"
+  employees: "planner_employees_v31",
+  projects: "planner_projects_v31",
+  entries: "planner_entries_v31",
+  auditLog: "planner_audit_v31",
+  notificationLog: "planner_notifications_v31",
+  startDate: "planner_start_v31",
+  viewMode: "planner_view_v31",
+  calendarMode: "planner_calendar_mode_v31"
 };
 
 const CATEGORY_COLORS = {
@@ -69,15 +70,116 @@ const DEFAULT_EMPLOYEES = [
 ];
 
 const DEFAULT_PROJECTS = [
-  { id: crypto.randomUUID(), name: "PBF California", category: "Project", status: "Pågår", notes: "Fra eksisterende plan" },
-  { id: crypto.randomUUID(), name: "IZO-30220 Tyrkia", category: "Project", status: "Pågår", notes: "Fra eksisterende plan" },
-  { id: crypto.randomUUID(), name: "Shell Bukom", category: "Project", status: "Pågår", notes: "Fra eksisterende plan" },
-  { id: crypto.randomUUID(), name: "Kurs Kårstø", category: "Kurs", status: "Planlagt", notes: "Kurs" },
-  { id: crypto.randomUUID(), name: "Ferie", category: "Ferie", status: "Planlagt", notes: "Fravær" },
-  { id: crypto.randomUUID(), name: "Training", category: "Kurs", status: "Planlagt", notes: "Opplæring" },
-  { id: crypto.randomUUID(), name: "Onshore", category: "Onshore", status: "Planlagt", notes: "Fast kapasitet" },
-  { id: crypto.randomUUID(), name: "Travel", category: "Travel", status: "Planlagt", notes: "Reiseblokk" },
-  { id: crypto.randomUUID(), name: "Åsgard A 18CL900", category: "Project", status: "Planlagt", notes: "Planlagt oppdrag" }
+  {
+    id: crypto.randomUUID(),
+    name: "PBF California",
+    category: "Project",
+    status: "Pågår",
+    planned_start_date: "2026-01-10",
+    planned_end_date: "2026-01-25",
+    location: "Offshore",
+    headcount_required: 2,
+    notes: "Fra eksisterende plan"
+  },
+  {
+    id: crypto.randomUUID(),
+    name: "IZO-30220 Tyrkia",
+    category: "Project",
+    status: "Pågår",
+    planned_start_date: "2026-01-12",
+    planned_end_date: "2026-01-26",
+    location: "Offshore",
+    headcount_required: 2,
+    notes: "Fra eksisterende plan"
+  },
+  {
+    id: crypto.randomUUID(),
+    name: "Shell Bukom",
+    category: "Project",
+    status: "Pågår",
+    planned_start_date: "2026-01-12",
+    planned_end_date: "2026-01-23",
+    location: "Offshore",
+    headcount_required: 1,
+    notes: "Fra eksisterende plan"
+  },
+  {
+    id: crypto.randomUUID(),
+    name: "Kurs Kårstø",
+    category: "Kurs",
+    status: "Planlagt",
+    planned_start_date: "2026-01-12",
+    planned_end_date: "2026-01-16",
+    location: "Onshore",
+    headcount_required: 1,
+    notes: "Kurs"
+  },
+  {
+    id: crypto.randomUUID(),
+    name: "Ferie",
+    category: "Ferie",
+    status: "Planlagt",
+    planned_start_date: "2026-01-06",
+    planned_end_date: "2026-01-09",
+    location: "",
+    headcount_required: 0,
+    notes: "Fravær"
+  },
+  {
+    id: crypto.randomUUID(),
+    name: "Training",
+    category: "Kurs",
+    status: "Planlagt",
+    planned_start_date: "2026-01-06",
+    planned_end_date: "2026-01-07",
+    location: "Onshore",
+    headcount_required: 1,
+    notes: "Opplæring"
+  },
+  {
+    id: crypto.randomUUID(),
+    name: "Onshore",
+    category: "Onshore",
+    status: "Planlagt",
+    planned_start_date: "2026-01-01",
+    planned_end_date: "2026-03-31",
+    location: "Onshore",
+    headcount_required: 2,
+    notes: "Fast kapasitet"
+  },
+  {
+    id: crypto.randomUUID(),
+    name: "Travel",
+    category: "Travel",
+    status: "Planlagt",
+    planned_start_date: "2026-01-01",
+    planned_end_date: "2026-01-07",
+    location: "",
+    headcount_required: 2,
+    notes: "Reiseblokk"
+  },
+  {
+    id: crypto.randomUUID(),
+    name: "Åsgard A 18CL900",
+    category: "Project",
+    status: "Planlagt",
+    planned_start_date: "2026-03-02",
+    planned_end_date: "2026-03-13",
+    location: "Offshore",
+    headcount_required: 2,
+    notes: "Planlagt oppdrag"
+  },
+  {
+    id: crypto.randomUUID(),
+    name: "New Platform Upgrade",
+    category: "Project",
+    status: "Planlagt",
+    planned_start_date: "2026-04-06",
+    planned_end_date: "2026-04-22",
+    location: "Offshore",
+    headcount_required: 3,
+    notes: "Ikke bemannet ennå"
+  }
 ];
 
 function projectIdByName(name) {
@@ -100,7 +202,7 @@ const DEFAULT_ENTRIES = [
 ];
 
 const DEFAULT_AUDIT_LOG = [
-  { id: crypto.randomUUID(), user_name: "Olis Hansen", action_text: "Initialiserte planleggingsverktøy versjon 3 stabil", created_at: new Date().toISOString() }
+  { id: crypto.randomUUID(), user_name: "Olis Hansen", action_text: "Initialiserte planleggingsverktøy versjon 3.1", created_at: new Date().toISOString() }
 ];
 
 const DEFAULT_NOTIFICATION_LOG = [];
