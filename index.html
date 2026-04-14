@@ -10,29 +10,10 @@
     .scrollbar-thin::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 9999px; }
     .scrollbar-thin::-webkit-scrollbar-track { background: #f8fafc; }
 
-    .calendar-shell {
-      width: 100%;
-      min-width: 100%;
-    }
-
-    .day-grid {
-      display: grid;
-      gap: 0;
-      align-items: stretch;
-      width: 100%;
-    }
-
-    .sticky-col {
-      position: sticky;
-      left: 0;
-      z-index: 20;
-      background: white;
-    }
-
-    .row-overlay {
-      position: relative;
-      min-height: 56px;
-    }
+    .calendar-shell { width: 100%; min-width: 100%; }
+    .day-grid, .month-summary-grid { display: grid; gap: 0; align-items: stretch; width: 100%; }
+    .sticky-col { position: sticky; left: 0; z-index: 20; background: white; }
+    .row-overlay { position: relative; min-height: 56px; }
 
     .entry-bar {
       position: absolute;
@@ -50,34 +31,15 @@
       box-shadow: 0 1px 2px rgba(15, 23, 42, 0.12);
     }
 
-    .month-summary-grid {
-      display: grid;
-      gap: 0;
-      align-items: stretch;
-      width: 100%;
-    }
-
-    .month-cell {
+    .month-cell, .day-cell {
       min-height: 56px;
       border-right: 1px solid #e2e8f0;
       border-bottom: 1px solid #e2e8f0;
       background: white;
     }
 
-    .day-cell {
-      min-height: 56px;
-      border-right: 1px solid #e2e8f0;
-      border-bottom: 1px solid #e2e8f0;
-      background: white;
-    }
-
-    .day-cell.weekend {
-      background: #f8fafc;
-    }
-
-    .day-cell.today {
-      background: #eff6ff;
-    }
+    .day-cell.weekend { background: #f8fafc; }
+    .day-cell.today { background: #eff6ff; }
   </style>
 </head>
 <body class="bg-slate-100 text-slate-900">
@@ -85,14 +47,12 @@
     <header class="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4">
       <div>
         <h1 class="text-3xl font-bold tracking-tight">Personal planlegging</h1>
-        <p class="text-slate-600 mt-1">
-          Izomax personal planlegging onshore offshore
-        </p>
+        <p class="text-slate-600 mt-1">Izomax personal planlegging onshore offshore</p>
       </div>
 
       <div class="flex flex-wrap gap-2 items-center">
         <span id="storageBadge" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm">Laster...</span>
-        <button id="syncNowBtn" class="rounded-2xl border border-slate-300 bg-white px-4 py-2 text-sm">Synkroniser nå</button>
+        <span id="saveStatus" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm">Klar</span>
         <button id="resetDemoBtn" class="rounded-2xl border border-slate-300 bg-white px-4 py-2 text-sm">Nullstill demo</button>
       </div>
     </header>
@@ -145,13 +105,12 @@
     <section class="grid grid-cols-1 xl:grid-cols-4 gap-4">
       <div class="xl:col-span-3 grid grid-cols-1 xl:grid-cols-2 gap-4">
         <div class="rounded-2xl bg-white border border-slate-200 shadow-sm">
-          <div class="p-4 border-b border-slate-200"><h2 class="font-semibold">Legg inn prosjekt</h2></div>
+          <div class="p-4 border-b border-slate-200 flex items-center justify-between">
+            <h2 class="font-semibold">Prosjekter</h2>
+            <button id="newProjectBtn" class="rounded-xl bg-slate-900 text-white px-3 py-2 text-sm">Nytt prosjekt</button>
+          </div>
           <div class="p-4 space-y-3">
-            <input id="projectName" class="w-full rounded-2xl border border-slate-300 px-3 py-2" placeholder="Prosjektnavn" />
-            <select id="projectCategory" class="w-full rounded-2xl border border-slate-300 px-3 py-2"></select>
-            <select id="projectStatus" class="w-full rounded-2xl border border-slate-300 px-3 py-2"></select>
-            <textarea id="projectNotes" class="w-full rounded-2xl border border-slate-300 px-3 py-2" rows="3" placeholder="Notater"></textarea>
-            <button id="createProjectBtn" class="w-full rounded-2xl bg-slate-900 text-white px-4 py-2">Opprett prosjekt</button>
+            <div id="projectList" class="space-y-2 max-h-[360px] overflow-auto scrollbar-thin"></div>
           </div>
         </div>
 
@@ -173,15 +132,14 @@
 
       <div class="space-y-4">
         <div class="rounded-2xl bg-white border border-slate-200 shadow-sm">
-          <div class="p-4 border-b border-slate-200"><h2 class="font-semibold">Ansatte</h2></div>
+          <div class="p-4 border-b border-slate-200 flex items-center justify-between">
+            <h2 class="font-semibold">Ansatte</h2>
+            <button id="newEmployeeBtn" class="rounded-xl bg-slate-900 text-white px-3 py-2 text-sm">Ny ansatt</button>
+          </div>
           <div class="p-4 space-y-3">
             <textarea id="bulkEmployees" class="w-full rounded-2xl border border-slate-300 px-3 py-2" rows="4" placeholder="Lim inn flere navn, ett per linje"></textarea>
             <button id="bulkAddBtn" class="w-full rounded-2xl border border-slate-300 bg-white px-4 py-2">Legg til mange ansatte</button>
-            <input id="employeeName" class="w-full rounded-2xl border border-slate-300 px-3 py-2" placeholder="Navn" />
-            <input id="employeeEmail" class="w-full rounded-2xl border border-slate-300 px-3 py-2" placeholder="E-post" />
-            <input id="employeePhone" class="w-full rounded-2xl border border-slate-300 px-3 py-2" placeholder="Mobilnummer" />
-            <button id="addEmployeeBtn" class="w-full rounded-2xl bg-slate-900 text-white px-4 py-2">Legg til ansatt</button>
-            <div id="employeeList" class="space-y-2 max-h-[320px] overflow-auto scrollbar-thin"></div>
+            <div id="employeeList" class="space-y-2 max-h-[420px] overflow-auto scrollbar-thin"></div>
           </div>
         </div>
       </div>
@@ -221,8 +179,49 @@
         </div>
         <textarea id="editNotes" class="w-full rounded-2xl border border-slate-300 px-3 py-2" rows="3"></textarea>
         <div class="flex gap-2">
-          <button id="saveEditBtn" class="rounded-2xl bg-slate-900 text-white px-4 py-2">Lagre endring</button>
+          <button id="saveEditBtn" class="rounded-2xl bg-slate-900 text-white px-4 py-2">Lagre</button>
           <button id="deleteEditBtn" class="rounded-2xl border border-slate-300 bg-white px-4 py-2">Fjern</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="projectModal" class="fixed inset-0 bg-black/40 hidden items-center justify-center p-4">
+    <div class="w-full max-w-lg rounded-2xl bg-white shadow-xl">
+      <div class="p-4 border-b border-slate-200 flex items-center justify-between">
+        <h2 id="projectModalTitle" class="font-semibold">Nytt prosjekt</h2>
+        <button id="closeProjectModalBtn" class="rounded-lg border border-slate-300 px-3 py-1 text-sm">Lukk</button>
+      </div>
+      <div class="p-4 space-y-4">
+        <input id="projectName" class="w-full rounded-2xl border border-slate-300 px-3 py-2" placeholder="Prosjektnavn" />
+        <select id="projectCategory" class="w-full rounded-2xl border border-slate-300 px-3 py-2"></select>
+        <select id="projectStatus" class="w-full rounded-2xl border border-slate-300 px-3 py-2"></select>
+        <textarea id="projectNotes" class="w-full rounded-2xl border border-slate-300 px-3 py-2" rows="3" placeholder="Notater"></textarea>
+        <div class="flex gap-2">
+          <button id="saveProjectBtn" class="rounded-2xl bg-slate-900 text-white px-4 py-2">Lagre</button>
+          <button id="deleteProjectBtn" class="rounded-2xl border border-slate-300 bg-white px-4 py-2">Slett</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="employeeModal" class="fixed inset-0 bg-black/40 hidden items-center justify-center p-4">
+    <div class="w-full max-w-lg rounded-2xl bg-white shadow-xl">
+      <div class="p-4 border-b border-slate-200 flex items-center justify-between">
+        <h2 id="employeeModalTitle" class="font-semibold">Ny ansatt</h2>
+        <button id="closeEmployeeModalBtn" class="rounded-lg border border-slate-300 px-3 py-1 text-sm">Lukk</button>
+      </div>
+      <div class="p-4 space-y-4">
+        <input id="employeeName" class="w-full rounded-2xl border border-slate-300 px-3 py-2" placeholder="Navn" />
+        <input id="employeeEmail" class="w-full rounded-2xl border border-slate-300 px-3 py-2" placeholder="E-post" />
+        <input id="employeePhone" class="w-full rounded-2xl border border-slate-300 px-3 py-2" placeholder="Mobilnummer" />
+        <label class="flex items-center gap-2 text-sm">
+          <input id="employeeActive" type="checkbox" checked />
+          Aktiv ansatt
+        </label>
+        <div class="flex gap-2">
+          <button id="saveEmployeeBtn" class="rounded-2xl bg-slate-900 text-white px-4 py-2">Lagre</button>
+          <button id="deleteEmployeeBtn" class="rounded-2xl border border-slate-300 bg-white px-4 py-2">Slett</button>
         </div>
       </div>
     </div>
