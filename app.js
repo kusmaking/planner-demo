@@ -28,7 +28,9 @@
       entryCountByProject: new Map()
     },
     dragEntryId: null,
-    justDraggedEntryId: null
+    justDraggedEntryId: null,
+    activeTab: "calendar",
+    calendarPanelOpen: false
   };
 
   const els = {};
@@ -68,12 +70,12 @@
   function cacheElements() {
     const ids = [
       "statsRow", "searchInput", "employeeFilter", "viewMode", "calendarMode", "prevBtn", "nextBtn", "todayBtn",
-      "calendarWrap", "warningBox", "legendList", "projectList", "assignProject", "assignEmployee", "assignRole",
+      "calendarWrap", "warningBox", "legendList", "projectList", "assignProject", "assignEmployeesWrap", "assignSummary", "assignRole",
       "assignStart", "assignEnd", "assignNotes", "assignBtn", "bulkEmployees", "bulkAddBtn",
       "employeeList", "kanbanBoard", "notificationList", "auditList", "editModal", "closeModalBtn",
       "editProject", "editEmployee", "editRole", "editStart", "editEnd", "editNotes",
       "saveEditBtn", "deleteEditBtn", "storageBadge", "resetDemoBtn", "systemStatus", "rangeTitle",
-      "saveStatus", "newProjectBtn", "projectModal", "projectModalTitle", "closeProjectModalBtn",
+      "saveStatus", "plannerTabs", "tabCalendarBtn", "tabProjectsBtn", "tabEmployeesBtn", "tabAdminBtn", "tabCalendarSection", "tabProjectsSection", "tabEmployeesSection", "tabAdminSection", "calendarMainCol", "calendarPanelCol", "calendarPanelHandleBtn", "calendarPanelCloseBtn", "calendarPanelContent", "newProjectBtn", "projectModal", "projectModalTitle", "closeProjectModalBtn",
       "projectName", "projectCategory", "projectStatus", "projectPlannedStart", "projectPlannedEnd",
       "projectLocation", "projectHeadcount", "projectNotes", "saveProjectBtn", "deleteProjectBtn",
       "newEmployeeBtn", "employeeModal", "employeeModalTitle", "closeEmployeeModalBtn",
@@ -234,6 +236,59 @@
     els.accountUserInfo.textContent = `${nameText}${roleText}`;
   }
 
+  function bindTabEvents() {
+    if (els.tabCalendarBtn) els.tabCalendarBtn.addEventListener("click", () => setActiveTab("calendar"));
+    if (els.tabProjectsBtn) els.tabProjectsBtn.addEventListener("click", () => setActiveTab("projects"));
+    if (els.tabEmployeesBtn) els.tabEmployeesBtn.addEventListener("click", () => setActiveTab("employees"));
+    if (els.tabAdminBtn) els.tabAdminBtn.addEventListener("click", () => setActiveTab("admin"));
+  }
+
+  function setActiveTab(tabName) {
+    state.activeTab = tabName;
+    renderLayoutTabs();
+  }
+
+  function renderLayoutTabs() {
+    const canPlan = canPlanApp();
+    const allowedTabs = canPlan ? ["calendar", "projects", "employees", "admin"] : ["calendar"];
+
+    if (!allowedTabs.includes(state.activeTab)) {
+      state.activeTab = "calendar";
+    }
+
+    const buttons = {
+      calendar: els.tabCalendarBtn,
+      projects: els.tabProjectsBtn,
+      employees: els.tabEmployeesBtn,
+      admin: els.tabAdminBtn
+    };
+
+    const sections = {
+      calendar: els.tabCalendarSection,
+      projects: els.tabProjectsSection,
+      employees: els.tabEmployeesSection,
+      admin: els.tabAdminSection
+    };
+
+    Object.entries(buttons).forEach(([name, btn]) => {
+      if (!btn) return;
+      const visible = allowedTabs.includes(name);
+      btn.style.display = visible ? "" : "none";
+      btn.className = [
+        "rounded-2xl px-4 py-2 text-sm border transition",
+        state.activeTab === name
+          ? "border-slate-900 bg-slate-900 text-white"
+          : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+      ].join(" ");
+    });
+
+    Object.entries(sections).forEach(([name, section]) => {
+      if (!section) return;
+      section.style.display = state.activeTab === name ? "" : "none";
+    });
+  }
+
+
   function applyRoleChrome() {
     updateAccountPanel();
 
@@ -291,8 +346,6 @@
     }
 
     if (els.assignProject) els.assignProject.disabled = !canPlan;
-    if (els.assignEmployee) els.assignEmployee.disabled = !canPlan;
-    if (els.assignRole) els.assignRole.disabled = !canPlan;
     if (els.assignStart) els.assignStart.disabled = !canPlan;
     if (els.assignEnd) els.assignEnd.disabled = !canPlan;
     if (els.assignNotes) els.assignNotes.disabled = !canPlan;
@@ -301,48 +354,17 @@
     setCardDisplayByElement(els.assignBtn, canPlan);           // Tildel prosjekt i kalender
     setCardDisplayByElement(els.newEmployeeBtn, canPlan);      // Ansatte
     setCardDisplayById("kanbanBoard", canPlan);                // Kanban – prosjekter
-    setCardDisplayById("systemStatus", canPlan);               // Systemstatus
     setCardDisplayById("notificationList", isSA);              // Varsellogg
     setCardDisplayById("auditList", isSA);                     // Endringslogg
-
-    const calendarCard = getCardByElement(els.calendarWrap);
-    const sideWrap = els.systemStatus?.closest(".space-y-4");
 
     if (!canPlan) {
       closeEditModal();
       closeProjectModal();
       closeEmployeeModal();
-
-      if (calendarCard) {
-        calendarCard.classList.remove("xl:col-span-3");
-        calendarCard.classList.add("xl:col-span-4");
-      }
-
-      if (sideWrap) {
-        sideWrap.style.display = "";
-      }
-
-      const systemCard = getCardByElement(els.systemStatus);
-      const legendCard = getCardByElement(els.legendList);
-
-      if (systemCard) systemCard.style.display = "none";
-      if (legendCard) legendCard.style.display = "";
-    } else {
-      if (calendarCard) {
-        calendarCard.classList.remove("xl:col-span-4");
-        calendarCard.classList.add("xl:col-span-3");
-      }
-
-      if (sideWrap) {
-        sideWrap.style.display = "";
-      }
-
-      const systemCard = getCardByElement(els.systemStatus);
-      const legendCard = getCardByElement(els.legendList);
-
-      if (systemCard) systemCard.style.display = "";
-      if (legendCard) legendCard.style.display = "";
     }
+
+    renderLayoutTabs();
+    renderCalendarPanel();
   }
 
   async function handleLogout() {
@@ -465,7 +487,6 @@
   function setupStaticOptions() {
     fillSelect(els.projectCategory, CATEGORY_OPTIONS);
     fillSelect(els.projectStatus, STATUS_OPTIONS, "Planlagt");
-    fillSelect(els.assignRole, ROLE_OPTIONS, "Supervisor");
     fillSelect(els.editRole, ROLE_OPTIONS, "Supervisor");
   }
 
@@ -475,6 +496,20 @@
       renderStats();
       renderCalendar();
     });
+
+    bindTabEvents();
+    if (els.calendarPanelHandleBtn) {
+      els.calendarPanelHandleBtn.addEventListener("click", () => {
+        state.calendarPanelOpen = !state.calendarPanelOpen;
+        renderCalendarPanel();
+      });
+    }
+    if (els.calendarPanelCloseBtn) {
+      els.calendarPanelCloseBtn.addEventListener("click", () => {
+        state.calendarPanelOpen = false;
+        renderCalendarPanel();
+      });
+    }
 
     els.employeeFilter.addEventListener("change", e => {
       state.employeeFilter = e.target.value;
@@ -978,35 +1013,106 @@
 
   function syncAssignDatesFromProject() {
     const project = getProjectById(els.assignProject.value);
+    renderAssignEmployeeSelectors();
     if (!project) {
       els.assignStart.value = "";
       els.assignEnd.value = "";
+      if (els.assignSummary) {
+        els.assignSummary.textContent = "Velg et prosjekt for å starte bemanning.";
+      }
       return;
     }
     els.assignStart.value = project.planned_start_date || "";
     els.assignEnd.value = project.planned_end_date || "";
+    if (els.assignSummary) {
+      const required = Math.max(Number(project.headcount_required || 0), 1);
+      els.assignSummary.textContent = `${project.name} • Behov: ${required} person${required > 1 ? "er" : ""}`;
+    }
   }
 
   function clearAssignForm() {
     if (els.assignProject) els.assignProject.value = "";
-    if (els.assignEmployee) els.assignEmployee.value = "";
-    if (els.assignRole) els.assignRole.value = ROLE_OPTIONS[0] || "";
     if (els.assignStart) els.assignStart.value = "";
     if (els.assignEnd) els.assignEnd.value = "";
     if (els.assignNotes) els.assignNotes.value = "";
+    if (els.assignSummary) els.assignSummary.textContent = "Velg et prosjekt for å starte bemanning.";
+    renderAssignEmployeeSelectors();
   }
+
+
+  function getDefaultRoleForIndex(index) {
+    return ROLE_OPTIONS[index] || ROLE_OPTIONS[ROLE_OPTIONS.length - 1] || "";
+  }
+
+  function getAssignAssignments() {
+    if (!els.assignEmployeesWrap) return [];
+    return Array.from(els.assignEmployeesWrap.querySelectorAll("[data-assign-row]")).map((row, index) => {
+      const employeeSelect = row.querySelector("[data-assign-employee-select]");
+      const roleSelect = row.querySelector("[data-assign-role-select]");
+      return {
+        employee_name: employeeSelect?.value?.trim() || "",
+        role: roleSelect?.value || getDefaultRoleForIndex(index)
+      };
+    }).filter(item => item.employee_name);
+  }
+
+  function renderAssignEmployeeSelectors() {
+    if (!els.assignEmployeesWrap) return;
+    const project = getProjectById(els.assignProject?.value);
+    const activeEmployees = state.employees.filter(e => e.active !== false);
+    const count = Math.max(Number(project?.headcount_required || 0), 1);
+    const currentRows = Array.from(els.assignEmployeesWrap.querySelectorAll("[data-assign-row]")).map((row, index) => ({
+      employee_name: row.querySelector("[data-assign-employee-select]")?.value || "",
+      role: row.querySelector("[data-assign-role-select]")?.value || getDefaultRoleForIndex(index)
+    }));
+
+    const blocks = [];
+    for (let i = 0; i < count; i++) {
+      const selectedEmployee = currentRows[i]?.employee_name || "";
+      const selectedRole = currentRows[i]?.role || getDefaultRoleForIndex(i);
+      const employeeOptions = ['<option value="">Velg ansatt</option>']
+        .concat(activeEmployees.map(emp => `<option value="${escapeHtml(emp.name)}" ${emp.name === selectedEmployee ? "selected" : ""}>${escapeHtml(emp.name)}</option>`))
+        .join("");
+      const roleOptions = ROLE_OPTIONS.map(role => `<option value="${escapeHtml(role)}" ${role === selectedRole ? "selected" : ""}>${escapeHtml(role)}</option>`).join("");
+
+      blocks.push(`
+        <div data-assign-row class="rounded-2xl border border-slate-200 bg-slate-50 p-3 space-y-3">
+          <div class="text-sm font-medium text-slate-700">Bemanning ${i + 1}</div>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div class="space-y-1">
+              <label class="text-sm text-slate-600">Ansatt</label>
+              <select data-assign-employee-select class="w-full rounded-2xl border border-slate-300 px-3 py-2 bg-white">${employeeOptions}</select>
+            </div>
+            <div class="space-y-1">
+              <label class="text-sm text-slate-600">Rolle</label>
+              <select data-assign-role-select class="w-full rounded-2xl border border-slate-300 px-3 py-2 bg-white">${roleOptions}</select>
+            </div>
+          </div>
+        </div>
+      `);
+    }
+
+    els.assignEmployeesWrap.innerHTML = blocks.join("");
+  }
+
 
   async function createEntry() {
     if (!canEditApp()) return;
     const projectId = els.assignProject.value;
-    const employeeName = els.assignEmployee.value;
-    const role = els.assignRole.value;
+    const assignments = getAssignAssignments();
+    const employeeNames = assignments.map(item => item.employee_name);
+    const uniqueEmployeeNames = [...new Set(employeeNames)];
     let startDate = els.assignStart.value;
     let endDate = els.assignEnd.value;
     const notes = els.assignNotes.value.trim();
 
-    if (!projectId || !employeeName) {
-      alert("Fyll ut prosjekt og ansatt.");
+    if (!projectId || !uniqueEmployeeNames.length) {
+      alert("Fyll ut prosjekt og minst én ansatt.");
+      return;
+    }
+
+    if (uniqueEmployeeNames.length !== employeeNames.length) {
+      alert("Samme ansatt kan ikke velges flere ganger i samme bemanning.");
       return;
     }
 
@@ -1029,21 +1135,26 @@
       return;
     }
 
-    const entry = {
+    const uniqueAssignments = assignments.filter((item, index) =>
+      item.employee_name && employeeNames.indexOf(item.employee_name) === index
+    );
+
+    const newEntries = uniqueAssignments.map(item => ({
       id: crypto.randomUUID(),
       project_id: projectId,
-      employee_name: employeeName,
-      role,
+      employee_name: item.employee_name,
+      role: item.role,
       start_date: startDate,
       end_date: endDate,
       notes
-    };
+    }));
 
-    state.entries.push(entry);
+    state.entries.push(...newEntries);
     rebuildDerivedState();
-    const result = await saveRow("planner_entries", entry);
+    const result = await saveRows("planner_entries", newEntries);
     if (!result.ok) {
-      state.entries = state.entries.filter(e => e.id !== entry.id);
+      const ids = new Set(newEntries.map(entry => entry.id));
+      state.entries = state.entries.filter(e => !ids.has(e.id));
       rebuildDerivedState();
       renderAll();
       return;
@@ -1052,8 +1163,8 @@
     clearAssignForm();
     renderAll();
 
-    void addAudit(`La inn tildeling: ${employeeName} → ${project.name}`);
-    void addNotification(employeeName, project.name);
+    void addAudit(`La inn ${newEntries.length} tildeling${newEntries.length > 1 ? "er" : ""} på ${project.name}`);
+    newEntries.forEach(entry => void addNotification(entry.employee_name, project.name));
   }
 
   function openEditModal(entryId) {
@@ -1446,6 +1557,7 @@
     populateDynamicSelects();
     renderStats();
     renderLegend();
+    renderCalendarPanel();
     renderProjects();
     renderEmployees();
     renderCalendar();
@@ -1464,7 +1576,6 @@
     ];
 
     fillSelect(els.employeeFilter, employeeFilterItems, state.employeeFilter, "name", "id");
-    fillSelect(els.assignEmployee, [{ id: "", name: "Velg ansatt" }, ...state.employees.filter(e => e.active !== false).map(e => ({ id: e.name, name: e.name }))], "", "name", "id");
     fillSelect(els.editEmployee, state.employees.filter(e => e.active !== false), null, "name", "name");
     fillSelect(els.assignProject, [{ id: "", name: "Velg prosjekt" }, ...state.projects.map(p => ({ id: p.id, name: p.name }))], "", "name", "id");
     fillSelect(els.editProject, state.projects, null, "name", "id");
@@ -1473,6 +1584,7 @@
       { id: "personal", name: "Personalplan" },
       { id: "project", name: "Prosjektplan" }
     ], state.calendarMode, "name", "id");
+    renderAssignEmployeeSelectors();
     if (!els.assignProject.value) {
       if (els.assignStart) els.assignStart.value = "";
       if (els.assignEnd) els.assignEnd.value = "";
@@ -1530,6 +1642,33 @@
     `;
   }
 
+
+  function renderCalendarPanel() {
+    if (!els.calendarPanelCol || !els.calendarPanelHandleBtn || !els.calendarPanelContent) return;
+
+    const isDesktop = window.innerWidth >= 1280;
+
+    if (!isDesktop) {
+      els.calendarPanelCol.className = "w-full shrink-0 rounded-2xl bg-white border border-slate-200 shadow-sm overflow-hidden transition-all duration-300";
+      els.calendarPanelContent.classList.remove("hidden");
+      els.calendarPanelHandleBtn.className = "w-12 shrink-0 border-r border-slate-200 bg-slate-50 text-slate-700 text-xs font-semibold tracking-wide";
+      els.calendarPanelHandleBtn.textContent = "Panel";
+      return;
+    }
+
+    if (state.calendarPanelOpen) {
+      els.calendarPanelCol.className = "xl:w-80 w-full shrink-0 rounded-2xl bg-white border border-slate-200 shadow-sm overflow-hidden transition-all duration-300";
+      els.calendarPanelContent.classList.remove("hidden");
+      els.calendarPanelHandleBtn.className = "w-12 shrink-0 border-r border-slate-200 bg-slate-50 text-slate-700 text-xs font-semibold tracking-wide [writing-mode:vertical-rl] rotate-180";
+      els.calendarPanelHandleBtn.textContent = "Panel";
+    } else {
+      els.calendarPanelCol.className = "xl:w-12 w-full shrink-0 rounded-2xl bg-white border border-slate-200 shadow-sm overflow-hidden transition-all duration-300";
+      els.calendarPanelContent.classList.add("hidden");
+      els.calendarPanelHandleBtn.className = "w-12 shrink-0 border-r-0 bg-slate-50 text-slate-700 text-xs font-semibold tracking-wide [writing-mode:vertical-rl] rotate-180";
+      els.calendarPanelHandleBtn.textContent = "Panel";
+    }
+  }
+
   function renderProjects() {
     els.projectList.innerHTML = state.projects
       .slice()
@@ -1538,27 +1677,105 @@
         const assigned = getProjectAssignedCount(project.id);
         const required = Number(project.headcount_required || 0);
         const staffing = getProjectStaffingLabel(project.id, required);
+        const projectEntries = state.entries
+          .filter(entry => entry.project_id === project.id)
+          .slice()
+          .sort((a, b) => a.start_date.localeCompare(b.start_date) || a.employee_name.localeCompare(b.employee_name, "no"));
         const projectCardClasses = project.status === "Avsluttet"
-          ? "w-full text-left rounded-xl border border-slate-300 p-3 bg-slate-100 hover:bg-slate-200"
-          : "w-full text-left rounded-xl border border-slate-200 p-3 bg-slate-50 hover:bg-slate-100";
+          ? "rounded-xl border border-slate-300 p-3 bg-slate-100"
+          : "rounded-xl border border-slate-200 p-3 bg-slate-50";
+
+        const assignmentsHtml = projectEntries.length
+          ? `
+            <div class="mt-3 rounded-xl border border-slate-200 bg-white p-3">
+              <div class="text-xs font-semibold uppercase tracking-wide text-slate-500">Tildelte ressurser</div>
+              <div class="mt-2 space-y-2">
+                ${projectEntries.map(entry => `
+                  <div class="flex items-start justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                    <div class="min-w-0">
+                      <div class="text-sm font-medium text-slate-800">${escapeHtml(entry.employee_name || "Ukjent ansatt")}</div>
+                      <div class="text-xs text-slate-500">${escapeHtml(entry.role || "")}</div>
+                      <div class="text-xs text-slate-500">${escapeHtml(formatDate(entry.start_date))} – ${escapeHtml(formatDate(entry.end_date))}</div>
+                    </div>
+                    <button data-project-entry-delete-id="${escapeHtml(entry.id)}" class="shrink-0 rounded-lg border border-red-200 bg-white px-2 py-1 text-xs text-red-700 hover:bg-red-50">Fjern</button>
+                  </div>
+                `).join("")}
+              </div>
+            </div>
+          `
+          : `
+            <div class="mt-3 rounded-xl border border-dashed border-slate-300 bg-white px-3 py-3 text-xs text-slate-500">
+              Ingen tildelte ressurser på prosjektet.
+            </div>
+          `;
 
         return `
-          <button data-project-id="${escapeHtml(project.id)}" class="${projectCardClasses}">
-            <div class="flex items-center justify-between gap-2">
-              <div class="font-medium">${escapeHtml(project.name)}</div>
+          <div class="${projectCardClasses}">
+            <div class="flex items-start justify-between gap-3">
+              <div>
+                <div class="font-medium">${escapeHtml(project.name)}</div>
+                <div class="text-xs text-slate-500 mt-1">${escapeHtml(project.category)}${project.location ? ` • ${escapeHtml(project.location)}` : ""}</div>
+                <div class="text-xs text-slate-600 mt-1">${escapeHtml(formatProjectDateRange(project))}</div>
+                <div class="text-xs mt-1 ${staffing.variant}">${escapeHtml(staffing.text)}${required ? ` (${assigned}/${required})` : ""}</div>
+              </div>
               <span class="rounded-full border px-2 py-0.5 text-xs ${STATUS_COLORS[project.status] || "bg-slate-100 border-slate-200 text-slate-700"}">${escapeHtml(project.status)}</span>
             </div>
-            <div class="text-xs text-slate-500 mt-1">${escapeHtml(project.category)}${project.location ? ` • ${escapeHtml(project.location)}` : ""}</div>
-            <div class="text-xs text-slate-600 mt-1">${escapeHtml(formatProjectDateRange(project))}</div>
-            <div class="text-xs mt-1 ${staffing.variant}">${escapeHtml(staffing.text)}${required ? ` (${assigned}/${required})` : ""}</div>
-            <div class="text-xs text-slate-600 mt-1">${escapeHtml(project.notes || "")}</div>
-          </button>
+            <div class="text-xs text-slate-600 mt-2">${escapeHtml(project.notes || "")}</div>
+            ${assignmentsHtml}
+            <div class="mt-3 flex flex-wrap gap-2">
+              <button data-project-staff-id="${escapeHtml(project.id)}" class="rounded-xl bg-slate-900 text-white px-3 py-2 text-sm">Bemann</button>
+              <button data-project-id="${escapeHtml(project.id)}" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm">Rediger</button>
+            </div>
+          </div>
         `;
       }).join("") || `<div class="text-sm text-slate-500">Ingen prosjekter.</div>`;
 
     els.projectList.querySelectorAll("[data-project-id]").forEach(btn => {
       btn.addEventListener("click", () => openProjectModal(btn.dataset.projectId));
     });
+
+    els.projectList.querySelectorAll("[data-project-staff-id]").forEach(btn => {
+      btn.addEventListener("click", () => startProjectStaffing(btn.dataset.projectStaffId));
+    });
+
+    els.projectList.querySelectorAll("[data-project-entry-delete-id]").forEach(btn => {
+      btn.addEventListener("click", () => deleteEntryFromProjectCard(btn.dataset.projectEntryDeleteId));
+    });
+  }
+
+  function startProjectStaffing(projectId) {
+    if (!els.assignProject) return;
+    setActiveTab("projects");
+    els.assignProject.value = projectId;
+    syncAssignDatesFromProject();
+    els.assignProject.scrollIntoView({ behavior: "smooth", block: "center" });
+  }
+
+  async function deleteEntryFromProjectCard(entryId) {
+    if (!canEditApp()) return;
+    const entry = state.entries.find(item => item.id === entryId);
+    if (!entry) {
+      alert("Fant ikke tildelingen.");
+      return;
+    }
+
+    const project = getProjectById(entry.project_id);
+    const confirmText = `Fjern tildeling for ${entry.employee_name} fra ${project?.name || "prosjekt"}?`;
+    if (!confirm(confirmText)) return;
+
+    state.entries = state.entries.filter(item => item.id !== entryId);
+    rebuildDerivedState();
+    renderAll();
+
+    const result = await deleteRow("planner_entries", entryId);
+    if (!result.ok) {
+      state.entries.push(entry);
+      rebuildDerivedState();
+      renderAll();
+      return;
+    }
+
+    void addAudit(`Slettet tildeling fra prosjektkort: ${entry.employee_name} → ${project?.name || "Ukjent prosjekt"}`);
   }
 
   function renderEmployees() {
@@ -1623,6 +1840,7 @@
   }
 
   function renderSystemStatus() {
+    if (!els.systemStatus) return;
     const lines = [
       `<div><span class="font-medium">Lagring:</span> ${state.storageMode === "supabase" ? "Supabase" : "Lokal fallback"}</div>`,
       `<div><span class="font-medium">Kalendervisning:</span> ${state.calendarMode === "project" ? "Prosjektplan" : "Personalplan"}</div>`,
