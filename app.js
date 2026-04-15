@@ -30,7 +30,7 @@
     dragEntryId: null,
     justDraggedEntryId: null,
     activeTab: "calendar",
-    calendarPanelCollapsed: load("planner_calendar_panel_collapsed_v1", false)
+    calendarDrawerOpen: false
   };
 
   const els = {};
@@ -75,7 +75,7 @@
       "employeeList", "kanbanBoard", "notificationList", "auditList", "editModal", "closeModalBtn",
       "editProject", "editEmployee", "editRole", "editStart", "editEnd", "editNotes",
       "saveEditBtn", "deleteEditBtn", "storageBadge", "resetDemoBtn", "systemStatus", "rangeTitle",
-      "saveStatus", "plannerTabs", "tabCalendarBtn", "tabProjectsBtn", "tabEmployeesBtn", "tabAdminBtn", "tabCalendarSection", "tabProjectsSection", "tabEmployeesSection", "tabAdminSection", "toggleCalendarPanelBtn", "calendarMainPanel", "calendarSidePanel", "newProjectBtn", "projectModal", "projectModalTitle", "closeProjectModalBtn",
+      "saveStatus", "plannerTabs", "calendarSideDrawer", "calendarDrawerToggle", "calendarDrawerCloseBtn", "tabCalendarBtn", "tabProjectsBtn", "tabEmployeesBtn", "tabAdminBtn", "tabCalendarSection", "tabProjectsSection", "tabEmployeesSection", "tabAdminSection", "newProjectBtn", "projectModal", "projectModalTitle", "closeProjectModalBtn",
       "projectName", "projectCategory", "projectStatus", "projectPlannedStart", "projectPlannedEnd",
       "projectLocation", "projectHeadcount", "projectNotes", "saveProjectBtn", "deleteProjectBtn",
       "newEmployeeBtn", "employeeModal", "employeeModalTitle", "closeEmployeeModalBtn",
@@ -236,6 +236,32 @@
     els.accountUserInfo.textContent = `${nameText}${roleText}`;
   }
 
+  function bindCalendarDrawerEvents() {
+    if (els.calendarDrawerToggle) els.calendarDrawerToggle.addEventListener("click", toggleCalendarDrawer);
+    if (els.calendarDrawerCloseBtn) els.calendarDrawerCloseBtn.addEventListener("click", closeCalendarDrawer);
+  }
+
+  function toggleCalendarDrawer() {
+    state.calendarDrawerOpen = !state.calendarDrawerOpen;
+    renderCalendarDrawer();
+  }
+
+  function closeCalendarDrawer() {
+    state.calendarDrawerOpen = false;
+    renderCalendarDrawer();
+  }
+
+  function renderCalendarDrawer() {
+    if (!els.calendarSideDrawer) return;
+    const isCalendar = state.activeTab === "calendar";
+    els.calendarSideDrawer.style.display = isCalendar ? "" : "none";
+    els.calendarSideDrawer.classList.toggle("calendar-drawer-open", state.calendarDrawerOpen);
+    els.calendarSideDrawer.classList.toggle("calendar-drawer-closed", !state.calendarDrawerOpen);
+    if (els.calendarDrawerToggle) {
+      els.calendarDrawerToggle.textContent = state.calendarDrawerOpen ? "Skjul" : "Panel";
+    }
+  }
+
   function bindTabEvents() {
     if (els.tabCalendarBtn) els.tabCalendarBtn.addEventListener("click", () => setActiveTab("calendar"));
     if (els.tabProjectsBtn) els.tabProjectsBtn.addEventListener("click", () => setActiveTab("projects"));
@@ -246,29 +272,6 @@
   function setActiveTab(tabName) {
     state.activeTab = tabName;
     renderLayoutTabs();
-  }
-
-
-  function toggleCalendarPanel() {
-    state.calendarPanelCollapsed = !state.calendarPanelCollapsed;
-    localStorage.setItem("planner_calendar_panel_collapsed_v1", JSON.stringify(state.calendarPanelCollapsed));
-    renderCalendarPanelLayout();
-  }
-
-  function renderCalendarPanelLayout() {
-    if (!els.calendarSidePanel || !els.calendarMainPanel) return;
-
-    const collapsed = !!state.calendarPanelCollapsed;
-    els.calendarSidePanel.style.display = collapsed ? "none" : "";
-    els.calendarMainPanel.style.flex = "1 1 auto";
-    els.calendarMainPanel.style.minWidth = "0";
-
-    if (els.toggleCalendarPanelBtn) {
-      els.toggleCalendarPanelBtn.textContent = collapsed ? "Vis panel" : "Skjul panel";
-      els.toggleCalendarPanelBtn.className = collapsed
-        ? "rounded-2xl border border-slate-300 bg-slate-900 text-white px-4 py-2"
-        : "rounded-2xl border border-slate-300 bg-white px-4 py-2";
-    }
   }
 
   function renderLayoutTabs() {
@@ -309,6 +312,8 @@
       if (!section) return;
       section.style.display = state.activeTab === name ? "" : "none";
     });
+
+    renderCalendarDrawer();
   }
 
 
@@ -381,36 +386,13 @@
     setCardDisplayById("notificationList", isSA);              // Varsellogg
     setCardDisplayById("auditList", isSA);                     // Endringslogg
 
-    const sideWrap = els.calendarSidePanel || els.systemStatus?.closest(".space-y-4");
-
     if (!canPlan) {
       closeEditModal();
       closeProjectModal();
       closeEmployeeModal();
-
-      if (sideWrap) {
-        sideWrap.style.display = "";
-      }
-
-      const systemCard = getCardByElement(els.systemStatus);
-      const legendCard = getCardByElement(els.legendList);
-
-      if (systemCard) systemCard.style.display = "none";
-      if (legendCard) legendCard.style.display = "";
-    } else {
-      if (sideWrap) {
-        sideWrap.style.display = state.calendarPanelCollapsed ? "none" : "";
-      }
-
-      const systemCard = getCardByElement(els.systemStatus);
-      const legendCard = getCardByElement(els.legendList);
-
-      if (systemCard) systemCard.style.display = "";
-      if (legendCard) legendCard.style.display = "";
     }
 
     renderLayoutTabs();
-    renderCalendarPanelLayout();
   }
 
   async function handleLogout() {
@@ -544,9 +526,7 @@
     });
 
     bindTabEvents();
-    if (els.toggleCalendarPanelBtn) {
-      els.toggleCalendarPanelBtn.addEventListener("click", toggleCalendarPanel);
-    }
+    bindCalendarDrawerEvents();
 
     els.employeeFilter.addEventListener("change", e => {
       state.employeeFilter = e.target.value;
@@ -1603,7 +1583,6 @@
     renderSystemStatus();
     updateBadge();
     applyRoleChrome();
-    renderCalendarPanelLayout();
   }
 
   function populateDynamicSelects() {
@@ -1790,6 +1769,7 @@
   }
 
   function renderSystemStatus() {
+    if (!els.systemStatus) return;
     const lines = [
       `<div><span class="font-medium">Lagring:</span> ${state.storageMode === "supabase" ? "Supabase" : "Lokal fallback"}</div>`,
       `<div><span class="font-medium">Kalendervisning:</span> ${state.calendarMode === "project" ? "Prosjektplan" : "Personalplan"}</div>`,
