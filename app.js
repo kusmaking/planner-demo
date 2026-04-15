@@ -138,37 +138,6 @@
     return state.currentRole === "superadmin";
   }
 
-  function isPlanner() {
-    return state.currentRole === "planner";
-  }
-
-  function isLoggedInUser() {
-    return !!state.currentUserEmail;
-  }
-
-  function canEditApp() {
-    return isSuperadmin() || isPlanner();
-  }
-
-  function isGuestReadOnly() {
-    return !canEditApp();
-  }
-
-  function setCardVisibilityFromChild(childEl, visible) {
-    const card = childEl?.closest(".rounded-2xl.bg-white.border.border-slate-200.shadow-sm");
-    if (card) {
-      card.style.display = visible ? "" : "none";
-    }
-  }
-
-  function setSectionCardVisibilityById(id, visible) {
-    const el = document.getElementById(id);
-    const card = el?.closest(".rounded-2xl.bg-white.border.border-slate-200.shadow-sm");
-    if (card) {
-      card.style.display = visible ? "" : "none";
-    }
-  }
-
   function updateAccountPanel() {
     if (!els.accountUserInfo) return;
     const roleText = state.currentRole ? ` • ${state.currentRole}` : "";
@@ -178,8 +147,6 @@
 
   function applyRoleChrome() {
     updateAccountPanel();
-
-    const editable = canEditApp();
 
     if (els.storageBadge) {
       els.storageBadge.style.display = isSuperadmin() ? "" : "none";
@@ -192,48 +159,6 @@
     if (els.resetDemoBtn) {
       els.resetDemoBtn.style.display = isSuperadmin() ? "" : "none";
     }
-
-    if (els.changePasswordBtn) {
-      els.changePasswordBtn.style.display = isLoggedInUser() ? "" : "none";
-    }
-
-    if (els.resetPasswordBtn) {
-      els.resetPasswordBtn.style.display = isLoggedInUser() ? "" : "none";
-    }
-
-    if (els.newProjectBtn) {
-      els.newProjectBtn.style.display = editable ? "" : "none";
-    }
-
-    if (els.newEmployeeBtn) {
-      els.newEmployeeBtn.style.display = editable ? "" : "none";
-    }
-
-    if (els.bulkAddBtn) {
-      els.bulkAddBtn.style.display = editable ? "" : "none";
-    }
-
-    if (els.bulkEmployees) {
-      els.bulkEmployees.disabled = !editable;
-      els.bulkEmployees.style.display = editable ? "" : "none";
-    }
-
-    if (els.assignBtn) {
-      els.assignBtn.style.display = editable ? "" : "none";
-    }
-
-    if (els.assignProject) els.assignProject.disabled = !editable;
-    if (els.assignEmployee) els.assignEmployee.disabled = !editable;
-    if (els.assignRole) els.assignRole.disabled = !editable;
-    if (els.assignStart) els.assignStart.disabled = !editable;
-    if (els.assignEnd) els.assignEnd.disabled = !editable;
-    if (els.assignNotes) els.assignNotes.disabled = !editable;
-
-    setCardVisibilityFromChild(els.assignBtn, editable);
-    setCardVisibilityFromChild(els.newProjectBtn, editable);
-    setCardVisibilityFromChild(els.newEmployeeBtn, editable);
-    setSectionCardVisibilityById("notificationList", editable);
-    setSectionCardVisibilityById("auditList", editable);
   }
 
   async function handleChangePassword() {
@@ -762,9 +687,6 @@
   }
 
   async function createEntry() {
-    if (!canEditApp()) {
-      return;
-    }
     const projectId = els.assignProject.value;
     const employeeName = els.assignEmployee.value;
     const role = els.assignRole.value;
@@ -824,7 +746,6 @@
   }
 
   function openEditModal(entryId) {
-    if (!canEditApp()) return;
     state.selectedEntryId = entryId;
     const entry = state.entries.find(e => e.id === entryId);
     if (!entry) return;
@@ -848,9 +769,6 @@
   }
 
   async function saveEditedEntry() {
-    if (!canEditApp()) {
-      return;
-    }
     const entry = state.entries.find(e => e.id === state.selectedEntryId);
     if (!entry) return;
 
@@ -877,9 +795,6 @@
   }
 
   async function deleteEditedEntry() {
-    if (!canEditApp()) {
-      return;
-    }
     const entry = state.entries.find(e => e.id === state.selectedEntryId);
     if (!entry) return;
     if (!confirm("Vil du fjerne denne tildelingen?")) return;
@@ -901,7 +816,6 @@
   }
 
   function openProjectModal(projectId = null) {
-    if (!canEditApp()) return;
     state.selectedProjectId = projectId;
     const project = state.projects.find(p => p.id === projectId);
 
@@ -927,9 +841,6 @@
   }
 
   async function saveProjectFromModal() {
-    if (!canEditApp()) {
-      return;
-    }
     const name = els.projectName.value.trim();
     const category = els.projectCategory.value;
     const status = els.projectStatus.value;
@@ -996,9 +907,6 @@
   }
 
   async function deleteProjectFromModal() {
-    if (!canEditApp()) {
-      return;
-    }
     const project = state.projects.find(p => p.id === state.selectedProjectId);
     if (!project) return;
 
@@ -1027,7 +935,6 @@
   }
 
   function openEmployeeModal(employeeId = null) {
-    if (!canEditApp()) return;
     state.selectedEmployeeId = employeeId;
     const employee = state.employees.find(e => e.id === employeeId);
 
@@ -1050,9 +957,6 @@
   }
 
   async function saveEmployeeFromModal() {
-    if (!canEditApp()) {
-      return;
-    }
     const name = els.employeeName.value.trim();
     const email = els.employeeEmail.value.trim();
     const phone = els.employeePhone.value.trim();
@@ -1118,9 +1022,6 @@
   }
 
   async function deleteEmployeeFromModal() {
-    if (!canEditApp()) {
-      return;
-    }
     const employee = state.employees.find(e => e.id === state.selectedEmployeeId);
     if (!employee) return;
 
@@ -1149,9 +1050,6 @@
   }
 
   async function bulkAddEmployees() {
-    if (!canEditApp()) {
-      return;
-    }
     const names = els.bulkEmployees.value.split("\n").map(v => v.trim()).filter(Boolean);
     if (!names.length) {
       alert("Lim inn minst ett navn.");
@@ -1797,11 +1695,6 @@
 
   function bindEntryClicks() {
     els.calendarWrap.querySelectorAll("[data-entry-id]").forEach(el => {
-      if (!canEditApp()) {
-        el.setAttribute("draggable", "false");
-        el.style.cursor = "default";
-        return;
-      }
       el.addEventListener("click", () => {
         if (state.justDraggedEntryId === el.dataset.entryId) return;
         openEditModal(el.dataset.entryId);
@@ -1821,8 +1714,6 @@
         state.dragEntryId = null;
       });
     });
-
-    if (!canEditApp()) return;
 
     els.calendarWrap.querySelectorAll(".drop-row").forEach(row => {
       row.addEventListener("dragover", event => {
