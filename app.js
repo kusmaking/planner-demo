@@ -1692,7 +1692,7 @@
         .filter(entry => overlaps(entry.start_date, entry.end_date, range.start, range.end));
 
       html += `
-        <div class="sticky-col z-20 border-r border-b border-slate-200 bg-white px-3 py-3 overflow-hidden">
+        <div class="sticky-col border-r border-b border-slate-200 px-3 py-3">
           <div class="font-medium">${escapeHtml(employee.name)}</div>
           <div class="text-xs text-slate-500">${escapeHtml(employee.email || "")}</div>
           <div class="text-xs text-slate-500">${escapeHtml(employee.title || "")}</div>
@@ -1780,7 +1780,7 @@
         .filter(entry => overlaps(entry.start_date, entry.end_date, yearStart, yearEnd));
 
       html += `
-        <div class="sticky-col z-20 border-r border-b border-slate-200 bg-white px-3 py-3 overflow-hidden">
+        <div class="sticky-col border-r border-b border-slate-200 px-3 py-3">
           <div class="font-medium">${escapeHtml(employee.name)}</div>
           <div class="text-xs text-slate-500">${escapeHtml(employee.email || "")}</div>
           <div class="text-xs text-slate-500">${escapeHtml(employee.title || "")}</div>
@@ -1877,7 +1877,7 @@
       const staffing = getProjectStaffingLabel(project.id, required);
 
       html += `
-        <div class="sticky-col z-20 border-r border-b border-slate-200 px-3 py-3 overflow-hidden ${project.status === "Avsluttet" ? "bg-slate-100" : "bg-white"}">
+        <div class="sticky-col border-r border-b border-slate-200 px-3 py-3 ${project.status === "Avsluttet" ? "bg-slate-100" : ""}">
           <div class="font-medium">${escapeHtml(project.name)}</div>
           <div class="text-xs text-slate-500">${escapeHtml(project.location || "")}</div>
           <div class="text-xs ${staffing.variant} mt-1">${escapeHtml(staffing.text)}${required ? ` (${assigned}/${required})` : ""}</div>
@@ -1953,7 +1953,7 @@
       const staffing = getProjectStaffingLabel(project.id, required);
 
       html += `
-        <div class="sticky-col z-20 border-r border-b border-slate-200 px-3 py-3 overflow-hidden ${project.status === "Avsluttet" ? "bg-slate-100" : "bg-white"}">
+        <div class="sticky-col border-r border-b border-slate-200 px-3 py-3 ${project.status === "Avsluttet" ? "bg-slate-100" : ""}">
           <div class="font-medium">${escapeHtml(project.name)}</div>
           <div class="text-xs text-slate-500">${escapeHtml(project.location || "")}</div>
           <div class="text-xs ${staffing.variant} mt-1">${escapeHtml(staffing.text)}${required ? ` (${assigned}/${required})` : ""}</div>
