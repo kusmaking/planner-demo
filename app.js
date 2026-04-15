@@ -1672,15 +1672,21 @@
 
     for (const day of days) {
       const weekend = isWeekend(day);
+      const holidayInfo = getNorwegianHolidayInfo(day);
+      const isRedDay = isNorwegianRedDay(day);
       const isTodayFlag = sameDate(day, new Date());
       const weekLabel = state.viewMode === "Uke" ? `<div>Uke ${getIsoWeek(day)}</div>` : "";
+      const dayHeaderBg = holidayInfo ? "bg-red-100" : isRedDay ? "bg-red-50" : weekend ? "bg-slate-50" : "bg-white";
+      const dayHeaderText = holidayInfo ? "text-red-700" : isTodayFlag ? "text-blue-700 font-semibold" : isRedDay ? "text-red-600" : "text-slate-600";
+      const holidayLabel = holidayInfo ? `<div class="mt-1 text-[10px] font-medium text-red-700 leading-tight">${escapeHtml(holidayInfo.name)}</div>` : "";
 
       html += `
-        <div class="border-b border-r border-slate-200 px-2 py-2 text-center text-xs ${weekend ? "bg-slate-50" : "bg-white"} ${isTodayFlag ? "text-blue-700 font-semibold" : "text-slate-600"}">
+        <div class="border-b border-r border-slate-200 px-2 py-2 text-center text-xs ${dayHeaderBg} ${dayHeaderText}">
           <div class="font-semibold">${weekdayShort(day)}</div>
           ${weekLabel}
           <div class="font-semibold">${day.getDate()}</div>
           <div>${monthShort(day)}</div>
+          ${holidayLabel}
         </div>
       `;
     }
@@ -1705,7 +1711,10 @@
         const day = days[i];
         const weekend = isWeekend(day);
         const isTodayFlag = sameDate(day, new Date());
-        html += `<div class="day-cell ${weekend ? "weekend" : ""} ${isTodayFlag ? "today" : ""}" style="position:absolute; left:${i * colWidth}px; width:${colWidth}px;"></div>`;
+        const holidayInfo = getNorwegianHolidayInfo(day);
+        const redDayClass = isNorwegianRedDay(day) ? " holiday" : "";
+        const holidayStyle = holidayInfo ? "background:#fee2e2;" : isSunday(day) ? "background:#fef2f2;" : "";
+        html += `<div class="day-cell ${weekend ? "weekend" : ""}${redDayClass} ${isTodayFlag ? "today" : ""}" style="position:absolute; left:${i * colWidth}px; width:${colWidth}px; ${holidayStyle}"></div>`;
       }
 
       html += `<div style="position:relative; width:${totalWidth}px; min-height:56px;">`;
@@ -1858,15 +1867,21 @@
 
     for (const day of days) {
       const weekend = isWeekend(day);
+      const holidayInfo = getNorwegianHolidayInfo(day);
+      const isRedDay = isNorwegianRedDay(day);
       const isTodayFlag = sameDate(day, new Date());
       const weekLabel = state.viewMode === "Uke" ? `<div>Uke ${getIsoWeek(day)}</div>` : "";
+      const dayHeaderBg = holidayInfo ? "bg-red-100" : isRedDay ? "bg-red-50" : weekend ? "bg-slate-50" : "bg-white";
+      const dayHeaderText = holidayInfo ? "text-red-700" : isTodayFlag ? "text-blue-700 font-semibold" : isRedDay ? "text-red-600" : "text-slate-600";
+      const holidayLabel = holidayInfo ? `<div class="mt-1 text-[10px] font-medium text-red-700 leading-tight">${escapeHtml(holidayInfo.name)}</div>` : "";
 
       html += `
-        <div class="border-b border-r border-slate-200 px-2 py-2 text-center text-xs ${weekend ? "bg-slate-50" : "bg-white"} ${isTodayFlag ? "text-blue-700 font-semibold" : "text-slate-600"}">
+        <div class="border-b border-r border-slate-200 px-2 py-2 text-center text-xs ${dayHeaderBg} ${dayHeaderText}">
           <div class="font-semibold">${weekdayShort(day)}</div>
           ${weekLabel}
           <div class="font-semibold">${day.getDate()}</div>
           <div>${monthShort(day)}</div>
+          ${holidayLabel}
         </div>
       `;
     }
@@ -1890,7 +1905,10 @@
         const day = days[i];
         const weekend = isWeekend(day);
         const isTodayFlag = sameDate(day, new Date());
-        html += `<div class="day-cell ${weekend ? "weekend" : ""} ${isTodayFlag ? "today" : ""}" style="position:absolute; left:${i * colWidth}px; width:${colWidth}px;"></div>`;
+        const holidayInfo = getNorwegianHolidayInfo(day);
+        const redDayClass = isNorwegianRedDay(day) ? " holiday" : "";
+        const holidayStyle = holidayInfo ? "background:#fee2e2;" : isSunday(day) ? "background:#fef2f2;" : "";
+        html += `<div class="day-cell ${weekend ? "weekend" : ""}${redDayClass} ${isTodayFlag ? "today" : ""}" style="position:absolute; left:${i * colWidth}px; width:${colWidth}px; ${holidayStyle}"></div>`;
       }
 
       html += `<div style="position:relative; width:${totalWidth}px; min-height:56px;">`;
@@ -2334,6 +2352,55 @@
     return a.getFullYear() === b.getFullYear() &&
       a.getMonth() === b.getMonth() &&
       a.getDate() === b.getDate();
+  }
+
+  function getNorwegianHolidayInfo(date) {
+    const year = date.getFullYear();
+    const easterSunday = getEasterSunday(year);
+    const holidayMap = new Map([
+      [toIsoDate(new Date(year, 0, 1)), "1. nyttårsdag"],
+      [toIsoDate(addDays(easterSunday, -3)), "Skjærtorsdag"],
+      [toIsoDate(addDays(easterSunday, -2)), "Langfredag"],
+      [toIsoDate(easterSunday), "1. påskedag"],
+      [toIsoDate(addDays(easterSunday, 1)), "2. påskedag"],
+      [toIsoDate(new Date(year, 4, 1)), "Arbeidernes dag"],
+      [toIsoDate(new Date(year, 4, 17)), "Grunnlovsdag"],
+      [toIsoDate(addDays(easterSunday, 39)), "Kristi himmelfartsdag"],
+      [toIsoDate(addDays(easterSunday, 49)), "1. pinsedag"],
+      [toIsoDate(addDays(easterSunday, 50)), "2. pinsedag"],
+      [toIsoDate(new Date(year, 11, 25)), "1. juledag"],
+      [toIsoDate(new Date(year, 11, 26)), "2. juledag"]
+    ]);
+
+    const iso = toIsoDate(date);
+    const name = holidayMap.get(iso);
+    return name ? { date: iso, name } : null;
+  }
+
+  function getEasterSunday(year) {
+    const a = year % 19;
+    const b = Math.floor(year / 100);
+    const c = year % 100;
+    const d = Math.floor(b / 4);
+    const e = b % 4;
+    const f = Math.floor((b + 8) / 25);
+    const g = Math.floor((b - f + 1) / 3);
+    const h = (19 * a + b - d - g + 15) % 30;
+    const i = Math.floor(c / 4);
+    const k = c % 4;
+    const l = (32 + 2 * e + 2 * i - h - k) % 7;
+    const m = Math.floor((a + 11 * h + 22 * l) / 451);
+    const month = Math.floor((h + l - 7 * m + 114) / 31);
+    const day = ((h + l - 7 * m + 114) % 31) + 1;
+    return new Date(year, month - 1, day);
+  }
+
+  function isSunday(date) {
+    return date.getDay() === 0;
+  }
+
+  function isNorwegianRedDay(date) {
+    return isSunday(date) || !!getNorwegianHolidayInfo(date);
   }
 
   function isWeekend(date) {
