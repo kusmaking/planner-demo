@@ -226,18 +226,47 @@
     if (els.assignEnd) els.assignEnd.disabled = !editable;
     if (els.assignNotes) els.assignNotes.disabled = !editable;
 
-    // Guest/public read-only: show only top filters + calendar + right-side status cards
+    // Guest/public read-only: show only top filters + calendar + legend + login panel
     setCardDisplayByElement(els.newProjectBtn, editable);      // Prosjekter
     setCardDisplayByElement(els.assignBtn, editable);          // Tildel prosjekt i kalender
     setCardDisplayByElement(els.newEmployeeBtn, editable);     // Ansatte
     setCardDisplayById("kanbanBoard", editable);               // Kanban – prosjekter
     setCardDisplayById("notificationList", editable);          // Varsellogg
     setCardDisplayById("auditList", editable);                 // Endringslogg
+    setCardDisplayById("systemStatus", editable);              // Systemstatus
+
+    const topGrid = els.calendarWrap?.closest(".grid.grid-cols-1.xl\:grid-cols-4.gap-4");
+    const calendarCard = els.calendarWrap?.closest(".xl\:col-span-3.rounded-2xl.bg-white.border.border-slate-200.shadow-sm");
+    const sideWrap = els.systemStatus?.closest(".space-y-4");
 
     if (!editable) {
       closeEditModal();
       closeProjectModal();
       closeEmployeeModal();
+
+      if (calendarCard) {
+        calendarCard.classList.remove("xl:col-span-3");
+        calendarCard.classList.add("xl:col-span-4");
+      }
+
+      if (sideWrap) {
+        sideWrap.style.display = "";
+      }
+
+      const systemCard = els.systemStatus?.closest(".rounded-2xl.bg-white.border.border-slate-200.shadow-sm");
+      const legendCard = els.legendList?.closest(".rounded-2xl.bg-white.border.border-slate-200.shadow-sm");
+
+      if (systemCard) systemCard.style.display = "none";
+      if (legendCard) legendCard.style.display = "";
+    } else {
+      if (calendarCard) {
+        calendarCard.classList.remove("xl:col-span-4");
+        calendarCard.classList.add("xl:col-span-3");
+      }
+
+      if (sideWrap) {
+        sideWrap.style.display = "";
+      }
     }
   }
 
