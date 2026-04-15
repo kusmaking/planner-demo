@@ -12,6 +12,7 @@
     currentRole: "",
     authReady: false,
     employeeFilter: "Alle ansatte",
+    employeeGroupFilter: "Alle grupper",
     search: "",
     viewMode: "Måned",
     calendarMode: load(STORAGE_KEYS.calendarMode, "personal"),
@@ -29,8 +30,7 @@
     },
     dragEntryId: null,
     justDraggedEntryId: null,
-    activeTab: "calendar",
-    calendarPanelOpen: false
+    activeTab: "calendar"
   };
 
   const els = {};
@@ -69,17 +69,17 @@
 
   function cacheElements() {
     const ids = [
-      "statsRow", "searchInput", "employeeFilter", "viewMode", "calendarMode", "prevBtn", "nextBtn", "todayBtn",
+      "statsRow", "searchInput", "employeeFilter", "employeeGroupFilter", "viewMode", "calendarMode", "prevBtn", "nextBtn", "todayBtn",
       "calendarWrap", "warningBox", "legendList", "projectList", "assignProject", "assignEmployeesWrap", "assignSummary", "assignRole",
       "assignStart", "assignEnd", "assignNotes", "assignBtn", "bulkEmployees", "bulkAddBtn",
       "employeeList", "kanbanBoard", "notificationList", "auditList", "editModal", "closeModalBtn",
       "editProject", "editEmployee", "editRole", "editStart", "editEnd", "editNotes",
       "saveEditBtn", "deleteEditBtn", "storageBadge", "resetDemoBtn", "systemStatus", "rangeTitle",
-      "saveStatus", "plannerTabs", "tabCalendarBtn", "tabProjectsBtn", "tabEmployeesBtn", "tabAdminBtn", "tabCalendarSection", "tabProjectsSection", "tabEmployeesSection", "tabAdminSection", "calendarMainCol", "calendarPanelCol", "calendarPanelHandleBtn", "calendarPanelCloseBtn", "calendarPanelContent", "newProjectBtn", "projectModal", "projectModalTitle", "closeProjectModalBtn",
+      "saveStatus", "plannerTabs", "tabCalendarBtn", "tabProjectsBtn", "tabEmployeesBtn", "tabAdminBtn", "tabCalendarSection", "tabProjectsSection", "tabEmployeesSection", "tabAdminSection", "newProjectBtn", "projectModal", "projectModalTitle", "closeProjectModalBtn",
       "projectName", "projectCategory", "projectStatus", "projectPlannedStart", "projectPlannedEnd",
       "projectLocation", "projectHeadcount", "projectNotes", "saveProjectBtn", "deleteProjectBtn",
       "newEmployeeBtn", "employeeModal", "employeeModalTitle", "closeEmployeeModalBtn",
-      "employeeName", "employeeEmail", "employeePhone", "employeeTitle", "employeeActive", "saveEmployeeBtn", "deleteEmployeeBtn",
+      "employeeName", "employeeEmail", "employeePhone", "employeeTitle", "employeeGroup", "employeeActive", "saveEmployeeBtn", "deleteEmployeeBtn",
       "accountPanel", "accountUserInfo", "changePasswordBtn", "resetPasswordBtn", "logoutBtn", "loginBtn", "loginModal", "closeLoginModalBtn", "loginEmail", "loginPassword", "loginSubmitBtn", "forgotPasswordBtn"
     ];
 
@@ -354,17 +354,50 @@
     setCardDisplayByElement(els.assignBtn, canPlan);           // Tildel prosjekt i kalender
     setCardDisplayByElement(els.newEmployeeBtn, canPlan);      // Ansatte
     setCardDisplayById("kanbanBoard", canPlan);                // Kanban – prosjekter
+    setCardDisplayById("systemStatus", canPlan);               // Systemstatus
     setCardDisplayById("notificationList", isSA);              // Varsellogg
     setCardDisplayById("auditList", isSA);                     // Endringslogg
+
+    const calendarCard = getCardByElement(els.calendarWrap);
+    const sideWrap = els.systemStatus?.closest(".space-y-4");
 
     if (!canPlan) {
       closeEditModal();
       closeProjectModal();
       closeEmployeeModal();
+
+      if (calendarCard) {
+        calendarCard.classList.remove("xl:col-span-3");
+        calendarCard.classList.add("xl:col-span-4");
+      }
+
+      if (sideWrap) {
+        sideWrap.style.display = "";
+      }
+
+      const systemCard = getCardByElement(els.systemStatus);
+      const legendCard = getCardByElement(els.legendList);
+
+      if (systemCard) systemCard.style.display = "none";
+      if (legendCard) legendCard.style.display = "";
+    } else {
+      if (calendarCard) {
+        calendarCard.classList.remove("xl:col-span-4");
+        calendarCard.classList.add("xl:col-span-3");
+      }
+
+      if (sideWrap) {
+        sideWrap.style.display = "";
+      }
+
+      const systemCard = getCardByElement(els.systemStatus);
+      const legendCard = getCardByElement(els.legendList);
+
+      if (systemCard) systemCard.style.display = "";
+      if (legendCard) legendCard.style.display = "";
     }
 
     renderLayoutTabs();
-    renderCalendarPanel();
   }
 
   async function handleLogout() {
@@ -488,6 +521,7 @@
     fillSelect(els.projectCategory, CATEGORY_OPTIONS);
     fillSelect(els.projectStatus, STATUS_OPTIONS, "Planlagt");
     fillSelect(els.editRole, ROLE_OPTIONS, "Supervisor");
+    fillSelect(els.employeeGroup, [{ id: "", name: "Ingen gruppe" }, ...EMPLOYEE_GROUP_OPTIONS.map(group => ({ id: group, name: group }))], "", "name", "id");
   }
 
   function bindEvents() {
@@ -498,24 +532,20 @@
     });
 
     bindTabEvents();
-    if (els.calendarPanelHandleBtn) {
-      els.calendarPanelHandleBtn.addEventListener("click", () => {
-        state.calendarPanelOpen = !state.calendarPanelOpen;
-        renderCalendarPanel();
-      });
-    }
-    if (els.calendarPanelCloseBtn) {
-      els.calendarPanelCloseBtn.addEventListener("click", () => {
-        state.calendarPanelOpen = false;
-        renderCalendarPanel();
-      });
-    }
 
     els.employeeFilter.addEventListener("change", e => {
       state.employeeFilter = e.target.value;
       renderStats();
       renderCalendar();
     });
+
+    if (els.employeeGroupFilter) {
+      els.employeeGroupFilter.addEventListener("change", e => {
+        state.employeeGroupFilter = e.target.value;
+        renderStats();
+        renderCalendar();
+      });
+    }
 
     els.viewMode.addEventListener("change", e => {
       state.viewMode = e.target.value;
@@ -747,7 +777,8 @@
   function normalizeEmployees(list) {
     return (list || []).map(emp => ({
       ...emp,
-      title: emp?.title || ""
+      title: emp?.title || "",
+      group: emp?.group || ""
     }));
   }
 
@@ -1372,6 +1403,7 @@
     els.employeeEmail.value = employee?.email || "";
     els.employeePhone.value = employee?.phone || "";
     els.employeeTitle.value = employee?.title || "";
+    if (els.employeeGroup) els.employeeGroup.value = employee?.group || "";
     els.employeeActive.checked = employee?.active ?? true;
     els.deleteEmployeeBtn.style.display = employee ? "inline-flex" : "none";
 
@@ -1391,6 +1423,7 @@
     const email = els.employeeEmail.value.trim();
     const phone = els.employeePhone.value.trim();
     const title = els.employeeTitle.value.trim();
+    const group = els.employeeGroup?.value || "";
     const active = els.employeeActive.checked;
 
     if (!name) {
@@ -1414,6 +1447,7 @@
       employee.email = email;
       employee.phone = phone;
       employee.title = title;
+      employee.group = group;
       employee.active = active;
 
       if (oldName !== name) {
@@ -1434,6 +1468,7 @@
         email,
         phone,
         title,
+        group,
         active
       };
       state.employees.push(employee);
@@ -1557,7 +1592,6 @@
     populateDynamicSelects();
     renderStats();
     renderLegend();
-    renderCalendarPanel();
     renderProjects();
     renderEmployees();
     renderCalendar();
@@ -1576,6 +1610,9 @@
     ];
 
     fillSelect(els.employeeFilter, employeeFilterItems, state.employeeFilter, "name", "id");
+    if (els.employeeGroupFilter) {
+      fillSelect(els.employeeGroupFilter, [{ id: "Alle grupper", name: "Alle grupper" }, ...EMPLOYEE_GROUP_OPTIONS.map(group => ({ id: group, name: group }))], state.employeeGroupFilter, "name", "id");
+    }
     fillSelect(els.editEmployee, state.employees.filter(e => e.active !== false), null, "name", "name");
     fillSelect(els.assignProject, [{ id: "", name: "Velg prosjekt" }, ...state.projects.map(p => ({ id: p.id, name: p.name }))], "", "name", "id");
     fillSelect(els.editProject, state.projects, null, "name", "id");
@@ -1642,33 +1679,6 @@
     `;
   }
 
-
-  function renderCalendarPanel() {
-    if (!els.calendarPanelCol || !els.calendarPanelHandleBtn || !els.calendarPanelContent) return;
-
-    const isDesktop = window.innerWidth >= 1280;
-
-    if (!isDesktop) {
-      els.calendarPanelCol.className = "w-full shrink-0 rounded-2xl bg-white border border-slate-200 shadow-sm overflow-hidden transition-all duration-300";
-      els.calendarPanelContent.classList.remove("hidden");
-      els.calendarPanelHandleBtn.className = "w-12 shrink-0 border-r border-slate-200 bg-slate-50 text-slate-700 text-xs font-semibold tracking-wide";
-      els.calendarPanelHandleBtn.textContent = "Panel";
-      return;
-    }
-
-    if (state.calendarPanelOpen) {
-      els.calendarPanelCol.className = "xl:w-80 w-full shrink-0 rounded-2xl bg-white border border-slate-200 shadow-sm overflow-hidden transition-all duration-300";
-      els.calendarPanelContent.classList.remove("hidden");
-      els.calendarPanelHandleBtn.className = "w-12 shrink-0 border-r border-slate-200 bg-slate-50 text-slate-700 text-xs font-semibold tracking-wide [writing-mode:vertical-rl] rotate-180";
-      els.calendarPanelHandleBtn.textContent = "Panel";
-    } else {
-      els.calendarPanelCol.className = "xl:w-12 w-full shrink-0 rounded-2xl bg-white border border-slate-200 shadow-sm overflow-hidden transition-all duration-300";
-      els.calendarPanelContent.classList.add("hidden");
-      els.calendarPanelHandleBtn.className = "w-12 shrink-0 border-r-0 bg-slate-50 text-slate-700 text-xs font-semibold tracking-wide [writing-mode:vertical-rl] rotate-180";
-      els.calendarPanelHandleBtn.textContent = "Panel";
-    }
-  }
-
   function renderProjects() {
     els.projectList.innerHTML = state.projects
       .slice()
@@ -1677,37 +1687,9 @@
         const assigned = getProjectAssignedCount(project.id);
         const required = Number(project.headcount_required || 0);
         const staffing = getProjectStaffingLabel(project.id, required);
-        const projectEntries = state.entries
-          .filter(entry => entry.project_id === project.id)
-          .slice()
-          .sort((a, b) => a.start_date.localeCompare(b.start_date) || a.employee_name.localeCompare(b.employee_name, "no"));
         const projectCardClasses = project.status === "Avsluttet"
           ? "rounded-xl border border-slate-300 p-3 bg-slate-100"
           : "rounded-xl border border-slate-200 p-3 bg-slate-50";
-
-        const assignmentsHtml = projectEntries.length
-          ? `
-            <div class="mt-3 rounded-xl border border-slate-200 bg-white p-3">
-              <div class="text-xs font-semibold uppercase tracking-wide text-slate-500">Tildelte ressurser</div>
-              <div class="mt-2 space-y-2">
-                ${projectEntries.map(entry => `
-                  <div class="flex items-start justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
-                    <div class="min-w-0">
-                      <div class="text-sm font-medium text-slate-800">${escapeHtml(entry.employee_name || "Ukjent ansatt")}</div>
-                      <div class="text-xs text-slate-500">${escapeHtml(entry.role || "")}</div>
-                      <div class="text-xs text-slate-500">${escapeHtml(formatDate(entry.start_date))} – ${escapeHtml(formatDate(entry.end_date))}</div>
-                    </div>
-                    <button data-project-entry-delete-id="${escapeHtml(entry.id)}" class="shrink-0 rounded-lg border border-red-200 bg-white px-2 py-1 text-xs text-red-700 hover:bg-red-50">Fjern</button>
-                  </div>
-                `).join("")}
-              </div>
-            </div>
-          `
-          : `
-            <div class="mt-3 rounded-xl border border-dashed border-slate-300 bg-white px-3 py-3 text-xs text-slate-500">
-              Ingen tildelte ressurser på prosjektet.
-            </div>
-          `;
 
         return `
           <div class="${projectCardClasses}">
@@ -1721,7 +1703,6 @@
               <span class="rounded-full border px-2 py-0.5 text-xs ${STATUS_COLORS[project.status] || "bg-slate-100 border-slate-200 text-slate-700"}">${escapeHtml(project.status)}</span>
             </div>
             <div class="text-xs text-slate-600 mt-2">${escapeHtml(project.notes || "")}</div>
-            ${assignmentsHtml}
             <div class="mt-3 flex flex-wrap gap-2">
               <button data-project-staff-id="${escapeHtml(project.id)}" class="rounded-xl bg-slate-900 text-white px-3 py-2 text-sm">Bemann</button>
               <button data-project-id="${escapeHtml(project.id)}" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm">Rediger</button>
@@ -1737,10 +1718,6 @@
     els.projectList.querySelectorAll("[data-project-staff-id]").forEach(btn => {
       btn.addEventListener("click", () => startProjectStaffing(btn.dataset.projectStaffId));
     });
-
-    els.projectList.querySelectorAll("[data-project-entry-delete-id]").forEach(btn => {
-      btn.addEventListener("click", () => deleteEntryFromProjectCard(btn.dataset.projectEntryDeleteId));
-    });
   }
 
   function startProjectStaffing(projectId) {
@@ -1749,33 +1726,6 @@
     els.assignProject.value = projectId;
     syncAssignDatesFromProject();
     els.assignProject.scrollIntoView({ behavior: "smooth", block: "center" });
-  }
-
-  async function deleteEntryFromProjectCard(entryId) {
-    if (!canEditApp()) return;
-    const entry = state.entries.find(item => item.id === entryId);
-    if (!entry) {
-      alert("Fant ikke tildelingen.");
-      return;
-    }
-
-    const project = getProjectById(entry.project_id);
-    const confirmText = `Fjern tildeling for ${entry.employee_name} fra ${project?.name || "prosjekt"}?`;
-    if (!confirm(confirmText)) return;
-
-    state.entries = state.entries.filter(item => item.id !== entryId);
-    rebuildDerivedState();
-    renderAll();
-
-    const result = await deleteRow("planner_entries", entryId);
-    if (!result.ok) {
-      state.entries.push(entry);
-      rebuildDerivedState();
-      renderAll();
-      return;
-    }
-
-    void addAudit(`Slettet tildeling fra prosjektkort: ${entry.employee_name} → ${project?.name || "Ukjent prosjekt"}`);
   }
 
   function renderEmployees() {
@@ -1788,6 +1738,7 @@
         <div class="text-xs text-slate-500 mt-1">${escapeHtml(emp.email || "Ingen e-post")}</div>
         <div class="text-xs text-slate-500">${escapeHtml(emp.phone || "Ingen telefon")}</div>
         <div class="text-xs text-slate-500">${escapeHtml(emp.title || "Ingen stillingstittel")}</div>
+        <div class="text-xs text-slate-500">${escapeHtml(emp.group || "Ingen gruppe")}</div>
       </button>
     `).join("") || `<div class="text-sm text-slate-500">Ingen ansatte enda.</div>`;
 
@@ -1840,7 +1791,6 @@
   }
 
   function renderSystemStatus() {
-    if (!els.systemStatus) return;
     const lines = [
       `<div><span class="font-medium">Lagring:</span> ${state.storageMode === "supabase" ? "Supabase" : "Lokal fallback"}</div>`,
       `<div><span class="font-medium">Kalendervisning:</span> ${state.calendarMode === "project" ? "Prosjektplan" : "Personalplan"}</div>`,
@@ -1909,11 +1859,13 @@
       const employeeEntries = (state.derived.entriesByEmployee.get(employee.name) || [])
         .filter(entry => overlaps(entry.start_date, entry.end_date, range.start, range.end));
 
+      const employeeGroupClasses = getEmployeeGroupClasses(employee.group);
       html += `
-        <div class="sticky-col border-r border-b border-slate-200 px-3 py-3">
+        <div class="sticky-col border-r border-b border-slate-200 px-3 py-3 ${employeeGroupClasses}">
           <div class="font-medium">${escapeHtml(employee.name)}</div>
           <div class="text-xs text-slate-500">${escapeHtml(employee.email || "")}</div>
           <div class="text-xs text-slate-500">${escapeHtml(employee.title || "")}</div>
+          <div class="text-xs text-slate-600 font-medium mt-1">${escapeHtml(employee.group || "")}</div>
         </div>
       `;
 
@@ -1997,11 +1949,13 @@
       const employeeEntries = (state.derived.entriesByEmployee.get(employee.name) || [])
         .filter(entry => overlaps(entry.start_date, entry.end_date, yearStart, yearEnd));
 
+      const employeeGroupClasses = getEmployeeGroupClasses(employee.group);
       html += `
-        <div class="sticky-col border-r border-b border-slate-200 px-3 py-3">
+        <div class="sticky-col border-r border-b border-slate-200 px-3 py-3 ${employeeGroupClasses}">
           <div class="font-medium">${escapeHtml(employee.name)}</div>
           <div class="text-xs text-slate-500">${escapeHtml(employee.email || "")}</div>
           <div class="text-xs text-slate-500">${escapeHtml(employee.title || "")}</div>
+          <div class="text-xs text-slate-600 font-medium mt-1">${escapeHtml(employee.group || "")}</div>
         </div>
       `;
 
@@ -2379,8 +2333,9 @@
     return state.employees.filter(emp => {
       const isActive = emp.active !== false;
       const matchesFilter = state.employeeFilter === "Alle ansatte" || emp.name === state.employeeFilter;
+      const matchesGroup = state.employeeGroupFilter === "Alle grupper" || (emp.group || "") === state.employeeGroupFilter;
       const matchesSearch = !state.search || emp.name.toLowerCase().includes(state.search);
-      return isActive && matchesFilter && matchesSearch;
+      return isActive && matchesFilter && matchesGroup && matchesSearch;
     });
   }
 
@@ -2602,6 +2557,10 @@
   function capitalize(value) {
     const str = String(value || "");
     return str.charAt(0).toUpperCase() + str.slice(1);
+  }
+
+  function getEmployeeGroupClasses(group) {
+    return EMPLOYEE_GROUP_COLORS[group] || "bg-white";
   }
 
   function getEntryBarClasses(project, role) {
