@@ -115,25 +115,37 @@
       </div>
     </section>
 
-    <section id="tabProjectsSection" class="grid grid-cols-1 xl:grid-cols-12 gap-4" style="display:none;">
-      <div class="xl:col-span-4 space-y-4">
+    <section id="tabProjectsSection" class="grid grid-cols-1 xl:grid-cols-5 gap-4" style="display:none;">
+      <div class="xl:col-span-2">
         <div class="rounded-2xl bg-white border border-slate-200 shadow-sm">
           <div class="p-4 border-b border-slate-200 flex items-center justify-between gap-3">
             <div>
-              <h2 class="font-semibold">Prosjektarbeid</h2>
-              <p class="text-sm text-slate-500 mt-1">Opprett og bemann prosjekt uten å bla langt ned på siden.</p>
+              <h2 class="font-semibold">Prosjekter</h2>
+              <p class="text-sm text-slate-500 mt-1">Velg et prosjekt for å bemanne eller redigere.</p>
             </div>
             <button id="newProjectBtn" class="rounded-xl bg-slate-900 text-white px-3 py-2 text-sm">Nytt prosjekt</button>
           </div>
-          <div class="p-4 space-y-3">
-            <div class="rounded-2xl border border-slate-200 bg-slate-50 p-3">
-              <div class="text-sm font-medium">Tildel prosjekt i kalender</div>
-              <div class="text-xs text-slate-500 mt-1">Velg prosjekt først. Antall navnevalg følger bemanningsbehovet på prosjektet.</div>
-            </div>
+          <div class="p-4">
+            <div id="projectList" class="space-y-2 max-h-[680px] overflow-auto scrollbar-thin"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="xl:col-span-3">
+        <div class="rounded-2xl bg-white border border-slate-200 shadow-sm">
+          <div class="p-4 border-b border-slate-200">
+            <h2 class="font-semibold">Bemann prosjekt</h2>
+            <p class="text-sm text-slate-500 mt-1">Flere navnevalg vises automatisk ut fra bemanningsbehovet på prosjektet.</p>
+          </div>
+          <div class="p-4 space-y-4">
             <select id="assignProject" class="w-full rounded-2xl border border-slate-300 px-3 py-2"></select>
-            <div id="assignHeadcountHint" class="text-xs text-slate-500"></div>
-            <select id="assignEmployee" class="hidden"></select>
-            <div id="assignEmployeeFields" class="space-y-2"></div>
+
+            <div id="assignSummary" class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+              Velg et prosjekt for å starte bemanning.
+            </div>
+
+            <div id="assignEmployeesWrap" class="space-y-3"></div>
+
             <select id="assignRole" class="w-full rounded-2xl border border-slate-300 px-3 py-2"></select>
             <div class="grid grid-cols-2 gap-2">
               <input id="assignStart" type="date" class="rounded-2xl border border-slate-300 px-3 py-2" />
@@ -141,18 +153,6 @@
             </div>
             <textarea id="assignNotes" class="w-full rounded-2xl border border-slate-300 px-3 py-2" rows="3" placeholder="Notat til tildeling"></textarea>
             <button id="assignBtn" class="w-full rounded-2xl bg-slate-900 text-white px-4 py-2">Legg i kalender</button>
-          </div>
-        </div>
-      </div>
-
-      <div class="xl:col-span-8">
-        <div class="rounded-2xl bg-white border border-slate-200 shadow-sm">
-          <div class="p-4 border-b border-slate-200">
-            <h2 class="font-semibold">Prosjektliste</h2>
-            <p class="text-sm text-slate-500 mt-1">Klikk Rediger for prosjektdata eller Bemann for å fylle inn tildeling raskt.</p>
-          </div>
-          <div class="p-4">
-            <div id="projectList" class="space-y-2 max-h-[640px] overflow-auto scrollbar-thin"></div>
           </div>
         </div>
       </div>
@@ -168,7 +168,7 @@
           <div class="p-4 space-y-3">
             <textarea id="bulkEmployees" class="w-full rounded-2xl border border-slate-300 px-3 py-2" rows="4" placeholder="Lim inn flere navn, ett per linje"></textarea>
             <button id="bulkAddBtn" class="w-full rounded-2xl border border-slate-300 bg-white px-4 py-2">Legg til mange ansatte</button>
-            <div id="employeeList" class="space-y-2 max-h-[560px] overflow-auto scrollbar-thin"></div>
+            <div id="employeeList" class="space-y-2 max-h-[680px] overflow-auto scrollbar-thin"></div>
           </div>
         </div>
       </div>
