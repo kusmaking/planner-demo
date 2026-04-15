@@ -29,7 +29,8 @@
     },
     dragEntryId: null,
     justDraggedEntryId: null,
-    activeTab: "calendar"
+    activeTab: "calendar",
+    calendarPanelCollapsed: load("planner_calendar_panel_collapsed_v1", false)
   };
 
   const els = {};
@@ -74,7 +75,7 @@
       "employeeList", "kanbanBoard", "notificationList", "auditList", "editModal", "closeModalBtn",
       "editProject", "editEmployee", "editRole", "editStart", "editEnd", "editNotes",
       "saveEditBtn", "deleteEditBtn", "storageBadge", "resetDemoBtn", "systemStatus", "rangeTitle",
-      "saveStatus", "plannerTabs", "tabCalendarBtn", "tabProjectsBtn", "tabEmployeesBtn", "tabAdminBtn", "tabCalendarSection", "tabProjectsSection", "tabEmployeesSection", "tabAdminSection", "newProjectBtn", "projectModal", "projectModalTitle", "closeProjectModalBtn",
+      "saveStatus", "plannerTabs", "tabCalendarBtn", "tabProjectsBtn", "tabEmployeesBtn", "tabAdminBtn", "tabCalendarSection", "tabProjectsSection", "tabEmployeesSection", "tabAdminSection", "toggleCalendarPanelBtn", "calendarMainPanel", "calendarSidePanel", "newProjectBtn", "projectModal", "projectModalTitle", "closeProjectModalBtn",
       "projectName", "projectCategory", "projectStatus", "projectPlannedStart", "projectPlannedEnd",
       "projectLocation", "projectHeadcount", "projectNotes", "saveProjectBtn", "deleteProjectBtn",
       "newEmployeeBtn", "employeeModal", "employeeModalTitle", "closeEmployeeModalBtn",
@@ -247,6 +248,29 @@
     renderLayoutTabs();
   }
 
+
+  function toggleCalendarPanel() {
+    state.calendarPanelCollapsed = !state.calendarPanelCollapsed;
+    localStorage.setItem("planner_calendar_panel_collapsed_v1", JSON.stringify(state.calendarPanelCollapsed));
+    renderCalendarPanelLayout();
+  }
+
+  function renderCalendarPanelLayout() {
+    if (!els.calendarSidePanel || !els.calendarMainPanel) return;
+
+    const collapsed = !!state.calendarPanelCollapsed;
+    els.calendarSidePanel.style.display = collapsed ? "none" : "";
+    els.calendarMainPanel.style.flex = "1 1 auto";
+    els.calendarMainPanel.style.minWidth = "0";
+
+    if (els.toggleCalendarPanelBtn) {
+      els.toggleCalendarPanelBtn.textContent = collapsed ? "Vis panel" : "Skjul panel";
+      els.toggleCalendarPanelBtn.className = collapsed
+        ? "rounded-2xl border border-slate-300 bg-slate-900 text-white px-4 py-2"
+        : "rounded-2xl border border-slate-300 bg-white px-4 py-2";
+    }
+  }
+
   function renderLayoutTabs() {
     const canPlan = canPlanApp();
     const allowedTabs = canPlan ? ["calendar", "projects", "employees", "admin"] : ["calendar"];
@@ -357,18 +381,12 @@
     setCardDisplayById("notificationList", isSA);              // Varsellogg
     setCardDisplayById("auditList", isSA);                     // Endringslogg
 
-    const calendarCard = getCardByElement(els.calendarWrap);
-    const sideWrap = els.systemStatus?.closest(".space-y-4");
+    const sideWrap = els.calendarSidePanel || els.systemStatus?.closest(".space-y-4");
 
     if (!canPlan) {
       closeEditModal();
       closeProjectModal();
       closeEmployeeModal();
-
-      if (calendarCard) {
-        calendarCard.classList.remove("xl:col-span-3");
-        calendarCard.classList.add("xl:col-span-4");
-      }
 
       if (sideWrap) {
         sideWrap.style.display = "";
@@ -380,13 +398,8 @@
       if (systemCard) systemCard.style.display = "none";
       if (legendCard) legendCard.style.display = "";
     } else {
-      if (calendarCard) {
-        calendarCard.classList.remove("xl:col-span-4");
-        calendarCard.classList.add("xl:col-span-3");
-      }
-
       if (sideWrap) {
-        sideWrap.style.display = "";
+        sideWrap.style.display = state.calendarPanelCollapsed ? "none" : "";
       }
 
       const systemCard = getCardByElement(els.systemStatus);
@@ -397,6 +410,7 @@
     }
 
     renderLayoutTabs();
+    renderCalendarPanelLayout();
   }
 
   async function handleLogout() {
@@ -530,6 +544,9 @@
     });
 
     bindTabEvents();
+    if (els.toggleCalendarPanelBtn) {
+      els.toggleCalendarPanelBtn.addEventListener("click", toggleCalendarPanel);
+    }
 
     els.employeeFilter.addEventListener("change", e => {
       state.employeeFilter = e.target.value;
@@ -1586,6 +1603,7 @@
     renderSystemStatus();
     updateBadge();
     applyRoleChrome();
+    renderCalendarPanelLayout();
   }
 
   function populateDynamicSelects() {
