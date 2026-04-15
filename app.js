@@ -68,7 +68,7 @@
       "projectLocation", "projectHeadcount", "projectNotes", "saveProjectBtn", "deleteProjectBtn",
       "newEmployeeBtn", "employeeModal", "employeeModalTitle", "closeEmployeeModalBtn",
       "employeeName", "employeeEmail", "employeePhone", "employeeTitle", "employeeActive", "saveEmployeeBtn", "deleteEmployeeBtn",
-      "accountPanel", "accountUserInfo", "changePasswordBtn", "resetPasswordBtn"
+      "accountPanel", "accountUserInfo", "changePasswordBtn", "resetPasswordBtn", "logoutBtn"
     ];
 
     ids.forEach(id => els[id] = document.getElementById(id));
@@ -81,6 +81,8 @@
       els.accountUserInfo = document.getElementById("accountUserInfo");
       els.changePasswordBtn = document.getElementById("changePasswordBtn");
       els.resetPasswordBtn = document.getElementById("resetPasswordBtn");
+    els.logoutBtn = document.getElementById("logoutBtn");
+      els.logoutBtn = document.getElementById("logoutBtn");
       return;
     }
 
@@ -91,6 +93,7 @@
       <div id="accountUserInfo" class="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700">Ikke innlogget</div>
       <button id="changePasswordBtn" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm hover:bg-slate-50">Endre passord</button>
       <button id="resetPasswordBtn" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm hover:bg-slate-50">Send reset-link</button>
+      <button id="logoutBtn" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm hover:bg-slate-50">Logg ut</button>
     `;
 
     const anchor = els.storageBadge?.parentElement || document.body.firstElementChild || document.body;
@@ -165,16 +168,6 @@
     if (card) card.style.display = visible ? "" : "none";
   }
 
-  
-  async function handleLogout() {
-    try {
-      await supabaseClient.auth.signOut();
-      location.reload();
-    } catch (e) {
-      console.error(e);
-    }
-  }
-
   function updateAccountPanel() {
     if (!els.accountUserInfo) return;
     const roleText = state.currentRole ? ` • ${state.currentRole}` : "";
@@ -206,6 +199,10 @@
 
     if (els.resetPasswordBtn) {
       els.resetPasswordBtn.style.display = isLoggedIn ? "" : "none";
+    }
+
+    if (els.logoutBtn) {
+      els.logoutBtn.style.display = isLoggedIn ? "" : "none";
     }
 
     if (els.newProjectBtn) {
@@ -277,6 +274,16 @@
       if (sideWrap) {
         sideWrap.style.display = "";
       }
+    }
+  }
+
+  async function handleLogout() {
+    if (!supabaseClient?.auth) return;
+    try {
+      await supabaseClient.auth.signOut();
+      window.location.reload();
+    } catch (error) {
+      alert(`Kunne ikke logge ut: ${error?.message || "Ukjent feil"}`);
     }
   }
 
@@ -412,6 +419,10 @@
 
     if (els.resetPasswordBtn) {
       els.resetPasswordBtn.addEventListener("click", handleResetPassword);
+    }
+
+    if (els.logoutBtn) {
+      els.logoutBtn.addEventListener("click", handleLogout);
     }
   }
 
