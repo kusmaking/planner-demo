@@ -1,3 +1,6 @@
+// VERSION: 4.2 PUBLIC READ-ONLY FULL
+// Guest users can view calendar only. Planners and superadmins can edit.
+
 (() => {
   const supabaseClient = window.supabase?.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -68,7 +71,7 @@
       "projectLocation", "projectHeadcount", "projectNotes", "saveProjectBtn", "deleteProjectBtn",
       "newEmployeeBtn", "employeeModal", "employeeModalTitle", "closeEmployeeModalBtn",
       "employeeName", "employeeEmail", "employeePhone", "employeeTitle", "employeeActive", "saveEmployeeBtn", "deleteEmployeeBtn",
-      "accountPanel", "accountUserInfo", "loginBtn", "logoutBtn", "changePasswordBtn", "resetPasswordBtn"
+      "accountPanel", "accountUserInfo", "changePasswordBtn", "resetPasswordBtn"
     ];
 
     ids.forEach(id => els[id] = document.getElementById(id));
@@ -79,8 +82,6 @@
     if (document.getElementById("accountPanel")) {
       els.accountPanel = document.getElementById("accountPanel");
       els.accountUserInfo = document.getElementById("accountUserInfo");
-      els.loginBtn = document.getElementById("loginBtn");
-      els.logoutBtn = document.getElementById("logoutBtn");
       els.changePasswordBtn = document.getElementById("changePasswordBtn");
       els.resetPasswordBtn = document.getElementById("resetPasswordBtn");
       return;
@@ -90,9 +91,7 @@
     panel.id = "accountPanel";
     panel.className = "flex flex-wrap items-center justify-end gap-2";
     panel.innerHTML = `
-      <div id="accountUserInfo" class="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700">Lesemodus</div>
-      <button id="loginBtn" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm hover:bg-slate-50">Logg inn</button>
-      <button id="logoutBtn" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm hover:bg-slate-50">Logg ut</button>
+      <div id="accountUserInfo" class="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700">Ikke innlogget</div>
       <button id="changePasswordBtn" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm hover:bg-slate-50">Endre passord</button>
       <button id="resetPasswordBtn" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm hover:bg-slate-50">Send reset-link</button>
     `;
@@ -102,8 +101,6 @@
 
     els.accountPanel = panel;
     els.accountUserInfo = document.getElementById("accountUserInfo");
-    els.loginBtn = document.getElementById("loginBtn");
-    els.logoutBtn = document.getElementById("logoutBtn");
     els.changePasswordBtn = document.getElementById("changePasswordBtn");
     els.resetPasswordBtn = document.getElementById("resetPasswordBtn");
   }
@@ -141,79 +138,88 @@
   }
 
   function isSuperadmin() {
-    return String(state.currentRole || "").toLowerCase() === "superadmin";
+    return state.currentRole === "superadmin";
   }
 
   function isPlanner() {
-    return String(state.currentRole || "").toLowerCase() === "planner";
+    return state.currentRole === "planner" || isSuperadmin();
   }
 
   function isLoggedIn() {
-    return Boolean(state.currentUserEmail);
+    return !!state.currentUserEmail;
   }
 
-  function canEditPlannerData() {
-    return isPlanner() || isSuperadmin();
+  function canEdit() {
+    return isPlanner();
   }
 
   function updateAccountPanel() {
     if (!els.accountUserInfo) return;
-
-    if (!isLoggedIn()) {
-      els.accountUserInfo.textContent = "Lesemodus";
-      return;
-    }
-
     const roleText = state.currentRole ? ` • ${state.currentRole}` : "";
-    const nameText = state.currentUser || state.currentUserEmail || "Innlogget";
+    const nameText = state.currentUser || state.currentUserEmail || "Ikke innlogget";
     els.accountUserInfo.textContent = `${nameText}${roleText}`;
-  }
-
-  function setBlockVisibility(element, visible) {
-    if (!element) return;
-    element.style.display = visible ? "" : "none";
   }
 
   function applyRoleChrome() {
     updateAccountPanel();
 
-    const canEdit = canEditPlannerData();
-    const guest = !isLoggedIn();
+    const guestMode = !isLoggedIn();
+    const plannerMode = canEdit();
 
-    setBlockVisibility(els.loginBtn, guest);
-    setBlockVisibility(els.logoutBtn, !guest);
-    setBlockVisibility(els.changePasswordBtn, !guest);
-    setBlockVisibility(els.resetPasswordBtn, !guest);
+    if (guestMode) {
+      state.calendarMode = "personal";
+      persistUiState();
+    }
 
-    setBlockVisibility(els.storageBadge, isSuperadmin());
-    setBlockVisibility(els.saveStatus, isSuperadmin());
-    setBlockVisibility(els.resetDemoBtn, isSuperadmin());
+    if (els.storageBadge) {
+      els.storageBadge.style.display = isSuperadmin() ? "" : "none";
+    }
 
-    setBlockVisibility(document.getElementById("statsRow"), !guest);
-    setBlockVisibility(els.systemStatus?.closest(".rounded-2xl"), !guest);
-    setBlockVisibility(els.legendList?.closest(".rounded-2xl"), !guest);
+    if (els.saveStatus) {
+      els.saveStatus.style.display = isSuperadmin() ? "" : "none";
+    }
 
-    setBlockVisibility(els.projectList?.closest(".rounded-2xl"), !guest);
-    setBlockVisibility(els.assignBtn?.closest(".rounded-2xl"), !guest);
-    setBlockVisibility(els.employeeList?.closest(".rounded-2xl"), !guest);
+    if (els.resetDemoBtn) {
+      els.resetDemoBtn.style.display = isSuperadmin() ? "" : "none";
+    }
 
-    setBlockVisibility(els.kanbanBoard?.closest(".rounded-2xl"), !guest);
-    setBlockVisibility(els.notificationList?.closest(".rounded-2xl"), !guest);
-    setBlockVisibility(els.auditList?.closest(".rounded-2xl"), !guest);
+    if (els.changePasswordBtn) {
+      els.changePasswordBtn.style.display = isLoggedIn() ? "" : "none";
+    }
 
-    if (els.newProjectBtn) els.newProjectBtn.disabled = !canEdit;
-    if (els.newEmployeeBtn) els.newEmployeeBtn.disabled = !canEdit;
-    if (els.assignBtn) els.assignBtn.disabled = !canEdit;
-    if (els.bulkAddBtn) els.bulkAddBtn.disabled = !canEdit;
-    if (els.saveEditBtn) els.saveEditBtn.disabled = !canEdit;
-    if (els.deleteEditBtn) els.deleteEditBtn.disabled = !canEdit;
-    if (els.saveProjectBtn) els.saveProjectBtn.disabled = !canEdit;
-    if (els.deleteProjectBtn) els.deleteProjectBtn.disabled = !canEdit;
-    if (els.saveEmployeeBtn) els.saveEmployeeBtn.disabled = !canEdit;
-    if (els.deleteEmployeeBtn) els.deleteEmployeeBtn.disabled = !canEdit;
+    if (els.resetPasswordBtn) {
+      els.resetPasswordBtn.style.display = isLoggedIn() ? "" : "none";
+    }
+
+    if (els.calendarMode) {
+      els.calendarMode.style.display = guestMode ? "none" : "";
+      els.calendarMode.disabled = guestMode;
+    }
+
+    const projectCard = els.projectList?.closest('.rounded-2xl');
+    const assignCard = els.assignBtn?.closest('.rounded-2xl');
+    const employeeCard = els.employeeList?.closest('.rounded-2xl');
+    const kanbanCard = els.kanbanBoard?.closest('.rounded-2xl');
+    const notificationCard = els.notificationList?.closest('.rounded-2xl');
+    const auditCard = els.auditList?.closest('.rounded-2xl');
+    const systemCard = els.systemStatus?.closest('.rounded-2xl');
+
+    if (projectCard) projectCard.style.display = guestMode ? "none" : "";
+    if (assignCard) assignCard.style.display = guestMode ? "none" : "";
+    if (employeeCard) employeeCard.style.display = guestMode ? "none" : "";
+    if (kanbanCard) kanbanCard.style.display = guestMode ? "none" : "";
+    if (notificationCard) notificationCard.style.display = guestMode ? "none" : "";
+    if (auditCard) auditCard.style.display = guestMode ? "none" : "";
+    if (systemCard) systemCard.style.display = guestMode ? "none" : "";
+
+    if (els.newProjectBtn) els.newProjectBtn.style.display = plannerMode ? "" : "none";
+    if (els.newEmployeeBtn) els.newEmployeeBtn.style.display = plannerMode ? "" : "none";
+    if (els.bulkAddBtn) els.bulkAddBtn.style.display = plannerMode ? "" : "none";
+    if (els.assignBtn) els.assignBtn.style.display = plannerMode ? "" : "none";
   }
 
   async function handleChangePassword() {
+    if (!isLoggedIn()) return;
     if (!supabaseClient?.auth) return;
 
     const newPassword = prompt("Nytt passord:");
@@ -233,6 +239,7 @@
   }
 
   async function handleResetPassword() {
+    if (!isLoggedIn()) return;
     if (!supabaseClient?.auth) return;
     const email = state.currentUserEmail || prompt("E-postadresse:");
     if (!email) return;
@@ -247,50 +254,6 @@
     }
 
     alert("Reset-link er sendt på e-post.");
-  }
-
-  async function handleLogin() {
-    if (!supabaseClient?.auth) {
-      alert("Innlogging er ikke tilgjengelig akkurat nå.");
-      return;
-    }
-
-    const email = prompt("E-postadresse:");
-    if (!email) return;
-    const password = prompt("Passord:");
-    if (!password) return;
-
-    const { error } = await supabaseClient.auth.signInWithPassword({
-      email: email.trim(),
-      password
-    });
-
-    if (error) {
-      alert(`Kunne ikke logge inn: ${error.message}`);
-      return;
-    }
-
-    await loadAuthUser();
-    await fetchFromSupabase();
-    rebuildDerivedState();
-    renderAll();
-  }
-
-  async function handleLogout() {
-    if (!supabaseClient?.auth) return;
-
-    const { error } = await supabaseClient.auth.signOut();
-    if (error) {
-      alert(`Kunne ikke logge ut: ${error.message}`);
-      return;
-    }
-
-    state.currentUser = "Ikke innlogget";
-    state.currentUserEmail = "";
-    state.currentRole = "";
-    await fetchFromSupabase();
-    rebuildDerivedState();
-    renderAll();
   }
 
   function setupStaticOptions() {
@@ -382,14 +345,6 @@
     els.employeeModal.addEventListener("click", e => {
       if (e.target === els.employeeModal) closeEmployeeModal();
     });
-
-    if (els.loginBtn) {
-      els.loginBtn.addEventListener("click", handleLogin);
-    }
-
-    if (els.logoutBtn) {
-      els.logoutBtn.addEventListener("click", handleLogout);
-    }
 
     if (els.changePasswordBtn) {
       els.changePasswordBtn.addEventListener("click", handleChangePassword);
@@ -742,11 +697,7 @@
   }
 
   async function resetDemo() {
-    if (!isSuperadmin()) {
-      alert("Kun superadmin kan nullstille demo.");
-      return;
-    }
-
+    if (!isSuperadmin()) return;
     if (!confirm("Vil du nullstille til demo-data?")) return;
 
     state.employees = normalizeEmployees(structuredClone(DEFAULT_EMPLOYEES));
@@ -796,11 +747,7 @@
   }
 
   async function createEntry() {
-    if (!canEditPlannerData()) {
-      alert("Du har kun lesetilgang.");
-      return;
-    }
-
+    if (!canEdit()) return;
     const projectId = els.assignProject.value;
     const employeeName = els.assignEmployee.value;
     const role = els.assignRole.value;
@@ -860,8 +807,7 @@
   }
 
   function openEditModal(entryId) {
-    if (!canEditPlannerData()) return;
-
+    if (!canEdit()) return;
     state.selectedEntryId = entryId;
     const entry = state.entries.find(e => e.id === entryId);
     if (!entry) return;
@@ -885,11 +831,7 @@
   }
 
   async function saveEditedEntry() {
-    if (!canEditPlannerData()) {
-      alert("Du har kun lesetilgang.");
-      return;
-    }
-
+    if (!canEdit()) return;
     const entry = state.entries.find(e => e.id === state.selectedEntryId);
     if (!entry) return;
 
@@ -916,11 +858,7 @@
   }
 
   async function deleteEditedEntry() {
-    if (!canEditPlannerData()) {
-      alert("Du har kun lesetilgang.");
-      return;
-    }
-
+    if (!canEdit()) return;
     const entry = state.entries.find(e => e.id === state.selectedEntryId);
     if (!entry) return;
     if (!confirm("Vil du fjerne denne tildelingen?")) return;
@@ -942,8 +880,7 @@
   }
 
   function openProjectModal(projectId = null) {
-    if (!canEditPlannerData()) return;
-
+    if (!canEdit()) return;
     state.selectedProjectId = projectId;
     const project = state.projects.find(p => p.id === projectId);
 
@@ -969,11 +906,7 @@
   }
 
   async function saveProjectFromModal() {
-    if (!canEditPlannerData()) {
-      alert("Du har kun lesetilgang.");
-      return;
-    }
-
+    if (!canEdit()) return;
     const name = els.projectName.value.trim();
     const category = els.projectCategory.value;
     const status = els.projectStatus.value;
@@ -1040,11 +973,7 @@
   }
 
   async function deleteProjectFromModal() {
-    if (!canEditPlannerData()) {
-      alert("Du har kun lesetilgang.");
-      return;
-    }
-
+    if (!canEdit()) return;
     const project = state.projects.find(p => p.id === state.selectedProjectId);
     if (!project) return;
 
@@ -1073,8 +1002,7 @@
   }
 
   function openEmployeeModal(employeeId = null) {
-    if (!canEditPlannerData()) return;
-
+    if (!canEdit()) return;
     state.selectedEmployeeId = employeeId;
     const employee = state.employees.find(e => e.id === employeeId);
 
@@ -1097,11 +1025,7 @@
   }
 
   async function saveEmployeeFromModal() {
-    if (!canEditPlannerData()) {
-      alert("Du har kun lesetilgang.");
-      return;
-    }
-
+    if (!canEdit()) return;
     const name = els.employeeName.value.trim();
     const email = els.employeeEmail.value.trim();
     const phone = els.employeePhone.value.trim();
@@ -1167,11 +1091,7 @@
   }
 
   async function deleteEmployeeFromModal() {
-    if (!canEditPlannerData()) {
-      alert("Du har kun lesetilgang.");
-      return;
-    }
-
+    if (!canEdit()) return;
     const employee = state.employees.find(e => e.id === state.selectedEmployeeId);
     if (!employee) return;
 
@@ -1200,11 +1120,7 @@
   }
 
   async function bulkAddEmployees() {
-    if (!canEditPlannerData()) {
-      alert("Du har kun lesetilgang.");
-      return;
-    }
-
+    if (!canEdit()) return;
     const names = els.bulkEmployees.value.split("\n").map(v => v.trim()).filter(Boolean);
     if (!names.length) {
       alert("Lim inn minst ett navn.");
@@ -1554,7 +1470,7 @@
             class="entry-bar ${getEntryBarClasses(project, entry.role)}"
             style="left:${left}px; width:${width}px;"
             data-entry-id="${escapeHtml(entry.id)}"
-            draggable="true"
+            draggable="${canEdit()}"
             title="${escapeHtml(`${employee.name} | ${project.name} | ${entry.role} | ${entry.start_date} - ${entry.end_date}${entry.notes ? ` | ${entry.notes}` : ""}`)}"
           >
             <div class="font-semibold">${escapeHtml(project.name)}</div>
@@ -1641,7 +1557,7 @@
             class="entry-bar ${getEntryBarClasses(project, entry.role)}"
             style="left:${left}px; width:${width}px;"
             data-entry-id="${escapeHtml(entry.id)}"
-            draggable="true"
+            draggable="${canEdit()}"
             title="${escapeHtml(`${employee.name} | ${project.name} | ${entry.role} | ${entry.start_date} - ${entry.end_date}`)}"
           >
             <div class="font-semibold">${escapeHtml(project.name)}</div>
@@ -1751,10 +1667,7 @@
     els.calendarWrap.innerHTML = html;
 
     els.calendarWrap.querySelectorAll("[data-project-row-id]").forEach(el => {
-      el.addEventListener("click", () => {
-        if (!canEditPlannerData()) return;
-        openProjectModal(el.dataset.projectRowId);
-      });
+      el.addEventListener("click", () => openProjectModal(el.dataset.projectRowId));
     });
 
     renderWarnings(uniqueArray(warnings));
@@ -1829,10 +1742,7 @@
     els.calendarWrap.innerHTML = html;
 
     els.calendarWrap.querySelectorAll("[data-project-row-id]").forEach(el => {
-      el.addEventListener("click", () => {
-        if (!canEditPlannerData()) return;
-        openProjectModal(el.dataset.projectRowId);
-      });
+      el.addEventListener("click", () => openProjectModal(el.dataset.projectRowId));
     });
 
     renderWarnings(uniqueArray(warnings));
@@ -1855,16 +1765,15 @@
   }
 
   function bindEntryClicks() {
-    const canEdit = canEditPlannerData();
+    if (!canEdit()) {
+      els.calendarWrap.querySelectorAll("[data-entry-id]").forEach(el => {
+        el.setAttribute("draggable", "false");
+        el.style.cursor = "default";
+      });
+      return;
+    }
 
     els.calendarWrap.querySelectorAll("[data-entry-id]").forEach(el => {
-      el.draggable = canEdit;
-
-      if (!canEdit) {
-        el.style.cursor = "default";
-        return;
-      }
-
       el.addEventListener("click", () => {
         if (state.justDraggedEntryId === el.dataset.entryId) return;
         openEditModal(el.dataset.entryId);
@@ -1884,8 +1793,6 @@
         state.dragEntryId = null;
       });
     });
-
-    if (!canEdit) return;
 
     els.calendarWrap.querySelectorAll(".drop-row").forEach(row => {
       row.addEventListener("dragover", event => {
@@ -1913,12 +1820,12 @@
   }
 
   async function moveEntryToEmployee(entryId, targetEmployeeName) {
+    if (!canEdit()) return;
     return moveEntryByDrop(entryId, targetEmployeeName, null);
   }
 
   async function moveEntryByDrop(entryId, targetEmployeeName, dropMeta = null) {
-    if (!canEditPlannerData()) return;
-
+    if (!canEdit()) return;
     const entry = state.entries.find(e => e.id === entryId);
     if (!entry) return;
 
