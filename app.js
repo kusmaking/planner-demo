@@ -77,7 +77,7 @@
       "projectLocation", "projectHeadcount", "projectNotes", "saveProjectBtn", "deleteProjectBtn",
       "newEmployeeBtn", "employeeModal", "employeeModalTitle", "closeEmployeeModalBtn",
       "employeeName", "employeeEmail", "employeePhone", "employeeTitle", "employeeActive", "saveEmployeeBtn", "deleteEmployeeBtn",
-      "accountPanel", "accountUserInfo", "changePasswordBtn", "resetPasswordBtn", "logoutBtn"
+      "accountPanel", "accountUserInfo", "changePasswordBtn", "resetPasswordBtn", "logoutBtn", "loginBtn", "loginModal", "closeLoginModalBtn", "loginEmail", "loginPassword", "loginSubmitBtn"
     ];
 
     ids.forEach(id => els[id] = document.getElementById(id));
@@ -91,6 +91,8 @@
       els.changePasswordBtn = document.getElementById("changePasswordBtn");
       els.resetPasswordBtn = document.getElementById("resetPasswordBtn");
       els.logoutBtn = document.getElementById("logoutBtn");
+      els.loginBtn = document.getElementById("loginBtn");
+      ensureLoginModal();
       return;
     }
 
@@ -99,6 +101,7 @@
     panel.className = "flex flex-wrap items-center justify-end gap-2";
     panel.innerHTML = `
       <div id="accountUserInfo" class="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700">Ikke innlogget</div>
+      <button id="loginBtn" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm hover:bg-slate-50">Logg inn</button>
       <button id="changePasswordBtn" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm hover:bg-slate-50">Endre passord</button>
       <button id="resetPasswordBtn" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm hover:bg-slate-50">Send reset-link</button>
       <button id="logoutBtn" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm hover:bg-slate-50">Logg ut</button>
@@ -112,6 +115,44 @@
     els.changePasswordBtn = document.getElementById("changePasswordBtn");
     els.resetPasswordBtn = document.getElementById("resetPasswordBtn");
     els.logoutBtn = document.getElementById("logoutBtn");
+    els.loginBtn = document.getElementById("loginBtn");
+
+    ensureLoginModal();
+  }
+
+  function ensureLoginModal() {
+    if (document.getElementById("loginModal")) {
+      els.loginModal = document.getElementById("loginModal");
+      els.closeLoginModalBtn = document.getElementById("closeLoginModalBtn");
+      els.loginEmail = document.getElementById("loginEmail");
+      els.loginPassword = document.getElementById("loginPassword");
+      els.loginSubmitBtn = document.getElementById("loginSubmitBtn");
+      return;
+    }
+
+    const modal = document.createElement("div");
+    modal.id = "loginModal";
+    modal.className = "fixed inset-0 bg-black/40 hidden items-center justify-center p-4";
+    modal.innerHTML = `
+      <div class="w-full max-w-md rounded-2xl bg-white shadow-xl">
+        <div class="p-4 border-b border-slate-200 flex items-center justify-between">
+          <h2 class="font-semibold">Logg inn</h2>
+          <button id="closeLoginModalBtn" class="rounded-lg border border-slate-300 px-3 py-1 text-sm">Lukk</button>
+        </div>
+        <div class="p-4 space-y-4">
+          <input id="loginEmail" type="email" class="w-full rounded-2xl border border-slate-300 px-3 py-2" placeholder="E-post" />
+          <input id="loginPassword" type="password" class="w-full rounded-2xl border border-slate-300 px-3 py-2" placeholder="Passord" />
+          <button id="loginSubmitBtn" class="w-full rounded-2xl bg-slate-900 text-white px-4 py-2">Logg inn</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+
+    els.loginModal = modal;
+    els.closeLoginModalBtn = document.getElementById("closeLoginModalBtn");
+    els.loginEmail = document.getElementById("loginEmail");
+    els.loginPassword = document.getElementById("loginPassword");
+    els.loginSubmitBtn = document.getElementById("loginSubmitBtn");
   }
 
   async function loadAuthUser() {
@@ -127,6 +168,7 @@
       const user = userData?.user || null;
       state.currentUserEmail = user?.email || "";
       state.currentUser = user?.user_metadata?.full_name || user?.email || "Ikke innlogget";
+      state.currentRole = "";
 
       try {
         const { data, error } = await supabaseClient.rpc("get_my_profile");
@@ -207,6 +249,10 @@
       els.resetDemoBtn.style.display = isSA ? "" : "none";
     }
 
+    if (els.loginBtn) {
+      els.loginBtn.style.display = isLoggedIn ? "none" : "";
+    }
+
     if (els.changePasswordBtn) {
       els.changePasswordBtn.style.display = isLoggedIn ? "" : "none";
     }
@@ -247,7 +293,6 @@
     if (els.assignEnd) els.assignEnd.disabled = !canPlan;
     if (els.assignNotes) els.assignNotes.disabled = !canPlan;
 
-    // Visibility by role
     setCardDisplayByElement(els.newProjectBtn, canPlan);       // Prosjekter
     setCardDisplayByElement(els.assignBtn, canPlan);           // Tildel prosjekt i kalender
     setCardDisplayByElement(els.newEmployeeBtn, canPlan);      // Ansatte
@@ -256,7 +301,7 @@
     setCardDisplayById("notificationList", isSA);              // Varsellogg
     setCardDisplayById("auditList", isSA);                     // Endringslogg
 
-    const calendarCard = els.calendarWrap?.closest(".xl\:col-span-3.rounded-2xl.bg-white.border.border-slate-200.shadow-sm");
+    const calendarCard = getCardByElement(els.calendarWrap);
     const sideWrap = els.systemStatus?.closest(".space-y-4");
 
     if (!canPlan) {
@@ -273,8 +318,8 @@
         sideWrap.style.display = "";
       }
 
-      const systemCard = els.systemStatus?.closest(".rounded-2xl.bg-white.border.border-slate-200.shadow-sm");
-      const legendCard = els.legendList?.closest(".rounded-2xl.bg-white.border.border-slate-200.shadow-sm");
+      const systemCard = getCardByElement(els.systemStatus);
+      const legendCard = getCardByElement(els.legendList);
 
       if (systemCard) systemCard.style.display = "none";
       if (legendCard) legendCard.style.display = "";
@@ -287,23 +332,66 @@
       if (sideWrap) {
         sideWrap.style.display = "";
       }
+
+      const systemCard = getCardByElement(els.systemStatus);
+      const legendCard = getCardByElement(els.legendList);
+
+      if (systemCard) systemCard.style.display = "";
+      if (legendCard) legendCard.style.display = "";
     }
   }
 
   async function handleLogout() {
     if (!supabaseClient?.auth) return;
     try {
-      const { error } = await supabaseClient.auth.signOut({ scope: "local" });
+      const { error } = await supabaseClient.auth.signOut();
       if (error) throw error;
 
       state.currentUser = "Ikke innlogget";
       state.currentUserEmail = "";
       state.currentRole = "";
-      applyRoleChrome();
-      window.location.replace(window.location.origin + window.location.pathname);
+      closeLoginModal();
+      window.location.reload();
     } catch (error) {
       alert(`Kunne ikke logge ut: ${error?.message || "Ukjent feil"}`);
     }
+  }
+
+  function openLoginModal() {
+    if (!els.loginModal) return;
+    els.loginModal.classList.remove("hidden");
+    els.loginModal.classList.add("flex");
+    if (els.loginEmail && !els.loginEmail.value) {
+      els.loginEmail.focus();
+    }
+  }
+
+  function closeLoginModal() {
+    if (!els.loginModal) return;
+    els.loginModal.classList.add("hidden");
+    els.loginModal.classList.remove("flex");
+    if (els.loginPassword) els.loginPassword.value = "";
+  }
+
+  async function handleLogin() {
+    if (!supabaseClient?.auth) return;
+
+    const email = els.loginEmail?.value?.trim() || "";
+    const password = els.loginPassword?.value || "";
+
+    if (!email || !password) {
+      alert("Legg inn e-post og passord.");
+      return;
+    }
+
+    const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
+    if (error) {
+      alert(`Kunne ikke logge inn: ${error.message}`);
+      return;
+    }
+
+    closeLoginModal();
+    window.location.reload();
   }
 
   async function handleChangePassword() {
@@ -442,6 +530,30 @@
 
     if (els.logoutBtn) {
       els.logoutBtn.addEventListener("click", handleLogout);
+    }
+
+    if (els.loginBtn) {
+      els.loginBtn.addEventListener("click", openLoginModal);
+    }
+
+    if (els.closeLoginModalBtn) {
+      els.closeLoginModalBtn.addEventListener("click", closeLoginModal);
+    }
+
+    if (els.loginSubmitBtn) {
+      els.loginSubmitBtn.addEventListener("click", handleLogin);
+    }
+
+    if (els.loginPassword) {
+      els.loginPassword.addEventListener("keydown", e => {
+        if (e.key === "Enter") handleLogin();
+      });
+    }
+
+    if (els.loginModal) {
+      els.loginModal.addEventListener("click", e => {
+        if (e.target === els.loginModal) closeLoginModal();
+      });
     }
   }
 
