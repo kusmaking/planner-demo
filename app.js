@@ -49,6 +49,15 @@
     persistUiState();
 
     await loadAuthUser();
+
+    if (supabaseClient?.auth) {
+      supabaseClient.auth.onAuthStateChange((event) => {
+        if (event === "SIGNED_OUT") {
+          window.location.replace(window.location.origin + window.location.pathname);
+        }
+      });
+    }
+
     await bootData();
     rebuildDerivedState();
     renderAll();
@@ -81,7 +90,6 @@
       els.accountUserInfo = document.getElementById("accountUserInfo");
       els.changePasswordBtn = document.getElementById("changePasswordBtn");
       els.resetPasswordBtn = document.getElementById("resetPasswordBtn");
-    els.logoutBtn = document.getElementById("logoutBtn");
       els.logoutBtn = document.getElementById("logoutBtn");
       return;
     }
@@ -103,6 +111,7 @@
     els.accountUserInfo = document.getElementById("accountUserInfo");
     els.changePasswordBtn = document.getElementById("changePasswordBtn");
     els.resetPasswordBtn = document.getElementById("resetPasswordBtn");
+    els.logoutBtn = document.getElementById("logoutBtn");
   }
 
   async function loadAuthUser() {
@@ -149,8 +158,12 @@
     return !!state.currentUserEmail;
   }
 
-  function canEditApp() {
+  function canPlanApp() {
     return isSuperadmin() || isPlanner();
+  }
+
+  function canEditApp() {
+    return canPlanApp();
   }
 
   function getCardByElement(el) {
@@ -178,19 +191,20 @@
   function applyRoleChrome() {
     updateAccountPanel();
 
-    const editable = canEditApp();
+    const canPlan = canPlanApp();
     const isLoggedIn = isLoggedInUser();
+    const isSA = isSuperadmin();
 
     if (els.storageBadge) {
-      els.storageBadge.style.display = isSuperadmin() ? "" : "none";
+      els.storageBadge.style.display = isSA ? "" : "none";
     }
 
     if (els.saveStatus) {
-      els.saveStatus.style.display = isSuperadmin() ? "" : "none";
+      els.saveStatus.style.display = canPlan ? "" : "none";
     }
 
     if (els.resetDemoBtn) {
-      els.resetDemoBtn.style.display = isSuperadmin() ? "" : "none";
+      els.resetDemoBtn.style.display = isSA ? "" : "none";
     }
 
     if (els.changePasswordBtn) {
@@ -206,47 +220,46 @@
     }
 
     if (els.newProjectBtn) {
-      els.newProjectBtn.style.display = editable ? "" : "none";
+      els.newProjectBtn.style.display = canPlan ? "" : "none";
     }
 
     if (els.newEmployeeBtn) {
-      els.newEmployeeBtn.style.display = editable ? "" : "none";
+      els.newEmployeeBtn.style.display = canPlan ? "" : "none";
     }
 
     if (els.bulkAddBtn) {
-      els.bulkAddBtn.style.display = editable ? "" : "none";
+      els.bulkAddBtn.style.display = canPlan ? "" : "none";
     }
 
     if (els.bulkEmployees) {
-      els.bulkEmployees.disabled = !editable;
-      els.bulkEmployees.style.display = editable ? "" : "none";
+      els.bulkEmployees.disabled = !canPlan;
+      els.bulkEmployees.style.display = canPlan ? "" : "none";
     }
 
     if (els.assignBtn) {
-      els.assignBtn.style.display = editable ? "" : "none";
+      els.assignBtn.style.display = canPlan ? "" : "none";
     }
 
-    if (els.assignProject) els.assignProject.disabled = !editable;
-    if (els.assignEmployee) els.assignEmployee.disabled = !editable;
-    if (els.assignRole) els.assignRole.disabled = !editable;
-    if (els.assignStart) els.assignStart.disabled = !editable;
-    if (els.assignEnd) els.assignEnd.disabled = !editable;
-    if (els.assignNotes) els.assignNotes.disabled = !editable;
+    if (els.assignProject) els.assignProject.disabled = !canPlan;
+    if (els.assignEmployee) els.assignEmployee.disabled = !canPlan;
+    if (els.assignRole) els.assignRole.disabled = !canPlan;
+    if (els.assignStart) els.assignStart.disabled = !canPlan;
+    if (els.assignEnd) els.assignEnd.disabled = !canPlan;
+    if (els.assignNotes) els.assignNotes.disabled = !canPlan;
 
-    // Guest/public read-only: show only top filters + calendar + legend + login panel
-    setCardDisplayByElement(els.newProjectBtn, editable);      // Prosjekter
-    setCardDisplayByElement(els.assignBtn, editable);          // Tildel prosjekt i kalender
-    setCardDisplayByElement(els.newEmployeeBtn, editable);     // Ansatte
-    setCardDisplayById("kanbanBoard", editable);               // Kanban – prosjekter
-    setCardDisplayById("notificationList", editable);          // Varsellogg
-    setCardDisplayById("auditList", editable);                 // Endringslogg
-    setCardDisplayById("systemStatus", editable);              // Systemstatus
+    // Visibility by role
+    setCardDisplayByElement(els.newProjectBtn, canPlan);       // Prosjekter
+    setCardDisplayByElement(els.assignBtn, canPlan);           // Tildel prosjekt i kalender
+    setCardDisplayByElement(els.newEmployeeBtn, canPlan);      // Ansatte
+    setCardDisplayById("kanbanBoard", canPlan);                // Kanban – prosjekter
+    setCardDisplayById("systemStatus", canPlan);               // Systemstatus
+    setCardDisplayById("notificationList", isSA);              // Varsellogg
+    setCardDisplayById("auditList", isSA);                     // Endringslogg
 
-    const topGrid = els.calendarWrap?.closest(".grid.grid-cols-1.xl\:grid-cols-4.gap-4");
     const calendarCard = els.calendarWrap?.closest(".xl\:col-span-3.rounded-2xl.bg-white.border.border-slate-200.shadow-sm");
     const sideWrap = els.systemStatus?.closest(".space-y-4");
 
-    if (!editable) {
+    if (!canPlan) {
       closeEditModal();
       closeProjectModal();
       closeEmployeeModal();
@@ -280,8 +293,14 @@
   async function handleLogout() {
     if (!supabaseClient?.auth) return;
     try {
-      await supabaseClient.auth.signOut();
-      window.location.reload();
+      const { error } = await supabaseClient.auth.signOut({ scope: "local" });
+      if (error) throw error;
+
+      state.currentUser = "Ikke innlogget";
+      state.currentUserEmail = "";
+      state.currentRole = "";
+      applyRoleChrome();
+      window.location.replace(window.location.origin + window.location.pathname);
     } catch (error) {
       alert(`Kunne ikke logge ut: ${error?.message || "Ukjent feil"}`);
     }
