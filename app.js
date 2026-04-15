@@ -61,6 +61,7 @@
     await bootData();
     rebuildDerivedState();
     renderAll();
+    clearAssignForm();
     applyRoleChrome();
   }
 
@@ -354,6 +355,8 @@
       state.currentUserEmail = "";
       state.currentRole = "";
       closeLoginModal();
+      if (els.loginEmail) els.loginEmail.value = "";
+      if (els.loginPassword) els.loginPassword.value = "";
       window.location.reload();
     } catch (error) {
       alert(`Kunne ikke logge ut: ${error?.message || "Ukjent feil"}`);
@@ -362,9 +365,11 @@
 
   function openLoginModal() {
     if (!els.loginModal) return;
+    if (els.loginEmail) els.loginEmail.value = "";
+    if (els.loginPassword) els.loginPassword.value = "";
     els.loginModal.classList.remove("hidden");
     els.loginModal.classList.add("flex");
-    if (els.loginEmail && !els.loginEmail.value) {
+    if (els.loginEmail) {
       els.loginEmail.focus();
     }
   }
@@ -373,6 +378,7 @@
     if (!els.loginModal) return;
     els.loginModal.classList.add("hidden");
     els.loginModal.classList.remove("flex");
+    if (els.loginEmail) els.loginEmail.value = "";
     if (els.loginPassword) els.loginPassword.value = "";
   }
 
@@ -394,6 +400,8 @@
     }
 
     closeLoginModal();
+    if (els.loginEmail) els.loginEmail.value = "";
+    if (els.loginPassword) els.loginPassword.value = "";
     window.location.reload();
   }
 
@@ -970,9 +978,22 @@
 
   function syncAssignDatesFromProject() {
     const project = getProjectById(els.assignProject.value);
-    if (!project) return;
+    if (!project) {
+      els.assignStart.value = "";
+      els.assignEnd.value = "";
+      return;
+    }
     els.assignStart.value = project.planned_start_date || "";
     els.assignEnd.value = project.planned_end_date || "";
+  }
+
+  function clearAssignForm() {
+    if (els.assignProject) els.assignProject.value = "";
+    if (els.assignEmployee) els.assignEmployee.value = "";
+    if (els.assignRole) els.assignRole.value = ROLE_OPTIONS[0] || "";
+    if (els.assignStart) els.assignStart.value = "";
+    if (els.assignEnd) els.assignEnd.value = "";
+    if (els.assignNotes) els.assignNotes.value = "";
   }
 
   async function createEntry() {
@@ -1028,7 +1049,7 @@
       return;
     }
 
-    els.assignNotes.value = "";
+    clearAssignForm();
     renderAll();
 
     void addAudit(`La inn tildeling: ${employeeName} → ${project.name}`);
@@ -1443,16 +1464,21 @@
     ];
 
     fillSelect(els.employeeFilter, employeeFilterItems, state.employeeFilter, "name", "id");
-    fillSelect(els.assignEmployee, state.employees.filter(e => e.active !== false), state.employees.find(e => e.active !== false)?.name || "", "name", "name");
+    fillSelect(els.assignEmployee, [{ id: "", name: "Velg ansatt" }, ...state.employees.filter(e => e.active !== false).map(e => ({ id: e.name, name: e.name }))], "", "name", "id");
     fillSelect(els.editEmployee, state.employees.filter(e => e.active !== false), null, "name", "name");
-    fillSelect(els.assignProject, state.projects, state.projects[0]?.id || "", "name", "id");
+    fillSelect(els.assignProject, [{ id: "", name: "Velg prosjekt" }, ...state.projects.map(p => ({ id: p.id, name: p.name }))], "", "name", "id");
     fillSelect(els.editProject, state.projects, null, "name", "id");
     fillSelect(els.viewMode, ["Uke", "Måned", "År"], state.viewMode);
     fillSelect(els.calendarMode, [
       { id: "personal", name: "Personalplan" },
       { id: "project", name: "Prosjektplan" }
     ], state.calendarMode, "name", "id");
-    syncAssignDatesFromProject();
+    if (!els.assignProject.value) {
+      if (els.assignStart) els.assignStart.value = "";
+      if (els.assignEnd) els.assignEnd.value = "";
+    } else {
+      syncAssignDatesFromProject();
+    }
   }
 
   function renderStats() {
@@ -1700,9 +1726,10 @@
             style="left:${left}px; width:${width}px;"
             data-entry-id="${escapeHtml(entry.id)}"
             draggable="true"
-            title="${escapeHtml(`${employee.name} | ${getPersonalBarText(project, entry)} | ${entry.start_date} - ${entry.end_date}${entry.notes ? ` | ${entry.notes}` : ""}`)}"
+            title="${escapeHtml(`${employee.name} | ${project.name} | ${entry.role} | ${entry.start_date} - ${entry.end_date}${entry.notes ? ` | ${entry.notes}` : ""}`)}"
           >
-            <div class="font-semibold">${escapeHtml(getPersonalBarText(project, entry))}</div>
+            <div class="font-semibold">${escapeHtml(project.name)}</div>
+            <div class="text-[11px] opacity-90">${escapeHtml(entry.role)}</div>
           </div>
         `;
 
@@ -1786,9 +1813,10 @@
             style="left:${left}px; width:${width}px;"
             data-entry-id="${escapeHtml(entry.id)}"
             draggable="true"
-            title="${escapeHtml(`${employee.name} | ${getPersonalBarText(project, entry)} | ${entry.start_date} - ${entry.end_date}`)}"
+            title="${escapeHtml(`${employee.name} | ${project.name} | ${entry.role} | ${entry.start_date} - ${entry.end_date}`)}"
           >
-            <div class="font-semibold">${escapeHtml(getPersonalBarText(project, entry))}</div>
+            <div class="font-semibold">${escapeHtml(project.name)}</div>
+            <div class="text-[11px] opacity-90">${escapeHtml(formatYearBarLabel(entry.start_date, entry.end_date))}</div>
           </div>
         `;
       }
@@ -1879,9 +1907,10 @@
             class="entry-bar ${getProjectBarClasses(project)}"
             style="left:${left}px; width:${width}px;"
             data-project-row-id="${escapeHtml(project.id)}"
-            title="${escapeHtml(`${project.name} | ${getProjectPlanBarText(project, range.start, range.end)} | ${formatProjectDateRange(project)}`)}"
+            title="${escapeHtml(`${project.name} | ${formatProjectDateRange(project)} | ${staffing.text}`)}"
           >
-            <div class="font-semibold">${escapeHtml(getProjectPlanBarText(project, range.start, range.end))}</div>
+            <div class="font-semibold">${escapeHtml(project.name)}</div>
+            <div class="text-[11px] opacity-90">${escapeHtml(staffing.text)}</div>
           </div>
         `;
       }
@@ -1953,9 +1982,10 @@
             class="entry-bar ${getProjectBarClasses(project)}"
             style="left:${left}px; width:${width}px;"
             data-project-row-id="${escapeHtml(project.id)}"
-            title="${escapeHtml(`${project.name} | ${getProjectPlanBarText(project, range.start, range.end)} | ${formatProjectDateRange(project)}`)}"
+            title="${escapeHtml(`${project.name} | ${formatProjectDateRange(project)} | ${staffing.text}`)}"
           >
-            <div class="font-semibold">${escapeHtml(getProjectPlanBarText(project, range.start, range.end))}</div>
+            <div class="font-semibold">${escapeHtml(project.name)}</div>
+            <div class="text-[11px] opacity-90">${escapeHtml(staffing.text)}</div>
           </div>
         `;
       }
@@ -2242,29 +2272,6 @@
 
   function formatYearBarLabel(start, end) {
     return `${capitalize(monthShort(new Date(start)))}–${capitalize(monthShort(new Date(end)))}`;
-  }
-
-  function getPersonalBarText(project, entry) {
-    return `${project.name} · ${entry.role}`;
-  }
-
-  function getProjectEntriesInRange(projectId, rangeStart, rangeEnd) {
-    return state.entries.filter(entry =>
-      entry.project_id === projectId &&
-      overlaps(entry.start_date, entry.end_date, rangeStart, rangeEnd)
-    );
-  }
-
-  function getProjectPlanBarText(project, rangeStart, rangeEnd) {
-    const entries = getProjectEntriesInRange(project.id, rangeStart, rangeEnd);
-
-    if (!entries.length) {
-      return "Ikke bemannet";
-    }
-
-    return entries
-      .map(entry => `${entry.employee_name} · ${entry.role}`)
-      .join(" | ");
   }
 
 
