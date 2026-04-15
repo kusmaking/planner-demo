@@ -12,7 +12,6 @@
     currentRole: "",
     authReady: false,
     employeeFilter: "Alle ansatte",
-    employeeGroupFilter: "Alle grupper",
     search: "",
     viewMode: "Måned",
     calendarMode: load(STORAGE_KEYS.calendarMode, "personal"),
@@ -29,8 +28,7 @@
       entryCountByProject: new Map()
     },
     dragEntryId: null,
-    justDraggedEntryId: null,
-    activeTab: "calendar"
+    justDraggedEntryId: null
   };
 
   const els = {};
@@ -69,17 +67,17 @@
 
   function cacheElements() {
     const ids = [
-      "statsRow", "searchInput", "employeeFilter", "employeeGroupFilter", "viewMode", "calendarMode", "prevBtn", "nextBtn", "todayBtn",
-      "calendarWrap", "warningBox", "legendList", "projectList", "assignProject", "assignEmployeesWrap", "assignSummary", "assignRole",
+      "statsRow", "searchInput", "employeeFilter", "viewMode", "calendarMode", "prevBtn", "nextBtn", "todayBtn",
+      "calendarWrap", "warningBox", "legendList", "projectList", "assignProject", "assignEmployee", "assignRole",
       "assignStart", "assignEnd", "assignNotes", "assignBtn", "bulkEmployees", "bulkAddBtn",
       "employeeList", "kanbanBoard", "notificationList", "auditList", "editModal", "closeModalBtn",
       "editProject", "editEmployee", "editRole", "editStart", "editEnd", "editNotes",
       "saveEditBtn", "deleteEditBtn", "storageBadge", "resetDemoBtn", "systemStatus", "rangeTitle",
-      "saveStatus", "plannerTabs", "tabCalendarBtn", "tabProjectsBtn", "tabEmployeesBtn", "tabAdminBtn", "tabCalendarSection", "tabProjectsSection", "tabEmployeesSection", "tabAdminSection", "newProjectBtn", "projectModal", "projectModalTitle", "closeProjectModalBtn",
+      "saveStatus", "newProjectBtn", "projectModal", "projectModalTitle", "closeProjectModalBtn",
       "projectName", "projectCategory", "projectStatus", "projectPlannedStart", "projectPlannedEnd",
       "projectLocation", "projectHeadcount", "projectNotes", "saveProjectBtn", "deleteProjectBtn",
       "newEmployeeBtn", "employeeModal", "employeeModalTitle", "closeEmployeeModalBtn",
-      "employeeName", "employeeEmail", "employeePhone", "employeeTitle", "employeeGroup", "employeeActive", "saveEmployeeBtn", "deleteEmployeeBtn",
+      "employeeName", "employeeEmail", "employeePhone", "employeeTitle", "employeeActive", "saveEmployeeBtn", "deleteEmployeeBtn",
       "accountPanel", "accountUserInfo", "changePasswordBtn", "resetPasswordBtn", "logoutBtn", "loginBtn", "loginModal", "closeLoginModalBtn", "loginEmail", "loginPassword", "loginSubmitBtn", "forgotPasswordBtn"
     ];
 
@@ -236,59 +234,6 @@
     els.accountUserInfo.textContent = `${nameText}${roleText}`;
   }
 
-  function bindTabEvents() {
-    if (els.tabCalendarBtn) els.tabCalendarBtn.addEventListener("click", () => setActiveTab("calendar"));
-    if (els.tabProjectsBtn) els.tabProjectsBtn.addEventListener("click", () => setActiveTab("projects"));
-    if (els.tabEmployeesBtn) els.tabEmployeesBtn.addEventListener("click", () => setActiveTab("employees"));
-    if (els.tabAdminBtn) els.tabAdminBtn.addEventListener("click", () => setActiveTab("admin"));
-  }
-
-  function setActiveTab(tabName) {
-    state.activeTab = tabName;
-    renderLayoutTabs();
-  }
-
-  function renderLayoutTabs() {
-    const canPlan = canPlanApp();
-    const allowedTabs = canPlan ? ["calendar", "projects", "employees", "admin"] : ["calendar"];
-
-    if (!allowedTabs.includes(state.activeTab)) {
-      state.activeTab = "calendar";
-    }
-
-    const buttons = {
-      calendar: els.tabCalendarBtn,
-      projects: els.tabProjectsBtn,
-      employees: els.tabEmployeesBtn,
-      admin: els.tabAdminBtn
-    };
-
-    const sections = {
-      calendar: els.tabCalendarSection,
-      projects: els.tabProjectsSection,
-      employees: els.tabEmployeesSection,
-      admin: els.tabAdminSection
-    };
-
-    Object.entries(buttons).forEach(([name, btn]) => {
-      if (!btn) return;
-      const visible = allowedTabs.includes(name);
-      btn.style.display = visible ? "" : "none";
-      btn.className = [
-        "rounded-2xl px-4 py-2 text-sm border transition",
-        state.activeTab === name
-          ? "border-slate-900 bg-slate-900 text-white"
-          : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
-      ].join(" ");
-    });
-
-    Object.entries(sections).forEach(([name, section]) => {
-      if (!section) return;
-      section.style.display = state.activeTab === name ? "" : "none";
-    });
-  }
-
-
   function applyRoleChrome() {
     updateAccountPanel();
 
@@ -346,6 +291,8 @@
     }
 
     if (els.assignProject) els.assignProject.disabled = !canPlan;
+    if (els.assignEmployee) els.assignEmployee.disabled = !canPlan;
+    if (els.assignRole) els.assignRole.disabled = !canPlan;
     if (els.assignStart) els.assignStart.disabled = !canPlan;
     if (els.assignEnd) els.assignEnd.disabled = !canPlan;
     if (els.assignNotes) els.assignNotes.disabled = !canPlan;
@@ -396,8 +343,6 @@
       if (systemCard) systemCard.style.display = "";
       if (legendCard) legendCard.style.display = "";
     }
-
-    renderLayoutTabs();
   }
 
   async function handleLogout() {
@@ -520,8 +465,8 @@
   function setupStaticOptions() {
     fillSelect(els.projectCategory, CATEGORY_OPTIONS);
     fillSelect(els.projectStatus, STATUS_OPTIONS, "Planlagt");
+    fillSelect(els.assignRole, ROLE_OPTIONS, "Supervisor");
     fillSelect(els.editRole, ROLE_OPTIONS, "Supervisor");
-    fillSelect(els.employeeGroup, [{ id: "", name: "Ingen gruppe" }, ...EMPLOYEE_GROUP_OPTIONS.map(group => ({ id: group, name: group }))], "", "name", "id");
   }
 
   function bindEvents() {
@@ -531,21 +476,11 @@
       renderCalendar();
     });
 
-    bindTabEvents();
-
     els.employeeFilter.addEventListener("change", e => {
       state.employeeFilter = e.target.value;
       renderStats();
       renderCalendar();
     });
-
-    if (els.employeeGroupFilter) {
-      els.employeeGroupFilter.addEventListener("change", e => {
-        state.employeeGroupFilter = e.target.value;
-        renderStats();
-        renderCalendar();
-      });
-    }
 
     els.viewMode.addEventListener("change", e => {
       state.viewMode = e.target.value;
@@ -777,8 +712,7 @@
   function normalizeEmployees(list) {
     return (list || []).map(emp => ({
       ...emp,
-      title: emp?.title || "",
-      group: emp?.group || ""
+      title: emp?.title || ""
     }));
   }
 
@@ -1044,106 +978,35 @@
 
   function syncAssignDatesFromProject() {
     const project = getProjectById(els.assignProject.value);
-    renderAssignEmployeeSelectors();
     if (!project) {
       els.assignStart.value = "";
       els.assignEnd.value = "";
-      if (els.assignSummary) {
-        els.assignSummary.textContent = "Velg et prosjekt for å starte bemanning.";
-      }
       return;
     }
     els.assignStart.value = project.planned_start_date || "";
     els.assignEnd.value = project.planned_end_date || "";
-    if (els.assignSummary) {
-      const required = Math.max(Number(project.headcount_required || 0), 1);
-      els.assignSummary.textContent = `${project.name} • Behov: ${required} person${required > 1 ? "er" : ""}`;
-    }
   }
 
   function clearAssignForm() {
     if (els.assignProject) els.assignProject.value = "";
+    if (els.assignEmployee) els.assignEmployee.value = "";
+    if (els.assignRole) els.assignRole.value = ROLE_OPTIONS[0] || "";
     if (els.assignStart) els.assignStart.value = "";
     if (els.assignEnd) els.assignEnd.value = "";
     if (els.assignNotes) els.assignNotes.value = "";
-    if (els.assignSummary) els.assignSummary.textContent = "Velg et prosjekt for å starte bemanning.";
-    renderAssignEmployeeSelectors();
   }
-
-
-  function getDefaultRoleForIndex(index) {
-    return ROLE_OPTIONS[index] || ROLE_OPTIONS[ROLE_OPTIONS.length - 1] || "";
-  }
-
-  function getAssignAssignments() {
-    if (!els.assignEmployeesWrap) return [];
-    return Array.from(els.assignEmployeesWrap.querySelectorAll("[data-assign-row]")).map((row, index) => {
-      const employeeSelect = row.querySelector("[data-assign-employee-select]");
-      const roleSelect = row.querySelector("[data-assign-role-select]");
-      return {
-        employee_name: employeeSelect?.value?.trim() || "",
-        role: roleSelect?.value || getDefaultRoleForIndex(index)
-      };
-    }).filter(item => item.employee_name);
-  }
-
-  function renderAssignEmployeeSelectors() {
-    if (!els.assignEmployeesWrap) return;
-    const project = getProjectById(els.assignProject?.value);
-    const activeEmployees = state.employees.filter(e => e.active !== false);
-    const count = Math.max(Number(project?.headcount_required || 0), 1);
-    const currentRows = Array.from(els.assignEmployeesWrap.querySelectorAll("[data-assign-row]")).map((row, index) => ({
-      employee_name: row.querySelector("[data-assign-employee-select]")?.value || "",
-      role: row.querySelector("[data-assign-role-select]")?.value || getDefaultRoleForIndex(index)
-    }));
-
-    const blocks = [];
-    for (let i = 0; i < count; i++) {
-      const selectedEmployee = currentRows[i]?.employee_name || "";
-      const selectedRole = currentRows[i]?.role || getDefaultRoleForIndex(i);
-      const employeeOptions = ['<option value="">Velg ansatt</option>']
-        .concat(activeEmployees.map(emp => `<option value="${escapeHtml(emp.name)}" ${emp.name === selectedEmployee ? "selected" : ""}>${escapeHtml(emp.name)}</option>`))
-        .join("");
-      const roleOptions = ROLE_OPTIONS.map(role => `<option value="${escapeHtml(role)}" ${role === selectedRole ? "selected" : ""}>${escapeHtml(role)}</option>`).join("");
-
-      blocks.push(`
-        <div data-assign-row class="rounded-2xl border border-slate-200 bg-slate-50 p-3 space-y-3">
-          <div class="text-sm font-medium text-slate-700">Bemanning ${i + 1}</div>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <div class="space-y-1">
-              <label class="text-sm text-slate-600">Ansatt</label>
-              <select data-assign-employee-select class="w-full rounded-2xl border border-slate-300 px-3 py-2 bg-white">${employeeOptions}</select>
-            </div>
-            <div class="space-y-1">
-              <label class="text-sm text-slate-600">Rolle</label>
-              <select data-assign-role-select class="w-full rounded-2xl border border-slate-300 px-3 py-2 bg-white">${roleOptions}</select>
-            </div>
-          </div>
-        </div>
-      `);
-    }
-
-    els.assignEmployeesWrap.innerHTML = blocks.join("");
-  }
-
 
   async function createEntry() {
     if (!canEditApp()) return;
     const projectId = els.assignProject.value;
-    const assignments = getAssignAssignments();
-    const employeeNames = assignments.map(item => item.employee_name);
-    const uniqueEmployeeNames = [...new Set(employeeNames)];
+    const employeeName = els.assignEmployee.value;
+    const role = els.assignRole.value;
     let startDate = els.assignStart.value;
     let endDate = els.assignEnd.value;
     const notes = els.assignNotes.value.trim();
 
-    if (!projectId || !uniqueEmployeeNames.length) {
-      alert("Fyll ut prosjekt og minst én ansatt.");
-      return;
-    }
-
-    if (uniqueEmployeeNames.length !== employeeNames.length) {
-      alert("Samme ansatt kan ikke velges flere ganger i samme bemanning.");
+    if (!projectId || !employeeName) {
+      alert("Fyll ut prosjekt og ansatt.");
       return;
     }
 
@@ -1166,26 +1029,21 @@
       return;
     }
 
-    const uniqueAssignments = assignments.filter((item, index) =>
-      item.employee_name && employeeNames.indexOf(item.employee_name) === index
-    );
-
-    const newEntries = uniqueAssignments.map(item => ({
+    const entry = {
       id: crypto.randomUUID(),
       project_id: projectId,
-      employee_name: item.employee_name,
-      role: item.role,
+      employee_name: employeeName,
+      role,
       start_date: startDate,
       end_date: endDate,
       notes
-    }));
+    };
 
-    state.entries.push(...newEntries);
+    state.entries.push(entry);
     rebuildDerivedState();
-    const result = await saveRows("planner_entries", newEntries);
+    const result = await saveRow("planner_entries", entry);
     if (!result.ok) {
-      const ids = new Set(newEntries.map(entry => entry.id));
-      state.entries = state.entries.filter(e => !ids.has(e.id));
+      state.entries = state.entries.filter(e => e.id !== entry.id);
       rebuildDerivedState();
       renderAll();
       return;
@@ -1194,8 +1052,8 @@
     clearAssignForm();
     renderAll();
 
-    void addAudit(`La inn ${newEntries.length} tildeling${newEntries.length > 1 ? "er" : ""} på ${project.name}`);
-    newEntries.forEach(entry => void addNotification(entry.employee_name, project.name));
+    void addAudit(`La inn tildeling: ${employeeName} → ${project.name}`);
+    void addNotification(employeeName, project.name);
   }
 
   function openEditModal(entryId) {
@@ -1403,7 +1261,6 @@
     els.employeeEmail.value = employee?.email || "";
     els.employeePhone.value = employee?.phone || "";
     els.employeeTitle.value = employee?.title || "";
-    if (els.employeeGroup) els.employeeGroup.value = employee?.group || "";
     els.employeeActive.checked = employee?.active ?? true;
     els.deleteEmployeeBtn.style.display = employee ? "inline-flex" : "none";
 
@@ -1423,7 +1280,6 @@
     const email = els.employeeEmail.value.trim();
     const phone = els.employeePhone.value.trim();
     const title = els.employeeTitle.value.trim();
-    const group = els.employeeGroup?.value || "";
     const active = els.employeeActive.checked;
 
     if (!name) {
@@ -1447,7 +1303,6 @@
       employee.email = email;
       employee.phone = phone;
       employee.title = title;
-      employee.group = group;
       employee.active = active;
 
       if (oldName !== name) {
@@ -1468,7 +1323,6 @@
         email,
         phone,
         title,
-        group,
         active
       };
       state.employees.push(employee);
@@ -1610,9 +1464,7 @@
     ];
 
     fillSelect(els.employeeFilter, employeeFilterItems, state.employeeFilter, "name", "id");
-    if (els.employeeGroupFilter) {
-      fillSelect(els.employeeGroupFilter, [{ id: "Alle grupper", name: "Alle grupper" }, ...EMPLOYEE_GROUP_OPTIONS.map(group => ({ id: group, name: group }))], state.employeeGroupFilter, "name", "id");
-    }
+    fillSelect(els.assignEmployee, [{ id: "", name: "Velg ansatt" }, ...state.employees.filter(e => e.active !== false).map(e => ({ id: e.name, name: e.name }))], "", "name", "id");
     fillSelect(els.editEmployee, state.employees.filter(e => e.active !== false), null, "name", "name");
     fillSelect(els.assignProject, [{ id: "", name: "Velg prosjekt" }, ...state.projects.map(p => ({ id: p.id, name: p.name }))], "", "name", "id");
     fillSelect(els.editProject, state.projects, null, "name", "id");
@@ -1621,7 +1473,6 @@
       { id: "personal", name: "Personalplan" },
       { id: "project", name: "Prosjektplan" }
     ], state.calendarMode, "name", "id");
-    renderAssignEmployeeSelectors();
     if (!els.assignProject.value) {
       if (els.assignStart) els.assignStart.value = "";
       if (els.assignEnd) els.assignEnd.value = "";
@@ -1688,44 +1539,26 @@
         const required = Number(project.headcount_required || 0);
         const staffing = getProjectStaffingLabel(project.id, required);
         const projectCardClasses = project.status === "Avsluttet"
-          ? "rounded-xl border border-slate-300 p-3 bg-slate-100"
-          : "rounded-xl border border-slate-200 p-3 bg-slate-50";
+          ? "w-full text-left rounded-xl border border-slate-300 p-3 bg-slate-100 hover:bg-slate-200"
+          : "w-full text-left rounded-xl border border-slate-200 p-3 bg-slate-50 hover:bg-slate-100";
 
         return `
-          <div class="${projectCardClasses}">
-            <div class="flex items-start justify-between gap-3">
-              <div>
-                <div class="font-medium">${escapeHtml(project.name)}</div>
-                <div class="text-xs text-slate-500 mt-1">${escapeHtml(project.category)}${project.location ? ` • ${escapeHtml(project.location)}` : ""}</div>
-                <div class="text-xs text-slate-600 mt-1">${escapeHtml(formatProjectDateRange(project))}</div>
-                <div class="text-xs mt-1 ${staffing.variant}">${escapeHtml(staffing.text)}${required ? ` (${assigned}/${required})` : ""}</div>
-              </div>
+          <button data-project-id="${escapeHtml(project.id)}" class="${projectCardClasses}">
+            <div class="flex items-center justify-between gap-2">
+              <div class="font-medium">${escapeHtml(project.name)}</div>
               <span class="rounded-full border px-2 py-0.5 text-xs ${STATUS_COLORS[project.status] || "bg-slate-100 border-slate-200 text-slate-700"}">${escapeHtml(project.status)}</span>
             </div>
-            <div class="text-xs text-slate-600 mt-2">${escapeHtml(project.notes || "")}</div>
-            <div class="mt-3 flex flex-wrap gap-2">
-              <button data-project-staff-id="${escapeHtml(project.id)}" class="rounded-xl bg-slate-900 text-white px-3 py-2 text-sm">Bemann</button>
-              <button data-project-id="${escapeHtml(project.id)}" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm">Rediger</button>
-            </div>
-          </div>
+            <div class="text-xs text-slate-500 mt-1">${escapeHtml(project.category)}${project.location ? ` • ${escapeHtml(project.location)}` : ""}</div>
+            <div class="text-xs text-slate-600 mt-1">${escapeHtml(formatProjectDateRange(project))}</div>
+            <div class="text-xs mt-1 ${staffing.variant}">${escapeHtml(staffing.text)}${required ? ` (${assigned}/${required})` : ""}</div>
+            <div class="text-xs text-slate-600 mt-1">${escapeHtml(project.notes || "")}</div>
+          </button>
         `;
       }).join("") || `<div class="text-sm text-slate-500">Ingen prosjekter.</div>`;
 
     els.projectList.querySelectorAll("[data-project-id]").forEach(btn => {
       btn.addEventListener("click", () => openProjectModal(btn.dataset.projectId));
     });
-
-    els.projectList.querySelectorAll("[data-project-staff-id]").forEach(btn => {
-      btn.addEventListener("click", () => startProjectStaffing(btn.dataset.projectStaffId));
-    });
-  }
-
-  function startProjectStaffing(projectId) {
-    if (!els.assignProject) return;
-    setActiveTab("projects");
-    els.assignProject.value = projectId;
-    syncAssignDatesFromProject();
-    els.assignProject.scrollIntoView({ behavior: "smooth", block: "center" });
   }
 
   function renderEmployees() {
@@ -1738,7 +1571,6 @@
         <div class="text-xs text-slate-500 mt-1">${escapeHtml(emp.email || "Ingen e-post")}</div>
         <div class="text-xs text-slate-500">${escapeHtml(emp.phone || "Ingen telefon")}</div>
         <div class="text-xs text-slate-500">${escapeHtml(emp.title || "Ingen stillingstittel")}</div>
-        <div class="text-xs text-slate-500">${escapeHtml(emp.group || "Ingen gruppe")}</div>
       </button>
     `).join("") || `<div class="text-sm text-slate-500">Ingen ansatte enda.</div>`;
 
@@ -1859,13 +1691,11 @@
       const employeeEntries = (state.derived.entriesByEmployee.get(employee.name) || [])
         .filter(entry => overlaps(entry.start_date, entry.end_date, range.start, range.end));
 
-      const employeeGroupClasses = getEmployeeGroupClasses(employee.group);
       html += `
-        <div class="sticky-col border-r border-b border-slate-200 px-3 py-3 ${employeeGroupClasses}">
+        <div class="sticky-col border-r border-b border-slate-200 px-3 py-3">
           <div class="font-medium">${escapeHtml(employee.name)}</div>
           <div class="text-xs text-slate-500">${escapeHtml(employee.email || "")}</div>
           <div class="text-xs text-slate-500">${escapeHtml(employee.title || "")}</div>
-          <div class="text-xs text-slate-600 font-medium mt-1">${escapeHtml(employee.group || "")}</div>
         </div>
       `;
 
@@ -1949,13 +1779,11 @@
       const employeeEntries = (state.derived.entriesByEmployee.get(employee.name) || [])
         .filter(entry => overlaps(entry.start_date, entry.end_date, yearStart, yearEnd));
 
-      const employeeGroupClasses = getEmployeeGroupClasses(employee.group);
       html += `
-        <div class="sticky-col border-r border-b border-slate-200 px-3 py-3 ${employeeGroupClasses}">
+        <div class="sticky-col border-r border-b border-slate-200 px-3 py-3">
           <div class="font-medium">${escapeHtml(employee.name)}</div>
           <div class="text-xs text-slate-500">${escapeHtml(employee.email || "")}</div>
           <div class="text-xs text-slate-500">${escapeHtml(employee.title || "")}</div>
-          <div class="text-xs text-slate-600 font-medium mt-1">${escapeHtml(employee.group || "")}</div>
         </div>
       `;
 
@@ -2333,9 +2161,8 @@
     return state.employees.filter(emp => {
       const isActive = emp.active !== false;
       const matchesFilter = state.employeeFilter === "Alle ansatte" || emp.name === state.employeeFilter;
-      const matchesGroup = state.employeeGroupFilter === "Alle grupper" || (emp.group || "") === state.employeeGroupFilter;
       const matchesSearch = !state.search || emp.name.toLowerCase().includes(state.search);
-      return isActive && matchesFilter && matchesGroup && matchesSearch;
+      return isActive && matchesFilter && matchesSearch;
     });
   }
 
@@ -2557,10 +2384,6 @@
   function capitalize(value) {
     const str = String(value || "");
     return str.charAt(0).toUpperCase() + str.slice(1);
-  }
-
-  function getEmployeeGroupClasses(group) {
-    return EMPLOYEE_GROUP_COLORS[group] || "bg-white";
   }
 
   function getEntryBarClasses(project, role) {
