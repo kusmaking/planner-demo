@@ -40,6 +40,9 @@
 
     .day-cell.weekend { background: #f8fafc; }
     .day-cell.today { background: #eff6ff; }
+
+    .calendar-drawer-closed { transform: translateX(calc(100% - 44px)); }
+    .calendar-drawer-open { transform: translateX(0); }
   </style>
 </head>
 <body class="bg-slate-100 text-slate-900">
@@ -68,8 +71,8 @@
       </div>
     </section>
 
-    <section id="tabCalendarSection" class="flex flex-col xl:flex-row gap-4">
-      <div id="calendarMainPanel" class="min-w-0 flex-1 rounded-2xl bg-white border border-slate-200 shadow-sm">
+    <section id="tabCalendarSection" class="relative" data-calendar-layout>
+      <div class="rounded-2xl bg-white border border-slate-200 shadow-sm">
         <div class="p-4 border-b border-slate-200 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
           <div class="flex flex-wrap gap-2 items-center">
             <input id="searchInput" class="w-[220px] rounded-2xl border border-slate-300 px-3 py-2" placeholder="Søk ansatt" />
@@ -85,11 +88,10 @@
             </select>
           </div>
 
-          <div class="flex flex-wrap gap-2">
+          <div class="flex gap-2 items-center">
             <button id="prevBtn" class="rounded-2xl border border-slate-300 bg-white px-4 py-2">Tilbake</button>
             <button id="todayBtn" class="rounded-2xl border border-slate-300 bg-white px-4 py-2">I dag</button>
             <button id="nextBtn" class="rounded-2xl border border-slate-300 bg-white px-4 py-2">Frem</button>
-            <button id="toggleCalendarPanelBtn" class="rounded-2xl border border-slate-300 bg-white px-4 py-2">Skjul panel</button>
           </div>
         </div>
 
@@ -103,15 +105,21 @@
         <div id="calendarWrap" class="overflow-auto p-4 scrollbar-thin"></div>
       </div>
 
-      <div id="calendarSidePanel" class="w-full xl:w-[250px] shrink-0 space-y-3">
-        <div class="rounded-2xl bg-white border border-slate-200 shadow-sm">
-          <div class="px-4 py-3 border-b border-slate-200"><h2 class="font-semibold text-sm">Systemstatus</h2></div>
-          <div id="systemStatus" class="p-4 text-xs space-y-2"></div>
-        </div>
-
-        <div class="rounded-2xl bg-white border border-slate-200 shadow-sm">
-          <div class="px-4 py-3 border-b border-slate-200"><h2 class="font-semibold text-sm">Farger og status</h2></div>
-          <div id="legendList" class="p-4 space-y-2 text-xs"></div>
+      <div id="calendarSideDrawer" class="fixed right-0 top-36 z-40 w-[300px] max-w-[85vw] transition-transform duration-300 ease-out">
+        <div class="relative flex items-start">
+          <button id="calendarDrawerToggle" class="absolute -left-11 top-6 rounded-l-2xl rounded-r-none border border-r-0 border-slate-300 bg-white px-3 py-4 text-xs font-medium text-slate-700 shadow-sm hover:bg-slate-50">
+            Panel
+          </button>
+          <div id="calendarDrawerInner" class="w-full rounded-l-2xl border border-slate-200 bg-white shadow-xl">
+            <div class="p-3 border-b border-slate-200 flex items-center justify-between gap-3">
+              <div>
+                <h2 class="font-semibold text-sm">Farger og status</h2>
+                <p class="text-xs text-slate-500 mt-1">Skyv inn panelet når du vil ha mer plass til kalenderen.</p>
+              </div>
+              <button id="calendarDrawerCloseBtn" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs">Lukk</button>
+            </div>
+            <div id="legendList" class="p-4 space-y-2 text-sm max-h-[70vh] overflow-auto scrollbar-thin"></div>
+          </div>
         </div>
       </div>
     </section>
