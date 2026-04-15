@@ -1,6 +1,3 @@
-// VERSION: 4.2 PUBLIC READ-ONLY FULL
-// Guest users can view calendar only. Planners and superadmins can edit.
-
 (() => {
   const supabaseClient = window.supabase?.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -142,15 +139,34 @@
   }
 
   function isPlanner() {
-    return state.currentRole === "planner" || isSuperadmin();
+    return state.currentRole === "planner";
   }
 
-  function isLoggedIn() {
+  function isLoggedInUser() {
     return !!state.currentUserEmail;
   }
 
-  function canEdit() {
-    return isPlanner();
+  function canEditApp() {
+    return isSuperadmin() || isPlanner();
+  }
+
+  function isGuestReadOnly() {
+    return !canEditApp();
+  }
+
+  function setCardVisibilityFromChild(childEl, visible) {
+    const card = childEl?.closest(".rounded-2xl.bg-white.border.border-slate-200.shadow-sm");
+    if (card) {
+      card.style.display = visible ? "" : "none";
+    }
+  }
+
+  function setSectionCardVisibilityById(id, visible) {
+    const el = document.getElementById(id);
+    const card = el?.closest(".rounded-2xl.bg-white.border.border-slate-200.shadow-sm");
+    if (card) {
+      card.style.display = visible ? "" : "none";
+    }
   }
 
   function updateAccountPanel() {
@@ -163,13 +179,7 @@
   function applyRoleChrome() {
     updateAccountPanel();
 
-    const guestMode = !isLoggedIn();
-    const plannerMode = canEdit();
-
-    if (guestMode) {
-      state.calendarMode = "personal";
-      persistUiState();
-    }
+    const editable = canEditApp();
 
     if (els.storageBadge) {
       els.storageBadge.style.display = isSuperadmin() ? "" : "none";
@@ -184,42 +194,49 @@
     }
 
     if (els.changePasswordBtn) {
-      els.changePasswordBtn.style.display = isLoggedIn() ? "" : "none";
+      els.changePasswordBtn.style.display = isLoggedInUser() ? "" : "none";
     }
 
     if (els.resetPasswordBtn) {
-      els.resetPasswordBtn.style.display = isLoggedIn() ? "" : "none";
+      els.resetPasswordBtn.style.display = isLoggedInUser() ? "" : "none";
     }
 
-    if (els.calendarMode) {
-      els.calendarMode.style.display = guestMode ? "none" : "";
-      els.calendarMode.disabled = guestMode;
+    if (els.newProjectBtn) {
+      els.newProjectBtn.style.display = editable ? "" : "none";
     }
 
-    const projectCard = els.projectList?.closest('.rounded-2xl');
-    const assignCard = els.assignBtn?.closest('.rounded-2xl');
-    const employeeCard = els.employeeList?.closest('.rounded-2xl');
-    const kanbanCard = els.kanbanBoard?.closest('.rounded-2xl');
-    const notificationCard = els.notificationList?.closest('.rounded-2xl');
-    const auditCard = els.auditList?.closest('.rounded-2xl');
-    const systemCard = els.systemStatus?.closest('.rounded-2xl');
+    if (els.newEmployeeBtn) {
+      els.newEmployeeBtn.style.display = editable ? "" : "none";
+    }
 
-    if (projectCard) projectCard.style.display = guestMode ? "none" : "";
-    if (assignCard) assignCard.style.display = guestMode ? "none" : "";
-    if (employeeCard) employeeCard.style.display = guestMode ? "none" : "";
-    if (kanbanCard) kanbanCard.style.display = guestMode ? "none" : "";
-    if (notificationCard) notificationCard.style.display = guestMode ? "none" : "";
-    if (auditCard) auditCard.style.display = guestMode ? "none" : "";
-    if (systemCard) systemCard.style.display = guestMode ? "none" : "";
+    if (els.bulkAddBtn) {
+      els.bulkAddBtn.style.display = editable ? "" : "none";
+    }
 
-    if (els.newProjectBtn) els.newProjectBtn.style.display = plannerMode ? "" : "none";
-    if (els.newEmployeeBtn) els.newEmployeeBtn.style.display = plannerMode ? "" : "none";
-    if (els.bulkAddBtn) els.bulkAddBtn.style.display = plannerMode ? "" : "none";
-    if (els.assignBtn) els.assignBtn.style.display = plannerMode ? "" : "none";
+    if (els.bulkEmployees) {
+      els.bulkEmployees.disabled = !editable;
+      els.bulkEmployees.style.display = editable ? "" : "none";
+    }
+
+    if (els.assignBtn) {
+      els.assignBtn.style.display = editable ? "" : "none";
+    }
+
+    if (els.assignProject) els.assignProject.disabled = !editable;
+    if (els.assignEmployee) els.assignEmployee.disabled = !editable;
+    if (els.assignRole) els.assignRole.disabled = !editable;
+    if (els.assignStart) els.assignStart.disabled = !editable;
+    if (els.assignEnd) els.assignEnd.disabled = !editable;
+    if (els.assignNotes) els.assignNotes.disabled = !editable;
+
+    setCardVisibilityFromChild(els.assignBtn, editable);
+    setCardVisibilityFromChild(els.newProjectBtn, editable);
+    setCardVisibilityFromChild(els.newEmployeeBtn, editable);
+    setSectionCardVisibilityById("notificationList", editable);
+    setSectionCardVisibilityById("auditList", editable);
   }
 
   async function handleChangePassword() {
-    if (!isLoggedIn()) return;
     if (!supabaseClient?.auth) return;
 
     const newPassword = prompt("Nytt passord:");
@@ -239,7 +256,6 @@
   }
 
   async function handleResetPassword() {
-    if (!isLoggedIn()) return;
     if (!supabaseClient?.auth) return;
     const email = state.currentUserEmail || prompt("E-postadresse:");
     if (!email) return;
@@ -697,7 +713,6 @@
   }
 
   async function resetDemo() {
-    if (!isSuperadmin()) return;
     if (!confirm("Vil du nullstille til demo-data?")) return;
 
     state.employees = normalizeEmployees(structuredClone(DEFAULT_EMPLOYEES));
@@ -747,7 +762,9 @@
   }
 
   async function createEntry() {
-    if (!canEdit()) return;
+    if (!canEditApp()) {
+      return;
+    }
     const projectId = els.assignProject.value;
     const employeeName = els.assignEmployee.value;
     const role = els.assignRole.value;
@@ -807,7 +824,7 @@
   }
 
   function openEditModal(entryId) {
-    if (!canEdit()) return;
+    if (!canEditApp()) return;
     state.selectedEntryId = entryId;
     const entry = state.entries.find(e => e.id === entryId);
     if (!entry) return;
@@ -831,7 +848,9 @@
   }
 
   async function saveEditedEntry() {
-    if (!canEdit()) return;
+    if (!canEditApp()) {
+      return;
+    }
     const entry = state.entries.find(e => e.id === state.selectedEntryId);
     if (!entry) return;
 
@@ -858,7 +877,9 @@
   }
 
   async function deleteEditedEntry() {
-    if (!canEdit()) return;
+    if (!canEditApp()) {
+      return;
+    }
     const entry = state.entries.find(e => e.id === state.selectedEntryId);
     if (!entry) return;
     if (!confirm("Vil du fjerne denne tildelingen?")) return;
@@ -880,7 +901,7 @@
   }
 
   function openProjectModal(projectId = null) {
-    if (!canEdit()) return;
+    if (!canEditApp()) return;
     state.selectedProjectId = projectId;
     const project = state.projects.find(p => p.id === projectId);
 
@@ -906,7 +927,9 @@
   }
 
   async function saveProjectFromModal() {
-    if (!canEdit()) return;
+    if (!canEditApp()) {
+      return;
+    }
     const name = els.projectName.value.trim();
     const category = els.projectCategory.value;
     const status = els.projectStatus.value;
@@ -973,7 +996,9 @@
   }
 
   async function deleteProjectFromModal() {
-    if (!canEdit()) return;
+    if (!canEditApp()) {
+      return;
+    }
     const project = state.projects.find(p => p.id === state.selectedProjectId);
     if (!project) return;
 
@@ -1002,7 +1027,7 @@
   }
 
   function openEmployeeModal(employeeId = null) {
-    if (!canEdit()) return;
+    if (!canEditApp()) return;
     state.selectedEmployeeId = employeeId;
     const employee = state.employees.find(e => e.id === employeeId);
 
@@ -1025,7 +1050,9 @@
   }
 
   async function saveEmployeeFromModal() {
-    if (!canEdit()) return;
+    if (!canEditApp()) {
+      return;
+    }
     const name = els.employeeName.value.trim();
     const email = els.employeeEmail.value.trim();
     const phone = els.employeePhone.value.trim();
@@ -1091,7 +1118,9 @@
   }
 
   async function deleteEmployeeFromModal() {
-    if (!canEdit()) return;
+    if (!canEditApp()) {
+      return;
+    }
     const employee = state.employees.find(e => e.id === state.selectedEmployeeId);
     if (!employee) return;
 
@@ -1120,7 +1149,9 @@
   }
 
   async function bulkAddEmployees() {
-    if (!canEdit()) return;
+    if (!canEditApp()) {
+      return;
+    }
     const names = els.bulkEmployees.value.split("\n").map(v => v.trim()).filter(Boolean);
     if (!names.length) {
       alert("Lim inn minst ett navn.");
@@ -1470,7 +1501,7 @@
             class="entry-bar ${getEntryBarClasses(project, entry.role)}"
             style="left:${left}px; width:${width}px;"
             data-entry-id="${escapeHtml(entry.id)}"
-            draggable="${canEdit()}"
+            draggable="true"
             title="${escapeHtml(`${employee.name} | ${project.name} | ${entry.role} | ${entry.start_date} - ${entry.end_date}${entry.notes ? ` | ${entry.notes}` : ""}`)}"
           >
             <div class="font-semibold">${escapeHtml(project.name)}</div>
@@ -1557,7 +1588,7 @@
             class="entry-bar ${getEntryBarClasses(project, entry.role)}"
             style="left:${left}px; width:${width}px;"
             data-entry-id="${escapeHtml(entry.id)}"
-            draggable="${canEdit()}"
+            draggable="true"
             title="${escapeHtml(`${employee.name} | ${project.name} | ${entry.role} | ${entry.start_date} - ${entry.end_date}`)}"
           >
             <div class="font-semibold">${escapeHtml(project.name)}</div>
@@ -1765,15 +1796,12 @@
   }
 
   function bindEntryClicks() {
-    if (!canEdit()) {
-      els.calendarWrap.querySelectorAll("[data-entry-id]").forEach(el => {
+    els.calendarWrap.querySelectorAll("[data-entry-id]").forEach(el => {
+      if (!canEditApp()) {
         el.setAttribute("draggable", "false");
         el.style.cursor = "default";
-      });
-      return;
-    }
-
-    els.calendarWrap.querySelectorAll("[data-entry-id]").forEach(el => {
+        return;
+      }
       el.addEventListener("click", () => {
         if (state.justDraggedEntryId === el.dataset.entryId) return;
         openEditModal(el.dataset.entryId);
@@ -1793,6 +1821,8 @@
         state.dragEntryId = null;
       });
     });
+
+    if (!canEditApp()) return;
 
     els.calendarWrap.querySelectorAll(".drop-row").forEach(row => {
       row.addEventListener("dragover", event => {
@@ -1820,12 +1850,10 @@
   }
 
   async function moveEntryToEmployee(entryId, targetEmployeeName) {
-    if (!canEdit()) return;
     return moveEntryByDrop(entryId, targetEmployeeName, null);
   }
 
   async function moveEntryByDrop(entryId, targetEmployeeName, dropMeta = null) {
-    if (!canEdit()) return;
     const entry = state.entries.find(e => e.id === entryId);
     if (!entry) return;
 
