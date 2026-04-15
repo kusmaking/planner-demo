@@ -1820,7 +1820,7 @@
 
     const calendarWrapWidth = Math.max(els.calendarWrap.clientWidth - 8, 900);
     const stickyWidth = 280;
-    const usableWidth = Math.max(calendarWrapWidth - stickyWidth, state.viewMode === "Uke" ? 980 : 1100);
+    const usableWidth = Math.max(calendarWrapWidth - stickyWidth, state.viewMode === "Uke" ? 980 : 2600);
     const colWidth = usableWidth / days.length;
     const totalWidth = colWidth * days.length;
 
@@ -1835,7 +1835,7 @@
 
       html += `
         <div class="border-b border-r border-slate-200 px-2 py-2 text-center text-xs ${weekend ? "bg-slate-50" : "bg-white"} ${isTodayFlag ? "text-blue-700 font-semibold" : "text-slate-600"}">
-          <div class="font-semibold">${weekdayShort(day)}</div>
+          <div class="font-semibold" data-month-anchor="${day.getDate() === 1 ? day.getMonth() : ""}">${weekdayShort(day)}</div>
           ${weekLabel}
           <div class="font-semibold">${day.getDate()}</div>
           <div>${monthShort(day)}</div>
@@ -1908,6 +1908,7 @@
     els.calendarWrap.innerHTML = html;
     bindEntryClicks();
     renderWarnings(uniqueArray(warnings));
+    scheduleMonthViewFocus();
   }
 
   function renderPersonalYearCalendar() {
@@ -1986,6 +1987,7 @@
     els.calendarWrap.innerHTML = html;
     bindEntryClicks();
     renderWarnings(uniqueArray(warnings));
+    scheduleMonthViewFocus();
   }
 
   function renderProjectCalendar() {
@@ -2006,7 +2008,7 @@
 
     const calendarWrapWidth = Math.max(els.calendarWrap.clientWidth - 8, 900);
     const stickyWidth = 320;
-    const usableWidth = Math.max(calendarWrapWidth - stickyWidth, state.viewMode === "Uke" ? 980 : 1100);
+    const usableWidth = Math.max(calendarWrapWidth - stickyWidth, state.viewMode === "Uke" ? 980 : 2600);
     const colWidth = usableWidth / days.length;
     const totalWidth = colWidth * days.length;
 
@@ -2021,7 +2023,7 @@
 
       html += `
         <div class="border-b border-r border-slate-200 px-2 py-2 text-center text-xs ${weekend ? "bg-slate-50" : "bg-white"} ${isTodayFlag ? "text-blue-700 font-semibold" : "text-slate-600"}">
-          <div class="font-semibold">${weekdayShort(day)}</div>
+          <div class="font-semibold" data-month-anchor="${day.getDate() === 1 ? day.getMonth() : ""}">${weekdayShort(day)}</div>
           ${weekLabel}
           <div class="font-semibold">${day.getDate()}</div>
           <div>${monthShort(day)}</div>
@@ -2161,6 +2163,25 @@
     renderWarnings(uniqueArray(warnings));
   }
 
+
+
+  function ensureMonthViewFocus() {
+    if (state.viewMode !== "Måned" || !els.calendarWrap) return;
+
+    const targetMonthIndex = state.startDate.getMonth();
+    const monthHeaders = Array.from(els.calendarWrap.querySelectorAll("[data-month-anchor]"));
+    const target = monthHeaders.find(el => Number(el.dataset.monthAnchor) === targetMonthIndex);
+    if (!target) return;
+
+    const wrapRect = els.calendarWrap.getBoundingClientRect();
+    const targetRect = target.getBoundingClientRect();
+    const delta = (targetRect.left - wrapRect.left) + els.calendarWrap.scrollLeft;
+    els.calendarWrap.scrollTo({ left: Math.max(0, delta), behavior: "auto" });
+  }
+
+  function scheduleMonthViewFocus() {
+    requestAnimationFrame(() => ensureMonthViewFocus());
+  }
   function renderWarnings(warnings) {
     if (!warnings.length) {
       els.warningBox.classList.add("hidden");
@@ -2331,10 +2352,9 @@
     }
 
     if (state.viewMode === "Måned") {
-      return {
-        start: new Date(state.startDate.getFullYear(), state.startDate.getMonth(), 1),
-        end: new Date(state.startDate.getFullYear(), state.startDate.getMonth() + 1, 0)
-      };
+      const start = new Date(state.startDate.getFullYear(), state.startDate.getMonth(), 1);
+      const end = new Date(state.startDate.getFullYear(), state.startDate.getMonth() + 3, 0);
+      return { start, end };
     }
 
     return {
@@ -2352,7 +2372,13 @@
     }
 
     if (state.viewMode === "Måned") {
-      return `${viewLabel} • ${capitalize(monthLong(range.start))} ${range.start.getFullYear()}`;
+      const endMonth = new Date(range.end.getFullYear(), range.end.getMonth(), 1);
+      const sameYear = range.start.getFullYear() === endMonth.getFullYear();
+      const startLabel = `${capitalize(monthLong(range.start))}`;
+      const endLabel = `${capitalize(monthLong(endMonth))}`;
+      return sameYear
+        ? `${viewLabel} • ${startLabel}–${endLabel} ${range.start.getFullYear()}`
+        : `${viewLabel} • ${startLabel} ${range.start.getFullYear()} – ${endLabel} ${endMonth.getFullYear()}`;
     }
 
     return `${viewLabel} • ${range.start.getFullYear()}`;
