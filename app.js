@@ -41,7 +41,9 @@
   async function init() {
     cacheElements();
     ensureAccountPanel();
+    ensureHolidayPanel();
     setupStaticOptions();
+    prepareSearchInput();
     bindEvents();
 
     state.viewMode = "Måned";
@@ -73,7 +75,7 @@
       "employeeList", "kanbanBoard", "notificationList", "auditList", "editModal", "closeModalBtn",
       "editProject", "editEmployee", "editRole", "editStart", "editEnd", "editNotes",
       "saveEditBtn", "deleteEditBtn", "storageBadge", "resetDemoBtn", "systemStatus", "rangeTitle",
-      "saveStatus", "newProjectBtn", "projectModal", "projectModalTitle", "closeProjectModalBtn",
+      "saveStatus", "newProjectBtn", "holidayList", "projectModal", "projectModalTitle", "closeProjectModalBtn",
       "projectName", "projectCategory", "projectStatus", "projectPlannedStart", "projectPlannedEnd",
       "projectLocation", "projectHeadcount", "projectNotes", "saveProjectBtn", "deleteProjectBtn",
       "newEmployeeBtn", "employeeModal", "employeeModalTitle", "closeEmployeeModalBtn",
@@ -82,6 +84,48 @@
     ];
 
     ids.forEach(id => els[id] = document.getElementById(id));
+  }
+
+
+  function ensureHolidayPanel() {
+    if (document.getElementById("holidayList")) {
+      els.holidayList = document.getElementById("holidayList");
+      return;
+    }
+
+    const sideWrap = els.systemStatus?.closest(".space-y-4");
+    if (!sideWrap) return;
+
+    const card = document.createElement("div");
+    card.className = "rounded-2xl bg-white border border-slate-200 shadow-sm";
+    card.innerHTML = `
+      <div class="p-4 border-b border-slate-200"><h2 class="font-semibold">Helligdager</h2></div>
+      <div id="holidayList" class="p-4 space-y-2 text-sm"></div>
+    `;
+
+    sideWrap.appendChild(card);
+    els.holidayList = document.getElementById("holidayList");
+  }
+
+  function prepareSearchInput() {
+    if (!els.searchInput) return;
+
+    state.search = "";
+    els.searchInput.value = "";
+    els.searchInput.setAttribute("autocomplete", "off");
+    els.searchInput.setAttribute("autocorrect", "off");
+    els.searchInput.setAttribute("autocapitalize", "off");
+    els.searchInput.setAttribute("spellcheck", "false");
+    els.searchInput.setAttribute("name", "employee-search");
+    els.searchInput.setAttribute("data-form-type", "other");
+
+    requestAnimationFrame(() => {
+      if (els.searchInput) els.searchInput.value = "";
+    });
+
+    setTimeout(() => {
+      if (els.searchInput) els.searchInput.value = "";
+    }, 150);
   }
 
 
@@ -1446,6 +1490,7 @@
     populateDynamicSelects();
     renderStats();
     renderLegend();
+    renderHolidayList();
     renderProjects();
     renderEmployees();
     renderCalendar();
@@ -1529,6 +1574,21 @@
       </div>
     `;
   }
+
+  function renderHolidayList() {
+    if (!els.holidayList) return;
+
+    const year = state.startDate.getFullYear();
+    const holidays = getNorwegianHolidays(year);
+
+    els.holidayList.innerHTML = holidays.map(holiday => `
+      <div class="flex items-start justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+        <div class="font-medium text-slate-800">${escapeHtml(holiday.name)}</div>
+        <div class="text-xs text-red-700 whitespace-nowrap">${escapeHtml(formatDate(holiday.date))}</div>
+      </div>
+    `).join("") || `<div class="text-sm text-slate-500">Ingen helligdager funnet.</div>`;
+  }
+
 
   function renderProjects() {
     els.projectList.innerHTML = state.projects
@@ -2353,6 +2413,30 @@
       a.getMonth() === b.getMonth() &&
       a.getDate() === b.getDate();
   }
+
+  function getNorwegianHolidays(year) {
+    const easterSunday = getEasterSunday(year);
+    const holidays = [
+      { date: `${year}-01-01`, name: "1. nyttårsdag" },
+      { date: toIsoDate(addDays(easterSunday, -7)), name: "Palmesøndag" },
+      { date: toIsoDate(addDays(easterSunday, -3)), name: "Skjærtorsdag" },
+      { date: toIsoDate(addDays(easterSunday, -2)), name: "Langfredag" },
+      { date: toIsoDate(addDays(easterSunday, 0)), name: "1. påskedag" },
+      { date: toIsoDate(addDays(easterSunday, 1)), name: "2. påskedag" },
+      { date: `${year}-05-01`, name: "Arbeidernes dag" },
+      { date: `${year}-05-17`, name: "Grunnlovsdag" },
+      { date: toIsoDate(addDays(easterSunday, 39)), name: "Kristi himmelfartsdag" },
+      { date: toIsoDate(addDays(easterSunday, 49)), name: "1. pinsedag" },
+      { date: toIsoDate(addDays(easterSunday, 50)), name: "2. pinsedag" },
+      { date: `${year}-12-24`, name: "Julaften" },
+      { date: `${year}-12-25`, name: "1. juledag" },
+      { date: `${year}-12-26`, name: "2. juledag" },
+      { date: `${year}-12-31`, name: "Nyttårsaften" }
+    ];
+
+    return holidays.sort((a, b) => a.date.localeCompare(b.date));
+  }
+
 
   function getNorwegianHolidayInfo(date) {
     const year = date.getFullYear();
