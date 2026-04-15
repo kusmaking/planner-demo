@@ -28,8 +28,7 @@
       entryCountByProject: new Map()
     },
     dragEntryId: null,
-    justDraggedEntryId: null,
-    activeTab: "calendar"
+    justDraggedEntryId: null
   };
 
   const els = {};
@@ -42,9 +41,7 @@
   async function init() {
     cacheElements();
     ensureAccountPanel();
-    ensureHolidayPanel();
     setupStaticOptions();
-    prepareSearchInput();
     bindEvents();
 
     state.viewMode = "Måned";
@@ -71,12 +68,12 @@
   function cacheElements() {
     const ids = [
       "statsRow", "searchInput", "employeeFilter", "viewMode", "calendarMode", "prevBtn", "nextBtn", "todayBtn",
-      "calendarWrap", "warningBox", "legendList", "projectList", "assignProject", "assignEmployee", "assignRole",
+      "calendarWrap", "warningBox", "legendList", "projectList", "assignProject", "assignEmployee", "assignEmployeeFields", "assignHeadcountHint", "assignRole",
       "assignStart", "assignEnd", "assignNotes", "assignBtn", "bulkEmployees", "bulkAddBtn",
       "employeeList", "kanbanBoard", "notificationList", "auditList", "editModal", "closeModalBtn",
       "editProject", "editEmployee", "editRole", "editStart", "editEnd", "editNotes",
       "saveEditBtn", "deleteEditBtn", "storageBadge", "resetDemoBtn", "systemStatus", "rangeTitle",
-      "saveStatus", "newProjectBtn", "holidayList", "plannerTabs", "tabCalendarBtn", "tabProjectsBtn", "tabEmployeesBtn", "tabAdminBtn", "tabCalendarSection", "tabProjectsSection", "tabEmployeesSection", "tabAdminSection", "projectModal", "projectModalTitle", "closeProjectModalBtn",
+      "saveStatus", "newProjectBtn", "projectModal", "projectModalTitle", "closeProjectModalBtn",
       "projectName", "projectCategory", "projectStatus", "projectPlannedStart", "projectPlannedEnd",
       "projectLocation", "projectHeadcount", "projectNotes", "saveProjectBtn", "deleteProjectBtn",
       "newEmployeeBtn", "employeeModal", "employeeModalTitle", "closeEmployeeModalBtn",
@@ -85,75 +82,6 @@
     ];
 
     ids.forEach(id => els[id] = document.getElementById(id));
-  }
-
-
-  function ensureHolidayPanel() {
-    if (document.getElementById("holidayList")) {
-      els.holidayList = document.getElementById("holidayList");
-      return;
-    }
-
-    const sideWrap = els.systemStatus?.closest(".space-y-4");
-    if (!sideWrap) return;
-
-    const card = document.createElement("div");
-    card.className = "rounded-2xl bg-white border border-slate-200 shadow-sm";
-    card.innerHTML = `
-      <div class="p-4 border-b border-slate-200"><h2 class="font-semibold">Helligdager</h2></div>
-      <div id="holidayList" class="p-4 space-y-2 text-sm"></div>
-    `;
-
-    sideWrap.appendChild(card);
-    els.holidayList = document.getElementById("holidayList");
-  }
-
-  function prepareSearchInput() {
-    if (!els.searchInput) return;
-
-    const originalInput = els.searchInput;
-    const freshInput = originalInput.cloneNode(true);
-    originalInput.parentNode.replaceChild(freshInput, originalInput);
-    els.searchInput = freshInput;
-
-    state.search = "";
-    els.searchInput.value = "";
-    els.searchInput.type = "search";
-    els.searchInput.readOnly = true;
-    els.searchInput.setAttribute("autocomplete", "new-password");
-    els.searchInput.setAttribute("autocorrect", "off");
-    els.searchInput.setAttribute("autocapitalize", "off");
-    els.searchInput.setAttribute("spellcheck", "false");
-    els.searchInput.setAttribute("name", `employee-search-${Date.now()}`);
-    els.searchInput.setAttribute("data-form-type", "other");
-    els.searchInput.setAttribute("data-lpignore", "true");
-    els.searchInput.setAttribute("data-1p-ignore", "true");
-
-    const unlockSearchInput = () => {
-      if (!els.searchInput) return;
-      els.searchInput.readOnly = false;
-      els.searchInput.value = "";
-      state.search = "";
-    };
-
-    els.searchInput.addEventListener("focus", unlockSearchInput, { once: true });
-
-    requestAnimationFrame(() => {
-      unlockSearchInput();
-    });
-
-    window.addEventListener("pageshow", () => {
-      if (!els.searchInput) return;
-      state.search = "";
-      els.searchInput.value = "";
-    }, { once: true });
-
-    setTimeout(() => {
-      if (!els.searchInput) return;
-      state.search = "";
-      els.searchInput.value = "";
-      els.searchInput.readOnly = false;
-    }, 250);
   }
 
 
@@ -306,83 +234,6 @@
     els.accountUserInfo.textContent = `${nameText}${roleText}`;
   }
 
-
-  function bindTabEvents() {
-    if (els.tabCalendarBtn) els.tabCalendarBtn.addEventListener("click", () => setActiveTab("calendar"));
-    if (els.tabProjectsBtn) els.tabProjectsBtn.addEventListener("click", () => setActiveTab("projects"));
-    if (els.tabEmployeesBtn) els.tabEmployeesBtn.addEventListener("click", () => setActiveTab("employees"));
-    if (els.tabAdminBtn) els.tabAdminBtn.addEventListener("click", () => setActiveTab("admin"));
-  }
-
-  function setActiveTab(tabName) {
-    state.activeTab = tabName;
-    renderLayoutTabs();
-  }
-
-  function renderLayoutTabs() {
-    const canPlan = canPlanApp();
-    const isSA = isSuperadmin();
-
-    const allowedTabs = canPlan
-      ? ["calendar", "projects", "employees", "admin"]
-      : ["calendar"];
-
-    if (!allowedTabs.includes(state.activeTab)) {
-      state.activeTab = "calendar";
-    }
-
-    const buttonMap = {
-      calendar: els.tabCalendarBtn,
-      projects: els.tabProjectsBtn,
-      employees: els.tabEmployeesBtn,
-      admin: els.tabAdminBtn
-    };
-
-    const sectionMap = {
-      calendar: els.tabCalendarSection,
-      projects: els.tabProjectsSection,
-      employees: els.tabEmployeesSection,
-      admin: els.tabAdminSection
-    };
-
-    Object.entries(buttonMap).forEach(([tabName, btn]) => {
-      if (!btn) return;
-      const visible = allowedTabs.includes(tabName);
-      btn.style.display = visible ? "" : "none";
-      btn.className = [
-        "rounded-2xl px-4 py-2 text-sm border transition",
-        state.activeTab === tabName
-          ? "border-slate-900 bg-slate-900 text-white"
-          : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
-      ].join(" ");
-    });
-
-    Object.entries(sectionMap).forEach(([tabName, section]) => {
-      if (!section) return;
-      section.style.display = state.activeTab === tabName ? "" : "none";
-    });
-
-    if (els.plannerTabs) {
-      els.plannerTabs.style.display = "";
-    }
-
-    if (!canPlan && els.tabAdminBtn) {
-      els.tabAdminBtn.style.display = "none";
-    }
-
-    if (!canPlan && els.tabProjectsBtn) {
-      els.tabProjectsBtn.style.display = "none";
-    }
-
-    if (!canPlan && els.tabEmployeesBtn) {
-      els.tabEmployeesBtn.style.display = "none";
-    }
-
-    if (!isSA && els.tabAdminSection && state.activeTab === "admin") {
-      // Planner can still use admin tab for kanban/systemoversikt if visible through role chrome.
-    }
-  }
-
   function applyRoleChrome() {
     updateAccountPanel();
 
@@ -492,8 +343,6 @@
       if (systemCard) systemCard.style.display = "";
       if (legendCard) legendCard.style.display = "";
     }
-
-    renderLayoutTabs();
   }
 
   async function handleLogout() {
@@ -626,8 +475,6 @@
       renderStats();
       renderCalendar();
     });
-
-    bindTabEvents();
 
     els.employeeFilter.addEventListener("change", e => {
       state.employeeFilter = e.target.value;
@@ -1129,15 +976,89 @@
     }
   }
 
+
+  function getAssignableEmployees() {
+    return state.employees
+      .filter(employee => employee.active !== false)
+      .sort((a, b) => a.name.localeCompare(b.name, "no"));
+  }
+
+  function getAssignSlotCount(projectId = els.assignProject?.value) {
+    const project = getProjectById(projectId);
+    const required = Number(project?.headcount_required || 0);
+    return Math.max(1, required || 1);
+  }
+
+  function getCurrentAssignSelections() {
+    if (els.assignEmployeeFields) {
+      return Array.from(els.assignEmployeeFields.querySelectorAll("[data-assign-employee-select]"))
+        .map(select => select.value || "");
+    }
+    return els.assignEmployee ? [els.assignEmployee.value || ""] : [];
+  }
+
+  function renderAssignEmployeeFields(selectedValues = null) {
+    if (!els.assignEmployeeFields) return;
+
+    const selections = Array.isArray(selectedValues) ? selectedValues : getCurrentAssignSelections();
+    const slotCount = getAssignSlotCount();
+    const employees = getAssignableEmployees();
+
+    els.assignEmployeeFields.innerHTML = Array.from({ length: slotCount }, (_, index) => {
+      const selected = selections[index] || "";
+      const options = ['<option value="">Velg ansatt</option>']
+        .concat(employees.map(employee => {
+          const selectedAttr = employee.name === selected ? ' selected' : '';
+          return `<option value="${escapeHtml(employee.name)}"${selectedAttr}>${escapeHtml(employee.name)}</option>`;
+        }))
+        .join("");
+
+      return `
+        <div class="space-y-1">
+          <label class="text-xs font-medium text-slate-600">Ansatt ${index + 1}</label>
+          <select data-assign-employee-select class="w-full rounded-2xl border border-slate-300 px-3 py-2">
+            ${options}
+          </select>
+        </div>
+      `;
+    }).join("");
+
+    if (els.assignHeadcountHint) {
+      els.assignHeadcountHint.textContent = slotCount === 1
+        ? "Prosjektet er satt opp med 1 person."
+        : `Prosjektet er satt opp med ${slotCount} personer. Velg opptil ${slotCount} ansatte.`;
+    }
+  }
+
+  function getSelectedAssignEmployees() {
+    if (els.assignEmployeeFields) {
+      return Array.from(els.assignEmployeeFields.querySelectorAll("[data-assign-employee-select]"))
+        .map(select => (select.value || "").trim())
+        .filter(Boolean);
+    }
+    return els.assignEmployee?.value ? [els.assignEmployee.value.trim()] : [];
+  }
+
+  function prefillAssignFromProject(projectId) {
+    if (!canEditApp() || !projectId || !els.assignProject) return;
+    els.assignProject.value = projectId;
+    syncAssignDatesFromProject();
+    renderAssignEmployeeFields([]);
+    setActiveTab("projects");
+    els.assignProject.scrollIntoView({ block: "center", behavior: "smooth" });
+  }
+
   function syncAssignDatesFromProject() {
     const project = getProjectById(els.assignProject.value);
     if (!project) {
-      els.assignStart.value = "";
-      els.assignEnd.value = "";
+      if (els.assignStart) els.assignStart.value = "";
+      if (els.assignEnd) els.assignEnd.value = "";
+      renderAssignEmployeeFields([]);
       return;
     }
     els.assignStart.value = project.planned_start_date || "";
     els.assignEnd.value = project.planned_end_date || "";
+    renderAssignEmployeeFields();
   }
 
   function clearAssignForm() {
@@ -1147,19 +1068,26 @@
     if (els.assignStart) els.assignStart.value = "";
     if (els.assignEnd) els.assignEnd.value = "";
     if (els.assignNotes) els.assignNotes.value = "";
+    renderAssignEmployeeFields([]);
   }
 
   async function createEntry() {
     if (!canEditApp()) return;
     const projectId = els.assignProject.value;
-    const employeeName = els.assignEmployee.value;
+    const employeeNames = getSelectedAssignEmployees();
     const role = els.assignRole.value;
     let startDate = els.assignStart.value;
     let endDate = els.assignEnd.value;
     const notes = els.assignNotes.value.trim();
 
-    if (!projectId || !employeeName) {
-      alert("Fyll ut prosjekt og ansatt.");
+    if (!projectId || !employeeNames.length) {
+      alert("Fyll ut prosjekt og minst én ansatt.");
+      return;
+    }
+
+    const uniqueEmployees = [...new Set(employeeNames)];
+    if (uniqueEmployees.length !== employeeNames.length) {
+      alert("Du kan ikke velge samme ansatt flere ganger i samme tildeling.");
       return;
     }
 
@@ -1182,7 +1110,7 @@
       return;
     }
 
-    const entry = {
+    const newEntries = uniqueEmployees.map(employeeName => ({
       id: crypto.randomUUID(),
       project_id: projectId,
       employee_name: employeeName,
@@ -1190,13 +1118,14 @@
       start_date: startDate,
       end_date: endDate,
       notes
-    };
+    }));
 
-    state.entries.push(entry);
+    state.entries.push(...newEntries);
     rebuildDerivedState();
-    const result = await saveRow("planner_entries", entry);
+    const result = await saveRows("planner_entries", newEntries);
     if (!result.ok) {
-      state.entries = state.entries.filter(e => e.id !== entry.id);
+      const ids = new Set(newEntries.map(entry => entry.id));
+      state.entries = state.entries.filter(entry => !ids.has(entry.id));
       rebuildDerivedState();
       renderAll();
       return;
@@ -1205,8 +1134,15 @@
     clearAssignForm();
     renderAll();
 
-    void addAudit(`La inn tildeling: ${employeeName} → ${project.name}`);
-    void addNotification(employeeName, project.name);
+    if (newEntries.length === 1) {
+      void addAudit(`La inn tildeling: ${uniqueEmployees[0]} → ${project.name}`);
+    } else {
+      void addAudit(`La inn ${newEntries.length} tildelinger på prosjekt: ${project.name}`);
+    }
+
+    uniqueEmployees.forEach(employeeName => {
+      void addNotification(employeeName, project.name);
+    });
   }
 
   function openEditModal(entryId) {
@@ -1372,6 +1308,9 @@
 
     closeProjectModal();
     renderAll();
+    if (els.assignProject && els.assignProject.value === project.id) {
+      renderAssignEmployeeFields();
+    }
     void addAudit(`${state.selectedProjectId ? "Redigerte" : "Opprettet"} prosjekt: ${name}`);
   }
 
@@ -1599,7 +1538,6 @@
     populateDynamicSelects();
     renderStats();
     renderLegend();
-    renderHolidayList();
     renderProjects();
     renderEmployees();
     renderCalendar();
@@ -1620,13 +1558,16 @@
     fillSelect(els.employeeFilter, employeeFilterItems, state.employeeFilter, "name", "id");
     fillSelect(els.assignEmployee, [{ id: "", name: "Velg ansatt" }, ...state.employees.filter(e => e.active !== false).map(e => ({ id: e.name, name: e.name }))], "", "name", "id");
     fillSelect(els.editEmployee, state.employees.filter(e => e.active !== false), null, "name", "name");
-    fillSelect(els.assignProject, [{ id: "", name: "Velg prosjekt" }, ...state.projects.map(p => ({ id: p.id, name: p.name }))], "", "name", "id");
+    fillSelect(els.assignProject, [{ id: "", name: "Velg prosjekt" }, ...state.projects.map(p => ({ id: p.id, name: p.name }))], els.assignProject?.value || "", "name", "id");
     fillSelect(els.editProject, state.projects, null, "name", "id");
     fillSelect(els.viewMode, ["Uke", "Måned", "År"], state.viewMode);
     fillSelect(els.calendarMode, [
       { id: "personal", name: "Personalplan" },
       { id: "project", name: "Prosjektplan" }
     ], state.calendarMode, "name", "id");
+
+    renderAssignEmployeeFields();
+
     if (!els.assignProject.value) {
       if (els.assignStart) els.assignStart.value = "";
       if (els.assignEnd) els.assignEnd.value = "";
@@ -1684,21 +1625,6 @@
     `;
   }
 
-  function renderHolidayList() {
-    if (!els.holidayList) return;
-
-    const year = state.startDate.getFullYear();
-    const holidays = getNorwegianHolidays(year);
-
-    els.holidayList.innerHTML = holidays.map(holiday => `
-      <div class="flex items-start justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
-        <div class="font-medium text-slate-800">${escapeHtml(holiday.name)}</div>
-        <div class="text-xs text-red-700 whitespace-nowrap">${escapeHtml(formatDate(holiday.date))}</div>
-      </div>
-    `).join("") || `<div class="text-sm text-slate-500">Ingen helligdager funnet.</div>`;
-  }
-
-
   function renderProjects() {
     els.projectList.innerHTML = state.projects
       .slice()
@@ -1707,26 +1633,36 @@
         const assigned = getProjectAssignedCount(project.id);
         const required = Number(project.headcount_required || 0);
         const staffing = getProjectStaffingLabel(project.id, required);
-        const projectCardClasses = project.status === "Avsluttet"
-          ? "w-full text-left rounded-xl border border-slate-300 p-3 bg-slate-100 hover:bg-slate-200"
-          : "w-full text-left rounded-xl border border-slate-200 p-3 bg-slate-50 hover:bg-slate-100";
+        const statusClasses = STATUS_COLORS[project.status] || "bg-slate-100 border-slate-200 text-slate-700";
 
         return `
-          <button data-project-id="${escapeHtml(project.id)}" class="${projectCardClasses}">
-            <div class="flex items-center justify-between gap-2">
-              <div class="font-medium">${escapeHtml(project.name)}</div>
-              <span class="rounded-full border px-2 py-0.5 text-xs ${STATUS_COLORS[project.status] || "bg-slate-100 border-slate-200 text-slate-700"}">${escapeHtml(project.status)}</span>
+          <div class="rounded-2xl border ${project.status === "Avsluttet" ? "border-slate-300 bg-slate-100" : "border-slate-200 bg-white"} p-3">
+            <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+              <div class="min-w-0">
+                <div class="flex flex-wrap items-center gap-2">
+                  <div class="font-medium">${escapeHtml(project.name)}</div>
+                  <span class="rounded-full border px-2 py-0.5 text-xs ${statusClasses}">${escapeHtml(project.status)}</span>
+                </div>
+                <div class="mt-1 text-xs text-slate-500">${escapeHtml(project.category)}${project.location ? ` • ${escapeHtml(project.location)}` : ""}</div>
+                <div class="mt-1 text-xs text-slate-600">${escapeHtml(formatProjectDateRange(project))}</div>
+                <div class="mt-1 text-xs ${staffing.variant}">${escapeHtml(staffing.text)}${required ? ` (${assigned}/${required})` : ""}</div>
+                <div class="mt-1 text-xs text-slate-500">${escapeHtml(project.notes || "")}</div>
+              </div>
+              <div class="flex shrink-0 gap-2">
+                <button data-project-assign-id="${escapeHtml(project.id)}" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm hover:bg-slate-50">Bemann</button>
+                <button data-project-id="${escapeHtml(project.id)}" class="rounded-xl bg-slate-900 px-3 py-2 text-sm text-white hover:bg-slate-800">Rediger</button>
+              </div>
             </div>
-            <div class="text-xs text-slate-500 mt-1">${escapeHtml(project.category)}${project.location ? ` • ${escapeHtml(project.location)}` : ""}</div>
-            <div class="text-xs text-slate-600 mt-1">${escapeHtml(formatProjectDateRange(project))}</div>
-            <div class="text-xs mt-1 ${staffing.variant}">${escapeHtml(staffing.text)}${required ? ` (${assigned}/${required})` : ""}</div>
-            <div class="text-xs text-slate-600 mt-1">${escapeHtml(project.notes || "")}</div>
-          </button>
+          </div>
         `;
       }).join("") || `<div class="text-sm text-slate-500">Ingen prosjekter.</div>`;
 
     els.projectList.querySelectorAll("[data-project-id]").forEach(btn => {
       btn.addEventListener("click", () => openProjectModal(btn.dataset.projectId));
+    });
+
+    els.projectList.querySelectorAll("[data-project-assign-id]").forEach(btn => {
+      btn.addEventListener("click", () => prefillAssignFromProject(btn.dataset.projectAssignId));
     });
   }
 
@@ -1841,21 +1777,15 @@
 
     for (const day of days) {
       const weekend = isWeekend(day);
-      const holidayInfo = getNorwegianHolidayInfo(day);
-      const isRedDay = isNorwegianRedDay(day);
       const isTodayFlag = sameDate(day, new Date());
       const weekLabel = state.viewMode === "Uke" ? `<div>Uke ${getIsoWeek(day)}</div>` : "";
-      const dayHeaderBg = holidayInfo ? "bg-red-100" : isRedDay ? "bg-red-50" : weekend ? "bg-slate-50" : "bg-white";
-      const dayHeaderText = holidayInfo ? "text-red-700" : isTodayFlag ? "text-blue-700 font-semibold" : isRedDay ? "text-red-600" : "text-slate-600";
-      const holidayLabel = holidayInfo ? `<div class="mt-1 text-[10px] font-medium text-red-700 leading-tight">${escapeHtml(holidayInfo.name)}</div>` : "";
 
       html += `
-        <div class="border-b border-r border-slate-200 px-2 py-2 text-center text-xs ${dayHeaderBg} ${dayHeaderText}">
+        <div class="border-b border-r border-slate-200 px-2 py-2 text-center text-xs ${weekend ? "bg-slate-50" : "bg-white"} ${isTodayFlag ? "text-blue-700 font-semibold" : "text-slate-600"}">
           <div class="font-semibold">${weekdayShort(day)}</div>
           ${weekLabel}
           <div class="font-semibold">${day.getDate()}</div>
           <div>${monthShort(day)}</div>
-          ${holidayLabel}
         </div>
       `;
     }
@@ -1880,10 +1810,7 @@
         const day = days[i];
         const weekend = isWeekend(day);
         const isTodayFlag = sameDate(day, new Date());
-        const holidayInfo = getNorwegianHolidayInfo(day);
-        const redDayClass = isNorwegianRedDay(day) ? " holiday" : "";
-        const holidayStyle = holidayInfo ? "background:#fee2e2;" : isSunday(day) ? "background:#fef2f2;" : "";
-        html += `<div class="day-cell ${weekend ? "weekend" : ""}${redDayClass} ${isTodayFlag ? "today" : ""}" style="position:absolute; left:${i * colWidth}px; width:${colWidth}px; ${holidayStyle}"></div>`;
+        html += `<div class="day-cell ${weekend ? "weekend" : ""} ${isTodayFlag ? "today" : ""}" style="position:absolute; left:${i * colWidth}px; width:${colWidth}px;"></div>`;
       }
 
       html += `<div style="position:relative; width:${totalWidth}px; min-height:56px;">`;
@@ -2036,21 +1963,15 @@
 
     for (const day of days) {
       const weekend = isWeekend(day);
-      const holidayInfo = getNorwegianHolidayInfo(day);
-      const isRedDay = isNorwegianRedDay(day);
       const isTodayFlag = sameDate(day, new Date());
       const weekLabel = state.viewMode === "Uke" ? `<div>Uke ${getIsoWeek(day)}</div>` : "";
-      const dayHeaderBg = holidayInfo ? "bg-red-100" : isRedDay ? "bg-red-50" : weekend ? "bg-slate-50" : "bg-white";
-      const dayHeaderText = holidayInfo ? "text-red-700" : isTodayFlag ? "text-blue-700 font-semibold" : isRedDay ? "text-red-600" : "text-slate-600";
-      const holidayLabel = holidayInfo ? `<div class="mt-1 text-[10px] font-medium text-red-700 leading-tight">${escapeHtml(holidayInfo.name)}</div>` : "";
 
       html += `
-        <div class="border-b border-r border-slate-200 px-2 py-2 text-center text-xs ${dayHeaderBg} ${dayHeaderText}">
+        <div class="border-b border-r border-slate-200 px-2 py-2 text-center text-xs ${weekend ? "bg-slate-50" : "bg-white"} ${isTodayFlag ? "text-blue-700 font-semibold" : "text-slate-600"}">
           <div class="font-semibold">${weekdayShort(day)}</div>
           ${weekLabel}
           <div class="font-semibold">${day.getDate()}</div>
           <div>${monthShort(day)}</div>
-          ${holidayLabel}
         </div>
       `;
     }
@@ -2074,10 +1995,7 @@
         const day = days[i];
         const weekend = isWeekend(day);
         const isTodayFlag = sameDate(day, new Date());
-        const holidayInfo = getNorwegianHolidayInfo(day);
-        const redDayClass = isNorwegianRedDay(day) ? " holiday" : "";
-        const holidayStyle = holidayInfo ? "background:#fee2e2;" : isSunday(day) ? "background:#fef2f2;" : "";
-        html += `<div class="day-cell ${weekend ? "weekend" : ""}${redDayClass} ${isTodayFlag ? "today" : ""}" style="position:absolute; left:${i * colWidth}px; width:${colWidth}px; ${holidayStyle}"></div>`;
+        html += `<div class="day-cell ${weekend ? "weekend" : ""} ${isTodayFlag ? "today" : ""}" style="position:absolute; left:${i * colWidth}px; width:${colWidth}px;"></div>`;
       }
 
       html += `<div style="position:relative; width:${totalWidth}px; min-height:56px;">`;
@@ -2521,79 +2439,6 @@
     return a.getFullYear() === b.getFullYear() &&
       a.getMonth() === b.getMonth() &&
       a.getDate() === b.getDate();
-  }
-
-  function getNorwegianHolidays(year) {
-    const easterSunday = getEasterSunday(year);
-    const holidays = [
-      { date: `${year}-01-01`, name: "1. nyttårsdag" },
-      { date: toIsoDate(addDays(easterSunday, -7)), name: "Palmesøndag" },
-      { date: toIsoDate(addDays(easterSunday, -3)), name: "Skjærtorsdag" },
-      { date: toIsoDate(addDays(easterSunday, -2)), name: "Langfredag" },
-      { date: toIsoDate(addDays(easterSunday, 0)), name: "1. påskedag" },
-      { date: toIsoDate(addDays(easterSunday, 1)), name: "2. påskedag" },
-      { date: `${year}-05-01`, name: "Arbeidernes dag" },
-      { date: `${year}-05-17`, name: "Grunnlovsdag" },
-      { date: toIsoDate(addDays(easterSunday, 39)), name: "Kristi himmelfartsdag" },
-      { date: toIsoDate(addDays(easterSunday, 49)), name: "1. pinsedag" },
-      { date: toIsoDate(addDays(easterSunday, 50)), name: "2. pinsedag" },
-      { date: `${year}-12-24`, name: "Julaften" },
-      { date: `${year}-12-25`, name: "1. juledag" },
-      { date: `${year}-12-26`, name: "2. juledag" },
-      { date: `${year}-12-31`, name: "Nyttårsaften" }
-    ];
-
-    return holidays.sort((a, b) => a.date.localeCompare(b.date));
-  }
-
-
-  function getNorwegianHolidayInfo(date) {
-    const year = date.getFullYear();
-    const easterSunday = getEasterSunday(year);
-    const holidayMap = new Map([
-      [toIsoDate(new Date(year, 0, 1)), "1. nyttårsdag"],
-      [toIsoDate(addDays(easterSunday, -3)), "Skjærtorsdag"],
-      [toIsoDate(addDays(easterSunday, -2)), "Langfredag"],
-      [toIsoDate(easterSunday), "1. påskedag"],
-      [toIsoDate(addDays(easterSunday, 1)), "2. påskedag"],
-      [toIsoDate(new Date(year, 4, 1)), "Arbeidernes dag"],
-      [toIsoDate(new Date(year, 4, 17)), "Grunnlovsdag"],
-      [toIsoDate(addDays(easterSunday, 39)), "Kristi himmelfartsdag"],
-      [toIsoDate(addDays(easterSunday, 49)), "1. pinsedag"],
-      [toIsoDate(addDays(easterSunday, 50)), "2. pinsedag"],
-      [toIsoDate(new Date(year, 11, 25)), "1. juledag"],
-      [toIsoDate(new Date(year, 11, 26)), "2. juledag"]
-    ]);
-
-    const iso = toIsoDate(date);
-    const name = holidayMap.get(iso);
-    return name ? { date: iso, name } : null;
-  }
-
-  function getEasterSunday(year) {
-    const a = year % 19;
-    const b = Math.floor(year / 100);
-    const c = year % 100;
-    const d = Math.floor(b / 4);
-    const e = b % 4;
-    const f = Math.floor((b + 8) / 25);
-    const g = Math.floor((b - f + 1) / 3);
-    const h = (19 * a + b - d - g + 15) % 30;
-    const i = Math.floor(c / 4);
-    const k = c % 4;
-    const l = (32 + 2 * e + 2 * i - h - k) % 7;
-    const m = Math.floor((a + 11 * h + 22 * l) / 451);
-    const month = Math.floor((h + l - 7 * m + 114) / 31);
-    const day = ((h + l - 7 * m + 114) % 31) + 1;
-    return new Date(year, month - 1, day);
-  }
-
-  function isSunday(date) {
-    return date.getDay() === 0;
-  }
-
-  function isNorwegianRedDay(date) {
-    return isSunday(date) || !!getNorwegianHolidayInfo(date);
   }
 
   function isWeekend(date) {
