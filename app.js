@@ -28,7 +28,8 @@
       entryCountByProject: new Map()
     },
     dragEntryId: null,
-    justDraggedEntryId: null
+    justDraggedEntryId: null,
+    activeTab: "calendar"
   };
 
   const els = {};
@@ -75,7 +76,7 @@
       "employeeList", "kanbanBoard", "notificationList", "auditList", "editModal", "closeModalBtn",
       "editProject", "editEmployee", "editRole", "editStart", "editEnd", "editNotes",
       "saveEditBtn", "deleteEditBtn", "storageBadge", "resetDemoBtn", "systemStatus", "rangeTitle",
-      "saveStatus", "newProjectBtn", "holidayList", "projectModal", "projectModalTitle", "closeProjectModalBtn",
+      "saveStatus", "newProjectBtn", "holidayList", "plannerTabs", "tabCalendarBtn", "tabProjectsBtn", "tabEmployeesBtn", "tabAdminBtn", "tabCalendarSection", "tabProjectsSection", "tabEmployeesSection", "tabAdminSection", "projectModal", "projectModalTitle", "closeProjectModalBtn",
       "projectName", "projectCategory", "projectStatus", "projectPlannedStart", "projectPlannedEnd",
       "projectLocation", "projectHeadcount", "projectNotes", "saveProjectBtn", "deleteProjectBtn",
       "newEmployeeBtn", "employeeModal", "employeeModalTitle", "closeEmployeeModalBtn",
@@ -305,6 +306,83 @@
     els.accountUserInfo.textContent = `${nameText}${roleText}`;
   }
 
+
+  function bindTabEvents() {
+    if (els.tabCalendarBtn) els.tabCalendarBtn.addEventListener("click", () => setActiveTab("calendar"));
+    if (els.tabProjectsBtn) els.tabProjectsBtn.addEventListener("click", () => setActiveTab("projects"));
+    if (els.tabEmployeesBtn) els.tabEmployeesBtn.addEventListener("click", () => setActiveTab("employees"));
+    if (els.tabAdminBtn) els.tabAdminBtn.addEventListener("click", () => setActiveTab("admin"));
+  }
+
+  function setActiveTab(tabName) {
+    state.activeTab = tabName;
+    renderLayoutTabs();
+  }
+
+  function renderLayoutTabs() {
+    const canPlan = canPlanApp();
+    const isSA = isSuperadmin();
+
+    const allowedTabs = canPlan
+      ? ["calendar", "projects", "employees", "admin"]
+      : ["calendar"];
+
+    if (!allowedTabs.includes(state.activeTab)) {
+      state.activeTab = "calendar";
+    }
+
+    const buttonMap = {
+      calendar: els.tabCalendarBtn,
+      projects: els.tabProjectsBtn,
+      employees: els.tabEmployeesBtn,
+      admin: els.tabAdminBtn
+    };
+
+    const sectionMap = {
+      calendar: els.tabCalendarSection,
+      projects: els.tabProjectsSection,
+      employees: els.tabEmployeesSection,
+      admin: els.tabAdminSection
+    };
+
+    Object.entries(buttonMap).forEach(([tabName, btn]) => {
+      if (!btn) return;
+      const visible = allowedTabs.includes(tabName);
+      btn.style.display = visible ? "" : "none";
+      btn.className = [
+        "rounded-2xl px-4 py-2 text-sm border transition",
+        state.activeTab === tabName
+          ? "border-slate-900 bg-slate-900 text-white"
+          : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+      ].join(" ");
+    });
+
+    Object.entries(sectionMap).forEach(([tabName, section]) => {
+      if (!section) return;
+      section.style.display = state.activeTab === tabName ? "" : "none";
+    });
+
+    if (els.plannerTabs) {
+      els.plannerTabs.style.display = "";
+    }
+
+    if (!canPlan && els.tabAdminBtn) {
+      els.tabAdminBtn.style.display = "none";
+    }
+
+    if (!canPlan && els.tabProjectsBtn) {
+      els.tabProjectsBtn.style.display = "none";
+    }
+
+    if (!canPlan && els.tabEmployeesBtn) {
+      els.tabEmployeesBtn.style.display = "none";
+    }
+
+    if (!isSA && els.tabAdminSection && state.activeTab === "admin") {
+      // Planner can still use admin tab for kanban/systemoversikt if visible through role chrome.
+    }
+  }
+
   function applyRoleChrome() {
     updateAccountPanel();
 
@@ -414,6 +492,8 @@
       if (systemCard) systemCard.style.display = "";
       if (legendCard) legendCard.style.display = "";
     }
+
+    renderLayoutTabs();
   }
 
   async function handleLogout() {
@@ -546,6 +626,8 @@
       renderStats();
       renderCalendar();
     });
+
+    bindTabEvents();
 
     els.employeeFilter.addEventListener("change", e => {
       state.employeeFilter = e.target.value;
