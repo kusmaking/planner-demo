@@ -1700,10 +1700,9 @@
             style="left:${left}px; width:${width}px;"
             data-entry-id="${escapeHtml(entry.id)}"
             draggable="true"
-            title="${escapeHtml(`${employee.name} | ${project.name} | ${entry.role} | ${entry.start_date} - ${entry.end_date}${entry.notes ? ` | ${entry.notes}` : ""}`)}"
+            title="${escapeHtml(`${employee.name} | ${getPersonalBarText(project, entry)} | ${entry.start_date} - ${entry.end_date}${entry.notes ? ` | ${entry.notes}` : ""}`)}"
           >
-            <div class="font-semibold">${escapeHtml(project.name)}</div>
-            <div class="text-[11px] opacity-90">${escapeHtml(entry.role)}</div>
+            <div class="font-semibold">${escapeHtml(getPersonalBarText(project, entry))}</div>
           </div>
         `;
 
@@ -1787,10 +1786,9 @@
             style="left:${left}px; width:${width}px;"
             data-entry-id="${escapeHtml(entry.id)}"
             draggable="true"
-            title="${escapeHtml(`${employee.name} | ${project.name} | ${entry.role} | ${entry.start_date} - ${entry.end_date}`)}"
+            title="${escapeHtml(`${employee.name} | ${getPersonalBarText(project, entry)} | ${entry.start_date} - ${entry.end_date}`)}"
           >
-            <div class="font-semibold">${escapeHtml(project.name)}</div>
-            <div class="text-[11px] opacity-90">${escapeHtml(formatYearBarLabel(entry.start_date, entry.end_date))}</div>
+            <div class="font-semibold">${escapeHtml(getPersonalBarText(project, entry))}</div>
           </div>
         `;
       }
@@ -1881,10 +1879,9 @@
             class="entry-bar ${getProjectBarClasses(project)}"
             style="left:${left}px; width:${width}px;"
             data-project-row-id="${escapeHtml(project.id)}"
-            title="${escapeHtml(`${project.name} | ${formatProjectDateRange(project)} | ${staffing.text}`)}"
+            title="${escapeHtml(`${project.name} | ${getProjectPlanBarText(project, range.start, range.end)} | ${formatProjectDateRange(project)}`)}"
           >
-            <div class="font-semibold">${escapeHtml(project.name)}</div>
-            <div class="text-[11px] opacity-90">${escapeHtml(staffing.text)}</div>
+            <div class="font-semibold">${escapeHtml(getProjectPlanBarText(project, range.start, range.end))}</div>
           </div>
         `;
       }
@@ -1956,10 +1953,9 @@
             class="entry-bar ${getProjectBarClasses(project)}"
             style="left:${left}px; width:${width}px;"
             data-project-row-id="${escapeHtml(project.id)}"
-            title="${escapeHtml(`${project.name} | ${formatProjectDateRange(project)} | ${staffing.text}`)}"
+            title="${escapeHtml(`${project.name} | ${getProjectPlanBarText(project, range.start, range.end)} | ${formatProjectDateRange(project)}`)}"
           >
-            <div class="font-semibold">${escapeHtml(project.name)}</div>
-            <div class="text-[11px] opacity-90">${escapeHtml(staffing.text)}</div>
+            <div class="font-semibold">${escapeHtml(getProjectPlanBarText(project, range.start, range.end))}</div>
           </div>
         `;
       }
@@ -2246,6 +2242,29 @@
 
   function formatYearBarLabel(start, end) {
     return `${capitalize(monthShort(new Date(start)))}–${capitalize(monthShort(new Date(end)))}`;
+  }
+
+  function getPersonalBarText(project, entry) {
+    return `${project.name} · ${entry.role}`;
+  }
+
+  function getProjectEntriesInRange(projectId, rangeStart, rangeEnd) {
+    return state.entries.filter(entry =>
+      entry.project_id === projectId &&
+      overlaps(entry.start_date, entry.end_date, rangeStart, rangeEnd)
+    );
+  }
+
+  function getProjectPlanBarText(project, rangeStart, rangeEnd) {
+    const entries = getProjectEntriesInRange(project.id, rangeStart, rangeEnd);
+
+    if (!entries.length) {
+      return "Ikke bemannet";
+    }
+
+    return entries
+      .map(entry => `${entry.employee_name} · ${entry.role}`)
+      .join(" | ");
   }
 
 
