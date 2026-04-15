@@ -110,22 +110,49 @@
   function prepareSearchInput() {
     if (!els.searchInput) return;
 
+    const originalInput = els.searchInput;
+    const freshInput = originalInput.cloneNode(true);
+    originalInput.parentNode.replaceChild(freshInput, originalInput);
+    els.searchInput = freshInput;
+
     state.search = "";
     els.searchInput.value = "";
-    els.searchInput.setAttribute("autocomplete", "off");
+    els.searchInput.type = "search";
+    els.searchInput.readOnly = true;
+    els.searchInput.setAttribute("autocomplete", "new-password");
     els.searchInput.setAttribute("autocorrect", "off");
     els.searchInput.setAttribute("autocapitalize", "off");
     els.searchInput.setAttribute("spellcheck", "false");
-    els.searchInput.setAttribute("name", "employee-search");
+    els.searchInput.setAttribute("name", `employee-search-${Date.now()}`);
     els.searchInput.setAttribute("data-form-type", "other");
+    els.searchInput.setAttribute("data-lpignore", "true");
+    els.searchInput.setAttribute("data-1p-ignore", "true");
+
+    const unlockSearchInput = () => {
+      if (!els.searchInput) return;
+      els.searchInput.readOnly = false;
+      els.searchInput.value = "";
+      state.search = "";
+    };
+
+    els.searchInput.addEventListener("focus", unlockSearchInput, { once: true });
 
     requestAnimationFrame(() => {
-      if (els.searchInput) els.searchInput.value = "";
+      unlockSearchInput();
     });
 
+    window.addEventListener("pageshow", () => {
+      if (!els.searchInput) return;
+      state.search = "";
+      els.searchInput.value = "";
+    }, { once: true });
+
     setTimeout(() => {
-      if (els.searchInput) els.searchInput.value = "";
-    }, 150);
+      if (!els.searchInput) return;
+      state.search = "";
+      els.searchInput.value = "";
+      els.searchInput.readOnly = false;
+    }, 250);
   }
 
 
