@@ -1677,9 +1677,37 @@
         const assigned = getProjectAssignedCount(project.id);
         const required = Number(project.headcount_required || 0);
         const staffing = getProjectStaffingLabel(project.id, required);
+        const projectEntries = state.entries
+          .filter(entry => entry.project_id === project.id)
+          .slice()
+          .sort((a, b) => a.start_date.localeCompare(b.start_date) || a.employee_name.localeCompare(b.employee_name, "no"));
         const projectCardClasses = project.status === "Avsluttet"
           ? "rounded-xl border border-slate-300 p-3 bg-slate-100"
           : "rounded-xl border border-slate-200 p-3 bg-slate-50";
+
+        const assignmentsHtml = projectEntries.length
+          ? `
+            <div class="mt-3 rounded-xl border border-slate-200 bg-white p-3">
+              <div class="text-xs font-semibold uppercase tracking-wide text-slate-500">Tildelte ressurser</div>
+              <div class="mt-2 space-y-2">
+                ${projectEntries.map(entry => `
+                  <div class="flex items-start justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                    <div class="min-w-0">
+                      <div class="text-sm font-medium text-slate-800">${escapeHtml(entry.employee_name || "Ukjent ansatt")}</div>
+                      <div class="text-xs text-slate-500">${escapeHtml(entry.role || "")}</div>
+                      <div class="text-xs text-slate-500">${escapeHtml(formatDate(entry.start_date))} – ${escapeHtml(formatDate(entry.end_date))}</div>
+                    </div>
+                    <button data-project-entry-delete-id="${escapeHtml(entry.id)}" class="shrink-0 rounded-lg border border-red-200 bg-white px-2 py-1 text-xs text-red-700 hover:bg-red-50">Fjern</button>
+                  </div>
+                `).join("")}
+              </div>
+            </div>
+          `
+          : `
+            <div class="mt-3 rounded-xl border border-dashed border-slate-300 bg-white px-3 py-3 text-xs text-slate-500">
+              Ingen tildelte ressurser på prosjektet.
+            </div>
+          `;
 
         return `
           <div class="${projectCardClasses}">
@@ -1693,6 +1721,7 @@
               <span class="rounded-full border px-2 py-0.5 text-xs ${STATUS_COLORS[project.status] || "bg-slate-100 border-slate-200 text-slate-700"}">${escapeHtml(project.status)}</span>
             </div>
             <div class="text-xs text-slate-600 mt-2">${escapeHtml(project.notes || "")}</div>
+            ${assignmentsHtml}
             <div class="mt-3 flex flex-wrap gap-2">
               <button data-project-staff-id="${escapeHtml(project.id)}" class="rounded-xl bg-slate-900 text-white px-3 py-2 text-sm">Bemann</button>
               <button data-project-id="${escapeHtml(project.id)}" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm">Rediger</button>
@@ -1708,6 +1737,10 @@
     els.projectList.querySelectorAll("[data-project-staff-id]").forEach(btn => {
       btn.addEventListener("click", () => startProjectStaffing(btn.dataset.projectStaffId));
     });
+
+    els.projectList.querySelectorAll("[data-project-entry-delete-id]").forEach(btn => {
+      btn.addEventListener("click", () => deleteEntryFromProjectCard(btn.dataset.projectEntryDeleteId));
+    });
   }
 
   function startProjectStaffing(projectId) {
@@ -1716,6 +1749,33 @@
     els.assignProject.value = projectId;
     syncAssignDatesFromProject();
     els.assignProject.scrollIntoView({ behavior: "smooth", block: "center" });
+  }
+
+  async function deleteEntryFromProjectCard(entryId) {
+    if (!canEditApp()) return;
+    const entry = state.entries.find(item => item.id === entryId);
+    if (!entry) {
+      alert("Fant ikke tildelingen.");
+      return;
+    }
+
+    const project = getProjectById(entry.project_id);
+    const confirmText = `Fjern tildeling for ${entry.employee_name} fra ${project?.name || "prosjekt"}?`;
+    if (!confirm(confirmText)) return;
+
+    state.entries = state.entries.filter(item => item.id !== entryId);
+    rebuildDerivedState();
+    renderAll();
+
+    const result = await deleteRow("planner_entries", entryId);
+    if (!result.ok) {
+      state.entries.push(entry);
+      rebuildDerivedState();
+      renderAll();
+      return;
+    }
+
+    void addAudit(`Slettet tildeling fra prosjektkort: ${entry.employee_name} → ${project?.name || "Ukjent prosjekt"}`);
   }
 
   function renderEmployees() {
