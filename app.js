@@ -1,8 +1,3 @@
-// VERSION: 4.1 STABLE
-// DATO: 15.04.2026
-// STATUS: Fungerende base med Supabase + kalender + drag/drop
-
-
 (() => {
   const supabaseClient = window.supabase?.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -33,7 +28,8 @@
       entryCountByProject: new Map()
     },
     dragEntryId: null,
-    justDraggedEntryId: null
+    justDraggedEntryId: null,
+    appBooted: false
   };
 
   const els = {};
@@ -53,11 +49,17 @@
     state.startDate = startOfCurrentMonth();
     persistUiState();
 
+    setupAuthListener();
     await loadAuthUser();
-    await bootData();
-    rebuildDerivedState();
-    renderAll();
-    applyRoleChrome();
+
+    if (!isAuthenticated()) {
+      showLoginGate();
+      applyRoleChrome();
+      return;
+    }
+
+    hideLoginGate();
+    await startApp();
   }
 
   function cacheElements() {
@@ -164,6 +166,140 @@
     if (els.resetDemoBtn) {
       els.resetDemoBtn.style.display = isSuperadmin() ? "" : "none";
     }
+  }
+
+  function isAuthenticated() {
+    return !!state.currentUserEmail;
+  }
+
+  async function startApp() {
+    if (state.appBooted) {
+      renderAll();
+      applyRoleChrome();
+      return;
+    }
+
+    await bootData();
+    rebuildDerivedState();
+    renderAll();
+    applyRoleChrome();
+    state.appBooted = true;
+  }
+
+  function setupAuthListener() {
+    if (!supabaseClient?.auth) return;
+
+    supabaseClient.auth.onAuthStateChange(async (_event, session) => {
+      const user = session?.user || null;
+
+      if (user) {
+        state.currentUserEmail = user.email || "";
+        state.currentUser = user.user_metadata?.full_name || user.email || "Innlogget";
+        hideLoginGate();
+        await loadAuthUser();
+        await startApp();
+        return;
+      }
+
+      state.currentUser = "Ikke innlogget";
+      state.currentUserEmail = "";
+      state.currentRole = "";
+      state.authReady = true;
+      updateAccountPanel();
+      showLoginGate();
+    });
+  }
+
+  function showLoginGate(message = "") {
+    let gate = document.getElementById("loginGate");
+
+    if (!gate) {
+      gate = document.createElement("div");
+      gate.id = "loginGate";
+      gate.className = "fixed inset-0 z-[100] bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4";
+      gate.innerHTML = `
+        <div class="w-full max-w-md rounded-3xl border border-slate-200 bg-white shadow-2xl p-6 space-y-4">
+          <div>
+            <h2 class="text-2xl font-bold tracking-tight">Logg inn</h2>
+            <p class="text-sm text-slate-600 mt-1">Du må være innlogget for å bruke planleggingsverktøyet.</p>
+          </div>
+          <div id="loginError" class="hidden rounded-2xl border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700"></div>
+          <form id="loginForm" class="space-y-3">
+            <input id="loginEmail" type="email" autocomplete="email" class="w-full rounded-2xl border border-slate-300 px-3 py-3" placeholder="E-post" required />
+            <input id="loginPassword" type="password" autocomplete="current-password" class="w-full rounded-2xl border border-slate-300 px-3 py-3" placeholder="Passord" required />
+            <button id="loginSubmitBtn" type="submit" class="w-full rounded-2xl bg-slate-900 text-white px-4 py-3">Logg inn</button>
+          </form>
+        </div>
+      `;
+      document.body.appendChild(gate);
+
+      const form = document.getElementById("loginForm");
+      form?.addEventListener("submit", handleLoginSubmit);
+    }
+
+    gate.classList.remove("hidden");
+    gate.classList.add("flex");
+
+    const errorBox = document.getElementById("loginError");
+    if (errorBox) {
+      if (message) {
+        errorBox.textContent = message;
+        errorBox.classList.remove("hidden");
+      } else {
+        errorBox.textContent = "";
+        errorBox.classList.add("hidden");
+      }
+    }
+  }
+
+  function hideLoginGate() {
+    const gate = document.getElementById("loginGate");
+    if (!gate) return;
+    gate.classList.add("hidden");
+    gate.classList.remove("flex");
+  }
+
+  async function handleLoginSubmit(event) {
+    event.preventDefault();
+    if (!supabaseClient?.auth) {
+      showLoginGate("Supabase Auth er ikke tilgjengelig.");
+      return;
+    }
+
+    const emailEl = document.getElementById("loginEmail");
+    const passwordEl = document.getElementById("loginPassword");
+    const submitBtn = document.getElementById("loginSubmitBtn");
+
+    const email = emailEl?.value?.trim() || "";
+    const password = passwordEl?.value || "";
+
+    if (!email || !password) {
+      showLoginGate("Fyll inn e-post og passord.");
+      return;
+    }
+
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.textContent = "Logger inn...";
+    }
+
+    const { error } = await supabaseClient.auth.signInWithPassword({
+      email,
+      password
+    });
+
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.textContent = "Logg inn";
+    }
+
+    if (error) {
+      showLoginGate(error.message || "Innlogging feilet.");
+      return;
+    }
+
+    showLoginGate("");
+    hideLoginGate();
   }
 
   async function handleChangePassword() {
