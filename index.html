@@ -53,8 +53,7 @@
       <div class="flex flex-wrap gap-2 items-center">
         <span id="storageBadge" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm">Laster...</span>
         <span id="saveStatus" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm">Klar</span>
-        <button id="resetDemoBtn" class="rounded-2xl border border-slate-300 bg-white px-4 py-2 text-sm">Nullstill demo</button>
-      </div>
+              </div>
     </header>
 
     <section id="statsRow" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4"></section>
@@ -68,13 +67,12 @@
       </div>
     </section>
 
-    <section id="tabCalendarSection" class="grid grid-cols-1 xl:grid-cols-4 gap-4">
-      <div class="xl:col-span-3 rounded-2xl bg-white border border-slate-200 shadow-sm">
+    <section id="tabCalendarSection" class="flex flex-col xl:flex-row gap-4 items-start">
+      <div id="calendarMainCol" class="min-w-0 flex-1 rounded-2xl bg-white border border-slate-200 shadow-sm">
         <div class="p-4 border-b border-slate-200 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
           <div class="flex flex-wrap gap-2 items-center">
             <input id="searchInput" class="w-[220px] rounded-2xl border border-slate-300 px-3 py-2" placeholder="Søk ansatt" />
             <select id="employeeFilter" class="w-[220px] rounded-2xl border border-slate-300 px-3 py-2"></select>
-            <select id="employeeGroupFilter" class="w-[220px] rounded-2xl border border-slate-300 px-3 py-2"></select>
             <select id="calendarMode" class="rounded-2xl border border-slate-300 px-3 py-2">
               <option value="personal">Personalplan</option>
               <option value="project">Prosjektplan</option>
@@ -103,17 +101,22 @@
         <div id="calendarWrap" class="overflow-auto p-4 scrollbar-thin"></div>
       </div>
 
-      <div class="space-y-4">
-        <div class="rounded-2xl bg-white border border-slate-200 shadow-sm">
-          <div class="p-4 border-b border-slate-200"><h2 class="font-semibold">Systemstatus</h2></div>
-          <div id="systemStatus" class="p-4 text-sm space-y-2"></div>
+      <aside id="calendarPanelCol" class="w-full xl:w-12 shrink-0 rounded-2xl bg-white border border-slate-200 shadow-sm overflow-hidden transition-all duration-300">
+        <div class="flex h-full min-h-[220px]">
+          <button id="calendarPanelHandleBtn" class="w-12 shrink-0 border-r border-slate-200 bg-slate-50 text-slate-700 text-xs font-semibold tracking-wide">
+            Panel
+          </button>
+          <div id="calendarPanelContent" class="hidden min-w-0 flex-1">
+            <div class="p-4 border-b border-slate-200 flex items-center justify-between gap-3">
+              <h2 class="font-semibold">Farger og status</h2>
+              <button id="calendarPanelCloseBtn" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm">Lukk</button>
+            </div>
+            <div id="legendList" class="p-4 space-y-2 text-sm"></div>
+          </div>
         </div>
+      </aside>
 
-        <div class="rounded-2xl bg-white border border-slate-200 shadow-sm">
-          <div class="p-4 border-b border-slate-200"><h2 class="font-semibold">Farger og status</h2></div>
-          <div id="legendList" class="p-4 space-y-2 text-sm"></div>
-        </div>
-      </div>
+      <div id="systemStatus" class="hidden"></div>
     </section>
 
     <section id="tabProjectsSection" class="grid grid-cols-1 xl:grid-cols-5 gap-4" style="display:none;">
@@ -251,7 +254,6 @@
         <input id="employeeEmail" class="w-full rounded-2xl border border-slate-300 px-3 py-2" placeholder="E-post" />
         <input id="employeePhone" class="w-full rounded-2xl border border-slate-300 px-3 py-2" placeholder="Mobilnummer" />
         <input id="employeeTitle" class="w-full rounded-2xl border border-slate-300 px-3 py-2" placeholder="Stillingstittel" />
-        <select id="employeeGroup" class="w-full rounded-2xl border border-slate-300 px-3 py-2"></select>
         <label class="flex items-center gap-2 text-sm">
           <input id="employeeActive" type="checkbox" checked />
           Aktiv ansatt
