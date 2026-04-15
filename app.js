@@ -30,7 +30,7 @@
     dragEntryId: null,
     justDraggedEntryId: null,
     activeTab: "calendar",
-    calendarDrawerOpen: false
+    calendarPanelOpen: false
   };
 
   const els = {};
@@ -75,7 +75,7 @@
       "employeeList", "kanbanBoard", "notificationList", "auditList", "editModal", "closeModalBtn",
       "editProject", "editEmployee", "editRole", "editStart", "editEnd", "editNotes",
       "saveEditBtn", "deleteEditBtn", "storageBadge", "resetDemoBtn", "systemStatus", "rangeTitle",
-      "saveStatus", "plannerTabs", "calendarSideDrawer", "calendarDrawerToggle", "calendarDrawerCloseBtn", "tabCalendarBtn", "tabProjectsBtn", "tabEmployeesBtn", "tabAdminBtn", "tabCalendarSection", "tabProjectsSection", "tabEmployeesSection", "tabAdminSection", "newProjectBtn", "projectModal", "projectModalTitle", "closeProjectModalBtn",
+      "saveStatus", "plannerTabs", "tabCalendarBtn", "tabProjectsBtn", "tabEmployeesBtn", "tabAdminBtn", "tabCalendarSection", "tabProjectsSection", "tabEmployeesSection", "tabAdminSection", "calendarMainCol", "calendarPanelCol", "calendarPanelHandleBtn", "calendarPanelCloseBtn", "calendarPanelContent", "newProjectBtn", "projectModal", "projectModalTitle", "closeProjectModalBtn",
       "projectName", "projectCategory", "projectStatus", "projectPlannedStart", "projectPlannedEnd",
       "projectLocation", "projectHeadcount", "projectNotes", "saveProjectBtn", "deleteProjectBtn",
       "newEmployeeBtn", "employeeModal", "employeeModalTitle", "closeEmployeeModalBtn",
@@ -236,32 +236,6 @@
     els.accountUserInfo.textContent = `${nameText}${roleText}`;
   }
 
-  function bindCalendarDrawerEvents() {
-    if (els.calendarDrawerToggle) els.calendarDrawerToggle.addEventListener("click", toggleCalendarDrawer);
-    if (els.calendarDrawerCloseBtn) els.calendarDrawerCloseBtn.addEventListener("click", closeCalendarDrawer);
-  }
-
-  function toggleCalendarDrawer() {
-    state.calendarDrawerOpen = !state.calendarDrawerOpen;
-    renderCalendarDrawer();
-  }
-
-  function closeCalendarDrawer() {
-    state.calendarDrawerOpen = false;
-    renderCalendarDrawer();
-  }
-
-  function renderCalendarDrawer() {
-    if (!els.calendarSideDrawer) return;
-    const isCalendar = state.activeTab === "calendar";
-    els.calendarSideDrawer.style.display = isCalendar ? "" : "none";
-    els.calendarSideDrawer.classList.toggle("calendar-drawer-open", state.calendarDrawerOpen);
-    els.calendarSideDrawer.classList.toggle("calendar-drawer-closed", !state.calendarDrawerOpen);
-    if (els.calendarDrawerToggle) {
-      els.calendarDrawerToggle.textContent = state.calendarDrawerOpen ? "Skjul" : "Panel";
-    }
-  }
-
   function bindTabEvents() {
     if (els.tabCalendarBtn) els.tabCalendarBtn.addEventListener("click", () => setActiveTab("calendar"));
     if (els.tabProjectsBtn) els.tabProjectsBtn.addEventListener("click", () => setActiveTab("projects"));
@@ -312,8 +286,6 @@
       if (!section) return;
       section.style.display = state.activeTab === name ? "" : "none";
     });
-
-    renderCalendarDrawer();
   }
 
 
@@ -382,7 +354,6 @@
     setCardDisplayByElement(els.assignBtn, canPlan);           // Tildel prosjekt i kalender
     setCardDisplayByElement(els.newEmployeeBtn, canPlan);      // Ansatte
     setCardDisplayById("kanbanBoard", canPlan);                // Kanban – prosjekter
-    setCardDisplayById("systemStatus", canPlan);               // Systemstatus
     setCardDisplayById("notificationList", isSA);              // Varsellogg
     setCardDisplayById("auditList", isSA);                     // Endringslogg
 
@@ -393,6 +364,7 @@
     }
 
     renderLayoutTabs();
+    renderCalendarPanel();
   }
 
   async function handleLogout() {
@@ -526,7 +498,18 @@
     });
 
     bindTabEvents();
-    bindCalendarDrawerEvents();
+    if (els.calendarPanelHandleBtn) {
+      els.calendarPanelHandleBtn.addEventListener("click", () => {
+        state.calendarPanelOpen = !state.calendarPanelOpen;
+        renderCalendarPanel();
+      });
+    }
+    if (els.calendarPanelCloseBtn) {
+      els.calendarPanelCloseBtn.addEventListener("click", () => {
+        state.calendarPanelOpen = false;
+        renderCalendarPanel();
+      });
+    }
 
     els.employeeFilter.addEventListener("change", e => {
       state.employeeFilter = e.target.value;
@@ -1574,6 +1557,7 @@
     populateDynamicSelects();
     renderStats();
     renderLegend();
+    renderCalendarPanel();
     renderProjects();
     renderEmployees();
     renderCalendar();
@@ -1656,6 +1640,33 @@
         <div class="space-y-2">${statusHtml}</div>
       </div>
     `;
+  }
+
+
+  function renderCalendarPanel() {
+    if (!els.calendarPanelCol || !els.calendarPanelHandleBtn || !els.calendarPanelContent) return;
+
+    const isDesktop = window.innerWidth >= 1280;
+
+    if (!isDesktop) {
+      els.calendarPanelCol.className = "w-full shrink-0 rounded-2xl bg-white border border-slate-200 shadow-sm overflow-hidden transition-all duration-300";
+      els.calendarPanelContent.classList.remove("hidden");
+      els.calendarPanelHandleBtn.className = "w-12 shrink-0 border-r border-slate-200 bg-slate-50 text-slate-700 text-xs font-semibold tracking-wide";
+      els.calendarPanelHandleBtn.textContent = "Panel";
+      return;
+    }
+
+    if (state.calendarPanelOpen) {
+      els.calendarPanelCol.className = "xl:w-80 w-full shrink-0 rounded-2xl bg-white border border-slate-200 shadow-sm overflow-hidden transition-all duration-300";
+      els.calendarPanelContent.classList.remove("hidden");
+      els.calendarPanelHandleBtn.className = "w-12 shrink-0 border-r border-slate-200 bg-slate-50 text-slate-700 text-xs font-semibold tracking-wide [writing-mode:vertical-rl] rotate-180";
+      els.calendarPanelHandleBtn.textContent = "Panel";
+    } else {
+      els.calendarPanelCol.className = "xl:w-12 w-full shrink-0 rounded-2xl bg-white border border-slate-200 shadow-sm overflow-hidden transition-all duration-300";
+      els.calendarPanelContent.classList.add("hidden");
+      els.calendarPanelHandleBtn.className = "w-12 shrink-0 border-r-0 bg-slate-50 text-slate-700 text-xs font-semibold tracking-wide [writing-mode:vertical-rl] rotate-180";
+      els.calendarPanelHandleBtn.textContent = "Panel";
+    }
   }
 
   function renderProjects() {
