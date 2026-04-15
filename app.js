@@ -77,7 +77,7 @@
       "projectLocation", "projectHeadcount", "projectNotes", "saveProjectBtn", "deleteProjectBtn",
       "newEmployeeBtn", "employeeModal", "employeeModalTitle", "closeEmployeeModalBtn",
       "employeeName", "employeeEmail", "employeePhone", "employeeTitle", "employeeActive", "saveEmployeeBtn", "deleteEmployeeBtn",
-      "accountPanel", "accountUserInfo", "changePasswordBtn", "resetPasswordBtn", "logoutBtn", "loginBtn", "loginModal", "closeLoginModalBtn", "loginEmail", "loginPassword", "loginSubmitBtn"
+      "accountPanel", "accountUserInfo", "changePasswordBtn", "resetPasswordBtn", "logoutBtn", "loginBtn", "loginModal", "closeLoginModalBtn", "loginEmail", "loginPassword", "loginSubmitBtn", "forgotPasswordBtn"
     ];
 
     ids.forEach(id => els[id] = document.getElementById(id));
@@ -127,6 +127,7 @@
       els.loginEmail = document.getElementById("loginEmail");
       els.loginPassword = document.getElementById("loginPassword");
       els.loginSubmitBtn = document.getElementById("loginSubmitBtn");
+      els.forgotPasswordBtn = document.getElementById("forgotPasswordBtn");
       return;
     }
 
@@ -143,6 +144,7 @@
           <input id="loginEmail" type="email" class="w-full rounded-2xl border border-slate-300 px-3 py-2" placeholder="E-post" />
           <input id="loginPassword" type="password" class="w-full rounded-2xl border border-slate-300 px-3 py-2" placeholder="Passord" />
           <button id="loginSubmitBtn" class="w-full rounded-2xl bg-slate-900 text-white px-4 py-2">Logg inn</button>
+          <button id="forgotPasswordBtn" class="w-full rounded-2xl border border-slate-300 bg-white px-4 py-2">Glemt passord?</button>
         </div>
       </div>
     `;
@@ -153,6 +155,7 @@
     els.loginEmail = document.getElementById("loginEmail");
     els.loginPassword = document.getElementById("loginPassword");
     els.loginSubmitBtn = document.getElementById("loginSubmitBtn");
+    els.forgotPasswordBtn = document.getElementById("forgotPasswordBtn");
   }
 
   async function loadAuthUser() {
@@ -394,6 +397,27 @@
     window.location.reload();
   }
 
+  async function handleForgotPassword() {
+    if (!supabaseClient?.auth) return;
+
+    const email = els.loginEmail?.value?.trim() || "";
+    if (!email) {
+      alert("Legg inn e-postadressen din først.");
+      return;
+    }
+
+    const { error } = await supabaseClient.auth.resetPasswordForEmail(email, {
+      redirectTo: window.location.origin
+    });
+
+    if (error) {
+      alert(`Kunne ikke sende reset-link: ${error.message}`);
+      return;
+    }
+
+    alert("Reset-link er sendt på e-post.");
+  }
+
   async function handleChangePassword() {
     if (!supabaseClient?.auth) return;
 
@@ -542,6 +566,10 @@
 
     if (els.loginSubmitBtn) {
       els.loginSubmitBtn.addEventListener("click", handleLogin);
+    }
+
+    if (els.forgotPasswordBtn) {
+      els.forgotPasswordBtn.addEventListener("click", handleForgotPassword);
     }
 
     if (els.loginPassword) {
