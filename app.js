@@ -28,7 +28,8 @@
       entryCountByProject: new Map()
     },
     dragEntryId: null,
-    justDraggedEntryId: null
+    justDraggedEntryId: null,
+    activeTab: "calendar"
   };
 
   const els = {};
@@ -68,12 +69,12 @@
   function cacheElements() {
     const ids = [
       "statsRow", "searchInput", "employeeFilter", "viewMode", "calendarMode", "prevBtn", "nextBtn", "todayBtn",
-      "calendarWrap", "warningBox", "legendList", "projectList", "assignProject", "assignEmployee", "assignEmployeeFields", "assignHeadcountHint", "assignRole",
+      "calendarWrap", "warningBox", "legendList", "projectList", "assignProject", "assignEmployeesWrap", "assignSummary", "assignRole",
       "assignStart", "assignEnd", "assignNotes", "assignBtn", "bulkEmployees", "bulkAddBtn",
       "employeeList", "kanbanBoard", "notificationList", "auditList", "editModal", "closeModalBtn",
       "editProject", "editEmployee", "editRole", "editStart", "editEnd", "editNotes",
       "saveEditBtn", "deleteEditBtn", "storageBadge", "resetDemoBtn", "systemStatus", "rangeTitle",
-      "saveStatus", "newProjectBtn", "projectModal", "projectModalTitle", "closeProjectModalBtn",
+      "saveStatus", "plannerTabs", "tabCalendarBtn", "tabProjectsBtn", "tabEmployeesBtn", "tabAdminBtn", "tabCalendarSection", "tabProjectsSection", "tabEmployeesSection", "tabAdminSection", "newProjectBtn", "projectModal", "projectModalTitle", "closeProjectModalBtn",
       "projectName", "projectCategory", "projectStatus", "projectPlannedStart", "projectPlannedEnd",
       "projectLocation", "projectHeadcount", "projectNotes", "saveProjectBtn", "deleteProjectBtn",
       "newEmployeeBtn", "employeeModal", "employeeModalTitle", "closeEmployeeModalBtn",
@@ -234,6 +235,59 @@
     els.accountUserInfo.textContent = `${nameText}${roleText}`;
   }
 
+  function bindTabEvents() {
+    if (els.tabCalendarBtn) els.tabCalendarBtn.addEventListener("click", () => setActiveTab("calendar"));
+    if (els.tabProjectsBtn) els.tabProjectsBtn.addEventListener("click", () => setActiveTab("projects"));
+    if (els.tabEmployeesBtn) els.tabEmployeesBtn.addEventListener("click", () => setActiveTab("employees"));
+    if (els.tabAdminBtn) els.tabAdminBtn.addEventListener("click", () => setActiveTab("admin"));
+  }
+
+  function setActiveTab(tabName) {
+    state.activeTab = tabName;
+    renderLayoutTabs();
+  }
+
+  function renderLayoutTabs() {
+    const canPlan = canPlanApp();
+    const allowedTabs = canPlan ? ["calendar", "projects", "employees", "admin"] : ["calendar"];
+
+    if (!allowedTabs.includes(state.activeTab)) {
+      state.activeTab = "calendar";
+    }
+
+    const buttons = {
+      calendar: els.tabCalendarBtn,
+      projects: els.tabProjectsBtn,
+      employees: els.tabEmployeesBtn,
+      admin: els.tabAdminBtn
+    };
+
+    const sections = {
+      calendar: els.tabCalendarSection,
+      projects: els.tabProjectsSection,
+      employees: els.tabEmployeesSection,
+      admin: els.tabAdminSection
+    };
+
+    Object.entries(buttons).forEach(([name, btn]) => {
+      if (!btn) return;
+      const visible = allowedTabs.includes(name);
+      btn.style.display = visible ? "" : "none";
+      btn.className = [
+        "rounded-2xl px-4 py-2 text-sm border transition",
+        state.activeTab === name
+          ? "border-slate-900 bg-slate-900 text-white"
+          : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+      ].join(" ");
+    });
+
+    Object.entries(sections).forEach(([name, section]) => {
+      if (!section) return;
+      section.style.display = state.activeTab === name ? "" : "none";
+    });
+  }
+
+
   function applyRoleChrome() {
     updateAccountPanel();
 
@@ -291,7 +345,6 @@
     }
 
     if (els.assignProject) els.assignProject.disabled = !canPlan;
-    if (els.assignEmployee) els.assignEmployee.disabled = !canPlan;
     if (els.assignRole) els.assignRole.disabled = !canPlan;
     if (els.assignStart) els.assignStart.disabled = !canPlan;
     if (els.assignEnd) els.assignEnd.disabled = !canPlan;
@@ -343,6 +396,8 @@
       if (systemCard) systemCard.style.display = "";
       if (legendCard) legendCard.style.display = "";
     }
+
+    renderLayoutTabs();
   }
 
   async function handleLogout() {
@@ -475,6 +530,8 @@
       renderStats();
       renderCalendar();
     });
+
+    bindTabEvents();
 
     els.employeeFilter.addEventListener("change", e => {
       state.employeeFilter = e.target.value;
@@ -976,118 +1033,86 @@
     }
   }
 
-
-  function getAssignableEmployees() {
-    return state.employees
-      .filter(employee => employee.active !== false)
-      .sort((a, b) => a.name.localeCompare(b.name, "no"));
-  }
-
-  function getAssignSlotCount(projectId = els.assignProject?.value) {
-    const project = getProjectById(projectId);
-    const required = Number(project?.headcount_required || 0);
-    return Math.max(1, required || 1);
-  }
-
-  function getCurrentAssignSelections() {
-    if (els.assignEmployeeFields) {
-      return Array.from(els.assignEmployeeFields.querySelectorAll("[data-assign-employee-select]"))
-        .map(select => select.value || "");
-    }
-    return els.assignEmployee ? [els.assignEmployee.value || ""] : [];
-  }
-
-  function renderAssignEmployeeFields(selectedValues = null) {
-    if (!els.assignEmployeeFields) return;
-
-    const selections = Array.isArray(selectedValues) ? selectedValues : getCurrentAssignSelections();
-    const slotCount = getAssignSlotCount();
-    const employees = getAssignableEmployees();
-
-    els.assignEmployeeFields.innerHTML = Array.from({ length: slotCount }, (_, index) => {
-      const selected = selections[index] || "";
-      const options = ['<option value="">Velg ansatt</option>']
-        .concat(employees.map(employee => {
-          const selectedAttr = employee.name === selected ? ' selected' : '';
-          return `<option value="${escapeHtml(employee.name)}"${selectedAttr}>${escapeHtml(employee.name)}</option>`;
-        }))
-        .join("");
-
-      return `
-        <div class="space-y-1">
-          <label class="text-xs font-medium text-slate-600">Ansatt ${index + 1}</label>
-          <select data-assign-employee-select class="w-full rounded-2xl border border-slate-300 px-3 py-2">
-            ${options}
-          </select>
-        </div>
-      `;
-    }).join("");
-
-    if (els.assignHeadcountHint) {
-      els.assignHeadcountHint.textContent = slotCount === 1
-        ? "Prosjektet er satt opp med 1 person."
-        : `Prosjektet er satt opp med ${slotCount} personer. Velg opptil ${slotCount} ansatte.`;
-    }
-  }
-
-  function getSelectedAssignEmployees() {
-    if (els.assignEmployeeFields) {
-      return Array.from(els.assignEmployeeFields.querySelectorAll("[data-assign-employee-select]"))
-        .map(select => (select.value || "").trim())
-        .filter(Boolean);
-    }
-    return els.assignEmployee?.value ? [els.assignEmployee.value.trim()] : [];
-  }
-
-  function prefillAssignFromProject(projectId) {
-    if (!canEditApp() || !projectId || !els.assignProject) return;
-    els.assignProject.value = projectId;
-    syncAssignDatesFromProject();
-    renderAssignEmployeeFields([]);
-    setActiveTab("projects");
-    els.assignProject.scrollIntoView({ block: "center", behavior: "smooth" });
-  }
-
   function syncAssignDatesFromProject() {
     const project = getProjectById(els.assignProject.value);
+    renderAssignEmployeeSelectors();
     if (!project) {
-      if (els.assignStart) els.assignStart.value = "";
-      if (els.assignEnd) els.assignEnd.value = "";
-      renderAssignEmployeeFields([]);
+      els.assignStart.value = "";
+      els.assignEnd.value = "";
+      if (els.assignSummary) {
+        els.assignSummary.textContent = "Velg et prosjekt for å starte bemanning.";
+      }
       return;
     }
     els.assignStart.value = project.planned_start_date || "";
     els.assignEnd.value = project.planned_end_date || "";
-    renderAssignEmployeeFields();
+    if (els.assignSummary) {
+      const required = Math.max(Number(project.headcount_required || 0), 1);
+      els.assignSummary.textContent = `${project.name} • Behov: ${required} person${required > 1 ? "er" : ""}`;
+    }
   }
 
   function clearAssignForm() {
     if (els.assignProject) els.assignProject.value = "";
-    if (els.assignEmployee) els.assignEmployee.value = "";
     if (els.assignRole) els.assignRole.value = ROLE_OPTIONS[0] || "";
     if (els.assignStart) els.assignStart.value = "";
     if (els.assignEnd) els.assignEnd.value = "";
     if (els.assignNotes) els.assignNotes.value = "";
-    renderAssignEmployeeFields([]);
+    if (els.assignSummary) els.assignSummary.textContent = "Velg et prosjekt for å starte bemanning.";
+    renderAssignEmployeeSelectors();
   }
+
+
+  function getAssignEmployeeNames() {
+    if (!els.assignEmployeesWrap) return [];
+    return Array.from(els.assignEmployeesWrap.querySelectorAll("[data-assign-employee-select]"))
+      .map(select => select.value.trim())
+      .filter(Boolean);
+  }
+
+  function renderAssignEmployeeSelectors() {
+    if (!els.assignEmployeesWrap) return;
+    const project = getProjectById(els.assignProject?.value);
+    const activeEmployees = state.employees.filter(e => e.active !== false);
+    const count = Math.max(Number(project?.headcount_required || 0), 1);
+    const currentValues = Array.from(els.assignEmployeesWrap.querySelectorAll("[data-assign-employee-select]")).map(el => el.value);
+
+    const blocks = [];
+    for (let i = 0; i < count; i++) {
+      const selected = currentValues[i] || "";
+      const options = ['<option value="">Velg ansatt</option>']
+        .concat(activeEmployees.map(emp => `<option value="${escapeHtml(emp.name)}" ${emp.name === selected ? "selected" : ""}>${escapeHtml(emp.name)}</option>`))
+        .join("");
+
+      blocks.push(`
+        <div class="space-y-1">
+          <label class="text-sm font-medium text-slate-700">Ansatt ${i + 1}</label>
+          <select data-assign-employee-select class="w-full rounded-2xl border border-slate-300 px-3 py-2">${options}</select>
+        </div>
+      `);
+    }
+
+    els.assignEmployeesWrap.innerHTML = blocks.join("");
+  }
+
 
   async function createEntry() {
     if (!canEditApp()) return;
     const projectId = els.assignProject.value;
-    const employeeNames = getSelectedAssignEmployees();
+    const employeeNames = getAssignEmployeeNames();
+    const uniqueEmployeeNames = [...new Set(employeeNames)];
     const role = els.assignRole.value;
     let startDate = els.assignStart.value;
     let endDate = els.assignEnd.value;
     const notes = els.assignNotes.value.trim();
 
-    if (!projectId || !employeeNames.length) {
+    if (!projectId || !uniqueEmployeeNames.length) {
       alert("Fyll ut prosjekt og minst én ansatt.");
       return;
     }
 
-    const uniqueEmployees = [...new Set(employeeNames)];
-    if (uniqueEmployees.length !== employeeNames.length) {
-      alert("Du kan ikke velge samme ansatt flere ganger i samme tildeling.");
+    if (uniqueEmployeeNames.length !== employeeNames.length) {
+      alert("Samme ansatt kan ikke velges flere ganger i samme bemanning.");
       return;
     }
 
@@ -1110,7 +1135,7 @@
       return;
     }
 
-    const newEntries = uniqueEmployees.map(employeeName => ({
+    const newEntries = uniqueEmployeeNames.map(employeeName => ({
       id: crypto.randomUUID(),
       project_id: projectId,
       employee_name: employeeName,
@@ -1125,7 +1150,7 @@
     const result = await saveRows("planner_entries", newEntries);
     if (!result.ok) {
       const ids = new Set(newEntries.map(entry => entry.id));
-      state.entries = state.entries.filter(entry => !ids.has(entry.id));
+      state.entries = state.entries.filter(e => !ids.has(e.id));
       rebuildDerivedState();
       renderAll();
       return;
@@ -1134,15 +1159,8 @@
     clearAssignForm();
     renderAll();
 
-    if (newEntries.length === 1) {
-      void addAudit(`La inn tildeling: ${uniqueEmployees[0]} → ${project.name}`);
-    } else {
-      void addAudit(`La inn ${newEntries.length} tildelinger på prosjekt: ${project.name}`);
-    }
-
-    uniqueEmployees.forEach(employeeName => {
-      void addNotification(employeeName, project.name);
-    });
+    void addAudit(`La inn ${newEntries.length} tildeling${newEntries.length > 1 ? "er" : ""} på ${project.name}`);
+    newEntries.forEach(entry => void addNotification(entry.employee_name, project.name));
   }
 
   function openEditModal(entryId) {
@@ -1308,9 +1326,6 @@
 
     closeProjectModal();
     renderAll();
-    if (els.assignProject && els.assignProject.value === project.id) {
-      renderAssignEmployeeFields();
-    }
     void addAudit(`${state.selectedProjectId ? "Redigerte" : "Opprettet"} prosjekt: ${name}`);
   }
 
@@ -1556,18 +1571,15 @@
     ];
 
     fillSelect(els.employeeFilter, employeeFilterItems, state.employeeFilter, "name", "id");
-    fillSelect(els.assignEmployee, [{ id: "", name: "Velg ansatt" }, ...state.employees.filter(e => e.active !== false).map(e => ({ id: e.name, name: e.name }))], "", "name", "id");
     fillSelect(els.editEmployee, state.employees.filter(e => e.active !== false), null, "name", "name");
-    fillSelect(els.assignProject, [{ id: "", name: "Velg prosjekt" }, ...state.projects.map(p => ({ id: p.id, name: p.name }))], els.assignProject?.value || "", "name", "id");
+    fillSelect(els.assignProject, [{ id: "", name: "Velg prosjekt" }, ...state.projects.map(p => ({ id: p.id, name: p.name }))], "", "name", "id");
     fillSelect(els.editProject, state.projects, null, "name", "id");
     fillSelect(els.viewMode, ["Uke", "Måned", "År"], state.viewMode);
     fillSelect(els.calendarMode, [
       { id: "personal", name: "Personalplan" },
       { id: "project", name: "Prosjektplan" }
     ], state.calendarMode, "name", "id");
-
-    renderAssignEmployeeFields();
-
+    renderAssignEmployeeSelectors();
     if (!els.assignProject.value) {
       if (els.assignStart) els.assignStart.value = "";
       if (els.assignEnd) els.assignEnd.value = "";
@@ -1633,25 +1645,25 @@
         const assigned = getProjectAssignedCount(project.id);
         const required = Number(project.headcount_required || 0);
         const staffing = getProjectStaffingLabel(project.id, required);
-        const statusClasses = STATUS_COLORS[project.status] || "bg-slate-100 border-slate-200 text-slate-700";
+        const projectCardClasses = project.status === "Avsluttet"
+          ? "rounded-xl border border-slate-300 p-3 bg-slate-100"
+          : "rounded-xl border border-slate-200 p-3 bg-slate-50";
 
         return `
-          <div class="rounded-2xl border ${project.status === "Avsluttet" ? "border-slate-300 bg-slate-100" : "border-slate-200 bg-white"} p-3">
-            <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-              <div class="min-w-0">
-                <div class="flex flex-wrap items-center gap-2">
-                  <div class="font-medium">${escapeHtml(project.name)}</div>
-                  <span class="rounded-full border px-2 py-0.5 text-xs ${statusClasses}">${escapeHtml(project.status)}</span>
-                </div>
-                <div class="mt-1 text-xs text-slate-500">${escapeHtml(project.category)}${project.location ? ` • ${escapeHtml(project.location)}` : ""}</div>
-                <div class="mt-1 text-xs text-slate-600">${escapeHtml(formatProjectDateRange(project))}</div>
-                <div class="mt-1 text-xs ${staffing.variant}">${escapeHtml(staffing.text)}${required ? ` (${assigned}/${required})` : ""}</div>
-                <div class="mt-1 text-xs text-slate-500">${escapeHtml(project.notes || "")}</div>
+          <div class="${projectCardClasses}">
+            <div class="flex items-start justify-between gap-3">
+              <div>
+                <div class="font-medium">${escapeHtml(project.name)}</div>
+                <div class="text-xs text-slate-500 mt-1">${escapeHtml(project.category)}${project.location ? ` • ${escapeHtml(project.location)}` : ""}</div>
+                <div class="text-xs text-slate-600 mt-1">${escapeHtml(formatProjectDateRange(project))}</div>
+                <div class="text-xs mt-1 ${staffing.variant}">${escapeHtml(staffing.text)}${required ? ` (${assigned}/${required})` : ""}</div>
               </div>
-              <div class="flex shrink-0 gap-2">
-                <button data-project-assign-id="${escapeHtml(project.id)}" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm hover:bg-slate-50">Bemann</button>
-                <button data-project-id="${escapeHtml(project.id)}" class="rounded-xl bg-slate-900 px-3 py-2 text-sm text-white hover:bg-slate-800">Rediger</button>
-              </div>
+              <span class="rounded-full border px-2 py-0.5 text-xs ${STATUS_COLORS[project.status] || "bg-slate-100 border-slate-200 text-slate-700"}">${escapeHtml(project.status)}</span>
+            </div>
+            <div class="text-xs text-slate-600 mt-2">${escapeHtml(project.notes || "")}</div>
+            <div class="mt-3 flex flex-wrap gap-2">
+              <button data-project-staff-id="${escapeHtml(project.id)}" class="rounded-xl bg-slate-900 text-white px-3 py-2 text-sm">Bemann</button>
+              <button data-project-id="${escapeHtml(project.id)}" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm">Rediger</button>
             </div>
           </div>
         `;
@@ -1661,9 +1673,17 @@
       btn.addEventListener("click", () => openProjectModal(btn.dataset.projectId));
     });
 
-    els.projectList.querySelectorAll("[data-project-assign-id]").forEach(btn => {
-      btn.addEventListener("click", () => prefillAssignFromProject(btn.dataset.projectAssignId));
+    els.projectList.querySelectorAll("[data-project-staff-id]").forEach(btn => {
+      btn.addEventListener("click", () => startProjectStaffing(btn.dataset.projectStaffId));
     });
+  }
+
+  function startProjectStaffing(projectId) {
+    if (!els.assignProject) return;
+    setActiveTab("projects");
+    els.assignProject.value = projectId;
+    syncAssignDatesFromProject();
+    els.assignProject.scrollIntoView({ behavior: "smooth", block: "center" });
   }
 
   function renderEmployees() {
