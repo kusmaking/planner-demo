@@ -345,7 +345,6 @@
     }
 
     if (els.assignProject) els.assignProject.disabled = !canPlan;
-    if (els.assignRole) els.assignRole.disabled = !canPlan;
     if (els.assignStart) els.assignStart.disabled = !canPlan;
     if (els.assignEnd) els.assignEnd.disabled = !canPlan;
     if (els.assignNotes) els.assignNotes.disabled = !canPlan;
@@ -520,7 +519,6 @@
   function setupStaticOptions() {
     fillSelect(els.projectCategory, CATEGORY_OPTIONS);
     fillSelect(els.projectStatus, STATUS_OPTIONS, "Planlagt");
-    fillSelect(els.assignRole, ROLE_OPTIONS, "Supervisor");
     fillSelect(els.editRole, ROLE_OPTIONS, "Supervisor");
   }
 
@@ -1054,7 +1052,6 @@
 
   function clearAssignForm() {
     if (els.assignProject) els.assignProject.value = "";
-    if (els.assignRole) els.assignRole.value = ROLE_OPTIONS[0] || "";
     if (els.assignStart) els.assignStart.value = "";
     if (els.assignEnd) els.assignEnd.value = "";
     if (els.assignNotes) els.assignNotes.value = "";
@@ -1063,11 +1060,20 @@
   }
 
 
-  function getAssignEmployeeNames() {
+  function getDefaultRoleForIndex(index) {
+    return ROLE_OPTIONS[index] || ROLE_OPTIONS[ROLE_OPTIONS.length - 1] || "";
+  }
+
+  function getAssignAssignments() {
     if (!els.assignEmployeesWrap) return [];
-    return Array.from(els.assignEmployeesWrap.querySelectorAll("[data-assign-employee-select]"))
-      .map(select => select.value.trim())
-      .filter(Boolean);
+    return Array.from(els.assignEmployeesWrap.querySelectorAll("[data-assign-row]")).map((row, index) => {
+      const employeeSelect = row.querySelector("[data-assign-employee-select]");
+      const roleSelect = row.querySelector("[data-assign-role-select]");
+      return {
+        employee_name: employeeSelect?.value?.trim() || "",
+        role: roleSelect?.value || getDefaultRoleForIndex(index)
+      };
+    }).filter(item => item.employee_name);
   }
 
   function renderAssignEmployeeSelectors() {
@@ -1075,19 +1081,33 @@
     const project = getProjectById(els.assignProject?.value);
     const activeEmployees = state.employees.filter(e => e.active !== false);
     const count = Math.max(Number(project?.headcount_required || 0), 1);
-    const currentValues = Array.from(els.assignEmployeesWrap.querySelectorAll("[data-assign-employee-select]")).map(el => el.value);
+    const currentRows = Array.from(els.assignEmployeesWrap.querySelectorAll("[data-assign-row]")).map((row, index) => ({
+      employee_name: row.querySelector("[data-assign-employee-select]")?.value || "",
+      role: row.querySelector("[data-assign-role-select]")?.value || getDefaultRoleForIndex(index)
+    }));
 
     const blocks = [];
     for (let i = 0; i < count; i++) {
-      const selected = currentValues[i] || "";
-      const options = ['<option value="">Velg ansatt</option>']
-        .concat(activeEmployees.map(emp => `<option value="${escapeHtml(emp.name)}" ${emp.name === selected ? "selected" : ""}>${escapeHtml(emp.name)}</option>`))
+      const selectedEmployee = currentRows[i]?.employee_name || "";
+      const selectedRole = currentRows[i]?.role || getDefaultRoleForIndex(i);
+      const employeeOptions = ['<option value="">Velg ansatt</option>']
+        .concat(activeEmployees.map(emp => `<option value="${escapeHtml(emp.name)}" ${emp.name === selectedEmployee ? "selected" : ""}>${escapeHtml(emp.name)}</option>`))
         .join("");
+      const roleOptions = ROLE_OPTIONS.map(role => `<option value="${escapeHtml(role)}" ${role === selectedRole ? "selected" : ""}>${escapeHtml(role)}</option>`).join("");
 
       blocks.push(`
-        <div class="space-y-1">
-          <label class="text-sm font-medium text-slate-700">Ansatt ${i + 1}</label>
-          <select data-assign-employee-select class="w-full rounded-2xl border border-slate-300 px-3 py-2">${options}</select>
+        <div data-assign-row class="rounded-2xl border border-slate-200 bg-slate-50 p-3 space-y-3">
+          <div class="text-sm font-medium text-slate-700">Bemanning ${i + 1}</div>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div class="space-y-1">
+              <label class="text-sm text-slate-600">Ansatt</label>
+              <select data-assign-employee-select class="w-full rounded-2xl border border-slate-300 px-3 py-2 bg-white">${employeeOptions}</select>
+            </div>
+            <div class="space-y-1">
+              <label class="text-sm text-slate-600">Rolle</label>
+              <select data-assign-role-select class="w-full rounded-2xl border border-slate-300 px-3 py-2 bg-white">${roleOptions}</select>
+            </div>
+          </div>
         </div>
       `);
     }
@@ -1099,9 +1119,9 @@
   async function createEntry() {
     if (!canEditApp()) return;
     const projectId = els.assignProject.value;
-    const employeeNames = getAssignEmployeeNames();
+    const assignments = getAssignAssignments();
+    const employeeNames = assignments.map(item => item.employee_name);
     const uniqueEmployeeNames = [...new Set(employeeNames)];
-    const role = els.assignRole.value;
     let startDate = els.assignStart.value;
     let endDate = els.assignEnd.value;
     const notes = els.assignNotes.value.trim();
@@ -1135,11 +1155,15 @@
       return;
     }
 
-    const newEntries = uniqueEmployeeNames.map(employeeName => ({
+    const uniqueAssignments = assignments.filter((item, index) =>
+      item.employee_name && employeeNames.indexOf(item.employee_name) === index
+    );
+
+    const newEntries = uniqueAssignments.map(item => ({
       id: crypto.randomUUID(),
       project_id: projectId,
-      employee_name: employeeName,
-      role,
+      employee_name: item.employee_name,
+      role: item.role,
       start_date: startDate,
       end_date: endDate,
       notes
