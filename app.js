@@ -1825,7 +1825,7 @@
     const totalWidth = colWidth * days.length;
 
     let html = `<div class="calendar-shell" style="width:${stickyWidth + totalWidth}px;">`;
-    html += `<div class="day-grid border border-slate-200 rounded-2xl overflow-hidden" style="grid-template-columns:${stickyWidth}px repeat(${days.length}, ${colWidth}px);">`;
+    html += `<div class="day-grid border border-slate-200 rounded-2xl" style="grid-template-columns:${stickyWidth}px repeat(${days.length}, ${colWidth}px);">`;
     html += `<div class="sticky-col z-30 border-b border-r border-slate-200 bg-slate-50 px-3 py-3 font-semibold">Ansatt</div>`;
 
     for (const day of days) {
@@ -1923,7 +1923,7 @@
     const totalWidth = monthWidth * 12;
 
     let html = `<div class="calendar-shell" style="width:${stickyWidth + totalWidth}px;">`;
-    html += `<div class="month-summary-grid border border-slate-200 rounded-2xl overflow-hidden" style="grid-template-columns:${stickyWidth}px repeat(12, ${monthWidth}px);">`;
+    html += `<div class="month-summary-grid border border-slate-200 rounded-2xl" style="grid-template-columns:${stickyWidth}px repeat(12, ${monthWidth}px);">`;
     html += `<div class="sticky-col z-30 border-b border-r border-slate-200 bg-slate-50 px-3 py-3 font-semibold">Ansatt</div>`;
 
     for (const month of months) {
@@ -2013,7 +2013,7 @@
     const totalWidth = colWidth * days.length;
 
     let html = `<div class="calendar-shell" style="width:${stickyWidth + totalWidth}px;">`;
-    html += `<div class="day-grid border border-slate-200 rounded-2xl overflow-hidden" style="grid-template-columns:${stickyWidth}px repeat(${days.length}, ${colWidth}px);">`;
+    html += `<div class="day-grid border border-slate-200 rounded-2xl" style="grid-template-columns:${stickyWidth}px repeat(${days.length}, ${colWidth}px);">`;
     html += `<div class="sticky-col z-30 border-b border-r border-slate-200 bg-slate-50 px-3 py-3 font-semibold">Prosjekt</div>`;
 
     for (const day of days) {
@@ -2100,7 +2100,7 @@
     const totalWidth = monthWidth * 12;
 
     let html = `<div class="calendar-shell" style="width:${stickyWidth + totalWidth}px;">`;
-    html += `<div class="month-summary-grid border border-slate-200 rounded-2xl overflow-hidden" style="grid-template-columns:${stickyWidth}px repeat(12, ${monthWidth}px);">`;
+    html += `<div class="month-summary-grid border border-slate-200 rounded-2xl" style="grid-template-columns:${stickyWidth}px repeat(12, ${monthWidth}px);">`;
     html += `<div class="sticky-col z-30 border-b border-r border-slate-200 bg-slate-50 px-3 py-3 font-semibold">Prosjekt</div>`;
 
     for (const month of months) {
