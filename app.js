@@ -29,6 +29,10 @@
     },
     dragEntryId: null,
     justDraggedEntryId: null,
+    dragAnchor: {
+      timeUnit: "day",
+      slotOffset: 0
+    },
     activeTab: "calendar",
     calendarPanelOpen: false,
     projectListFilter: "all",
@@ -2666,6 +2670,8 @@
 
       el.addEventListener("dragstart", event => {
         state.dragEntryId = el.dataset.entryId;
+        const row = el.closest(".row-overlay");
+        state.dragAnchor = getDragAnchorFromPointer(el, row, event.clientX);
         event.dataTransfer.effectAllowed = "move";
         event.dataTransfer.setData("text/plain", el.dataset.entryId);
         requestAnimationFrame(() => {
@@ -2676,6 +2682,7 @@
       el.addEventListener("dragend", () => {
         el.classList.remove("opacity-60");
         state.dragEntryId = null;
+        state.dragAnchor = { timeUnit: "day", slotOffset: 0 };
       });
     });
 
@@ -2741,7 +2748,8 @@
 
     if (dropMeta?.timeUnit === "day" && dropMeta.rangeStart && Number.isFinite(dropMeta.colIndex)) {
       const durationDays = Math.max(0, diffDays(new Date(entry.start_date), new Date(entry.end_date)));
-      const newStart = addDays(new Date(dropMeta.rangeStart), dropMeta.colIndex);
+      const adjustedIndex = getAdjustedDropColIndex(dropMeta);
+      const newStart = addDays(new Date(dropMeta.rangeStart), adjustedIndex);
       const newEnd = addDays(newStart, durationDays);
       const newStartIso = toIsoDate(newStart);
       const newEndIso = toIsoDate(newEnd);
@@ -2756,7 +2764,8 @@
       const durationDays = Math.max(0, diffDays(new Date(entry.start_date), new Date(entry.end_date)));
       const originalStart = new Date(entry.start_date);
       const targetMonthBase = new Date(dropMeta.rangeStart);
-      const shiftedStart = new Date(targetMonthBase.getFullYear(), targetMonthBase.getMonth() + dropMeta.colIndex, 1);
+      const adjustedIndex = getAdjustedDropColIndex(dropMeta);
+      const shiftedStart = new Date(targetMonthBase.getFullYear(), targetMonthBase.getMonth() + adjustedIndex, 1);
       const clampedDay = Math.min(originalStart.getDate(), daysInMonth(shiftedStart.getFullYear(), shiftedStart.getMonth()));
       shiftedStart.setDate(clampedDay);
       const shiftedEnd = addDays(shiftedStart, durationDays);
@@ -3002,6 +3011,45 @@
     return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
   }
 
+
+  function getAdjustedDropColIndex(dropMeta) {
+    const totalCols = Number(dropMeta?.totalCols || 0);
+    const rawIndex = Number(dropMeta?.colIndex);
+    if (!Number.isFinite(rawIndex)) return 0;
+
+    const anchor = state.dragAnchor || { timeUnit: dropMeta?.timeUnit || "day", slotOffset: 0 };
+    const sameUnit = anchor.timeUnit === (dropMeta?.timeUnit || "day");
+    const anchorOffset = sameUnit ? Number(anchor.slotOffset || 0) : 0;
+    const adjusted = rawIndex - anchorOffset;
+
+    if (totalCols > 0) {
+      return clampSlotIndex(adjusted, totalCols);
+    }
+    return Math.max(0, adjusted);
+  }
+
+  function getDragAnchorFromPointer(entryEl, row, clientX) {
+    const timeUnit = row?.dataset?.timeUnit || "day";
+    const totalCols = Number(row?.dataset?.totalCols || 0);
+    const barRect = entryEl?.getBoundingClientRect?.();
+    const rowRect = row?.getBoundingClientRect?.();
+
+    if (!barRect || !rowRect || !totalCols || !rowRect.width) {
+      return { timeUnit, slotOffset: 0 };
+    }
+
+    const slotWidth = rowRect.width / totalCols;
+    if (!slotWidth) {
+      return { timeUnit, slotOffset: 0 };
+    }
+
+    const pointerOffsetPx = Math.max(0, Math.min(barRect.width - 1, clientX - barRect.left));
+    const spanSlots = Math.max(1, Math.round(barRect.width / slotWidth));
+    const slotOffset = Math.max(0, Math.min(spanSlots - 1, Math.floor(pointerOffsetPx / slotWidth)));
+
+    return { timeUnit, slotOffset };
+  }
+
   function getDropMetaFromRow(row, event) {
     const colWidth = Number(row.dataset.colWidth || 0);
     const totalCols = Number(row.dataset.totalCols || 0);
@@ -3009,18 +3057,18 @@
     const rangeStart = row.dataset.rangeStart || null;
 
     if (!colWidth || !totalCols || !rangeStart) {
-      return { timeUnit, rangeStart, colIndex: null };
+      return { timeUnit, rangeStart, totalCols, colIndex: null };
     }
 
     const preciseIndex = getDropSlotIndexFromPointer(row, event.clientX, totalCols);
     if (Number.isFinite(preciseIndex)) {
-      return { timeUnit, rangeStart, colIndex: preciseIndex };
+      return { timeUnit, rangeStart, totalCols, colIndex: preciseIndex };
     }
 
     const rect = row.getBoundingClientRect();
     const x = Math.max(0, Math.min(rect.width - 1, event.clientX - rect.left));
     const colIndex = Math.max(0, Math.min(totalCols - 1, Math.floor(x / colWidth)));
-    return { timeUnit, rangeStart, colIndex };
+    return { timeUnit, rangeStart, totalCols, colIndex };
   }
 
   function getDropSlotIndexFromPointer(row, clientX, totalCols) {
