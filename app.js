@@ -35,7 +35,8 @@
     contextMenu: {
       visible: false,
       employeeName: "",
-      date: "",
+      startDate: "",
+      endDate: "",
       x: 0,
       y: 0
     }
@@ -93,7 +94,7 @@
       "projectLocation", "projectHeadcount", "projectNotes", "saveProjectBtn", "deleteProjectBtn",
       "newEmployeeBtn", "employeeModal", "employeeModalTitle", "closeEmployeeModalBtn",
       "employeeName", "employeeEmail", "employeePhone", "employeeTitle", "employeeActive", "saveEmployeeBtn", "deleteEmployeeBtn",
-      "calendarContextMenu", "contextMenuEmployee", "contextMenuDate", "contextMenuType", "contextMenuAddBtn", "contextMenuCloseBtn",
+      "calendarContextMenu", "contextMenuEmployee", "contextMenuStart", "contextMenuEnd", "contextMenuType", "contextMenuNotes", "contextMenuAddBtn", "contextMenuCloseBtn",
       "accountPanel", "accountUserInfo", "changePasswordBtn", "resetPasswordBtn", "logoutBtn", "loginBtn", "loginModal", "closeLoginModalBtn", "loginEmail", "loginPassword", "loginSubmitBtn", "forgotPasswordBtn"
     ];
 
@@ -199,8 +200,10 @@
     if (document.getElementById("calendarContextMenu")) {
       els.calendarContextMenu = document.getElementById("calendarContextMenu");
       els.contextMenuEmployee = document.getElementById("contextMenuEmployee");
-      els.contextMenuDate = document.getElementById("contextMenuDate");
+      els.contextMenuStart = document.getElementById("contextMenuStart");
+      els.contextMenuEnd = document.getElementById("contextMenuEnd");
       els.contextMenuType = document.getElementById("contextMenuType");
+      els.contextMenuNotes = document.getElementById("contextMenuNotes");
       els.contextMenuAddBtn = document.getElementById("contextMenuAddBtn");
       els.contextMenuCloseBtn = document.getElementById("contextMenuCloseBtn");
       return;
@@ -223,10 +226,23 @@
           <div id="contextMenuEmployee" class="font-medium text-slate-800"></div>
         </div>
         <div>
-          <div class="text-xs text-slate-500">Dato</div>
-          <div id="contextMenuDate" class="font-medium text-slate-800"></div>
+          <div class="text-xs text-slate-500">Kategori</div>
+          <select id="contextMenuType" class="mt-1 w-full rounded-2xl border border-slate-300 px-3 py-2"></select>
         </div>
-        <select id="contextMenuType" class="w-full rounded-2xl border border-slate-300 px-3 py-2"></select>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div>
+            <div class="text-xs text-slate-500">Fra</div>
+            <input id="contextMenuStart" type="date" class="mt-1 w-full rounded-2xl border border-slate-300 px-3 py-2" />
+          </div>
+          <div>
+            <div class="text-xs text-slate-500">Til</div>
+            <input id="contextMenuEnd" type="date" class="mt-1 w-full rounded-2xl border border-slate-300 px-3 py-2" />
+          </div>
+        </div>
+        <div>
+          <div class="text-xs text-slate-500">Notat / beskrivelse</div>
+          <textarea id="contextMenuNotes" class="mt-1 w-full rounded-2xl border border-slate-300 px-3 py-2" rows="4" placeholder="For eksempel kursnavn eller kommentar"></textarea>
+        </div>
         <button id="contextMenuAddBtn" class="w-full rounded-2xl bg-slate-900 text-white px-4 py-2">Legg i kalender</button>
       </div>
     `;
@@ -234,8 +250,10 @@
 
     els.calendarContextMenu = menu;
     els.contextMenuEmployee = document.getElementById("contextMenuEmployee");
-    els.contextMenuDate = document.getElementById("contextMenuDate");
+    els.contextMenuStart = document.getElementById("contextMenuStart");
+    els.contextMenuEnd = document.getElementById("contextMenuEnd");
     els.contextMenuType = document.getElementById("contextMenuType");
+    els.contextMenuNotes = document.getElementById("contextMenuNotes");
     els.contextMenuAddBtn = document.getElementById("contextMenuAddBtn");
     els.contextMenuCloseBtn = document.getElementById("contextMenuCloseBtn");
   }
@@ -1254,15 +1272,18 @@
     state.contextMenu = {
       visible: true,
       employeeName,
-      date: isoDate,
+      startDate: isoDate,
+      endDate: isoDate,
       x,
       y
     };
 
     if (els.contextMenuEmployee) els.contextMenuEmployee.textContent = employeeName;
-    if (els.contextMenuDate) els.contextMenuDate.textContent = formatDate(isoDate);
+    if (els.contextMenuStart) els.contextMenuStart.value = isoDate;
+    if (els.contextMenuEnd) els.contextMenuEnd.value = isoDate;
     fillSelect(els.contextMenuType, PERSONAL_BLOCK_TYPES);
-    els.contextMenuType.value = "Ferie";
+    if (els.contextMenuType) els.contextMenuType.value = "Ferie";
+    if (els.contextMenuNotes) els.contextMenuNotes.value = "";
 
     const menu = els.calendarContextMenu;
     menu.classList.remove("hidden");
@@ -1292,17 +1313,23 @@
 
   async function createContextMenuPersonalBlockEntry() {
     const employeeName = state.contextMenu.employeeName;
-    const date = state.contextMenu.date;
+    const startDate = els.contextMenuStart?.value || state.contextMenu.startDate;
+    const endDate = els.contextMenuEnd?.value || state.contextMenu.endDate;
     const type = els.contextMenuType?.value || "Ferie";
-    if (!employeeName || !date || !type) return;
+    const notes = els.contextMenuNotes?.value?.trim() || "";
+    if (!employeeName || !startDate || !endDate || !type) return;
+    if (startDate > endDate) {
+      alert("Startdato kan ikke være etter sluttdato.");
+      return;
+    }
 
     hideCalendarContextMenu();
 
     if (els.personalBlockEmployee) els.personalBlockEmployee.value = employeeName;
     if (els.personalBlockType) els.personalBlockType.value = type;
-    if (els.personalBlockStart) els.personalBlockStart.value = date;
-    if (els.personalBlockEnd) els.personalBlockEnd.value = date;
-    if (els.personalBlockNotes) els.personalBlockNotes.value = "";
+    if (els.personalBlockStart) els.personalBlockStart.value = startDate;
+    if (els.personalBlockEnd) els.personalBlockEnd.value = endDate;
+    if (els.personalBlockNotes) els.personalBlockNotes.value = notes;
 
     await createPersonalBlockEntry();
   }
