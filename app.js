@@ -2349,7 +2349,7 @@
         const project = getProjectById(entry.project_id);
         if (!project) continue;
 
-        const clipped = clipRange(new Date(entry.start_date), new Date(entry.end_date), range.start, range.end);
+        const clipped = clipRange(asLocalDate(entry.start_date), asLocalDate(entry.end_date), range.start, range.end);
         const startIndex = diffDays(range.start, clipped.start);
         const spanDays = diffDays(clipped.start, clipped.end) + 1;
         const left = startIndex * colWidth + 2;
@@ -2433,8 +2433,8 @@
         const project = getProjectById(entry.project_id);
         if (!project) continue;
 
-        const entryStart = new Date(entry.start_date);
-        const entryEnd = new Date(entry.end_date);
+        const entryStart = asLocalDate(entry.start_date);
+        const entryEnd = asLocalDate(entry.end_date);
         const startMonth = Math.max(0, entryStart.getFullYear() < year ? 0 : entryStart.getMonth());
         const endMonth = Math.min(11, entryEnd.getFullYear() > year ? 11 : entryEnd.getMonth());
         const spanMonths = (endMonth - startMonth) + 1;
@@ -2530,7 +2530,7 @@
       html += `<div style="position:relative; width:${totalWidth}px; min-height:56px;">`;
 
       if (project.planned_start_date && project.planned_end_date) {
-        const clipped = clipRange(new Date(project.planned_start_date), new Date(project.planned_end_date), range.start, range.end);
+        const clipped = clipRange(asLocalDate(project.planned_start_date), asLocalDate(project.planned_end_date), range.start, range.end);
         const startIndex = diffDays(range.start, clipped.start);
         const spanDays = diffDays(clipped.start, clipped.end) + 1;
         const left = startIndex * colWidth + 2;
@@ -2603,8 +2603,8 @@
       html += `<div style="position:relative; width:${totalWidth}px; min-height:56px;">`;
 
       if (project.planned_start_date && project.planned_end_date) {
-        const start = new Date(project.planned_start_date);
-        const end = new Date(project.planned_end_date);
+        const start = asLocalDate(project.planned_start_date);
+        const end = asLocalDate(project.planned_end_date);
         const startMonth = Math.max(0, start.getFullYear() < year ? 0 : start.getMonth());
         const endMonth = Math.min(11, end.getFullYear() > year ? 11 : end.getMonth());
         const spanMonths = (endMonth - startMonth) + 1;
@@ -2697,7 +2697,7 @@
         const dropMeta = getDropMetaFromRow(row, event);
         if (!dropMeta?.rangeStart || !Number.isFinite(dropMeta.colIndex)) return;
         const selectedDate = dropMeta?.dropDate
-          ? dropMeta.dropDate
+          ? toIsoDate(parseIsoDateLocal(dropMeta.dropDate))
           : toIsoDate(addDays(parseIsoDateLocal(dropMeta.rangeStart), dropMeta.colIndex));
         openCalendarContextMenu(targetEmployeeName, selectedDate, event.clientX + 8, event.clientY + 8);
       });
@@ -2749,11 +2749,12 @@
     }
 
     if (dropMeta?.timeUnit === "day" && dropMeta.rangeStart && Number.isFinite(dropMeta.colIndex)) {
-      const durationDays = Math.max(0, diffDays(new Date(entry.start_date), new Date(entry.end_date)));
+      const durationDays = Math.max(0, diffDays(asLocalDate(entry.start_date), asLocalDate(entry.end_date)));
       const adjustedIndex = getAdjustedDropColIndex(dropMeta);
-      const pointerDate = dropMeta.dropDate
+      const pointerBaseDate = dropMeta.dropDate
         ? parseIsoDateLocal(dropMeta.dropDate)
         : addDays(parseIsoDateLocal(dropMeta.rangeStart), dropMeta.colIndex);
+      const pointerDate = pointerBaseDate;
       const anchorOffset = Math.max(0, Number(state.dragAnchor?.slotOffset || 0));
       const newStart = addDays(pointerDate, -anchorOffset);
       const fallbackStart = addDays(parseIsoDateLocal(dropMeta.rangeStart), adjustedIndex);
@@ -2769,8 +2770,8 @@
     }
 
     if (dropMeta?.timeUnit === "month" && dropMeta.rangeStart && Number.isFinite(dropMeta.colIndex)) {
-      const durationDays = Math.max(0, diffDays(new Date(entry.start_date), new Date(entry.end_date)));
-      const originalStart = new Date(entry.start_date);
+      const durationDays = Math.max(0, diffDays(asLocalDate(entry.start_date), asLocalDate(entry.end_date)));
+      const originalStart = asLocalDate(entry.start_date);
       const targetMonthBase = parseIsoDateLocal(dropMeta.rangeStart);
       const adjustedIndex = getAdjustedDropColIndex(dropMeta);
       const shiftedStart = new Date(targetMonthBase.getFullYear(), targetMonthBase.getMonth() + adjustedIndex, 1);
@@ -2914,7 +2915,7 @@
 
   function formatDateTime(value) {
     if (!value) return "";
-    const d = new Date(value);
+    const d = asLocalDate(value);
     if (Number.isNaN(d.getTime())) return String(value);
     return new Intl.DateTimeFormat("no-NO", {
       day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit"
@@ -2922,14 +2923,14 @@
   }
 
   function formatDate(value) {
-    const d = new Date(value);
+    const d = asLocalDate(value);
     return new Intl.DateTimeFormat("no-NO", {
       day: "2-digit", month: "2-digit", year: "numeric"
     }).format(d);
   }
 
   function formatYearBarLabel(start, end) {
-    return `${capitalize(monthShort(new Date(start)))}–${capitalize(monthShort(new Date(end)))}`;
+    return `${capitalize(monthShort(asLocalDate(start)))}–${capitalize(monthShort(asLocalDate(end)))}`;
   }
 
 
@@ -2939,7 +2940,10 @@
   }
 
   function toIsoDate(date) {
-    return new Date(date.getFullYear(), date.getMonth(), date.getDate()).toISOString().slice(0, 10);
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
   }
 
   function parseIsoDateLocal(value) {
@@ -2947,6 +2951,15 @@
     const parts = String(value).split("-").map(Number);
     if (parts.length !== 3 || parts.some(v => !Number.isFinite(v))) return null;
     return new Date(parts[0], parts[1] - 1, parts[2]);
+  }
+
+  function asLocalDate(value) {
+    if (value instanceof Date) return new Date(value.getFullYear(), value.getMonth(), value.getDate());
+    if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+      return parseIsoDateLocal(value);
+    }
+    const parsed = asLocalDate(value);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
   }
 
   function startOfWeek(date) {
@@ -2966,7 +2979,7 @@
 
   function getDaysBetween(start, end) {
     const result = [];
-    const current = new Date(start);
+    const current = asLocalDate(start);
     while (current <= end) {
       result.push(new Date(current));
       current.setDate(current.getDate() + 1);
@@ -2981,10 +2994,10 @@
   }
 
   function overlaps(startA, endA, startB, endB) {
-    const a1 = new Date(startA);
-    const a2 = new Date(endA);
-    const b1 = new Date(startB);
-    const b2 = new Date(endB);
+    const a1 = asLocalDate(startA);
+    const a2 = asLocalDate(endA);
+    const b1 = asLocalDate(startB);
+    const b2 = asLocalDate(endB);
     return a1 <= b2 && a2 >= b1;
   }
 
