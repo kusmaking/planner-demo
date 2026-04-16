@@ -31,7 +31,13 @@
     justDraggedEntryId: null,
     activeTab: "calendar",
     calendarPanelOpen: false,
-    projectListFilter: "all"
+    contextMenu: {
+      visible: false,
+      employeeName: "",
+      date: "",
+      x: 0,
+      y: 0
+    }
   };
 
   const els = {};
@@ -47,6 +53,7 @@
     cacheElements();
     ensureAccountPanel();
     ensurePersonalBlockPanel();
+    ensureCalendarContextMenu();
     setupStaticOptions();
     bindEvents();
 
@@ -85,6 +92,7 @@
       "projectLocation", "projectHeadcount", "projectNotes", "saveProjectBtn", "deleteProjectBtn",
       "newEmployeeBtn", "employeeModal", "employeeModalTitle", "closeEmployeeModalBtn",
       "employeeName", "employeeEmail", "employeePhone", "employeeTitle", "employeeActive", "saveEmployeeBtn", "deleteEmployeeBtn",
+      "calendarContextMenu", "contextMenuEmployee", "contextMenuDate", "contextMenuType", "contextMenuAddBtn", "contextMenuCloseBtn",
       "accountPanel", "accountUserInfo", "changePasswordBtn", "resetPasswordBtn", "logoutBtn", "loginBtn", "loginModal", "closeLoginModalBtn", "loginEmail", "loginPassword", "loginSubmitBtn", "forgotPasswordBtn"
     ];
 
@@ -133,6 +141,15 @@
     const employeeSection = els.tabEmployeesSection;
     if (!employeeSection) return;
 
+    const existingEmployeeCol = employeeSection.firstElementChild;
+    if (existingEmployeeCol) {
+      existingEmployeeCol.className = "xl:col-span-1";
+      const employeeList = existingEmployeeCol.querySelector("#employeeList");
+      if (employeeList) {
+        employeeList.className = "space-y-2 max-h-[760px] overflow-auto scrollbar-thin";
+      }
+    }
+
     if (document.getElementById("personalBlockCard")) {
       els.personalBlockEmployee = document.getElementById("personalBlockEmployee");
       els.personalBlockType = document.getElementById("personalBlockType");
@@ -144,9 +161,9 @@
     }
 
     const wrapper = document.createElement("div");
-    wrapper.className = "xl:col-span-4";
+    wrapper.className = "xl:col-span-3";
     wrapper.innerHTML = `
-      <div id="personalBlockCard" class="rounded-2xl bg-white border border-slate-200 shadow-sm">
+      <div id="personalBlockCard" class="rounded-2xl bg-white border border-slate-200 shadow-sm h-full">
         <div class="p-4 border-b border-slate-200">
           <h2 class="font-semibold">Direkte blokk på ansatt</h2>
           <p class="text-sm text-slate-500 mt-1">Brukes for kurs, ferie, syk og avspasering direkte på personen, uten å gå via prosjektmodulen.</p>
@@ -156,11 +173,11 @@
             <select id="personalBlockEmployee" class="w-full rounded-2xl border border-slate-300 px-3 py-2"></select>
             <select id="personalBlockType" class="w-full rounded-2xl border border-slate-300 px-3 py-2"></select>
           </div>
-          <div class="grid grid-cols-2 gap-3">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
             <input id="personalBlockStart" type="date" class="rounded-2xl border border-slate-300 px-3 py-2" />
             <input id="personalBlockEnd" type="date" class="rounded-2xl border border-slate-300 px-3 py-2" />
           </div>
-          <textarea id="personalBlockNotes" class="w-full rounded-2xl border border-slate-300 px-3 py-2" rows="3" placeholder="Notat"></textarea>
+          <textarea id="personalBlockNotes" class="w-full rounded-2xl border border-slate-300 px-3 py-2" rows="4" placeholder="Notat"></textarea>
           <button id="personalBlockSaveBtn" class="w-full rounded-2xl bg-slate-900 text-white px-4 py-2">Lagre blokk i kalender</button>
         </div>
       </div>
@@ -173,6 +190,53 @@
     els.personalBlockEnd = document.getElementById("personalBlockEnd");
     els.personalBlockNotes = document.getElementById("personalBlockNotes");
     els.personalBlockSaveBtn = document.getElementById("personalBlockSaveBtn");
+  }
+
+
+
+  function ensureCalendarContextMenu() {
+    if (document.getElementById("calendarContextMenu")) {
+      els.calendarContextMenu = document.getElementById("calendarContextMenu");
+      els.contextMenuEmployee = document.getElementById("contextMenuEmployee");
+      els.contextMenuDate = document.getElementById("contextMenuDate");
+      els.contextMenuType = document.getElementById("contextMenuType");
+      els.contextMenuAddBtn = document.getElementById("contextMenuAddBtn");
+      els.contextMenuCloseBtn = document.getElementById("contextMenuCloseBtn");
+      return;
+    }
+
+    const menu = document.createElement("div");
+    menu.id = "calendarContextMenu";
+    menu.className = "fixed z-[120] hidden w-80 rounded-2xl border border-slate-200 bg-white shadow-2xl";
+    menu.innerHTML = `
+      <div class="p-4 border-b border-slate-200 flex items-center justify-between gap-3">
+        <div>
+          <div class="font-semibold">Legg til direkte blokk</div>
+          <div class="text-xs text-slate-500 mt-1">Fra høyreklikk i kalender</div>
+        </div>
+        <button id="contextMenuCloseBtn" class="rounded-lg border border-slate-300 px-3 py-1 text-sm">Lukk</button>
+      </div>
+      <div class="p-4 space-y-3">
+        <div>
+          <div class="text-xs text-slate-500">Ansatt</div>
+          <div id="contextMenuEmployee" class="font-medium text-slate-800"></div>
+        </div>
+        <div>
+          <div class="text-xs text-slate-500">Dato</div>
+          <div id="contextMenuDate" class="font-medium text-slate-800"></div>
+        </div>
+        <select id="contextMenuType" class="w-full rounded-2xl border border-slate-300 px-3 py-2"></select>
+        <button id="contextMenuAddBtn" class="w-full rounded-2xl bg-slate-900 text-white px-4 py-2">Legg i kalender</button>
+      </div>
+    `;
+    document.body.appendChild(menu);
+
+    els.calendarContextMenu = menu;
+    els.contextMenuEmployee = document.getElementById("contextMenuEmployee");
+    els.contextMenuDate = document.getElementById("contextMenuDate");
+    els.contextMenuType = document.getElementById("contextMenuType");
+    els.contextMenuAddBtn = document.getElementById("contextMenuAddBtn");
+    els.contextMenuCloseBtn = document.getElementById("contextMenuCloseBtn");
   }
 
   function ensureLoginModal() {
@@ -298,16 +362,6 @@
   function setActiveTab(tabName) {
     state.activeTab = tabName;
     renderLayoutTabs();
-  }
-
-  function openProjectsTab(filter = "all") {
-    state.projectListFilter = filter;
-    state.activeTab = "projects";
-    renderLayoutTabs();
-    renderProjects();
-    if (els.projectList) {
-      els.projectList.scrollTop = 0;
-    }
   }
 
   function renderLayoutTabs() {
@@ -551,6 +605,7 @@
     fillSelect(els.projectStatus, STATUS_OPTIONS, "Planlagt");
     fillSelect(els.editRole, ROLE_OPTIONS, "Supervisor");
     fillSelect(els.personalBlockType, PERSONAL_BLOCK_TYPES);
+    fillSelect(els.contextMenuType, PERSONAL_BLOCK_TYPES);
   }
 
   function bindEvents() {
@@ -623,6 +678,15 @@
     if (els.personalBlockSaveBtn) {
       els.personalBlockSaveBtn.addEventListener("click", createPersonalBlockEntry);
     }
+    if (els.contextMenuAddBtn) {
+      els.contextMenuAddBtn.addEventListener("click", createContextMenuPersonalBlockEntry);
+    }
+    if (els.contextMenuCloseBtn) {
+      els.contextMenuCloseBtn.addEventListener("click", hideCalendarContextMenu);
+    }
+    document.addEventListener("click", handleGlobalPointerClose, true);
+    window.addEventListener("scroll", hideCalendarContextMenu, true);
+    window.addEventListener("resize", hideCalendarContextMenu);
     if (els.resetDemoBtn) {
       els.resetDemoBtn.style.display = "none";
     }
@@ -1163,6 +1227,85 @@
 
 
 
+
+
+  function canSeePersonalBlockType(type) {
+    if (type !== "Syk") return true;
+    return canEditApp();
+  }
+
+  function getVisiblePersonalBlockTypes() {
+    return PERSONAL_BLOCK_TYPES.filter(canSeePersonalBlockType);
+  }
+
+  function getVisibleEntriesForEmployee(employeeName, rangeStart, rangeEnd) {
+    return (state.derived.entriesByEmployee.get(employeeName) || []).filter(entry => {
+      if (!overlaps(entry.start_date, entry.end_date, rangeStart, rangeEnd)) return false;
+      const project = getProjectById(entry.project_id);
+      if (isSystemPersonalProject(project) && !canSeePersonalBlockType(project.category)) return false;
+      return true;
+    });
+  }
+
+  function openCalendarContextMenu(employeeName, isoDate, x, y) {
+    if (!canEditApp() || !els.calendarContextMenu) return;
+
+    state.contextMenu = {
+      visible: true,
+      employeeName,
+      date: isoDate,
+      x,
+      y
+    };
+
+    if (els.contextMenuEmployee) els.contextMenuEmployee.textContent = employeeName;
+    if (els.contextMenuDate) els.contextMenuDate.textContent = formatDate(isoDate);
+    fillSelect(els.contextMenuType, PERSONAL_BLOCK_TYPES);
+    els.contextMenuType.value = "Ferie";
+
+    const menu = els.calendarContextMenu;
+    menu.classList.remove("hidden");
+    menu.style.left = "0px";
+    menu.style.top = "0px";
+
+    requestAnimationFrame(() => {
+      const menuRect = menu.getBoundingClientRect();
+      const maxLeft = Math.max(12, window.innerWidth - menuRect.width - 12);
+      const maxTop = Math.max(12, window.innerHeight - menuRect.height - 12);
+      menu.style.left = `${Math.min(Math.max(12, x), maxLeft)}px`;
+      menu.style.top = `${Math.min(Math.max(12, y), maxTop)}px`;
+    });
+  }
+
+  function hideCalendarContextMenu() {
+    state.contextMenu.visible = false;
+    if (!els.calendarContextMenu) return;
+    els.calendarContextMenu.classList.add("hidden");
+  }
+
+  function handleGlobalPointerClose(event) {
+    if (!state.contextMenu.visible) return;
+    if (els.calendarContextMenu?.contains(event.target)) return;
+    hideCalendarContextMenu();
+  }
+
+  async function createContextMenuPersonalBlockEntry() {
+    const employeeName = state.contextMenu.employeeName;
+    const date = state.contextMenu.date;
+    const type = els.contextMenuType?.value || "Ferie";
+    if (!employeeName || !date || !type) return;
+
+    hideCalendarContextMenu();
+
+    if (els.personalBlockEmployee) els.personalBlockEmployee.value = employeeName;
+    if (els.personalBlockType) els.personalBlockType.value = type;
+    if (els.personalBlockStart) els.personalBlockStart.value = date;
+    if (els.personalBlockEnd) els.personalBlockEnd.value = date;
+    if (els.personalBlockNotes) els.personalBlockNotes.value = "";
+
+    await createPersonalBlockEntry();
+  }
+
   function isPersonalBlockType(value) {
     return PERSONAL_BLOCK_TYPES.includes(value);
   }
@@ -1383,7 +1526,7 @@
     const project = getProjectById(entry.project_id);
     closeEditModal();
     renderAll();
-    void addAudit(`Redigerte tildeling: ${entry.employee_name} → ${project?.name || "Ukjent prosjekt"}`);
+    void addAudit(`Redigerte tildeling: ${entry.employee_name} → ${displayProjectName(project) || "Ukjent prosjekt"}`);
   }
 
   async function deleteEditedEntry() {
@@ -1405,7 +1548,7 @@
     const project = getProjectById(entry.project_id);
     closeEditModal();
     renderAll();
-    void addAudit(`Slettet tildeling: ${entry.employee_name} → ${project?.name || "Ukjent prosjekt"}`);
+    void addAudit(`Slettet tildeling: ${entry.employee_name} → ${displayProjectName(project) || "Ukjent prosjekt"}`);
   }
 
   function openProjectModal(projectId = null) {
@@ -1751,6 +1894,7 @@
     fillSelect(els.editProject, state.projects, null, "name", "id");
     fillSelect(els.personalBlockEmployee, [{ id: "", name: "Velg ansatt" }, ...state.employees.filter(e => e.active !== false).map(e => ({ id: e.name, name: e.name }))], els.personalBlockEmployee?.value || "", "name", "id");
     fillSelect(els.personalBlockType, PERSONAL_BLOCK_TYPES, els.personalBlockType?.value || PERSONAL_BLOCK_TYPES[0] || "");
+    fillSelect(els.contextMenuType, PERSONAL_BLOCK_TYPES, els.contextMenuType?.value || "Ferie");
     fillSelect(els.viewMode, ["Uke", "Måned", "År"], state.viewMode);
     fillSelect(els.calendarMode, [
       { id: "personal", name: "Personalplan" },
@@ -1766,42 +1910,27 @@
   }
 
   function renderStats() {
-    const visibleProjects = state.projects.slice().sort((a, b) => compareProjectDates(a, b));
+    const visibleEmployees = getFilteredEmployees();
+    const range = getCurrentRange();
+    const visibleProjects = getVisibleProjects();
+    const entriesInRange = state.entries.filter(entry => overlaps(entry.start_date, entry.end_date, range.start, range.end));
+    const projectsInRange = visibleProjects.filter(project => projectOverlapsRange(project, range.start, range.end));
     const unstaffedProjects = visibleProjects.filter(project => getProjectAssignedCount(project.id) === 0);
-    const canOpenProjects = canPlanApp();
 
     const cards = [
-      {
-        label: "Prosjekter",
-        value: visibleProjects.length,
-        action: "all",
-        helper: "Åpne prosjektlisten"
-      },
-      {
-        label: "Prosjekter uten bemanning",
-        value: unstaffedProjects.length,
-        action: "unstaffed",
-        helper: "Vis kun prosjekter som mangler bemanning"
-      }
+      { label: "Ansatte", value: state.employees.filter(e => e.active !== false).length },
+      { label: "Prosjekter", value: visibleProjects.length },
+      { label: "Prosjekter uten bemanning", value: unstaffedProjects.length },
+      { label: "Tildelinger i visning", value: entriesInRange.length },
+      { label: state.calendarMode === "project" ? "Prosjekter i visning" : "Synlige ansatte", value: state.calendarMode === "project" ? projectsInRange.length : visibleEmployees.length }
     ];
 
     els.statsRow.innerHTML = cards.map(card => `
-      <button
-        type="button"
-        class="rounded-2xl bg-white border border-slate-200 shadow-sm p-4 text-left ${canOpenProjects ? "hover:bg-slate-50 cursor-pointer" : "cursor-default"}"
-        ${canOpenProjects ? `data-stat-action="${escapeHtml(card.action)}"` : "disabled"}
-      >
+      <div class="rounded-2xl bg-white border border-slate-200 shadow-sm p-4">
         <div class="text-sm text-slate-500">${escapeHtml(card.label)}</div>
         <div class="text-3xl font-bold mt-2">${escapeHtml(String(card.value))}</div>
-        <div class="text-xs text-slate-400 mt-2">${escapeHtml(card.helper)}</div>
-      </button>
+      </div>
     `).join("");
-
-    if (canOpenProjects) {
-      els.statsRow.querySelectorAll("[data-stat-action]").forEach(btn => {
-        btn.addEventListener("click", () => openProjectsTab(btn.dataset.statAction || "all"));
-      });
-    }
   }
 
 
@@ -1813,7 +1942,7 @@
       </div>
     `).join("");
 
-    const personalCategoryHtml = PERSONAL_BLOCK_TYPES.map(name => `
+    const personalCategoryHtml = getVisiblePersonalBlockTypes().map(name => `
       <div class="flex items-center gap-2">
         <span class="inline-block w-4 h-4 rounded ${CATEGORY_COLORS[name] || "bg-slate-400"}"></span>
         <span>${escapeHtml(name)}</span>
@@ -1869,36 +1998,9 @@
   }
 
   function renderProjects() {
-    const filteredProjects = state.projects
+    els.projectList.innerHTML = getVisibleProjects()
       .slice()
       .sort((a, b) => compareProjectDates(a, b))
-      .filter(project => {
-        if (state.projectListFilter === "unstaffed") {
-          return getProjectAssignedCount(project.id) === 0;
-        }
-        return true;
-      });
-
-    const filterIntro = state.projectListFilter === "unstaffed"
-      ? `
-        <div class="rounded-xl border border-amber-200 bg-amber-50 px-3 py-3 text-sm text-amber-800">
-          Viser kun prosjekter som mangler bemanning. Klikk på <span class="font-semibold">Bemann</span> for å gå rett til tildeling.
-        </div>
-      `
-      : `
-        <div class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm text-slate-600">
-          Prosjektene er sortert stigende etter planlagt startdato.
-        </div>
-      `;
-
-    const filterActions = `
-      <div class="flex flex-wrap gap-2">
-        <button type="button" data-project-filter="all" class="rounded-xl border px-3 py-2 text-sm ${state.projectListFilter === "all" ? "border-slate-900 bg-slate-900 text-white" : "border-slate-300 bg-white text-slate-700"}">Alle prosjekter</button>
-        <button type="button" data-project-filter="unstaffed" class="rounded-xl border px-3 py-2 text-sm ${state.projectListFilter === "unstaffed" ? "border-slate-900 bg-slate-900 text-white" : "border-slate-300 bg-white text-slate-700"}">Uten bemanning</button>
-      </div>
-    `;
-
-    const projectCards = filteredProjects
       .map(project => {
         const assigned = getProjectAssignedCount(project.id);
         const required = Number(project.headcount_required || 0);
@@ -1954,23 +2056,7 @@
             </div>
           </div>
         `;
-      })
-      .join("") || `<div class="text-sm text-slate-500">Ingen prosjekter i dette utvalget.</div>`;
-
-    els.projectList.innerHTML = `
-      <div class="space-y-3">
-        ${filterActions}
-        ${filterIntro}
-        ${projectCards}
-      </div>
-    `;
-
-    els.projectList.querySelectorAll("[data-project-filter]").forEach(btn => {
-      btn.addEventListener("click", () => {
-        state.projectListFilter = btn.dataset.projectFilter || "all";
-        renderProjects();
-      });
-    });
+      }).join("") || `<div class="text-sm text-slate-500">Ingen prosjekter.</div>`;
 
     els.projectList.querySelectorAll("[data-project-id]").forEach(btn => {
       btn.addEventListener("click", () => openProjectModal(btn.dataset.projectId));
@@ -2017,7 +2103,7 @@
       return;
     }
 
-    void addAudit(`Slettet tildeling fra prosjektkort: ${entry.employee_name} → ${project?.name || "Ukjent prosjekt"}`);
+    void addAudit(`Slettet tildeling fra prosjektkort: ${entry.employee_name} → ${displayProjectName(project) || "Ukjent prosjekt"}`);
   }
 
   function renderEmployees() {
@@ -2148,8 +2234,7 @@
     const warnings = [];
 
     for (const employee of employees) {
-      const employeeEntries = (state.derived.entriesByEmployee.get(employee.name) || [])
-        .filter(entry => overlaps(entry.start_date, entry.end_date, range.start, range.end));
+      const employeeEntries = getVisibleEntriesForEmployee(employee.name, range.start, range.end);
 
       html += `
         <div class="sticky-col border-r border-b border-slate-200 px-3 py-3">
@@ -2186,10 +2271,10 @@
             style="left:${left}px; width:${width}px;"
             data-entry-id="${escapeHtml(entry.id)}"
             draggable="true"
-            title="${escapeHtml(`${employee.name} | ${project.name} | ${entry.role} | ${entry.start_date} - ${entry.end_date}${entry.notes ? ` | ${entry.notes}` : ""}`)}"
+            title="${escapeHtml(`${employee.name} | ${displayProjectName(project)} | ${entry.role} | ${entry.start_date} - ${entry.end_date}${entry.notes ? ` | ${entry.notes}` : ""}`)}"
           >
-            <div class="font-semibold">${escapeHtml(project.name)}</div>
-            <div class="text-[11px] opacity-90">${escapeHtml(entry.role)}</div>
+            <div class="font-semibold">${escapeHtml(displayProjectName(project))}</div>
+            ${isSystemPersonalProject(project) ? "" : `<div class="text-[11px] opacity-90">${escapeHtml(entry.role)}</div>`}
           </div>
         `;
 
@@ -2236,8 +2321,7 @@
     const yearEnd = new Date(year, 11, 31);
 
     for (const employee of employees) {
-      const employeeEntries = (state.derived.entriesByEmployee.get(employee.name) || [])
-        .filter(entry => overlaps(entry.start_date, entry.end_date, yearStart, yearEnd));
+      const employeeEntries = getVisibleEntriesForEmployee(employee.name, yearStart, yearEnd);
 
       html += `
         <div class="sticky-col border-r border-b border-slate-200 px-3 py-3">
@@ -2273,9 +2357,9 @@
             style="left:${left}px; width:${width}px;"
             data-entry-id="${escapeHtml(entry.id)}"
             draggable="true"
-            title="${escapeHtml(`${employee.name} | ${project.name} | ${entry.role} | ${entry.start_date} - ${entry.end_date}`)}"
+            title="${escapeHtml(`${employee.name} | ${displayProjectName(project)} | ${entry.role} | ${entry.start_date} - ${entry.end_date}`)}"
           >
-            <div class="font-semibold">${escapeHtml(project.name)}</div>
+            <div class="font-semibold">${escapeHtml(displayProjectName(project))}</div>
             <div class="text-[11px] opacity-90">${escapeHtml(formatYearBarLabel(entry.start_date, entry.end_date))}</div>
           </div>
         `;
@@ -2512,6 +2596,17 @@
     if (!editable) return;
 
     els.calendarWrap.querySelectorAll(".drop-row").forEach(row => {
+      row.addEventListener("contextmenu", event => {
+        if (state.calendarMode !== "personal" || state.viewMode === "År") return;
+        event.preventDefault();
+        const targetEmployeeName = row.dataset.employeeName;
+        if (!targetEmployeeName) return;
+        const dropMeta = getDropMetaFromRow(row, event);
+        if (!dropMeta?.rangeStart || !Number.isFinite(dropMeta.colIndex)) return;
+        const selectedDate = toIsoDate(addDays(new Date(dropMeta.rangeStart), dropMeta.colIndex));
+        openCalendarContextMenu(targetEmployeeName, selectedDate, event.clientX + 8, event.clientY + 8);
+      });
+
       row.addEventListener("dragover", event => {
         if (!state.dragEntryId) return;
         event.preventDefault();
@@ -2614,7 +2709,7 @@
     renderProjects();
     renderEmployees();
     renderSystemStatus();
-    void addAudit(`Flyttet tildeling: ${project?.name || "Ukjent prosjekt"} fra ${previous.employee_name} (${previous.start_date}–${previous.end_date}) til ${entry.employee_name} (${entry.start_date}–${entry.end_date})`);
+    void addAudit(`Flyttet tildeling: ${displayProjectName(project) || "Ukjent prosjekt"} fra ${previous.employee_name} (${previous.start_date}–${previous.end_date}) til ${entry.employee_name} (${entry.start_date}–${entry.end_date})`);
   }
 
   function getFilteredEmployees() {
@@ -2844,6 +2939,11 @@
   function capitalize(value) {
     const str = String(value || "");
     return str.charAt(0).toUpperCase() + str.slice(1);
+  }
+
+  function displayProjectName(project) {
+    if (!project) return "";
+    return isSystemPersonalProject(project) ? project.category : project.name;
   }
 
   function getEntryBarClasses(project, role) {
