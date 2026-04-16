@@ -3060,7 +3060,7 @@
       return { timeUnit, rangeStart, totalCols, colIndex: null };
     }
 
-    const preciseIndex = getDropSlotIndexFromPointer(row, event.clientX, totalCols);
+    const preciseIndex = getDropSlotIndexFromPointer(row, event.clientX, event.clientY, totalCols);
     if (Number.isFinite(preciseIndex)) {
       return { timeUnit, rangeStart, totalCols, colIndex: preciseIndex };
     }
@@ -3071,13 +3071,24 @@
     return { timeUnit, rangeStart, totalCols, colIndex };
   }
 
-  function getDropSlotIndexFromPointer(row, clientX, totalCols) {
+  function getDropSlotIndexFromPointer(row, clientX, clientY, totalCols) {
     const slots = Array.from(row.querySelectorAll('[data-drop-slot-index]'));
     if (!slots.length) return null;
 
+    if (typeof document.elementsFromPoint === 'function') {
+      const hitElements = document.elementsFromPoint(clientX, clientY);
+      for (const el of hitElements) {
+        if (!(el instanceof HTMLElement)) continue;
+        const slot = el.matches('[data-drop-slot-index]') ? el : el.closest('[data-drop-slot-index]');
+        if (!slot || !row.contains(slot)) continue;
+        const idx = Number(slot.dataset.dropSlotIndex);
+        if (Number.isFinite(idx)) return clampSlotIndex(idx, totalCols);
+      }
+    }
+
     for (const slot of slots) {
       const rect = slot.getBoundingClientRect();
-      if (clientX >= rect.left && clientX < rect.right) {
+      if (clientX >= rect.left && clientX < rect.right && clientY >= rect.top && clientY < rect.bottom) {
         const idx = Number(slot.dataset.dropSlotIndex);
         if (Number.isFinite(idx)) return clampSlotIndex(idx, totalCols);
       }
@@ -3087,8 +3098,9 @@
     let bestDistance = Number.POSITIVE_INFINITY;
     for (const slot of slots) {
       const rect = slot.getBoundingClientRect();
-      const center = rect.left + (rect.width / 2);
-      const distance = Math.abs(clientX - center);
+      const centerX = rect.left + (rect.width / 2);
+      const centerY = rect.top + (rect.height / 2);
+      const distance = Math.abs(clientX - centerX) + (Math.abs(clientY - centerY) * 0.25);
       if (distance < bestDistance) {
         bestDistance = distance;
         bestIdx = Number(slot.dataset.dropSlotIndex);
