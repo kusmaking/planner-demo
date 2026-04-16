@@ -49,7 +49,7 @@ const ROLE_CLASSES = {
 };
 
 const ROLE_OPTIONS = ["Supervisor", "Mekaniker 1", "Mekaniker 2", "Mekaniker 3"];
-const CATEGORY_OPTIONS = ["Offshore", "Travel", "Onshore", "Kurs", "Ferie", "Syk", "Avspasering"];
+const CATEGORY_OPTIONS = ["Offshore", "Travel", "Onshore"];
 const STATUS_OPTIONS = ["Planlagt", "Pågår", "Avventer", "Avsluttet"];
 
 const DEFAULT_EMPLOYEES = [
