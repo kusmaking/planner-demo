@@ -132,6 +132,15 @@
     const employeeSection = els.tabEmployeesSection;
     if (!employeeSection) return;
 
+    const existingEmployeeCol = employeeSection.firstElementChild;
+    if (existingEmployeeCol) {
+      existingEmployeeCol.className = "xl:col-span-1";
+      const employeeList = existingEmployeeCol.querySelector("#employeeList");
+      if (employeeList) {
+        employeeList.className = "space-y-2 max-h-[760px] overflow-auto scrollbar-thin";
+      }
+    }
+
     if (document.getElementById("personalBlockCard")) {
       els.personalBlockEmployee = document.getElementById("personalBlockEmployee");
       els.personalBlockType = document.getElementById("personalBlockType");
@@ -143,9 +152,9 @@
     }
 
     const wrapper = document.createElement("div");
-    wrapper.className = "xl:col-span-4";
+    wrapper.className = "xl:col-span-3";
     wrapper.innerHTML = `
-      <div id="personalBlockCard" class="rounded-2xl bg-white border border-slate-200 shadow-sm">
+      <div id="personalBlockCard" class="rounded-2xl bg-white border border-slate-200 shadow-sm h-full">
         <div class="p-4 border-b border-slate-200">
           <h2 class="font-semibold">Direkte blokk på ansatt</h2>
           <p class="text-sm text-slate-500 mt-1">Brukes for kurs, ferie, syk og avspasering direkte på personen, uten å gå via prosjektmodulen.</p>
@@ -155,11 +164,11 @@
             <select id="personalBlockEmployee" class="w-full rounded-2xl border border-slate-300 px-3 py-2"></select>
             <select id="personalBlockType" class="w-full rounded-2xl border border-slate-300 px-3 py-2"></select>
           </div>
-          <div class="grid grid-cols-2 gap-3">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
             <input id="personalBlockStart" type="date" class="rounded-2xl border border-slate-300 px-3 py-2" />
             <input id="personalBlockEnd" type="date" class="rounded-2xl border border-slate-300 px-3 py-2" />
           </div>
-          <textarea id="personalBlockNotes" class="w-full rounded-2xl border border-slate-300 px-3 py-2" rows="3" placeholder="Notat"></textarea>
+          <textarea id="personalBlockNotes" class="w-full rounded-2xl border border-slate-300 px-3 py-2" rows="4" placeholder="Notat"></textarea>
           <button id="personalBlockSaveBtn" class="w-full rounded-2xl bg-slate-900 text-white px-4 py-2">Lagre blokk i kalender</button>
         </div>
       </div>
@@ -1372,7 +1381,7 @@
     const project = getProjectById(entry.project_id);
     closeEditModal();
     renderAll();
-    void addAudit(`Redigerte tildeling: ${entry.employee_name} → ${project?.name || "Ukjent prosjekt"}`);
+    void addAudit(`Redigerte tildeling: ${entry.employee_name} → ${displayProjectName(project) || "Ukjent prosjekt"}`);
   }
 
   async function deleteEditedEntry() {
@@ -1394,7 +1403,7 @@
     const project = getProjectById(entry.project_id);
     closeEditModal();
     renderAll();
-    void addAudit(`Slettet tildeling: ${entry.employee_name} → ${project?.name || "Ukjent prosjekt"}`);
+    void addAudit(`Slettet tildeling: ${entry.employee_name} → ${displayProjectName(project) || "Ukjent prosjekt"}`);
   }
 
   function openProjectModal(projectId = null) {
@@ -1948,7 +1957,7 @@
       return;
     }
 
-    void addAudit(`Slettet tildeling fra prosjektkort: ${entry.employee_name} → ${project?.name || "Ukjent prosjekt"}`);
+    void addAudit(`Slettet tildeling fra prosjektkort: ${entry.employee_name} → ${displayProjectName(project) || "Ukjent prosjekt"}`);
   }
 
   function renderEmployees() {
@@ -2117,10 +2126,10 @@
             style="left:${left}px; width:${width}px;"
             data-entry-id="${escapeHtml(entry.id)}"
             draggable="true"
-            title="${escapeHtml(`${employee.name} | ${project.name} | ${entry.role} | ${entry.start_date} - ${entry.end_date}${entry.notes ? ` | ${entry.notes}` : ""}`)}"
+            title="${escapeHtml(`${employee.name} | ${displayProjectName(project)} | ${entry.role} | ${entry.start_date} - ${entry.end_date}${entry.notes ? ` | ${entry.notes}` : ""}`)}"
           >
-            <div class="font-semibold">${escapeHtml(project.name)}</div>
-            <div class="text-[11px] opacity-90">${escapeHtml(entry.role)}</div>
+            <div class="font-semibold">${escapeHtml(displayProjectName(project))}</div>
+            ${isSystemPersonalProject(project) ? "" : `<div class="text-[11px] opacity-90">${escapeHtml(entry.role)}</div>`}
           </div>
         `;
 
@@ -2204,7 +2213,7 @@
             style="left:${left}px; width:${width}px;"
             data-entry-id="${escapeHtml(entry.id)}"
             draggable="true"
-            title="${escapeHtml(`${employee.name} | ${project.name} | ${entry.role} | ${entry.start_date} - ${entry.end_date}`)}"
+            title="${escapeHtml(`${employee.name} | ${displayProjectName(project)} | ${entry.role} | ${entry.start_date} - ${entry.end_date}`)}"
           >
             <div class="font-semibold">${escapeHtml(project.name)}</div>
             <div class="text-[11px] opacity-90">${escapeHtml(formatYearBarLabel(entry.start_date, entry.end_date))}</div>
@@ -2545,7 +2554,7 @@
     renderProjects();
     renderEmployees();
     renderSystemStatus();
-    void addAudit(`Flyttet tildeling: ${project?.name || "Ukjent prosjekt"} fra ${previous.employee_name} (${previous.start_date}–${previous.end_date}) til ${entry.employee_name} (${entry.start_date}–${entry.end_date})`);
+    void addAudit(`Flyttet tildeling: ${displayProjectName(project) || "Ukjent prosjekt"} fra ${previous.employee_name} (${previous.start_date}–${previous.end_date}) til ${entry.employee_name} (${entry.start_date}–${entry.end_date})`);
   }
 
   function getFilteredEmployees() {
@@ -2775,6 +2784,11 @@
   function capitalize(value) {
     const str = String(value || "");
     return str.charAt(0).toUpperCase() + str.slice(1);
+  }
+
+  function displayProjectName(project) {
+    if (!project) return "";
+    return isSystemPersonalProject(project) ? project.category : project.name;
   }
 
   function getEntryBarClasses(project, role) {
