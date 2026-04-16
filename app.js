@@ -2340,7 +2340,7 @@
         const day = days[i];
         const weekend = isWeekend(day);
         const isTodayFlag = sameDate(day, new Date());
-        html += `<div data-drop-slot-index="${i}" class="day-cell ${weekend ? "weekend" : ""} ${isTodayFlag ? "today" : ""}" style="position:absolute; left:${i * colWidth}px; width:${colWidth}px;"></div>`;
+        html += `<div data-drop-slot-index="${i}" data-drop-date="${toIsoDate(day)}" class="day-cell ${weekend ? "weekend" : ""} ${isTodayFlag ? "today" : ""}" style="position:absolute; left:${i * colWidth}px; width:${colWidth}px;"></div>`;
       }
 
       html += `<div style="position:relative; width:${totalWidth}px; min-height:56px;">`;
@@ -2424,7 +2424,7 @@
       html += `<div class="row-overlay border-b border-slate-200 drop-row" data-employee-name="${escapeHtml(employee.name)}" data-range-start="${toIsoDate(yearStart)}" data-col-width="${monthWidth}" data-total-cols="12" data-time-unit="month" style="grid-column: span 12; width:${totalWidth}px;">`;
 
       for (let i = 0; i < 12; i++) {
-        html += `<div data-drop-slot-index="${i}" class="month-cell" style="position:absolute; left:${i * monthWidth}px; width:${monthWidth}px;"></div>`;
+        html += `<div data-drop-slot-index="${i}" data-drop-month-index="${i}" class="month-cell" style="position:absolute; left:${i * monthWidth}px; width:${monthWidth}px;"></div>`;
       }
 
       html += `<div style="position:relative; width:${totalWidth}px; min-height:56px;">`;
@@ -2524,7 +2524,7 @@
         const day = days[i];
         const weekend = isWeekend(day);
         const isTodayFlag = sameDate(day, new Date());
-        html += `<div data-drop-slot-index="${i}" class="day-cell ${weekend ? "weekend" : ""} ${isTodayFlag ? "today" : ""}" style="position:absolute; left:${i * colWidth}px; width:${colWidth}px;"></div>`;
+        html += `<div data-drop-slot-index="${i}" data-drop-date="${toIsoDate(day)}" class="day-cell ${weekend ? "weekend" : ""} ${isTodayFlag ? "today" : ""}" style="position:absolute; left:${i * colWidth}px; width:${colWidth}px;"></div>`;
       }
 
       html += `<div style="position:relative; width:${totalWidth}px; min-height:56px;">`;
@@ -2597,7 +2597,7 @@
       html += `<div class="row-overlay border-b border-slate-200" style="grid-column: span 12; width:${totalWidth}px;">`;
 
       for (let i = 0; i < 12; i++) {
-        html += `<div data-drop-slot-index="${i}" class="month-cell" style="position:absolute; left:${i * monthWidth}px; width:${monthWidth}px;"></div>`;
+        html += `<div data-drop-slot-index="${i}" data-drop-month-index="${i}" class="month-cell" style="position:absolute; left:${i * monthWidth}px; width:${monthWidth}px;"></div>`;
       }
 
       html += `<div style="position:relative; width:${totalWidth}px; min-height:56px;">`;
@@ -2696,7 +2696,7 @@
         if (!targetEmployeeName) return;
         const dropMeta = getDropMetaFromRow(row, event);
         if (!dropMeta?.rangeStart || !Number.isFinite(dropMeta.colIndex)) return;
-        const selectedDate = toIsoDate(addDays(new Date(dropMeta.rangeStart), dropMeta.colIndex));
+        const selectedDate = dropMeta?.dropDate || toIsoDate(addDays(parseIsoDateLocal(dropMeta.rangeStart), dropMeta.colIndex));
         openCalendarContextMenu(targetEmployeeName, selectedDate, event.clientX + 8, event.clientY + 8);
       });
 
@@ -2749,9 +2749,13 @@
     if (dropMeta?.timeUnit === "day" && dropMeta.rangeStart && Number.isFinite(dropMeta.colIndex)) {
       const durationDays = Math.max(0, diffDays(new Date(entry.start_date), new Date(entry.end_date)));
       const adjustedIndex = getAdjustedDropColIndex(dropMeta);
-      const newStart = addDays(new Date(dropMeta.rangeStart), adjustedIndex);
-      const newEnd = addDays(newStart, durationDays);
-      const newStartIso = toIsoDate(newStart);
+      const pointerDate = parseIsoDateLocal(dropMeta.dropDate) || addDays(parseIsoDateLocal(dropMeta.rangeStart), dropMeta.colIndex);
+      const anchorOffset = Math.max(0, Number(state.dragAnchor?.slotOffset || 0));
+      const newStart = addDays(pointerDate, -anchorOffset);
+      const fallbackStart = addDays(parseIsoDateLocal(dropMeta.rangeStart), adjustedIndex);
+      const resolvedStart = Number.isFinite(newStart?.getTime?.()) ? newStart : fallbackStart;
+      const newEnd = addDays(resolvedStart, durationDays);
+      const newStartIso = toIsoDate(resolvedStart);
       const newEndIso = toIsoDate(newEnd);
       if (entry.start_date !== newStartIso || entry.end_date !== newEndIso) {
         entry.start_date = newStartIso;
@@ -2763,7 +2767,7 @@
     if (dropMeta?.timeUnit === "month" && dropMeta.rangeStart && Number.isFinite(dropMeta.colIndex)) {
       const durationDays = Math.max(0, diffDays(new Date(entry.start_date), new Date(entry.end_date)));
       const originalStart = new Date(entry.start_date);
-      const targetMonthBase = new Date(dropMeta.rangeStart);
+      const targetMonthBase = parseIsoDateLocal(dropMeta.rangeStart);
       const adjustedIndex = getAdjustedDropColIndex(dropMeta);
       const shiftedStart = new Date(targetMonthBase.getFullYear(), targetMonthBase.getMonth() + adjustedIndex, 1);
       const clampedDay = Math.min(originalStart.getDate(), daysInMonth(shiftedStart.getFullYear(), shiftedStart.getMonth()));
@@ -2934,6 +2938,13 @@
     return new Date(date.getFullYear(), date.getMonth(), date.getDate()).toISOString().slice(0, 10);
   }
 
+  function parseIsoDateLocal(value) {
+    if (!value) return null;
+    const parts = String(value).split("-").map(Number);
+    if (parts.length !== 3 || parts.some(v => !Number.isFinite(v))) return null;
+    return new Date(parts[0], parts[1] - 1, parts[2]);
+  }
+
   function startOfWeek(date) {
     const d = new Date(date);
     const day = d.getDay();
@@ -3057,21 +3068,30 @@
     const rangeStart = row.dataset.rangeStart || null;
 
     if (!colWidth || !totalCols || !rangeStart) {
-      return { timeUnit, rangeStart, totalCols, colIndex: null };
+      return { timeUnit, rangeStart, totalCols, colIndex: null, dropDate: null, dropMonthIndex: null };
     }
 
-    const preciseIndex = getDropSlotIndexFromPointer(row, event.clientX, event.clientY, totalCols);
-    if (Number.isFinite(preciseIndex)) {
-      return { timeUnit, rangeStart, totalCols, colIndex: preciseIndex };
+    const slot = getDropSlotFromPointer(row, event.clientX, event.clientY);
+    if (slot) {
+      const idx = Number(slot.dataset.dropSlotIndex);
+      return {
+        timeUnit,
+        rangeStart,
+        totalCols,
+        colIndex: Number.isFinite(idx) ? clampSlotIndex(idx, totalCols) : null,
+        dropDate: slot.dataset.dropDate || null,
+        dropMonthIndex: Number.isFinite(Number(slot.dataset.dropMonthIndex)) ? Number(slot.dataset.dropMonthIndex) : null
+      };
     }
 
     const rect = row.getBoundingClientRect();
     const x = Math.max(0, Math.min(rect.width - 1, event.clientX - rect.left));
     const colIndex = Math.max(0, Math.min(totalCols - 1, Math.floor(x / colWidth)));
-    return { timeUnit, rangeStart, totalCols, colIndex };
+    const fallbackDate = timeUnit === "day" ? toIsoDate(addDays(parseIsoDateLocal(rangeStart), colIndex)) : null;
+    return { timeUnit, rangeStart, totalCols, colIndex, dropDate: fallbackDate, dropMonthIndex: timeUnit === "month" ? colIndex : null };
   }
 
-  function getDropSlotIndexFromPointer(row, clientX, clientY, totalCols) {
+  function getDropSlotFromPointer(row, clientX, clientY) {
     const slots = Array.from(row.querySelectorAll('[data-drop-slot-index]'));
     if (!slots.length) return null;
 
@@ -3080,21 +3100,18 @@
       for (const el of hitElements) {
         if (!(el instanceof HTMLElement)) continue;
         const slot = el.matches('[data-drop-slot-index]') ? el : el.closest('[data-drop-slot-index]');
-        if (!slot || !row.contains(slot)) continue;
-        const idx = Number(slot.dataset.dropSlotIndex);
-        if (Number.isFinite(idx)) return clampSlotIndex(idx, totalCols);
+        if (slot && row.contains(slot)) return slot;
       }
     }
 
     for (const slot of slots) {
       const rect = slot.getBoundingClientRect();
       if (clientX >= rect.left && clientX < rect.right && clientY >= rect.top && clientY < rect.bottom) {
-        const idx = Number(slot.dataset.dropSlotIndex);
-        if (Number.isFinite(idx)) return clampSlotIndex(idx, totalCols);
+        return slot;
       }
     }
 
-    let bestIdx = null;
+    let bestSlot = null;
     let bestDistance = Number.POSITIVE_INFINITY;
     for (const slot of slots) {
       const rect = slot.getBoundingClientRect();
@@ -3103,11 +3120,18 @@
       const distance = Math.abs(clientX - centerX) + (Math.abs(clientY - centerY) * 0.25);
       if (distance < bestDistance) {
         bestDistance = distance;
-        bestIdx = Number(slot.dataset.dropSlotIndex);
+        bestSlot = slot;
       }
     }
 
-    return Number.isFinite(bestIdx) ? clampSlotIndex(bestIdx, totalCols) : null;
+    return bestSlot;
+  }
+
+  function getDropSlotIndexFromPointer(row, clientX, clientY, totalCols) {
+    const slot = getDropSlotFromPointer(row, clientX, clientY);
+    if (!slot) return null;
+    const idx = Number(slot.dataset.dropSlotIndex);
+    return Number.isFinite(idx) ? clampSlotIndex(idx, totalCols) : null;
   }
 
   function clampSlotIndex(index, totalCols) {
