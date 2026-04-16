@@ -59,6 +59,15 @@
   const els = {};
   const PERSONAL_BLOCK_TYPES = ["Kurs", "Ferie", "Syk", "Avspasering"];
   const PERSONAL_PROJECT_MARKER = "__personal_block_system_project__";
+  const EMPLOYEE_GROUP_OPTIONS = [
+    "",
+    "Offshore arbeider",
+    "Onshore arbeider",
+    "Lager og logistikk",
+    "Engineer",
+    "3 parts innleie"
+  ];
+  const EMPLOYEE_GROUP_STORAGE_KEY = "planner_employee_groups_v41";
   let saveStatusTimer = null;
   let calendarScrollSyncRaf = null;
 
@@ -107,7 +116,7 @@
       "projectName", "projectCategory", "projectStatus", "projectPlannedStart", "projectPlannedEnd",
       "projectLocation", "projectHeadcount", "projectNotes", "saveProjectBtn", "deleteProjectBtn",
       "newEmployeeBtn", "employeeModal", "employeeModalTitle", "closeEmployeeModalBtn",
-      "employeeName", "employeeEmail", "employeePhone", "employeeTitle", "employeeActive", "saveEmployeeBtn", "deleteEmployeeBtn",
+      "employeeName", "employeeEmail", "employeePhone", "employeeTitle", "employeeGroup", "employeeActive", "saveEmployeeBtn", "deleteEmployeeBtn",
       "calendarContextMenu", "contextMenuEmployee", "contextMenuStart", "contextMenuEnd", "contextMenuType", "contextMenuNotes", "contextMenuAddBtn", "contextMenuCloseBtn",
       "accountPanel", "accountUserInfo", "changePasswordBtn", "resetPasswordBtn", "logoutBtn", "loginBtn", "loginModal", "closeLoginModalBtn", "loginEmail", "loginPassword", "loginSubmitBtn", "forgotPasswordBtn"
     ];
@@ -910,9 +919,11 @@
   }
 
   function normalizeEmployees(list) {
+    const storedGroups = loadEmployeeGroupMap();
     return (list || []).map(emp => ({
       ...emp,
-      title: emp?.title || ""
+      title: emp?.title || "",
+      employee_group: normalizeEmployeeGroup(emp?.employee_group || storedGroups[emp?.id] || "")
     }));
   }
 
@@ -953,12 +964,45 @@
     };
   }
 
+
+  function loadEmployeeGroupMap() {
+    return load(EMPLOYEE_GROUP_STORAGE_KEY, {});
+  }
+
+  function saveEmployeeGroupMap() {
+    const groupMap = {};
+    state.employees.forEach(employee => {
+      const group = normalizeEmployeeGroup(employee?.employee_group || "");
+      if (employee?.id && group) {
+        groupMap[employee.id] = group;
+      }
+    });
+    localStorage.setItem(EMPLOYEE_GROUP_STORAGE_KEY, JSON.stringify(groupMap));
+  }
+
+  function normalizeEmployeeGroup(value) {
+    const group = String(value || "").trim();
+    return EMPLOYEE_GROUP_OPTIONS.includes(group) ? group : "";
+  }
+
+  function getEmployeeRowForRemote(employee) {
+    return {
+      id: employee.id,
+      name: employee.name,
+      email: employee.email,
+      phone: employee.phone,
+      title: employee.title,
+      active: employee.active
+    };
+  }
+
   function saveAllLocal() {
     localStorage.setItem(STORAGE_KEYS.employees, JSON.stringify(state.employees));
     localStorage.setItem(STORAGE_KEYS.projects, JSON.stringify(state.projects));
     localStorage.setItem(STORAGE_KEYS.entries, JSON.stringify(state.entries));
     localStorage.setItem(STORAGE_KEYS.auditLog, JSON.stringify(state.auditLog));
     localStorage.setItem(STORAGE_KEYS.notificationLog, JSON.stringify(state.notificationLog));
+    saveEmployeeGroupMap();
   }
 
   function persistUiState() {
@@ -1744,6 +1788,7 @@
     els.employeeEmail.value = employee?.email || "";
     els.employeePhone.value = employee?.phone || "";
     els.employeeTitle.value = employee?.title || "";
+    fillSelect(els.employeeGroup, EMPLOYEE_GROUP_OPTIONS.map(value => ({ id: value, name: value || "Ingen gruppe valgt" })), normalizeEmployeeGroup(employee?.employee_group || ""), "name", "id");
     els.employeeActive.checked = employee?.active ?? true;
     els.deleteEmployeeBtn.style.display = employee ? "inline-flex" : "none";
 
@@ -1763,6 +1808,7 @@
     const email = els.employeeEmail.value.trim();
     const phone = els.employeePhone.value.trim();
     const title = els.employeeTitle.value.trim();
+    const employeeGroup = normalizeEmployeeGroup(els.employeeGroup?.value || "");
     const active = els.employeeActive.checked;
 
     if (!name) {
@@ -1786,6 +1832,7 @@
       employee.email = email;
       employee.phone = phone;
       employee.title = title;
+      employee.employee_group = employeeGroup;
       employee.active = active;
 
       if (oldName !== name) {
@@ -1806,6 +1853,7 @@
         email,
         phone,
         title,
+        employee_group: employeeGroup,
         active
       };
       state.employees.push(employee);
@@ -1815,7 +1863,7 @@
     state.employees.sort((a, b) => a.name.localeCompare(b.name, "no"));
     rebuildDerivedState();
 
-    const result = await saveRow("planner_employees", employee);
+    const result = await saveRow("planner_employees", getEmployeeRowForRemote(employee));
     if (!result.ok) return;
 
     closeEmployeeModal();
@@ -1837,6 +1885,7 @@
     if (!confirm("Vil du slette denne ansatte?")) return;
 
     state.employees = state.employees.filter(e => e.id !== employee.id);
+    saveEmployeeGroupMap();
     rebuildDerivedState();
     const result = await deleteRow("planner_employees", employee.id);
     if (!result.ok) {
@@ -1873,6 +1922,7 @@
         email: "",
         phone: "",
         title: "",
+        employee_group: "",
         active: true
       };
 
@@ -1885,7 +1935,7 @@
     rebuildDerivedState();
 
     if (inserted.length) {
-      const result = await saveRows("planner_employees", inserted);
+      const result = await saveRows("planner_employees", inserted.map(getEmployeeRowForRemote));
       if (!result.ok) {
         state.employees = state.employees.filter(e => !inserted.some(i => i.id === e.id));
         rebuildDerivedState();
@@ -2218,6 +2268,7 @@
         <div class="text-xs text-slate-500 mt-1">${escapeHtml(emp.email || "Ingen e-post")}</div>
         <div class="text-xs text-slate-500">${escapeHtml(emp.phone || "Ingen telefon")}</div>
         <div class="text-xs text-slate-500">${escapeHtml(emp.title || "Ingen stillingstittel")}</div>
+        <div class="text-xs text-slate-500">${escapeHtml(emp.employee_group || "Ingen gruppe valgt")}</div>
       </button>
     `).join("") || `<div class="text-sm text-slate-500">Ingen ansatte enda.</div>`;
 
