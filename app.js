@@ -33,6 +33,16 @@
       timeUnit: "day",
       slotOffset: 0
     },
+    resize: {
+      active: false,
+      type: "",
+      targetId: "",
+      row: null,
+      bar: null,
+      originalEndDate: "",
+      previewEndDate: "",
+      originalValueSnapshot: null
+    },
     activeTab: "calendar",
     calendarPanelOpen: false,
     projectListFilter: "all",
@@ -49,6 +59,22 @@
   const els = {};
   const PERSONAL_BLOCK_TYPES = ["Kurs", "Ferie", "Syk", "Avspasering"];
   const PERSONAL_PROJECT_MARKER = "__personal_block_system_project__";
+  const EMPLOYEE_GROUP_OPTIONS = [
+    "",
+    "Offshore arbeider",
+    "Onshore arbeider",
+    "Lager og logistikk",
+    "Engineer",
+    "3 parts innleie"
+  ];
+  const EMPLOYEE_GROUP_STORAGE_KEY = "planner_employee_groups_v41";
+  const EMPLOYEE_GROUP_CARD_STYLES = {
+    "Offshore arbeider": "border-emerald-500 bg-emerald-50/40 hover:bg-emerald-50",
+    "Onshore arbeider": "border-blue-500 bg-blue-50/40 hover:bg-blue-50",
+    "Lager og logistikk": "border-amber-500 bg-amber-50/40 hover:bg-amber-50",
+    "Engineer": "border-violet-500 bg-violet-50/40 hover:bg-violet-50",
+    "3 parts innleie": "border-rose-500 bg-rose-50/40 hover:bg-rose-50"
+  };
   let saveStatusTimer = null;
   let calendarScrollSyncRaf = null;
 
@@ -97,7 +123,7 @@
       "projectName", "projectCategory", "projectStatus", "projectPlannedStart", "projectPlannedEnd",
       "projectLocation", "projectHeadcount", "projectNotes", "saveProjectBtn", "deleteProjectBtn",
       "newEmployeeBtn", "employeeModal", "employeeModalTitle", "closeEmployeeModalBtn",
-      "employeeName", "employeeEmail", "employeePhone", "employeeTitle", "employeeActive", "saveEmployeeBtn", "deleteEmployeeBtn",
+      "employeeName", "employeeEmail", "employeePhone", "employeeTitle", "employeeGroup", "employeeActive", "saveEmployeeBtn", "deleteEmployeeBtn",
       "calendarContextMenu", "contextMenuEmployee", "contextMenuStart", "contextMenuEnd", "contextMenuType", "contextMenuNotes", "contextMenuAddBtn", "contextMenuCloseBtn",
       "accountPanel", "accountUserInfo", "changePasswordBtn", "resetPasswordBtn", "logoutBtn", "loginBtn", "loginModal", "closeLoginModalBtn", "loginEmail", "loginPassword", "loginSubmitBtn", "forgotPasswordBtn"
     ];
@@ -710,6 +736,8 @@
     document.addEventListener("click", handleGlobalPointerClose, true);
     window.addEventListener("scroll", hideCalendarContextMenu, true);
     window.addEventListener("resize", hideCalendarContextMenu);
+    window.addEventListener("mousemove", handleResizePointerMove);
+    window.addEventListener("mouseup", handleResizePointerUp);
     if (els.resetDemoBtn) {
       els.resetDemoBtn.style.display = "none";
     }
@@ -898,9 +926,11 @@
   }
 
   function normalizeEmployees(list) {
+    const storedGroups = loadEmployeeGroupMap();
     return (list || []).map(emp => ({
       ...emp,
-      title: emp?.title || ""
+      title: emp?.title || "",
+      employee_group: normalizeEmployeeGroup(emp?.employee_group || storedGroups[emp?.id] || "")
     }));
   }
 
@@ -941,12 +971,49 @@
     };
   }
 
+
+  function loadEmployeeGroupMap() {
+    return load(EMPLOYEE_GROUP_STORAGE_KEY, {});
+  }
+
+  function saveEmployeeGroupMap() {
+    const groupMap = {};
+    state.employees.forEach(employee => {
+      const group = normalizeEmployeeGroup(employee?.employee_group || "");
+      if (employee?.id && group) {
+        groupMap[employee.id] = group;
+      }
+    });
+    localStorage.setItem(EMPLOYEE_GROUP_STORAGE_KEY, JSON.stringify(groupMap));
+  }
+
+  function normalizeEmployeeGroup(value) {
+    const group = String(value || "").trim();
+    return EMPLOYEE_GROUP_OPTIONS.includes(group) ? group : "";
+  }
+
+  function getEmployeeGroupCardClass(group) {
+    return EMPLOYEE_GROUP_CARD_STYLES[group] || "border-slate-200 bg-slate-50 hover:bg-slate-100";
+  }
+
+  function getEmployeeRowForRemote(employee) {
+    return {
+      id: employee.id,
+      name: employee.name,
+      email: employee.email,
+      phone: employee.phone,
+      title: employee.title,
+      active: employee.active
+    };
+  }
+
   function saveAllLocal() {
     localStorage.setItem(STORAGE_KEYS.employees, JSON.stringify(state.employees));
     localStorage.setItem(STORAGE_KEYS.projects, JSON.stringify(state.projects));
     localStorage.setItem(STORAGE_KEYS.entries, JSON.stringify(state.entries));
     localStorage.setItem(STORAGE_KEYS.auditLog, JSON.stringify(state.auditLog));
     localStorage.setItem(STORAGE_KEYS.notificationLog, JSON.stringify(state.notificationLog));
+    saveEmployeeGroupMap();
   }
 
   function persistUiState() {
@@ -1732,6 +1799,7 @@
     els.employeeEmail.value = employee?.email || "";
     els.employeePhone.value = employee?.phone || "";
     els.employeeTitle.value = employee?.title || "";
+    fillSelect(els.employeeGroup, EMPLOYEE_GROUP_OPTIONS.map(value => ({ id: value, name: value || "Ingen gruppe valgt" })), normalizeEmployeeGroup(employee?.employee_group || ""), "name", "id");
     els.employeeActive.checked = employee?.active ?? true;
     els.deleteEmployeeBtn.style.display = employee ? "inline-flex" : "none";
 
@@ -1751,6 +1819,7 @@
     const email = els.employeeEmail.value.trim();
     const phone = els.employeePhone.value.trim();
     const title = els.employeeTitle.value.trim();
+    const employeeGroup = normalizeEmployeeGroup(els.employeeGroup?.value || "");
     const active = els.employeeActive.checked;
 
     if (!name) {
@@ -1774,6 +1843,7 @@
       employee.email = email;
       employee.phone = phone;
       employee.title = title;
+      employee.employee_group = employeeGroup;
       employee.active = active;
 
       if (oldName !== name) {
@@ -1794,6 +1864,7 @@
         email,
         phone,
         title,
+        employee_group: employeeGroup,
         active
       };
       state.employees.push(employee);
@@ -1803,7 +1874,7 @@
     state.employees.sort((a, b) => a.name.localeCompare(b.name, "no"));
     rebuildDerivedState();
 
-    const result = await saveRow("planner_employees", employee);
+    const result = await saveRow("planner_employees", getEmployeeRowForRemote(employee));
     if (!result.ok) return;
 
     closeEmployeeModal();
@@ -1825,6 +1896,7 @@
     if (!confirm("Vil du slette denne ansatte?")) return;
 
     state.employees = state.employees.filter(e => e.id !== employee.id);
+    saveEmployeeGroupMap();
     rebuildDerivedState();
     const result = await deleteRow("planner_employees", employee.id);
     if (!result.ok) {
@@ -1861,6 +1933,7 @@
         email: "",
         phone: "",
         title: "",
+        employee_group: "",
         active: true
       };
 
@@ -1873,7 +1946,7 @@
     rebuildDerivedState();
 
     if (inserted.length) {
-      const result = await saveRows("planner_employees", inserted);
+      const result = await saveRows("planner_employees", inserted.map(getEmployeeRowForRemote));
       if (!result.ok) {
         state.employees = state.employees.filter(e => !inserted.some(i => i.id === e.id));
         rebuildDerivedState();
@@ -2197,8 +2270,11 @@
   }
 
   function renderEmployees() {
-    els.employeeList.innerHTML = state.employees.map(emp => `
-      <button data-employee-id="${escapeHtml(emp.id)}" class="w-full text-left rounded-xl border border-slate-200 p-3 bg-slate-50 hover:bg-slate-100">
+    els.employeeList.innerHTML = state.employees.map(emp => {
+      const employeeGroup = normalizeEmployeeGroup(emp.employee_group || "");
+      const cardClass = getEmployeeGroupCardClass(employeeGroup);
+      return `
+      <button data-employee-id="${escapeHtml(emp.id)}" class="w-full text-left rounded-xl border-2 p-3 transition ${cardClass}">
         <div class="flex items-center justify-between gap-2">
           <div class="font-medium">${escapeHtml(emp.name)}</div>
           <span class="text-xs ${emp.active ? "text-green-700" : "text-amber-700"}">${emp.active ? "Aktiv" : "Inaktiv"}</span>
@@ -2206,8 +2282,9 @@
         <div class="text-xs text-slate-500 mt-1">${escapeHtml(emp.email || "Ingen e-post")}</div>
         <div class="text-xs text-slate-500">${escapeHtml(emp.phone || "Ingen telefon")}</div>
         <div class="text-xs text-slate-500">${escapeHtml(emp.title || "Ingen stillingstittel")}</div>
+        <div class="mt-2 inline-flex rounded-full border border-current/20 bg-white/80 px-2 py-1 text-xs font-medium text-slate-700">${escapeHtml(employeeGroup || "Ingen gruppe valgt")}</div>
       </button>
-    `).join("") || `<div class="text-sm text-slate-500">Ingen ansatte enda.</div>`;
+    `}).join("") || `<div class="text-sm text-slate-500">Ingen ansatte enda.</div>`;
 
     els.employeeList.querySelectorAll("[data-employee-id]").forEach(btn => {
       btn.addEventListener("click", () => openEmployeeModal(btn.dataset.employeeId));
@@ -2340,7 +2417,7 @@
         const day = days[i];
         const weekend = isWeekend(day);
         const isTodayFlag = sameDate(day, new Date());
-        html += `<div data-drop-slot-index="${i}" class="day-cell ${weekend ? "weekend" : ""} ${isTodayFlag ? "today" : ""}" style="position:absolute; left:${i * colWidth}px; width:${colWidth}px;"></div>`;
+        html += `<div data-drop-slot-index="${i}" data-drop-date="${toIsoDate(day)}" class="day-cell ${weekend ? "weekend" : ""} ${isTodayFlag ? "today" : ""}" style="position:absolute; left:${i * colWidth}px; width:${colWidth}px;"></div>`;
       }
 
       html += `<div style="position:relative; width:${totalWidth}px; min-height:56px;">`;
@@ -2349,7 +2426,7 @@
         const project = getProjectById(entry.project_id);
         if (!project) continue;
 
-        const clipped = clipRange(new Date(entry.start_date), new Date(entry.end_date), range.start, range.end);
+        const clipped = clipRange(asLocalDate(entry.start_date), asLocalDate(entry.end_date), range.start, range.end);
         const startIndex = diffDays(range.start, clipped.start);
         const spanDays = diffDays(clipped.start, clipped.end) + 1;
         const left = startIndex * colWidth + 2;
@@ -2365,6 +2442,7 @@
           >
             <div class="font-semibold">${escapeHtml(displayProjectName(project))}</div>
             ${isSystemPersonalProject(project) ? "" : `<div class="text-[11px] opacity-90">${escapeHtml(entry.role)}</div>`}
+            <div data-resize-handle data-resize-type="entry" data-target-id="${escapeHtml(entry.id)}" title="Dra for å endre sluttdato" style="position:absolute; top:0; right:0; bottom:0; width:12px; cursor:ew-resize; border-left:1px solid rgba(255,255,255,0.35); background:linear-gradient(to left, rgba(255,255,255,0.35), rgba(255,255,255,0));"></div>
           </div>
         `;
 
@@ -2384,6 +2462,7 @@
     html += `</div></div>`;
     els.calendarWrap.innerHTML = html;
     bindEntryClicks();
+    bindResizeHandles();
     renderWarnings(uniqueArray(warnings));
   }
 
@@ -2424,7 +2503,7 @@
       html += `<div class="row-overlay border-b border-slate-200 drop-row" data-employee-name="${escapeHtml(employee.name)}" data-range-start="${toIsoDate(yearStart)}" data-col-width="${monthWidth}" data-total-cols="12" data-time-unit="month" style="grid-column: span 12; width:${totalWidth}px;">`;
 
       for (let i = 0; i < 12; i++) {
-        html += `<div data-drop-slot-index="${i}" class="month-cell" style="position:absolute; left:${i * monthWidth}px; width:${monthWidth}px;"></div>`;
+        html += `<div data-drop-slot-index="${i}" data-drop-month-index="${i}" class="month-cell" style="position:absolute; left:${i * monthWidth}px; width:${monthWidth}px;"></div>`;
       }
 
       html += `<div style="position:relative; width:${totalWidth}px; min-height:56px;">`;
@@ -2433,8 +2512,8 @@
         const project = getProjectById(entry.project_id);
         if (!project) continue;
 
-        const entryStart = new Date(entry.start_date);
-        const entryEnd = new Date(entry.end_date);
+        const entryStart = asLocalDate(entry.start_date);
+        const entryEnd = asLocalDate(entry.end_date);
         const startMonth = Math.max(0, entryStart.getFullYear() < year ? 0 : entryStart.getMonth());
         const endMonth = Math.min(11, entryEnd.getFullYear() > year ? 11 : entryEnd.getMonth());
         const spanMonths = (endMonth - startMonth) + 1;
@@ -2451,6 +2530,7 @@
           >
             <div class="font-semibold">${escapeHtml(displayProjectName(project))}</div>
             <div class="text-[11px] opacity-90">${escapeHtml(formatYearBarLabel(entry.start_date, entry.end_date))}</div>
+            <div data-resize-handle data-resize-type="entry" data-target-id="${escapeHtml(entry.id)}" title="Dra for å endre sluttdato" style="position:absolute; top:0; right:0; bottom:0; width:12px; cursor:ew-resize; border-left:1px solid rgba(255,255,255,0.35); background:linear-gradient(to left, rgba(255,255,255,0.35), rgba(255,255,255,0));"></div>
           </div>
         `;
       }
@@ -2461,6 +2541,7 @@
     html += `</div></div>`;
     els.calendarWrap.innerHTML = html;
     bindEntryClicks();
+    bindResizeHandles();
     renderWarnings(uniqueArray(warnings));
   }
 
@@ -2518,19 +2599,19 @@
         </div>
       `;
 
-      html += `<div class="row-overlay border-b border-slate-200" style="grid-column: span ${days.length}; width:${totalWidth}px;">`;
+      html += `<div class="row-overlay border-b border-slate-200" data-range-start="${toIsoDate(range.start)}" data-col-width="${colWidth}" data-total-cols="${days.length}" data-time-unit="day" style="grid-column: span ${days.length}; width:${totalWidth}px;">`;
 
       for (let i = 0; i < days.length; i++) {
         const day = days[i];
         const weekend = isWeekend(day);
         const isTodayFlag = sameDate(day, new Date());
-        html += `<div data-drop-slot-index="${i}" class="day-cell ${weekend ? "weekend" : ""} ${isTodayFlag ? "today" : ""}" style="position:absolute; left:${i * colWidth}px; width:${colWidth}px;"></div>`;
+        html += `<div data-drop-slot-index="${i}" data-drop-date="${toIsoDate(day)}" class="day-cell ${weekend ? "weekend" : ""} ${isTodayFlag ? "today" : ""}" style="position:absolute; left:${i * colWidth}px; width:${colWidth}px;"></div>`;
       }
 
       html += `<div style="position:relative; width:${totalWidth}px; min-height:56px;">`;
 
       if (project.planned_start_date && project.planned_end_date) {
-        const clipped = clipRange(new Date(project.planned_start_date), new Date(project.planned_end_date), range.start, range.end);
+        const clipped = clipRange(asLocalDate(project.planned_start_date), asLocalDate(project.planned_end_date), range.start, range.end);
         const startIndex = diffDays(range.start, clipped.start);
         const spanDays = diffDays(clipped.start, clipped.end) + 1;
         const left = startIndex * colWidth + 2;
@@ -2545,6 +2626,7 @@
           >
             <div class="font-semibold">${escapeHtml(project.name)}</div>
             <div class="text-[11px] opacity-90">${escapeHtml(staffing.text)}</div>
+            <div data-resize-handle data-resize-type="project" data-target-id="${escapeHtml(project.id)}" title="Dra for å endre sluttdato" style="position:absolute; top:0; right:0; bottom:0; width:12px; cursor:ew-resize; border-left:1px solid rgba(255,255,255,0.35); background:linear-gradient(to left, rgba(255,255,255,0.35), rgba(255,255,255,0));"></div>
           </div>
         `;
       }
@@ -2558,6 +2640,7 @@
     els.calendarWrap.querySelectorAll("[data-project-row-id]").forEach(el => {
       el.addEventListener("click", () => openProjectModal(el.dataset.projectRowId));
     });
+    bindResizeHandles();
 
     renderWarnings(uniqueArray(warnings));
   }
@@ -2594,17 +2677,17 @@
         </div>
       `;
 
-      html += `<div class="row-overlay border-b border-slate-200" style="grid-column: span 12; width:${totalWidth}px;">`;
+      html += `<div class="row-overlay border-b border-slate-200" data-range-start="${toIsoDate(range.start)}" data-col-width="${monthWidth}" data-total-cols="12" data-time-unit="month" style="grid-column: span 12; width:${totalWidth}px;">`;
 
       for (let i = 0; i < 12; i++) {
-        html += `<div data-drop-slot-index="${i}" class="month-cell" style="position:absolute; left:${i * monthWidth}px; width:${monthWidth}px;"></div>`;
+        html += `<div data-drop-slot-index="${i}" data-drop-month-index="${i}" class="month-cell" style="position:absolute; left:${i * monthWidth}px; width:${monthWidth}px;"></div>`;
       }
 
       html += `<div style="position:relative; width:${totalWidth}px; min-height:56px;">`;
 
       if (project.planned_start_date && project.planned_end_date) {
-        const start = new Date(project.planned_start_date);
-        const end = new Date(project.planned_end_date);
+        const start = asLocalDate(project.planned_start_date);
+        const end = asLocalDate(project.planned_end_date);
         const startMonth = Math.max(0, start.getFullYear() < year ? 0 : start.getMonth());
         const endMonth = Math.min(11, end.getFullYear() > year ? 11 : end.getMonth());
         const spanMonths = (endMonth - startMonth) + 1;
@@ -2620,6 +2703,7 @@
           >
             <div class="font-semibold">${escapeHtml(project.name)}</div>
             <div class="text-[11px] opacity-90">${escapeHtml(staffing.text)}</div>
+            <div data-resize-handle data-resize-type="project" data-target-id="${escapeHtml(project.id)}" title="Dra for å endre sluttdato" style="position:absolute; top:0; right:0; bottom:0; width:12px; cursor:ew-resize; border-left:1px solid rgba(255,255,255,0.35); background:linear-gradient(to left, rgba(255,255,255,0.35), rgba(255,255,255,0));"></div>
           </div>
         `;
       }
@@ -2633,6 +2717,7 @@
     els.calendarWrap.querySelectorAll("[data-project-row-id]").forEach(el => {
       el.addEventListener("click", () => openProjectModal(el.dataset.projectRowId));
     });
+    bindResizeHandles();
 
     renderWarnings(uniqueArray(warnings));
   }
@@ -2696,7 +2781,9 @@
         if (!targetEmployeeName) return;
         const dropMeta = getDropMetaFromRow(row, event);
         if (!dropMeta?.rangeStart || !Number.isFinite(dropMeta.colIndex)) return;
-        const selectedDate = toIsoDate(addDays(new Date(dropMeta.rangeStart), dropMeta.colIndex));
+        const selectedDate = dropMeta?.dropDate
+          ? toIsoDate(parseIsoDateLocal(dropMeta.dropDate))
+          : toIsoDate(addDays(parseIsoDateLocal(dropMeta.rangeStart), dropMeta.colIndex));
         openCalendarContextMenu(targetEmployeeName, selectedDate, event.clientX + 8, event.clientY + 8);
       });
 
@@ -2728,6 +2815,215 @@
     return moveEntryByDrop(entryId, targetEmployeeName, null);
   }
 
+  function bindResizeHandles() {
+    if (!canEditApp()) return;
+
+    els.calendarWrap.querySelectorAll('[data-resize-handle]').forEach(handle => {
+      handle.addEventListener('mousedown', startResizeFromHandle);
+      handle.addEventListener('dragstart', event => {
+        event.preventDefault();
+        event.stopPropagation();
+      });
+    });
+  }
+
+  function startResizeFromHandle(event) {
+    event.preventDefault();
+    event.stopPropagation();
+
+    const handle = event.currentTarget;
+    const type = handle.dataset.resizeType || '';
+    const targetId = handle.dataset.targetId || '';
+    const bar = handle.closest('.entry-bar');
+    const row = handle.closest('.row-overlay');
+    if (!type || !targetId || !bar || !row) return;
+
+    const snapshot = getResizeSnapshot(type, targetId);
+    if (!snapshot) return;
+
+    state.resize = {
+      active: true,
+      type,
+      targetId,
+      row,
+      bar,
+      originalEndDate: snapshot.originalEndDate,
+      previewEndDate: snapshot.originalEndDate,
+      originalValueSnapshot: snapshot
+    };
+
+    document.body.style.userSelect = 'none';
+    document.body.style.cursor = 'ew-resize';
+  }
+
+  function getResizeSnapshot(type, targetId) {
+    if (type === 'entry') {
+      const entry = state.entries.find(item => item.id === targetId);
+      if (!entry) return null;
+      return {
+        entry,
+        originalEndDate: entry.end_date,
+        originalStartDate: entry.start_date
+      };
+    }
+
+    if (type === 'project') {
+      const project = state.projects.find(item => item.id === targetId);
+      if (!project) return null;
+      return {
+        project,
+        originalEndDate: project.planned_end_date || project.planned_start_date || '',
+        originalStartDate: project.planned_start_date || ''
+      };
+    }
+
+    return null;
+  }
+
+  function handleResizePointerMove(event) {
+    if (!state.resize.active || !state.resize.row) return;
+
+    const preview = getResizePreviewFromPointer(state.resize, event.clientX);
+    if (!preview?.endDate) return;
+
+    state.resize.previewEndDate = preview.endDate;
+    applyResizePreview(state.resize, preview);
+  }
+
+  function getResizePreviewFromPointer(resizeState, clientX) {
+    const row = resizeState.row;
+    const rowRect = row.getBoundingClientRect();
+    const syntheticEvent = { clientX, clientY: rowRect.top + (rowRect.height / 2) };
+    const dropMeta = getDropMetaFromRow(row, syntheticEvent);
+    const snapshot = resizeState.originalValueSnapshot;
+    if (!dropMeta || !snapshot?.originalStartDate) return null;
+
+    if (dropMeta.timeUnit === 'day') {
+      const pointerDate = dropMeta.dropDate
+        ? parseIsoDateLocal(dropMeta.dropDate)
+        : addDays(parseIsoDateLocal(dropMeta.rangeStart), Number(dropMeta.colIndex || 0));
+      const startDate = parseIsoDateLocal(snapshot.originalStartDate);
+      if (!pointerDate || !startDate) return null;
+      const resolvedEnd = pointerDate < startDate ? startDate : pointerDate;
+      return {
+        endDate: toIsoDate(resolvedEnd),
+        colIndex: dropMeta.colIndex,
+        timeUnit: 'day'
+      };
+    }
+
+    if (dropMeta.timeUnit === 'month') {
+      const monthIndex = Number.isFinite(dropMeta.dropMonthIndex) ? dropMeta.dropMonthIndex : Number(dropMeta.colIndex || 0);
+      const startDate = parseIsoDateLocal(snapshot.originalStartDate);
+      const originalEndDate = parseIsoDateLocal(snapshot.originalEndDate);
+      const rangeStart = parseIsoDateLocal(dropMeta.rangeStart);
+      if (!startDate || !rangeStart || !originalEndDate) return null;
+      const targetMonth = new Date(rangeStart.getFullYear(), rangeStart.getMonth() + monthIndex, 1);
+      const clampedDay = Math.min(originalEndDate.getDate(), daysInMonth(targetMonth.getFullYear(), targetMonth.getMonth()));
+      targetMonth.setDate(clampedDay);
+      const resolvedEnd = targetMonth < startDate ? startDate : targetMonth;
+      return {
+        endDate: toIsoDate(resolvedEnd),
+        colIndex: monthIndex,
+        timeUnit: 'month'
+      };
+    }
+
+    return null;
+  }
+
+  function applyResizePreview(resizeState, preview) {
+    const snapshot = resizeState.originalValueSnapshot;
+    if (!snapshot?.originalStartDate || !resizeState.bar || !resizeState.row) return;
+
+    const row = resizeState.row;
+    const totalCols = Number(row.dataset.totalCols || 0);
+    const slotWidth = Number(row.dataset.colWidth || 0);
+    const timeUnit = row.dataset.timeUnit || 'day';
+    if (!totalCols || !slotWidth) return;
+
+    let startIndex = 0;
+    let endIndex = 0;
+
+    if (timeUnit === 'day') {
+      const rangeStart = parseIsoDateLocal(row.dataset.rangeStart);
+      const startDate = parseIsoDateLocal(snapshot.originalStartDate);
+      const endDate = parseIsoDateLocal(preview.endDate);
+      if (!rangeStart || !startDate || !endDate) return;
+      startIndex = clampSlotIndex(diffDays(rangeStart, startDate), totalCols);
+      endIndex = clampSlotIndex(diffDays(rangeStart, endDate), totalCols);
+    } else {
+      const rangeStart = parseIsoDateLocal(row.dataset.rangeStart);
+      const startDate = parseIsoDateLocal(snapshot.originalStartDate);
+      const endDate = parseIsoDateLocal(preview.endDate);
+      if (!rangeStart || !startDate || !endDate) return;
+      startIndex = clampSlotIndex((startDate.getFullYear() - rangeStart.getFullYear()) * 12 + (startDate.getMonth() - rangeStart.getMonth()), totalCols);
+      endIndex = clampSlotIndex((endDate.getFullYear() - rangeStart.getFullYear()) * 12 + (endDate.getMonth() - rangeStart.getMonth()), totalCols);
+    }
+
+    const span = Math.max(1, endIndex - startIndex + 1);
+    resizeState.bar.style.width = `${Math.max(span * slotWidth - 4, 40)}px`;
+  }
+
+  async function handleResizePointerUp() {
+    if (!state.resize.active) return;
+
+    const resizeState = { ...state.resize };
+    document.body.style.userSelect = '';
+    document.body.style.cursor = '';
+    state.resize = {
+      active: false,
+      type: '',
+      targetId: '',
+      row: null,
+      bar: null,
+      originalEndDate: '',
+      previewEndDate: '',
+      originalValueSnapshot: null
+    };
+
+    const snapshot = resizeState.originalValueSnapshot;
+    const nextEndDate = resizeState.previewEndDate || resizeState.originalEndDate;
+    if (!snapshot || !nextEndDate || nextEndDate === resizeState.originalEndDate) {
+      renderCalendar();
+      return;
+    }
+
+    if (resizeState.type === 'entry' && snapshot.entry) {
+      const entry = snapshot.entry;
+      const originalEndDate = entry.end_date;
+      entry.end_date = nextEndDate;
+      rebuildDerivedState();
+      renderAll();
+      const result = await saveRow('planner_entries', entry);
+      if (!result.ok) {
+        entry.end_date = originalEndDate;
+        rebuildDerivedState();
+        renderAll();
+        return;
+      }
+      const project = getProjectById(entry.project_id);
+      void addAudit(`Endret sluttdato: ${displayProjectName(project) || 'Ukjent prosjekt'} for ${entry.employee_name} til ${nextEndDate}`);
+      return;
+    }
+
+    if (resizeState.type === 'project' && snapshot.project) {
+      const project = snapshot.project;
+      const originalEndDate = project.planned_end_date;
+      project.planned_end_date = nextEndDate;
+      rebuildDerivedState();
+      renderAll();
+      const result = await saveRow('planner_projects', project);
+      if (!result.ok) {
+        project.planned_end_date = originalEndDate;
+        rebuildDerivedState();
+        renderAll();
+        return;
+      }
+      void addAudit(`Endret prosjektsluttdato: ${project.name} til ${nextEndDate}`);
+    }
+  }
+
   async function moveEntryByDrop(entryId, targetEmployeeName, dropMeta = null) {
     if (!canEditApp()) return;
     const entry = state.entries.find(e => e.id === entryId);
@@ -2747,11 +3043,18 @@
     }
 
     if (dropMeta?.timeUnit === "day" && dropMeta.rangeStart && Number.isFinite(dropMeta.colIndex)) {
-      const durationDays = Math.max(0, diffDays(new Date(entry.start_date), new Date(entry.end_date)));
+      const durationDays = Math.max(0, diffDays(asLocalDate(entry.start_date), asLocalDate(entry.end_date)));
       const adjustedIndex = getAdjustedDropColIndex(dropMeta);
-      const newStart = addDays(new Date(dropMeta.rangeStart), adjustedIndex);
-      const newEnd = addDays(newStart, durationDays);
-      const newStartIso = toIsoDate(newStart);
+      const pointerBaseDate = dropMeta.dropDate
+        ? parseIsoDateLocal(dropMeta.dropDate)
+        : addDays(parseIsoDateLocal(dropMeta.rangeStart), dropMeta.colIndex);
+      const pointerDate = pointerBaseDate;
+      const anchorOffset = Math.max(0, Number(state.dragAnchor?.slotOffset || 0));
+      const newStart = addDays(pointerDate, -anchorOffset);
+      const fallbackStart = addDays(parseIsoDateLocal(dropMeta.rangeStart), adjustedIndex);
+      const resolvedStart = Number.isFinite(newStart?.getTime?.()) ? newStart : fallbackStart;
+      const newEnd = addDays(resolvedStart, durationDays);
+      const newStartIso = toIsoDate(resolvedStart);
       const newEndIso = toIsoDate(newEnd);
       if (entry.start_date !== newStartIso || entry.end_date !== newEndIso) {
         entry.start_date = newStartIso;
@@ -2761,9 +3064,9 @@
     }
 
     if (dropMeta?.timeUnit === "month" && dropMeta.rangeStart && Number.isFinite(dropMeta.colIndex)) {
-      const durationDays = Math.max(0, diffDays(new Date(entry.start_date), new Date(entry.end_date)));
-      const originalStart = new Date(entry.start_date);
-      const targetMonthBase = new Date(dropMeta.rangeStart);
+      const durationDays = Math.max(0, diffDays(asLocalDate(entry.start_date), asLocalDate(entry.end_date)));
+      const originalStart = asLocalDate(entry.start_date);
+      const targetMonthBase = parseIsoDateLocal(dropMeta.rangeStart);
       const adjustedIndex = getAdjustedDropColIndex(dropMeta);
       const shiftedStart = new Date(targetMonthBase.getFullYear(), targetMonthBase.getMonth() + adjustedIndex, 1);
       const clampedDay = Math.min(originalStart.getDate(), daysInMonth(shiftedStart.getFullYear(), shiftedStart.getMonth()));
@@ -2906,7 +3209,7 @@
 
   function formatDateTime(value) {
     if (!value) return "";
-    const d = new Date(value);
+    const d = asLocalDate(value);
     if (Number.isNaN(d.getTime())) return String(value);
     return new Intl.DateTimeFormat("no-NO", {
       day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit"
@@ -2914,14 +3217,14 @@
   }
 
   function formatDate(value) {
-    const d = new Date(value);
+    const d = asLocalDate(value);
     return new Intl.DateTimeFormat("no-NO", {
       day: "2-digit", month: "2-digit", year: "numeric"
     }).format(d);
   }
 
   function formatYearBarLabel(start, end) {
-    return `${capitalize(monthShort(new Date(start)))}–${capitalize(monthShort(new Date(end)))}`;
+    return `${capitalize(monthShort(asLocalDate(start)))}–${capitalize(monthShort(asLocalDate(end)))}`;
   }
 
 
@@ -2931,7 +3234,26 @@
   }
 
   function toIsoDate(date) {
-    return new Date(date.getFullYear(), date.getMonth(), date.getDate()).toISOString().slice(0, 10);
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  }
+
+  function parseIsoDateLocal(value) {
+    if (!value) return null;
+    const parts = String(value).split("-").map(Number);
+    if (parts.length !== 3 || parts.some(v => !Number.isFinite(v))) return null;
+    return new Date(parts[0], parts[1] - 1, parts[2]);
+  }
+
+  function asLocalDate(value) {
+    if (value instanceof Date) return new Date(value.getFullYear(), value.getMonth(), value.getDate());
+    if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+      return parseIsoDateLocal(value);
+    }
+    const parsed = asLocalDate(value);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
   }
 
   function startOfWeek(date) {
@@ -2951,7 +3273,7 @@
 
   function getDaysBetween(start, end) {
     const result = [];
-    const current = new Date(start);
+    const current = asLocalDate(start);
     while (current <= end) {
       result.push(new Date(current));
       current.setDate(current.getDate() + 1);
@@ -2966,10 +3288,10 @@
   }
 
   function overlaps(startA, endA, startB, endB) {
-    const a1 = new Date(startA);
-    const a2 = new Date(endA);
-    const b1 = new Date(startB);
-    const b2 = new Date(endB);
+    const a1 = asLocalDate(startA);
+    const a2 = asLocalDate(endA);
+    const b1 = asLocalDate(startB);
+    const b2 = asLocalDate(endB);
     return a1 <= b2 && a2 >= b1;
   }
 
@@ -3057,21 +3379,30 @@
     const rangeStart = row.dataset.rangeStart || null;
 
     if (!colWidth || !totalCols || !rangeStart) {
-      return { timeUnit, rangeStart, totalCols, colIndex: null };
+      return { timeUnit, rangeStart, totalCols, colIndex: null, dropDate: null, dropMonthIndex: null };
     }
 
-    const preciseIndex = getDropSlotIndexFromPointer(row, event.clientX, event.clientY, totalCols);
-    if (Number.isFinite(preciseIndex)) {
-      return { timeUnit, rangeStart, totalCols, colIndex: preciseIndex };
+    const slot = getDropSlotFromPointer(row, event.clientX, event.clientY);
+    if (slot) {
+      const idx = Number(slot.dataset.dropSlotIndex);
+      return {
+        timeUnit,
+        rangeStart,
+        totalCols,
+        colIndex: Number.isFinite(idx) ? clampSlotIndex(idx, totalCols) : null,
+        dropDate: slot.dataset.dropDate || null,
+        dropMonthIndex: Number.isFinite(Number(slot.dataset.dropMonthIndex)) ? Number(slot.dataset.dropMonthIndex) : null
+      };
     }
 
     const rect = row.getBoundingClientRect();
     const x = Math.max(0, Math.min(rect.width - 1, event.clientX - rect.left));
     const colIndex = Math.max(0, Math.min(totalCols - 1, Math.floor(x / colWidth)));
-    return { timeUnit, rangeStart, totalCols, colIndex };
+    const fallbackDate = timeUnit === "day" ? toIsoDate(addDays(parseIsoDateLocal(rangeStart), colIndex)) : null;
+    return { timeUnit, rangeStart, totalCols, colIndex, dropDate: fallbackDate, dropMonthIndex: timeUnit === "month" ? colIndex : null };
   }
 
-  function getDropSlotIndexFromPointer(row, clientX, clientY, totalCols) {
+  function getDropSlotFromPointer(row, clientX, clientY) {
     const slots = Array.from(row.querySelectorAll('[data-drop-slot-index]'));
     if (!slots.length) return null;
 
@@ -3080,21 +3411,18 @@
       for (const el of hitElements) {
         if (!(el instanceof HTMLElement)) continue;
         const slot = el.matches('[data-drop-slot-index]') ? el : el.closest('[data-drop-slot-index]');
-        if (!slot || !row.contains(slot)) continue;
-        const idx = Number(slot.dataset.dropSlotIndex);
-        if (Number.isFinite(idx)) return clampSlotIndex(idx, totalCols);
+        if (slot && row.contains(slot)) return slot;
       }
     }
 
     for (const slot of slots) {
       const rect = slot.getBoundingClientRect();
       if (clientX >= rect.left && clientX < rect.right && clientY >= rect.top && clientY < rect.bottom) {
-        const idx = Number(slot.dataset.dropSlotIndex);
-        if (Number.isFinite(idx)) return clampSlotIndex(idx, totalCols);
+        return slot;
       }
     }
 
-    let bestIdx = null;
+    let bestSlot = null;
     let bestDistance = Number.POSITIVE_INFINITY;
     for (const slot of slots) {
       const rect = slot.getBoundingClientRect();
@@ -3103,11 +3431,18 @@
       const distance = Math.abs(clientX - centerX) + (Math.abs(clientY - centerY) * 0.25);
       if (distance < bestDistance) {
         bestDistance = distance;
-        bestIdx = Number(slot.dataset.dropSlotIndex);
+        bestSlot = slot;
       }
     }
 
-    return Number.isFinite(bestIdx) ? clampSlotIndex(bestIdx, totalCols) : null;
+    return bestSlot;
+  }
+
+  function getDropSlotIndexFromPointer(row, clientX, clientY, totalCols) {
+    const slot = getDropSlotFromPointer(row, clientX, clientY);
+    if (!slot) return null;
+    const idx = Number(slot.dataset.dropSlotIndex);
+    return Number.isFinite(idx) ? clampSlotIndex(idx, totalCols) : null;
   }
 
   function clampSlotIndex(index, totalCols) {
