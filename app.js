@@ -2696,7 +2696,9 @@
         if (!targetEmployeeName) return;
         const dropMeta = getDropMetaFromRow(row, event);
         if (!dropMeta?.rangeStart || !Number.isFinite(dropMeta.colIndex)) return;
-        const selectedDate = dropMeta?.dropDate || toIsoDate(addDays(parseIsoDateLocal(dropMeta.rangeStart), dropMeta.colIndex));
+        const selectedDate = dropMeta?.dropDate
+          ? toIsoDate(addDays(parseIsoDateLocal(dropMeta.dropDate), 1))
+          : toIsoDate(addDays(parseIsoDateLocal(dropMeta.rangeStart), dropMeta.colIndex + 1));
         openCalendarContextMenu(targetEmployeeName, selectedDate, event.clientX + 8, event.clientY + 8);
       });
 
@@ -2749,10 +2751,13 @@
     if (dropMeta?.timeUnit === "day" && dropMeta.rangeStart && Number.isFinite(dropMeta.colIndex)) {
       const durationDays = Math.max(0, diffDays(new Date(entry.start_date), new Date(entry.end_date)));
       const adjustedIndex = getAdjustedDropColIndex(dropMeta);
-      const pointerDate = parseIsoDateLocal(dropMeta.dropDate) || addDays(parseIsoDateLocal(dropMeta.rangeStart), dropMeta.colIndex);
+      const pointerBaseDate = dropMeta.dropDate
+        ? parseIsoDateLocal(dropMeta.dropDate)
+        : addDays(parseIsoDateLocal(dropMeta.rangeStart), dropMeta.colIndex);
+      const pointerDate = addDays(pointerBaseDate, 1);
       const anchorOffset = Math.max(0, Number(state.dragAnchor?.slotOffset || 0));
       const newStart = addDays(pointerDate, -anchorOffset);
-      const fallbackStart = addDays(parseIsoDateLocal(dropMeta.rangeStart), adjustedIndex);
+      const fallbackStart = addDays(parseIsoDateLocal(dropMeta.rangeStart), adjustedIndex + 1);
       const resolvedStart = Number.isFinite(newStart?.getTime?.()) ? newStart : fallbackStart;
       const newEnd = addDays(resolvedStart, durationDays);
       const newStartIso = toIsoDate(resolvedStart);
