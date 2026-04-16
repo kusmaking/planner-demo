@@ -1,10 +1,6 @@
 (() => {
   const supabaseClient = window.supabase?.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-  const PROJECT_CATEGORY_OPTIONS = ["Offshore", "Travel", "Onshore"];
-  const PERSONAL_BLOCK_OPTIONS = ["Kurs", "Ferie", "Syk", "Avspasering"];
-  const PERSONAL_BLOCK_PREFIX = "__personal__";
-
   const state = {
     employees: [],
     projects: [],
@@ -38,6 +34,8 @@
   };
 
   const els = {};
+  const PERSONAL_BLOCK_TYPES = ["Kurs", "Ferie", "Syk", "Avspasering"];
+  const PERSONAL_PROJECT_MARKER = "__personal_block_system_project__";
   let saveStatusTimer = null;
   let calendarScrollSyncRaf = null;
 
@@ -69,7 +67,7 @@
     rebuildDerivedState();
     renderAll();
     clearAssignForm();
-    clearPersonalForm();
+    clearPersonalBlockForm();
     applyRoleChrome();
   }
 
@@ -92,53 +90,6 @@
     ids.forEach(id => els[id] = document.getElementById(id));
   }
 
-
-  function ensurePersonalBlockPanel() {
-    if (document.getElementById("personalBlockPanel")) {
-      els.personalBlockPanel = document.getElementById("personalBlockPanel");
-      els.personalEmployee = document.getElementById("personalEmployee");
-      els.personalType = document.getElementById("personalType");
-      els.personalStart = document.getElementById("personalStart");
-      els.personalEnd = document.getElementById("personalEnd");
-      els.personalNotes = document.getElementById("personalNotes");
-      els.personalSaveBtn = document.getElementById("personalSaveBtn");
-      return;
-    }
-
-    const employeeSection = document.getElementById("tabEmployeesSection");
-    if (!employeeSection) return;
-
-    const wrapper = document.createElement("div");
-    wrapper.className = "xl:col-span-4";
-    wrapper.innerHTML = `
-      <div id="personalBlockPanel" class="rounded-2xl bg-white border border-slate-200 shadow-sm">
-        <div class="p-4 border-b border-slate-200">
-          <h2 class="font-semibold">Direkte blokk på ansatt</h2>
-          <p class="text-sm text-slate-500 mt-1">Bruk denne for kurs, ferie, syk og avspasering uten å opprette prosjekt.</p>
-        </div>
-        <div class="p-4 space-y-4">
-          <select id="personalEmployee" class="w-full rounded-2xl border border-slate-300 px-3 py-2"></select>
-          <select id="personalType" class="w-full rounded-2xl border border-slate-300 px-3 py-2"></select>
-          <div class="grid grid-cols-2 gap-2">
-            <input id="personalStart" type="date" class="rounded-2xl border border-slate-300 px-3 py-2" />
-            <input id="personalEnd" type="date" class="rounded-2xl border border-slate-300 px-3 py-2" />
-          </div>
-          <textarea id="personalNotes" class="w-full rounded-2xl border border-slate-300 px-3 py-2" rows="3" placeholder="Notat"></textarea>
-          <button id="personalSaveBtn" class="w-full rounded-2xl bg-slate-900 text-white px-4 py-2">Legg blokk i kalender</button>
-        </div>
-      </div>
-    `;
-
-    employeeSection.insertBefore(wrapper, employeeSection.firstChild);
-
-    els.personalBlockPanel = document.getElementById("personalBlockPanel");
-    els.personalEmployee = document.getElementById("personalEmployee");
-    els.personalType = document.getElementById("personalType");
-    els.personalStart = document.getElementById("personalStart");
-    els.personalEnd = document.getElementById("personalEnd");
-    els.personalNotes = document.getElementById("personalNotes");
-    els.personalSaveBtn = document.getElementById("personalSaveBtn");
-  }
 
   function ensureAccountPanel() {
     if (document.getElementById("accountPanel")) {
@@ -174,6 +125,53 @@
     els.loginBtn = document.getElementById("loginBtn");
 
     ensureLoginModal();
+  }
+
+
+  function ensurePersonalBlockPanel() {
+    const employeeSection = els.tabEmployeesSection;
+    if (!employeeSection) return;
+
+    if (document.getElementById("personalBlockCard")) {
+      els.personalBlockEmployee = document.getElementById("personalBlockEmployee");
+      els.personalBlockType = document.getElementById("personalBlockType");
+      els.personalBlockStart = document.getElementById("personalBlockStart");
+      els.personalBlockEnd = document.getElementById("personalBlockEnd");
+      els.personalBlockNotes = document.getElementById("personalBlockNotes");
+      els.personalBlockSaveBtn = document.getElementById("personalBlockSaveBtn");
+      return;
+    }
+
+    const wrapper = document.createElement("div");
+    wrapper.className = "xl:col-span-4";
+    wrapper.innerHTML = `
+      <div id="personalBlockCard" class="rounded-2xl bg-white border border-slate-200 shadow-sm">
+        <div class="p-4 border-b border-slate-200">
+          <h2 class="font-semibold">Direkte blokk på ansatt</h2>
+          <p class="text-sm text-slate-500 mt-1">Brukes for kurs, ferie, syk og avspasering direkte på personen, uten å gå via prosjektmodulen.</p>
+        </div>
+        <div class="p-4 space-y-4">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <select id="personalBlockEmployee" class="w-full rounded-2xl border border-slate-300 px-3 py-2"></select>
+            <select id="personalBlockType" class="w-full rounded-2xl border border-slate-300 px-3 py-2"></select>
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <input id="personalBlockStart" type="date" class="rounded-2xl border border-slate-300 px-3 py-2" />
+            <input id="personalBlockEnd" type="date" class="rounded-2xl border border-slate-300 px-3 py-2" />
+          </div>
+          <textarea id="personalBlockNotes" class="w-full rounded-2xl border border-slate-300 px-3 py-2" rows="3" placeholder="Notat"></textarea>
+          <button id="personalBlockSaveBtn" class="w-full rounded-2xl bg-slate-900 text-white px-4 py-2">Lagre blokk i kalender</button>
+        </div>
+      </div>
+    `;
+    employeeSection.appendChild(wrapper);
+
+    els.personalBlockEmployee = document.getElementById("personalBlockEmployee");
+    els.personalBlockType = document.getElementById("personalBlockType");
+    els.personalBlockStart = document.getElementById("personalBlockStart");
+    els.personalBlockEnd = document.getElementById("personalBlockEnd");
+    els.personalBlockNotes = document.getElementById("personalBlockNotes");
+    els.personalBlockSaveBtn = document.getElementById("personalBlockSaveBtn");
   }
 
   function ensureLoginModal() {
@@ -398,23 +396,13 @@
       els.assignBtn.style.display = canPlan ? "" : "none";
     }
 
-    if (els.personalSaveBtn) {
-      els.personalSaveBtn.style.display = canPlan ? "" : "none";
-    }
-
     if (els.assignProject) els.assignProject.disabled = !canPlan;
     if (els.assignStart) els.assignStart.disabled = !canPlan;
     if (els.assignEnd) els.assignEnd.disabled = !canPlan;
     if (els.assignNotes) els.assignNotes.disabled = !canPlan;
-    if (els.personalEmployee) els.personalEmployee.disabled = !canPlan;
-    if (els.personalType) els.personalType.disabled = !canPlan;
-    if (els.personalStart) els.personalStart.disabled = !canPlan;
-    if (els.personalEnd) els.personalEnd.disabled = !canPlan;
-    if (els.personalNotes) els.personalNotes.disabled = !canPlan;
 
     setCardDisplayByElement(els.newProjectBtn, canPlan);       // Prosjekter
     setCardDisplayByElement(els.assignBtn, canPlan);           // Tildel prosjekt i kalender
-    setCardDisplayByElement(els.personalSaveBtn, canPlan);     // Direkte blokk på ansatt
     setCardDisplayByElement(els.newEmployeeBtn, canPlan);      // Ansatte
     setCardDisplayById("kanbanBoard", canPlan);                // Kanban – prosjekter
     setCardDisplayById("notificationList", isSA);              // Varsellogg
@@ -548,12 +536,10 @@
   }
 
   function setupStaticOptions() {
-    fillSelect(els.projectCategory, PROJECT_CATEGORY_OPTIONS);
+    fillSelect(els.projectCategory, CATEGORY_OPTIONS);
     fillSelect(els.projectStatus, STATUS_OPTIONS, "Planlagt");
     fillSelect(els.editRole, ROLE_OPTIONS, "Supervisor");
-    if (els.personalType) {
-      fillSelect(els.personalType, PERSONAL_BLOCK_OPTIONS);
-    }
+    fillSelect(els.personalBlockType, PERSONAL_BLOCK_TYPES);
   }
 
   function bindEvents() {
@@ -623,8 +609,8 @@
     els.assignProject.addEventListener("change", syncAssignDatesFromProject);
     els.assignBtn.addEventListener("click", createEntry);
     els.bulkAddBtn.addEventListener("click", bulkAddEmployees);
-    if (els.personalSaveBtn) {
-      els.personalSaveBtn.addEventListener("click", createPersonalEntry);
+    if (els.personalBlockSaveBtn) {
+      els.personalBlockSaveBtn.addEventListener("click", createPersonalBlockEntry);
     }
     if (els.resetDemoBtn) {
       els.resetDemoBtn.style.display = "none";
@@ -1109,76 +1095,6 @@
   }
 
 
-  function getPersonalProjectId(type) {
-    return `${PERSONAL_BLOCK_PREFIX}${type || ""}`;
-  }
-
-  function isPersonalEntry(entry) {
-    return !!entry?.project_id && String(entry.project_id).startsWith(PERSONAL_BLOCK_PREFIX);
-  }
-
-  function getPersonalTypeFromEntry(entry) {
-    if (!isPersonalEntry(entry)) return "";
-    return String(entry.project_id).slice(PERSONAL_BLOCK_PREFIX.length);
-  }
-
-  function getEntryDisplayName(entry) {
-    if (isPersonalEntry(entry)) return getPersonalTypeFromEntry(entry);
-    return getProjectById(entry.project_id)?.name || "Ukjent prosjekt";
-  }
-
-  function clearPersonalForm() {
-    if (els.personalEmployee) els.personalEmployee.value = "";
-    if (els.personalType) els.personalType.value = PERSONAL_BLOCK_OPTIONS[0] || "";
-    if (els.personalStart) els.personalStart.value = "";
-    if (els.personalEnd) els.personalEnd.value = "";
-    if (els.personalNotes) els.personalNotes.value = "";
-  }
-
-  async function createPersonalEntry() {
-    if (!canEditApp()) return;
-
-    const employeeName = els.personalEmployee?.value || "";
-    const personalType = els.personalType?.value || "";
-    const startDate = els.personalStart?.value || "";
-    const endDate = els.personalEnd?.value || "";
-    const notes = els.personalNotes?.value?.trim() || "";
-
-    if (!employeeName || !personalType || !startDate || !endDate) {
-      alert("Fyll ut ansatt, type, startdato og sluttdato.");
-      return;
-    }
-
-    if (startDate > endDate) {
-      alert("Startdato kan ikke være etter sluttdato.");
-      return;
-    }
-
-    const entry = {
-      id: crypto.randomUUID(),
-      project_id: getPersonalProjectId(personalType),
-      employee_name: employeeName,
-      role: "",
-      start_date: startDate,
-      end_date: endDate,
-      notes
-    };
-
-    state.entries.push(entry);
-    rebuildDerivedState();
-    const result = await saveRow("planner_entries", entry);
-    if (!result.ok) {
-      state.entries = state.entries.filter(item => item.id !== entry.id);
-      rebuildDerivedState();
-      renderAll();
-      return;
-    }
-
-    clearPersonalForm();
-    renderAll();
-    void addAudit(`La inn ${personalType} direkte på ${employeeName}`);
-  }
-
   function getDefaultRoleForIndex(index) {
     return ROLE_OPTIONS[index] || ROLE_OPTIONS[ROLE_OPTIONS.length - 1] || "";
   }
@@ -1234,6 +1150,108 @@
     els.assignEmployeesWrap.innerHTML = blocks.join("");
   }
 
+
+
+  function isPersonalBlockType(value) {
+    return PERSONAL_BLOCK_TYPES.includes(value);
+  }
+
+  function isSystemPersonalProject(project) {
+    return !!project && project.notes === PERSONAL_PROJECT_MARKER && isPersonalBlockType(project.category);
+  }
+
+  function getVisibleProjects() {
+    return state.projects.filter(project => !isSystemPersonalProject(project));
+  }
+
+  async function ensurePersonalProject(type) {
+    let project = state.projects.find(item => isSystemPersonalProject(item) && item.category === type);
+    if (project) return { ok: true, project };
+
+    project = {
+      id: crypto.randomUUID(),
+      name: `System • ${type}`,
+      category: type,
+      status: "Planlagt",
+      planned_start_date: null,
+      planned_end_date: null,
+      location: "",
+      headcount_required: 0,
+      notes: PERSONAL_PROJECT_MARKER
+    };
+
+    state.projects.push(project);
+    rebuildDerivedState();
+
+    const result = await saveRow("planner_projects", project);
+    if (!result.ok) {
+      state.projects = state.projects.filter(item => item.id !== project.id);
+      rebuildDerivedState();
+      return { ok: false, error: result.error || new Error("Kunne ikke opprette systemprosjekt.") };
+    }
+
+    return { ok: true, project };
+  }
+
+  function clearPersonalBlockForm() {
+    if (els.personalBlockEmployee) els.personalBlockEmployee.value = "";
+    if (els.personalBlockType) els.personalBlockType.value = PERSONAL_BLOCK_TYPES[0] || "";
+    if (els.personalBlockStart) els.personalBlockStart.value = "";
+    if (els.personalBlockEnd) els.personalBlockEnd.value = "";
+    if (els.personalBlockNotes) els.personalBlockNotes.value = "";
+  }
+
+  async function createPersonalBlockEntry() {
+    if (!canEditApp()) return;
+
+    const employeeName = els.personalBlockEmployee?.value || "";
+    const type = els.personalBlockType?.value || "";
+    const startDate = els.personalBlockStart?.value || "";
+    const endDate = els.personalBlockEnd?.value || "";
+    const notes = els.personalBlockNotes?.value?.trim() || "";
+
+    if (!employeeName || !type || !startDate || !endDate) {
+      alert("Velg ansatt, type og start/slutt.");
+      return;
+    }
+
+    if (startDate > endDate) {
+      alert("Startdato kan ikke være etter sluttdato.");
+      return;
+    }
+
+    const ensured = await ensurePersonalProject(type);
+    if (!ensured.ok || !ensured.project) {
+      renderAll();
+      return;
+    }
+
+    const entry = {
+      id: crypto.randomUUID(),
+      project_id: ensured.project.id,
+      employee_name: employeeName,
+      role: "Supervisor",
+      start_date: startDate,
+      end_date: endDate,
+      notes
+    };
+
+    state.entries.push(entry);
+    rebuildDerivedState();
+    renderAll();
+
+    const result = await saveRow("planner_entries", entry);
+    if (!result.ok) {
+      state.entries = state.entries.filter(item => item.id !== entry.id);
+      rebuildDerivedState();
+      renderAll();
+      return;
+    }
+
+    clearPersonalBlockForm();
+    renderAll();
+    void addAudit(`La inn ${type.toLowerCase()} direkte på ${employeeName}`);
+  }
 
   async function createEntry() {
     if (!canEditApp()) return;
@@ -1312,18 +1330,9 @@
     const entry = state.entries.find(e => e.id === entryId);
     if (!entry) return;
 
-    const editProjectOptions = [
-      ...state.projects.map(project => ({ id: project.id, name: project.name })),
-      ...PERSONAL_BLOCK_OPTIONS.map(type => ({ id: getPersonalProjectId(type), name: type }))
-    ];
-
-    fillSelect(els.editProject, editProjectOptions, entry.project_id, "name", "id");
+    fillSelect(els.editProject, state.projects, entry.project_id, "name", "id");
     fillSelect(els.editEmployee, state.employees.filter(e => e.active !== false), entry.employee_name, "name", "name");
-    fillSelect(els.editRole, ROLE_OPTIONS, entry.role || ROLE_OPTIONS[0]);
-
-    const personalEntry = isPersonalEntry(entry);
-    els.editRole.disabled = personalEntry;
-    els.editRole.parentElement.style.opacity = personalEntry ? "0.6" : "1";
+    fillSelect(els.editRole, ROLE_OPTIONS, entry.role);
 
     els.editStart.value = entry.start_date;
     els.editEnd.value = entry.end_date;
@@ -1351,7 +1360,7 @@
 
     entry.project_id = els.editProject.value;
     entry.employee_name = els.editEmployee.value;
-    entry.role = String(entry.project_id).startsWith(PERSONAL_BLOCK_PREFIX) ? "" : els.editRole.value;
+    entry.role = els.editRole.value;
     entry.start_date = els.editStart.value;
     entry.end_date = els.editEnd.value;
     entry.notes = els.editNotes.value.trim();
@@ -1360,10 +1369,10 @@
     const result = await saveRow("planner_entries", entry);
     if (!result.ok) return;
 
-    const entryName = getEntryDisplayName(entry);
+    const project = getProjectById(entry.project_id);
     closeEditModal();
     renderAll();
-    void addAudit(`Redigerte tildeling: ${entry.employee_name} → ${entryName}`);
+    void addAudit(`Redigerte tildeling: ${entry.employee_name} → ${project?.name || "Ukjent prosjekt"}`);
   }
 
   async function deleteEditedEntry() {
@@ -1382,10 +1391,10 @@
       return;
     }
 
-    const entryName = getEntryDisplayName(entry);
+    const project = getProjectById(entry.project_id);
     closeEditModal();
     renderAll();
-    void addAudit(`Slettet tildeling: ${entry.employee_name} → ${entryName}`);
+    void addAudit(`Slettet tildeling: ${entry.employee_name} → ${project?.name || "Ukjent prosjekt"}`);
   }
 
   function openProjectModal(projectId = null) {
@@ -1435,7 +1444,7 @@
       return;
     }
 
-    const duplicate = state.projects.find(p =>
+    const duplicate = getVisibleProjects().find(p =>
       p.name.toLowerCase() === name.toLowerCase() && p.id !== state.selectedProjectId
     );
     if (duplicate) {
@@ -1723,13 +1732,14 @@
       ...state.employees.filter(e => e.active !== false).map(e => ({ id: e.name, name: e.name }))
     ];
 
+    const visibleProjects = getVisibleProjects();
+
     fillSelect(els.employeeFilter, employeeFilterItems, state.employeeFilter, "name", "id");
     fillSelect(els.editEmployee, state.employees.filter(e => e.active !== false), null, "name", "name");
-    if (els.personalEmployee) {
-      fillSelect(els.personalEmployee, [{ id: "", name: "Velg ansatt" }, ...state.employees.filter(e => e.active !== false).map(e => ({ id: e.name, name: e.name }))], els.personalEmployee.value || "", "name", "id");
-    }
-    fillSelect(els.assignProject, [{ id: "", name: "Velg prosjekt" }, ...state.projects.map(p => ({ id: p.id, name: p.name }))], "", "name", "id");
+    fillSelect(els.assignProject, [{ id: "", name: "Velg prosjekt" }, ...visibleProjects.map(p => ({ id: p.id, name: p.name }))], "", "name", "id");
     fillSelect(els.editProject, state.projects, null, "name", "id");
+    fillSelect(els.personalBlockEmployee, [{ id: "", name: "Velg ansatt" }, ...state.employees.filter(e => e.active !== false).map(e => ({ id: e.name, name: e.name }))], els.personalBlockEmployee?.value || "", "name", "id");
+    fillSelect(els.personalBlockType, PERSONAL_BLOCK_TYPES, els.personalBlockType?.value || PERSONAL_BLOCK_TYPES[0] || "");
     fillSelect(els.viewMode, ["Uke", "Måned", "År"], state.viewMode);
     fillSelect(els.calendarMode, [
       { id: "personal", name: "Personalplan" },
@@ -1747,13 +1757,14 @@
   function renderStats() {
     const visibleEmployees = getFilteredEmployees();
     const range = getCurrentRange();
+    const visibleProjects = getVisibleProjects();
     const entriesInRange = state.entries.filter(entry => overlaps(entry.start_date, entry.end_date, range.start, range.end));
-    const projectsInRange = state.projects.filter(project => projectOverlapsRange(project, range.start, range.end));
-    const unstaffedProjects = state.projects.filter(project => getProjectAssignedCount(project.id) === 0);
+    const projectsInRange = visibleProjects.filter(project => projectOverlapsRange(project, range.start, range.end));
+    const unstaffedProjects = visibleProjects.filter(project => getProjectAssignedCount(project.id) === 0);
 
     const cards = [
       { label: "Ansatte", value: state.employees.filter(e => e.active !== false).length },
-      { label: "Prosjekter", value: state.projects.length },
+      { label: "Prosjekter", value: visibleProjects.length },
       { label: "Prosjekter uten bemanning", value: unstaffedProjects.length },
       { label: "Tildelinger i visning", value: entriesInRange.length },
       { label: state.calendarMode === "project" ? "Prosjekter i visning" : "Synlige ansatte", value: state.calendarMode === "project" ? projectsInRange.length : visibleEmployees.length }
@@ -1767,22 +1778,23 @@
     `).join("");
   }
 
+
   function renderLegend() {
-    const projectCategoryHtml = PROJECT_CATEGORY_OPTIONS.map(name => `
+    const projectCategoryHtml = ["Offshore", "Travel", "Onshore"].map(name => `
       <div class="flex items-center gap-2">
-        <span class="inline-block w-4 h-4 rounded ${CATEGORY_COLORS[name] || "bg-slate-500 border-slate-600 text-white"}"></span>
+        <span class="inline-block w-4 h-4 rounded ${CATEGORY_COLORS[name] || "bg-slate-400"}"></span>
         <span>${escapeHtml(name)}</span>
       </div>
     `).join("");
 
-    const personalCategoryHtml = PERSONAL_BLOCK_OPTIONS.map(name => `
+    const personalCategoryHtml = PERSONAL_BLOCK_TYPES.map(name => `
       <div class="flex items-center gap-2">
-        <span class="inline-block w-4 h-4 rounded ${CATEGORY_COLORS[name] || "bg-slate-500 border-slate-600 text-white"}"></span>
+        <span class="inline-block w-4 h-4 rounded ${CATEGORY_COLORS[name] || "bg-slate-400"}"></span>
         <span>${escapeHtml(name)}</span>
       </div>
     `).join("");
 
-    const statusHtml = Object.keys(STATUS_COLORS).filter(name => name !== "Fullført").map(name => `
+    const statusHtml = Object.keys(STATUS_COLORS).map(name => `
       <div class="flex items-center gap-2">
         <span class="inline-block rounded-full border px-2 py-0.5 ${STATUS_COLORS[name]}">${escapeHtml(name)}</span>
       </div>
@@ -1803,7 +1815,6 @@
       </div>
     `;
   }
-
 
   function renderCalendarPanel() {
     if (!els.calendarPanelCol || !els.calendarPanelHandleBtn || !els.calendarPanelContent) return;
@@ -1832,7 +1843,7 @@
   }
 
   function renderProjects() {
-    els.projectList.innerHTML = state.projects
+    els.projectList.innerHTML = getVisibleProjects()
       .slice()
       .sort((a, b) => compareProjectDates(a, b))
       .map(project => {
@@ -1961,7 +1972,7 @@
   function renderKanban() {
     const groups = STATUS_OPTIONS.map(status => ({
       status,
-      projects: state.projects.filter(p => p.status === status)
+      projects: getVisibleProjects().filter(p => p.status === status)
     }));
 
     els.kanbanBoard.innerHTML = groups.map(group => `
@@ -2007,7 +2018,7 @@
       `<div><span class="font-medium">Lagring:</span> ${state.storageMode === "supabase" ? "Supabase" : "Lokal fallback"}</div>`,
       `<div><span class="font-medium">Kalendervisning:</span> ${state.calendarMode === "project" ? "Prosjektplan" : "Personalplan"}</div>`,
       `<div><span class="font-medium">Aktive ansatte:</span> ${state.employees.filter(e => e.active !== false).length}</div>`,
-      `<div><span class="font-medium">Antall prosjekter:</span> ${state.projects.length}</div>`,
+      `<div><span class="font-medium">Antall prosjekter:</span> ${getVisibleProjects().length}</div>`,
       `<div><span class="font-medium">Antall tildelinger:</span> ${state.entries.length}</div>`
     ];
 
@@ -2091,10 +2102,8 @@
       html += `<div style="position:relative; width:${totalWidth}px; min-height:56px;">`;
 
       for (const entry of employeeEntries) {
-        const personalEntry = isPersonalEntry(entry);
-        const project = personalEntry ? null : getProjectById(entry.project_id);
-        const entryName = personalEntry ? getPersonalTypeFromEntry(entry) : project?.name;
-        if (!personalEntry && !project) continue;
+        const project = getProjectById(entry.project_id);
+        if (!project) continue;
 
         const clipped = clipRange(new Date(entry.start_date), new Date(entry.end_date), range.start, range.end);
         const startIndex = diffDays(range.start, clipped.start);
@@ -2104,14 +2113,14 @@
 
         html += `
           <div
-            class="entry-bar ${getEntryBarClasses(project, entry.role, entry)}"
+            class="entry-bar ${getEntryBarClasses(project, entry.role)}"
             style="left:${left}px; width:${width}px;"
             data-entry-id="${escapeHtml(entry.id)}"
             draggable="true"
-            title="${escapeHtml(`${employee.name} | ${entryName || "Ukjent"}${entry.role ? ` | ${entry.role}` : ""} | ${entry.start_date} - ${entry.end_date}${entry.notes ? ` | ${entry.notes}` : ""}`)}"
+            title="${escapeHtml(`${employee.name} | ${project.name} | ${entry.role} | ${entry.start_date} - ${entry.end_date}${entry.notes ? ` | ${entry.notes}` : ""}`)}"
           >
-            <div class="font-semibold">${escapeHtml(entryName || "Ukjent")}</div>
-            <div class="text-[11px] opacity-90">${escapeHtml(entry.role || (personalEntry ? "Direkte blokk" : ""))}</div>
+            <div class="font-semibold">${escapeHtml(project.name)}</div>
+            <div class="text-[11px] opacity-90">${escapeHtml(entry.role)}</div>
           </div>
         `;
 
@@ -2178,10 +2187,8 @@
       html += `<div style="position:relative; width:${totalWidth}px; min-height:56px;">`;
 
       for (const entry of employeeEntries) {
-        const personalEntry = isPersonalEntry(entry);
-        const project = personalEntry ? null : getProjectById(entry.project_id);
-        const entryName = personalEntry ? getPersonalTypeFromEntry(entry) : project?.name;
-        if (!personalEntry && !project) continue;
+        const project = getProjectById(entry.project_id);
+        if (!project) continue;
 
         const entryStart = new Date(entry.start_date);
         const entryEnd = new Date(entry.end_date);
@@ -2193,13 +2200,13 @@
 
         html += `
           <div
-            class="entry-bar ${getEntryBarClasses(project, entry.role, entry)}"
+            class="entry-bar ${getEntryBarClasses(project, entry.role)}"
             style="left:${left}px; width:${width}px;"
             data-entry-id="${escapeHtml(entry.id)}"
             draggable="true"
-            title="${escapeHtml(`${employee.name} | ${entryName || "Ukjent"}${entry.role ? ` | ${entry.role}` : ""} | ${entry.start_date} - ${entry.end_date}`)}"
+            title="${escapeHtml(`${employee.name} | ${project.name} | ${entry.role} | ${entry.start_date} - ${entry.end_date}`)}"
           >
-            <div class="font-semibold">${escapeHtml(entryName || "Ukjent")}</div>
+            <div class="font-semibold">${escapeHtml(project.name)}</div>
             <div class="text-[11px] opacity-90">${escapeHtml(formatYearBarLabel(entry.start_date, entry.end_date))}</div>
           </div>
         `;
@@ -2228,7 +2235,7 @@
 
   function renderProjectDayCalendar(range, warnings) {
     const days = getDaysBetween(range.start, range.end);
-    const projects = state.projects.filter(project => projectOverlapsRange(project, range.start, range.end));
+    const projects = getVisibleProjects().filter(project => projectOverlapsRange(project, range.start, range.end));
 
     const calendarWrapWidth = Math.max(els.calendarWrap.clientWidth - 8, 900);
     const stickyWidth = 320;
@@ -2315,7 +2322,7 @@
   function renderProjectYearCalendar(range, warnings) {
     const year = range.start.getFullYear();
     const months = Array.from({ length: 12 }, (_, i) => new Date(year, i, 1));
-    const projects = state.projects.filter(project => projectOverlapsRange(project, range.start, range.end));
+    const projects = getVisibleProjects().filter(project => projectOverlapsRange(project, range.start, range.end));
 
     const calendarWrapWidth = Math.max(els.calendarWrap.clientWidth - 8, 900);
     const stickyWidth = 320;
@@ -2534,11 +2541,11 @@
       if (state.justDraggedEntryId === entryId) state.justDraggedEntryId = null;
     }, 250);
 
-    const entryName = getEntryDisplayName(entry);
+    const project = getProjectById(entry.project_id);
     renderProjects();
     renderEmployees();
     renderSystemStatus();
-    void addAudit(`Flyttet tildeling: ${entryName} fra ${previous.employee_name} (${previous.start_date}–${previous.end_date}) til ${entry.employee_name} (${entry.start_date}–${entry.end_date})`);
+    void addAudit(`Flyttet tildeling: ${project?.name || "Ukjent prosjekt"} fra ${previous.employee_name} (${previous.start_date}–${previous.end_date}) til ${entry.employee_name} (${entry.start_date}–${entry.end_date})`);
   }
 
   function getFilteredEmployees() {
@@ -2770,15 +2777,10 @@
     return str.charAt(0).toUpperCase() + str.slice(1);
   }
 
-  function getEntryBarClasses(project, role, entry = null) {
-    if (entry && isPersonalEntry(entry)) {
-      const personalType = getPersonalTypeFromEntry(entry);
-      return CATEGORY_COLORS[personalType] || "bg-slate-500 border-slate-600 text-white";
-    }
-
-    const categoryClasses = CATEGORY_COLORS[project?.category] || "bg-slate-500 border-slate-600 text-white";
+  function getEntryBarClasses(project, role) {
+    const categoryClasses = CATEGORY_COLORS[project.category] || "bg-slate-500 border-slate-600 text-white";
     const roleClasses = ROLE_CLASSES[role] || "";
-    const endedClasses = project?.status === "Avsluttet" ? " opacity-70 grayscale" : "";
+    const endedClasses = project.status === "Avsluttet" ? " opacity-70 grayscale" : "";
     return `${categoryClasses} ${roleClasses}${endedClasses}`;
   }
 
