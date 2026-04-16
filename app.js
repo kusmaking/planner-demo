@@ -68,6 +68,7 @@
     "3 parts innleie"
   ];
   const EMPLOYEE_GROUP_STORAGE_KEY = "planner_employee_groups_v41";
+  const EMPLOYEE_GROUP_FILTER_PREFIX = "group:";
   const EMPLOYEE_GROUP_CARD_STYLES = {
     "Offshore arbeider": "border-emerald-500 bg-emerald-50/40 hover:bg-emerald-50",
     "Onshore arbeider": "border-blue-500 bg-blue-50/40 hover:bg-blue-50",
@@ -994,6 +995,34 @@
 
   function getEmployeeGroupCardClass(group) {
     return EMPLOYEE_GROUP_CARD_STYLES[group] || "border-slate-200 bg-slate-50 hover:bg-slate-100";
+  }
+
+  function getEmployeeGroupFilterValue(group) {
+    return `${EMPLOYEE_GROUP_FILTER_PREFIX}${group}`;
+  }
+
+  function isEmployeeGroupFilterValue(value) {
+    return String(value || "").startsWith(EMPLOYEE_GROUP_FILTER_PREFIX);
+  }
+
+  function getEmployeeGroupFromFilterValue(value) {
+    return normalizeEmployeeGroup(String(value || "").slice(EMPLOYEE_GROUP_FILTER_PREFIX.length));
+  }
+
+  function getEmployeeFilterItems() {
+    const groupItems = EMPLOYEE_GROUP_OPTIONS
+      .filter(Boolean)
+      .map(group => ({ id: getEmployeeGroupFilterValue(group), name: `Gruppe • ${group}` }));
+
+    const employeeItems = state.employees
+      .filter(e => e.active !== false)
+      .map(e => ({ id: e.name, name: e.name }));
+
+    return [
+      { name: "Alle ansatte", id: "Alle ansatte" },
+      ...groupItems,
+      ...employeeItems
+    ];
   }
 
   function getEmployeeRowForRemote(employee) {
@@ -2002,28 +2031,23 @@
     applyRoleChrome();
   }
 
-  function getEmployeeFilterItems() {
-    const activeEmployees = state.employees.filter(e => e.active !== false);
-    return [
-      { name: "Alle ansatte", id: "Alle ansatte" },
-      ...EMPLOYEE_GROUP_OPTIONS
-        .filter(Boolean)
-        .map(group => ({ id: `group:${group}`, name: `Gruppe • ${group}` })),
-      ...activeEmployees.map(e => ({ id: e.name, name: e.name }))
-    ];
-  }
-
   function populateDynamicSelects() {
-    const activeEmployees = state.employees.filter(e => e.active !== false);
     const employeeFilterItems = getEmployeeFilterItems();
+    const selectedEmployeeFilter = employeeFilterItems.some(item => item.id === state.employeeFilter)
+      ? state.employeeFilter
+      : "Alle ansatte";
+
+    if (selectedEmployeeFilter !== state.employeeFilter) {
+      state.employeeFilter = selectedEmployeeFilter;
+    }
 
     const visibleProjects = getVisibleProjects();
 
     fillSelect(els.employeeFilter, employeeFilterItems, state.employeeFilter, "name", "id");
-    fillSelect(els.editEmployee, activeEmployees, null, "name", "name");
+    fillSelect(els.editEmployee, state.employees.filter(e => e.active !== false), null, "name", "name");
     fillSelect(els.assignProject, [{ id: "", name: "Velg prosjekt" }, ...visibleProjects.map(p => ({ id: p.id, name: p.name }))], "", "name", "id");
     fillSelect(els.editProject, state.projects, null, "name", "id");
-    fillSelect(els.personalBlockEmployee, [{ id: "", name: "Velg ansatt" }, ...activeEmployees.map(e => ({ id: e.name, name: e.name }))], els.personalBlockEmployee?.value || "", "name", "id");
+    fillSelect(els.personalBlockEmployee, [{ id: "", name: "Velg ansatt" }, ...state.employees.filter(e => e.active !== false).map(e => ({ id: e.name, name: e.name }))], els.personalBlockEmployee?.value || "", "name", "id");
     fillSelect(els.personalBlockType, PERSONAL_BLOCK_TYPES, els.personalBlockType?.value || PERSONAL_BLOCK_TYPES[0] || "");
     fillSelect(els.contextMenuType, PERSONAL_BLOCK_TYPES, els.contextMenuType?.value || "Ferie");
     fillSelect(els.viewMode, ["Uke", "Måned", "År"], state.viewMode);
@@ -2039,7 +2063,6 @@
       syncAssignDatesFromProject();
     }
   }
-
 
   function renderStats() {
     const visibleProjects = getVisibleProjects();
@@ -3123,18 +3146,16 @@
   function getFilteredEmployees() {
     return state.employees.filter(emp => {
       const isActive = emp.active !== false;
-      const selectedFilter = state.employeeFilter || "Alle ansatte";
-      const selectedGroup = selectedFilter.startsWith("group:") ? selectedFilter.slice(6) : "";
-      const employeeGroup = normalizeEmployeeGroup(emp.employee_group || "");
-      const matchesFilter =
-        selectedFilter === "Alle ansatte" ||
-        emp.name === selectedFilter ||
-        (selectedGroup && employeeGroup === selectedGroup);
+      const filterValue = state.employeeFilter;
+      const matchesFilter = filterValue === "Alle ansatte"
+        ? true
+        : isEmployeeGroupFilterValue(filterValue)
+          ? normalizeEmployeeGroup(emp.employee_group || "") === getEmployeeGroupFromFilterValue(filterValue)
+          : emp.name === filterValue;
       const matchesSearch = !state.search || emp.name.toLowerCase().includes(state.search);
       return isActive && matchesFilter && matchesSearch;
     });
   }
-
 
   function getCurrentRange() {
     if (state.viewMode === "Uke") {
