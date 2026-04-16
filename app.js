@@ -68,6 +68,13 @@
     "3 parts innleie"
   ];
   const EMPLOYEE_GROUP_STORAGE_KEY = "planner_employee_groups_v41";
+  const EMPLOYEE_GROUP_CARD_STYLES = {
+    "Offshore arbeider": "border-emerald-500 bg-emerald-50/40 hover:bg-emerald-50",
+    "Onshore arbeider": "border-blue-500 bg-blue-50/40 hover:bg-blue-50",
+    "Lager og logistikk": "border-amber-500 bg-amber-50/40 hover:bg-amber-50",
+    "Engineer": "border-violet-500 bg-violet-50/40 hover:bg-violet-50",
+    "3 parts innleie": "border-rose-500 bg-rose-50/40 hover:bg-rose-50"
+  };
   let saveStatusTimer = null;
   let calendarScrollSyncRaf = null;
 
@@ -983,6 +990,10 @@
   function normalizeEmployeeGroup(value) {
     const group = String(value || "").trim();
     return EMPLOYEE_GROUP_OPTIONS.includes(group) ? group : "";
+  }
+
+  function getEmployeeGroupCardClass(group) {
+    return EMPLOYEE_GROUP_CARD_STYLES[group] || "border-slate-200 bg-slate-50 hover:bg-slate-100";
   }
 
   function getEmployeeRowForRemote(employee) {
@@ -2259,8 +2270,11 @@
   }
 
   function renderEmployees() {
-    els.employeeList.innerHTML = state.employees.map(emp => `
-      <button data-employee-id="${escapeHtml(emp.id)}" class="w-full text-left rounded-xl border border-slate-200 p-3 bg-slate-50 hover:bg-slate-100">
+    els.employeeList.innerHTML = state.employees.map(emp => {
+      const employeeGroup = normalizeEmployeeGroup(emp.employee_group || "");
+      const cardClass = getEmployeeGroupCardClass(employeeGroup);
+      return `
+      <button data-employee-id="${escapeHtml(emp.id)}" class="w-full text-left rounded-xl border-2 p-3 transition ${cardClass}">
         <div class="flex items-center justify-between gap-2">
           <div class="font-medium">${escapeHtml(emp.name)}</div>
           <span class="text-xs ${emp.active ? "text-green-700" : "text-amber-700"}">${emp.active ? "Aktiv" : "Inaktiv"}</span>
@@ -2268,9 +2282,9 @@
         <div class="text-xs text-slate-500 mt-1">${escapeHtml(emp.email || "Ingen e-post")}</div>
         <div class="text-xs text-slate-500">${escapeHtml(emp.phone || "Ingen telefon")}</div>
         <div class="text-xs text-slate-500">${escapeHtml(emp.title || "Ingen stillingstittel")}</div>
-        <div class="text-xs text-slate-500">${escapeHtml(emp.employee_group || "Ingen gruppe valgt")}</div>
+        <div class="mt-2 inline-flex rounded-full border border-current/20 bg-white/80 px-2 py-1 text-xs font-medium text-slate-700">${escapeHtml(employeeGroup || "Ingen gruppe valgt")}</div>
       </button>
-    `).join("") || `<div class="text-sm text-slate-500">Ingen ansatte enda.</div>`;
+    `}).join("") || `<div class="text-sm text-slate-500">Ingen ansatte enda.</div>`;
 
     els.employeeList.querySelectorAll("[data-employee-id]").forEach(btn => {
       btn.addEventListener("click", () => openEmployeeModal(btn.dataset.employeeId));
