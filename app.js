@@ -2309,7 +2309,7 @@
         const day = days[i];
         const weekend = isWeekend(day);
         const isTodayFlag = sameDate(day, new Date());
-        html += `<div class="day-cell ${weekend ? "weekend" : ""} ${isTodayFlag ? "today" : ""}" style="position:absolute; left:${i * colWidth}px; width:${colWidth}px;"></div>`;
+        html += `<div data-drop-slot-index="${i}" class="day-cell ${weekend ? "weekend" : ""} ${isTodayFlag ? "today" : ""}" style="position:absolute; left:${i * colWidth}px; width:${colWidth}px;"></div>`;
       }
 
       html += `<div style="position:relative; width:${totalWidth}px; min-height:56px;">`;
@@ -2393,7 +2393,7 @@
       html += `<div class="row-overlay border-b border-slate-200 drop-row" data-employee-name="${escapeHtml(employee.name)}" data-range-start="${toIsoDate(yearStart)}" data-col-width="${monthWidth}" data-total-cols="12" data-time-unit="month" style="grid-column: span 12; width:${totalWidth}px;">`;
 
       for (let i = 0; i < 12; i++) {
-        html += `<div class="month-cell" style="position:absolute; left:${i * monthWidth}px; width:${monthWidth}px;"></div>`;
+        html += `<div data-drop-slot-index="${i}" class="month-cell" style="position:absolute; left:${i * monthWidth}px; width:${monthWidth}px;"></div>`;
       }
 
       html += `<div style="position:relative; width:${totalWidth}px; min-height:56px;">`;
@@ -2493,7 +2493,7 @@
         const day = days[i];
         const weekend = isWeekend(day);
         const isTodayFlag = sameDate(day, new Date());
-        html += `<div class="day-cell ${weekend ? "weekend" : ""} ${isTodayFlag ? "today" : ""}" style="position:absolute; left:${i * colWidth}px; width:${colWidth}px;"></div>`;
+        html += `<div data-drop-slot-index="${i}" class="day-cell ${weekend ? "weekend" : ""} ${isTodayFlag ? "today" : ""}" style="position:absolute; left:${i * colWidth}px; width:${colWidth}px;"></div>`;
       }
 
       html += `<div style="position:relative; width:${totalWidth}px; min-height:56px;">`;
@@ -2566,7 +2566,7 @@
       html += `<div class="row-overlay border-b border-slate-200" style="grid-column: span 12; width:${totalWidth}px;">`;
 
       for (let i = 0; i < 12; i++) {
-        html += `<div class="month-cell" style="position:absolute; left:${i * monthWidth}px; width:${monthWidth}px;"></div>`;
+        html += `<div data-drop-slot-index="${i}" class="month-cell" style="position:absolute; left:${i * monthWidth}px; width:${monthWidth}px;"></div>`;
       }
 
       html += `<div style="position:relative; width:${totalWidth}px; min-height:56px;">`;
@@ -2976,7 +2976,6 @@
   }
 
   function getDropMetaFromRow(row, event) {
-    const rect = row.getBoundingClientRect();
     const colWidth = Number(row.dataset.colWidth || 0);
     const totalCols = Number(row.dataset.totalCols || 0);
     const timeUnit = row.dataset.timeUnit || "day";
@@ -2986,9 +2985,46 @@
       return { timeUnit, rangeStart, colIndex: null };
     }
 
+    const preciseIndex = getDropSlotIndexFromPointer(row, event.clientX, totalCols);
+    if (Number.isFinite(preciseIndex)) {
+      return { timeUnit, rangeStart, colIndex: preciseIndex };
+    }
+
+    const rect = row.getBoundingClientRect();
     const x = Math.max(0, Math.min(rect.width - 1, event.clientX - rect.left));
     const colIndex = Math.max(0, Math.min(totalCols - 1, Math.floor(x / colWidth)));
     return { timeUnit, rangeStart, colIndex };
+  }
+
+  function getDropSlotIndexFromPointer(row, clientX, totalCols) {
+    const slots = Array.from(row.querySelectorAll('[data-drop-slot-index]'));
+    if (!slots.length) return null;
+
+    for (const slot of slots) {
+      const rect = slot.getBoundingClientRect();
+      if (clientX >= rect.left && clientX < rect.right) {
+        const idx = Number(slot.dataset.dropSlotIndex);
+        if (Number.isFinite(idx)) return clampSlotIndex(idx, totalCols);
+      }
+    }
+
+    let bestIdx = null;
+    let bestDistance = Number.POSITIVE_INFINITY;
+    for (const slot of slots) {
+      const rect = slot.getBoundingClientRect();
+      const center = rect.left + (rect.width / 2);
+      const distance = Math.abs(clientX - center);
+      if (distance < bestDistance) {
+        bestDistance = distance;
+        bestIdx = Number(slot.dataset.dropSlotIndex);
+      }
+    }
+
+    return Number.isFinite(bestIdx) ? clampSlotIndex(bestIdx, totalCols) : null;
+  }
+
+  function clampSlotIndex(index, totalCols) {
+    return Math.max(0, Math.min(totalCols - 1, index));
   }
 
   function daysInMonth(year, monthIndex) {
