@@ -31,6 +31,7 @@
     justDraggedEntryId: null,
     activeTab: "calendar",
     calendarPanelOpen: false,
+    projectListFilter: "all",
     contextMenu: {
       visible: false,
       employeeName: "",
@@ -1318,6 +1319,23 @@
     return state.projects.filter(project => !isSystemPersonalProject(project));
   }
 
+  function getProjectsForCurrentListFilter() {
+    const visibleProjects = getVisibleProjects().slice().sort((a, b) => compareProjectDates(a, b));
+    if (state.projectListFilter === "unstaffed") {
+      return visibleProjects.filter(project => getProjectAssignedCount(project.id) === 0);
+    }
+    return visibleProjects;
+  }
+
+  function openProjectListView(filter = "all") {
+    state.projectListFilter = filter === "unstaffed" ? "unstaffed" : "all";
+    setActiveTab("projects");
+    renderProjects();
+    if (els.projectList) {
+      els.projectList.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }
+
   async function ensurePersonalProject(type) {
     let project = state.projects.find(item => isSystemPersonalProject(item) && item.category === type);
     if (project) return { ok: true, project };
@@ -1910,27 +1928,41 @@
   }
 
   function renderStats() {
-    const visibleEmployees = getFilteredEmployees();
-    const range = getCurrentRange();
     const visibleProjects = getVisibleProjects();
-    const entriesInRange = state.entries.filter(entry => overlaps(entry.start_date, entry.end_date, range.start, range.end));
-    const projectsInRange = visibleProjects.filter(project => projectOverlapsRange(project, range.start, range.end));
     const unstaffedProjects = visibleProjects.filter(project => getProjectAssignedCount(project.id) === 0);
 
     const cards = [
-      { label: "Ansatte", value: state.employees.filter(e => e.active !== false).length },
-      { label: "Prosjekter", value: visibleProjects.length },
-      { label: "Prosjekter uten bemanning", value: unstaffedProjects.length },
-      { label: "Tildelinger i visning", value: entriesInRange.length },
-      { label: state.calendarMode === "project" ? "Prosjekter i visning" : "Synlige ansatte", value: state.calendarMode === "project" ? projectsInRange.length : visibleEmployees.length }
+      {
+        label: "Prosjekter",
+        value: visibleProjects.length,
+        filter: "all",
+        helper: "Vis alle prosjekter"
+      },
+      {
+        label: "Prosjekter uten bemanning",
+        value: unstaffedProjects.length,
+        filter: "unstaffed",
+        helper: "Vis prosjekter som må bemannes"
+      }
     ];
 
     els.statsRow.innerHTML = cards.map(card => `
-      <div class="rounded-2xl bg-white border border-slate-200 shadow-sm p-4">
+      <button
+        type="button"
+        data-stats-project-filter="${escapeHtml(card.filter)}"
+        class="w-full rounded-2xl bg-white border border-slate-200 shadow-sm p-4 text-left hover:bg-slate-50 transition"
+      >
         <div class="text-sm text-slate-500">${escapeHtml(card.label)}</div>
         <div class="text-3xl font-bold mt-2">${escapeHtml(String(card.value))}</div>
-      </div>
+        <div class="text-xs text-slate-500 mt-2">${escapeHtml(card.helper)}</div>
+      </button>
     `).join("");
+
+    els.statsRow.querySelectorAll("[data-stats-project-filter]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        openProjectListView(btn.dataset.statsProjectFilter || "all");
+      });
+    });
   }
 
 
@@ -1998,10 +2030,29 @@
   }
 
   function renderProjects() {
-    els.projectList.innerHTML = getVisibleProjects()
-      .slice()
-      .sort((a, b) => compareProjectDates(a, b))
-      .map(project => {
+    const filteredProjects = getProjectsForCurrentListFilter();
+    const filterLabel = state.projectListFilter === "unstaffed" ? "Viser kun prosjekter uten bemanning." : "Viser alle prosjekter i stigende rekkefølge etter planlagt startdato.";
+    const emptyText = state.projectListFilter === "unstaffed" ? "Ingen prosjekter mangler bemanning." : "Ingen prosjekter.";
+
+    els.projectList.innerHTML = `
+      <div class="mb-4 flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          data-project-list-filter="all"
+          class="rounded-xl px-3 py-2 text-sm border ${state.projectListFilter === "all" ? "border-slate-900 bg-slate-900 text-white" : "border-slate-300 bg-white text-slate-700"}"
+        >
+          Alle prosjekter
+        </button>
+        <button
+          type="button"
+          data-project-list-filter="unstaffed"
+          class="rounded-xl px-3 py-2 text-sm border ${state.projectListFilter === "unstaffed" ? "border-slate-900 bg-slate-900 text-white" : "border-slate-300 bg-white text-slate-700"}"
+        >
+          Uten bemanning
+        </button>
+        <div class="text-sm text-slate-500">${escapeHtml(filterLabel)}</div>
+      </div>
+      ${filteredProjects.map(project => {
         const assigned = getProjectAssignedCount(project.id);
         const required = Number(project.headcount_required || 0);
         const staffing = getProjectStaffingLabel(project.id, required);
@@ -2056,7 +2107,15 @@
             </div>
           </div>
         `;
-      }).join("") || `<div class="text-sm text-slate-500">Ingen prosjekter.</div>`;
+      }).join("") || `<div class="text-sm text-slate-500">${escapeHtml(emptyText)}</div>`}
+    `;
+
+    els.projectList.querySelectorAll("[data-project-list-filter]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        state.projectListFilter = btn.dataset.projectListFilter === "unstaffed" ? "unstaffed" : "all";
+        renderProjects();
+      });
+    });
 
     els.projectList.querySelectorAll("[data-project-id]").forEach(btn => {
       btn.addEventListener("click", () => openProjectModal(btn.dataset.projectId));
