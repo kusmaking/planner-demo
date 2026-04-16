@@ -33,6 +33,16 @@
       timeUnit: "day",
       slotOffset: 0
     },
+    resize: {
+      active: false,
+      type: "",
+      targetId: "",
+      row: null,
+      bar: null,
+      originalEndDate: "",
+      previewEndDate: "",
+      originalValueSnapshot: null
+    },
     activeTab: "calendar",
     calendarPanelOpen: false,
     projectListFilter: "all",
@@ -710,6 +720,8 @@
     document.addEventListener("click", handleGlobalPointerClose, true);
     window.addEventListener("scroll", hideCalendarContextMenu, true);
     window.addEventListener("resize", hideCalendarContextMenu);
+    window.addEventListener("mousemove", handleResizePointerMove);
+    window.addEventListener("mouseup", handleResizePointerUp);
     if (els.resetDemoBtn) {
       els.resetDemoBtn.style.display = "none";
     }
@@ -2365,6 +2377,7 @@
           >
             <div class="font-semibold">${escapeHtml(displayProjectName(project))}</div>
             ${isSystemPersonalProject(project) ? "" : `<div class="text-[11px] opacity-90">${escapeHtml(entry.role)}</div>`}
+            <div data-resize-handle data-resize-type="entry" data-target-id="${escapeHtml(entry.id)}" title="Dra for å endre sluttdato" style="position:absolute; top:0; right:0; bottom:0; width:12px; cursor:ew-resize; border-left:1px solid rgba(255,255,255,0.35); background:linear-gradient(to left, rgba(255,255,255,0.35), rgba(255,255,255,0));"></div>
           </div>
         `;
 
@@ -2384,6 +2397,7 @@
     html += `</div></div>`;
     els.calendarWrap.innerHTML = html;
     bindEntryClicks();
+    bindResizeHandles();
     renderWarnings(uniqueArray(warnings));
   }
 
@@ -2451,6 +2465,7 @@
           >
             <div class="font-semibold">${escapeHtml(displayProjectName(project))}</div>
             <div class="text-[11px] opacity-90">${escapeHtml(formatYearBarLabel(entry.start_date, entry.end_date))}</div>
+            <div data-resize-handle data-resize-type="entry" data-target-id="${escapeHtml(entry.id)}" title="Dra for å endre sluttdato" style="position:absolute; top:0; right:0; bottom:0; width:12px; cursor:ew-resize; border-left:1px solid rgba(255,255,255,0.35); background:linear-gradient(to left, rgba(255,255,255,0.35), rgba(255,255,255,0));"></div>
           </div>
         `;
       }
@@ -2461,6 +2476,7 @@
     html += `</div></div>`;
     els.calendarWrap.innerHTML = html;
     bindEntryClicks();
+    bindResizeHandles();
     renderWarnings(uniqueArray(warnings));
   }
 
@@ -2518,7 +2534,7 @@
         </div>
       `;
 
-      html += `<div class="row-overlay border-b border-slate-200" style="grid-column: span ${days.length}; width:${totalWidth}px;">`;
+      html += `<div class="row-overlay border-b border-slate-200" data-range-start="${toIsoDate(range.start)}" data-col-width="${colWidth}" data-total-cols="${days.length}" data-time-unit="day" style="grid-column: span ${days.length}; width:${totalWidth}px;">`;
 
       for (let i = 0; i < days.length; i++) {
         const day = days[i];
@@ -2545,6 +2561,7 @@
           >
             <div class="font-semibold">${escapeHtml(project.name)}</div>
             <div class="text-[11px] opacity-90">${escapeHtml(staffing.text)}</div>
+            <div data-resize-handle data-resize-type="project" data-target-id="${escapeHtml(project.id)}" title="Dra for å endre sluttdato" style="position:absolute; top:0; right:0; bottom:0; width:12px; cursor:ew-resize; border-left:1px solid rgba(255,255,255,0.35); background:linear-gradient(to left, rgba(255,255,255,0.35), rgba(255,255,255,0));"></div>
           </div>
         `;
       }
@@ -2558,6 +2575,7 @@
     els.calendarWrap.querySelectorAll("[data-project-row-id]").forEach(el => {
       el.addEventListener("click", () => openProjectModal(el.dataset.projectRowId));
     });
+    bindResizeHandles();
 
     renderWarnings(uniqueArray(warnings));
   }
@@ -2594,7 +2612,7 @@
         </div>
       `;
 
-      html += `<div class="row-overlay border-b border-slate-200" style="grid-column: span 12; width:${totalWidth}px;">`;
+      html += `<div class="row-overlay border-b border-slate-200" data-range-start="${toIsoDate(range.start)}" data-col-width="${monthWidth}" data-total-cols="12" data-time-unit="month" style="grid-column: span 12; width:${totalWidth}px;">`;
 
       for (let i = 0; i < 12; i++) {
         html += `<div data-drop-slot-index="${i}" data-drop-month-index="${i}" class="month-cell" style="position:absolute; left:${i * monthWidth}px; width:${monthWidth}px;"></div>`;
@@ -2620,6 +2638,7 @@
           >
             <div class="font-semibold">${escapeHtml(project.name)}</div>
             <div class="text-[11px] opacity-90">${escapeHtml(staffing.text)}</div>
+            <div data-resize-handle data-resize-type="project" data-target-id="${escapeHtml(project.id)}" title="Dra for å endre sluttdato" style="position:absolute; top:0; right:0; bottom:0; width:12px; cursor:ew-resize; border-left:1px solid rgba(255,255,255,0.35); background:linear-gradient(to left, rgba(255,255,255,0.35), rgba(255,255,255,0));"></div>
           </div>
         `;
       }
@@ -2633,6 +2652,7 @@
     els.calendarWrap.querySelectorAll("[data-project-row-id]").forEach(el => {
       el.addEventListener("click", () => openProjectModal(el.dataset.projectRowId));
     });
+    bindResizeHandles();
 
     renderWarnings(uniqueArray(warnings));
   }
@@ -2728,6 +2748,215 @@
 
   async function moveEntryToEmployee(entryId, targetEmployeeName) {
     return moveEntryByDrop(entryId, targetEmployeeName, null);
+  }
+
+  function bindResizeHandles() {
+    if (!canEditApp()) return;
+
+    els.calendarWrap.querySelectorAll('[data-resize-handle]').forEach(handle => {
+      handle.addEventListener('mousedown', startResizeFromHandle);
+      handle.addEventListener('dragstart', event => {
+        event.preventDefault();
+        event.stopPropagation();
+      });
+    });
+  }
+
+  function startResizeFromHandle(event) {
+    event.preventDefault();
+    event.stopPropagation();
+
+    const handle = event.currentTarget;
+    const type = handle.dataset.resizeType || '';
+    const targetId = handle.dataset.targetId || '';
+    const bar = handle.closest('.entry-bar');
+    const row = handle.closest('.row-overlay');
+    if (!type || !targetId || !bar || !row) return;
+
+    const snapshot = getResizeSnapshot(type, targetId);
+    if (!snapshot) return;
+
+    state.resize = {
+      active: true,
+      type,
+      targetId,
+      row,
+      bar,
+      originalEndDate: snapshot.originalEndDate,
+      previewEndDate: snapshot.originalEndDate,
+      originalValueSnapshot: snapshot
+    };
+
+    document.body.style.userSelect = 'none';
+    document.body.style.cursor = 'ew-resize';
+  }
+
+  function getResizeSnapshot(type, targetId) {
+    if (type === 'entry') {
+      const entry = state.entries.find(item => item.id === targetId);
+      if (!entry) return null;
+      return {
+        entry,
+        originalEndDate: entry.end_date,
+        originalStartDate: entry.start_date
+      };
+    }
+
+    if (type === 'project') {
+      const project = state.projects.find(item => item.id === targetId);
+      if (!project) return null;
+      return {
+        project,
+        originalEndDate: project.planned_end_date || project.planned_start_date || '',
+        originalStartDate: project.planned_start_date || ''
+      };
+    }
+
+    return null;
+  }
+
+  function handleResizePointerMove(event) {
+    if (!state.resize.active || !state.resize.row) return;
+
+    const preview = getResizePreviewFromPointer(state.resize, event.clientX);
+    if (!preview?.endDate) return;
+
+    state.resize.previewEndDate = preview.endDate;
+    applyResizePreview(state.resize, preview);
+  }
+
+  function getResizePreviewFromPointer(resizeState, clientX) {
+    const row = resizeState.row;
+    const rowRect = row.getBoundingClientRect();
+    const syntheticEvent = { clientX, clientY: rowRect.top + (rowRect.height / 2) };
+    const dropMeta = getDropMetaFromRow(row, syntheticEvent);
+    const snapshot = resizeState.originalValueSnapshot;
+    if (!dropMeta || !snapshot?.originalStartDate) return null;
+
+    if (dropMeta.timeUnit === 'day') {
+      const pointerDate = dropMeta.dropDate
+        ? parseIsoDateLocal(dropMeta.dropDate)
+        : addDays(parseIsoDateLocal(dropMeta.rangeStart), Number(dropMeta.colIndex || 0));
+      const startDate = parseIsoDateLocal(snapshot.originalStartDate);
+      if (!pointerDate || !startDate) return null;
+      const resolvedEnd = pointerDate < startDate ? startDate : pointerDate;
+      return {
+        endDate: toIsoDate(resolvedEnd),
+        colIndex: dropMeta.colIndex,
+        timeUnit: 'day'
+      };
+    }
+
+    if (dropMeta.timeUnit === 'month') {
+      const monthIndex = Number.isFinite(dropMeta.dropMonthIndex) ? dropMeta.dropMonthIndex : Number(dropMeta.colIndex || 0);
+      const startDate = parseIsoDateLocal(snapshot.originalStartDate);
+      const originalEndDate = parseIsoDateLocal(snapshot.originalEndDate);
+      const rangeStart = parseIsoDateLocal(dropMeta.rangeStart);
+      if (!startDate || !rangeStart || !originalEndDate) return null;
+      const targetMonth = new Date(rangeStart.getFullYear(), rangeStart.getMonth() + monthIndex, 1);
+      const clampedDay = Math.min(originalEndDate.getDate(), daysInMonth(targetMonth.getFullYear(), targetMonth.getMonth()));
+      targetMonth.setDate(clampedDay);
+      const resolvedEnd = targetMonth < startDate ? startDate : targetMonth;
+      return {
+        endDate: toIsoDate(resolvedEnd),
+        colIndex: monthIndex,
+        timeUnit: 'month'
+      };
+    }
+
+    return null;
+  }
+
+  function applyResizePreview(resizeState, preview) {
+    const snapshot = resizeState.originalValueSnapshot;
+    if (!snapshot?.originalStartDate || !resizeState.bar || !resizeState.row) return;
+
+    const row = resizeState.row;
+    const totalCols = Number(row.dataset.totalCols || 0);
+    const slotWidth = Number(row.dataset.colWidth || 0);
+    const timeUnit = row.dataset.timeUnit || 'day';
+    if (!totalCols || !slotWidth) return;
+
+    let startIndex = 0;
+    let endIndex = 0;
+
+    if (timeUnit === 'day') {
+      const rangeStart = parseIsoDateLocal(row.dataset.rangeStart);
+      const startDate = parseIsoDateLocal(snapshot.originalStartDate);
+      const endDate = parseIsoDateLocal(preview.endDate);
+      if (!rangeStart || !startDate || !endDate) return;
+      startIndex = clampSlotIndex(diffDays(rangeStart, startDate), totalCols);
+      endIndex = clampSlotIndex(diffDays(rangeStart, endDate), totalCols);
+    } else {
+      const rangeStart = parseIsoDateLocal(row.dataset.rangeStart);
+      const startDate = parseIsoDateLocal(snapshot.originalStartDate);
+      const endDate = parseIsoDateLocal(preview.endDate);
+      if (!rangeStart || !startDate || !endDate) return;
+      startIndex = clampSlotIndex((startDate.getFullYear() - rangeStart.getFullYear()) * 12 + (startDate.getMonth() - rangeStart.getMonth()), totalCols);
+      endIndex = clampSlotIndex((endDate.getFullYear() - rangeStart.getFullYear()) * 12 + (endDate.getMonth() - rangeStart.getMonth()), totalCols);
+    }
+
+    const span = Math.max(1, endIndex - startIndex + 1);
+    resizeState.bar.style.width = `${Math.max(span * slotWidth - 4, 40)}px`;
+  }
+
+  async function handleResizePointerUp() {
+    if (!state.resize.active) return;
+
+    const resizeState = { ...state.resize };
+    document.body.style.userSelect = '';
+    document.body.style.cursor = '';
+    state.resize = {
+      active: false,
+      type: '',
+      targetId: '',
+      row: null,
+      bar: null,
+      originalEndDate: '',
+      previewEndDate: '',
+      originalValueSnapshot: null
+    };
+
+    const snapshot = resizeState.originalValueSnapshot;
+    const nextEndDate = resizeState.previewEndDate || resizeState.originalEndDate;
+    if (!snapshot || !nextEndDate || nextEndDate === resizeState.originalEndDate) {
+      renderCalendar();
+      return;
+    }
+
+    if (resizeState.type === 'entry' && snapshot.entry) {
+      const entry = snapshot.entry;
+      const originalEndDate = entry.end_date;
+      entry.end_date = nextEndDate;
+      rebuildDerivedState();
+      renderAll();
+      const result = await saveRow('planner_entries', entry);
+      if (!result.ok) {
+        entry.end_date = originalEndDate;
+        rebuildDerivedState();
+        renderAll();
+        return;
+      }
+      const project = getProjectById(entry.project_id);
+      void addAudit(`Endret sluttdato: ${displayProjectName(project) || 'Ukjent prosjekt'} for ${entry.employee_name} til ${nextEndDate}`);
+      return;
+    }
+
+    if (resizeState.type === 'project' && snapshot.project) {
+      const project = snapshot.project;
+      const originalEndDate = project.planned_end_date;
+      project.planned_end_date = nextEndDate;
+      rebuildDerivedState();
+      renderAll();
+      const result = await saveRow('planner_projects', project);
+      if (!result.ok) {
+        project.planned_end_date = originalEndDate;
+        rebuildDerivedState();
+        renderAll();
+        return;
+      }
+      void addAudit(`Endret prosjektsluttdato: ${project.name} til ${nextEndDate}`);
+    }
   }
 
   async function moveEntryByDrop(entryId, targetEmployeeName, dropMeta = null) {
