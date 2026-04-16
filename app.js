@@ -2002,19 +2002,28 @@
     applyRoleChrome();
   }
 
-  function populateDynamicSelects() {
-    const employeeFilterItems = [
+  function getEmployeeFilterItems() {
+    const activeEmployees = state.employees.filter(e => e.active !== false);
+    return [
       { name: "Alle ansatte", id: "Alle ansatte" },
-      ...state.employees.filter(e => e.active !== false).map(e => ({ id: e.name, name: e.name }))
+      ...EMPLOYEE_GROUP_OPTIONS
+        .filter(Boolean)
+        .map(group => ({ id: `group:${group}`, name: `Gruppe • ${group}` })),
+      ...activeEmployees.map(e => ({ id: e.name, name: e.name }))
     ];
+  }
+
+  function populateDynamicSelects() {
+    const activeEmployees = state.employees.filter(e => e.active !== false);
+    const employeeFilterItems = getEmployeeFilterItems();
 
     const visibleProjects = getVisibleProjects();
 
     fillSelect(els.employeeFilter, employeeFilterItems, state.employeeFilter, "name", "id");
-    fillSelect(els.editEmployee, state.employees.filter(e => e.active !== false), null, "name", "name");
+    fillSelect(els.editEmployee, activeEmployees, null, "name", "name");
     fillSelect(els.assignProject, [{ id: "", name: "Velg prosjekt" }, ...visibleProjects.map(p => ({ id: p.id, name: p.name }))], "", "name", "id");
     fillSelect(els.editProject, state.projects, null, "name", "id");
-    fillSelect(els.personalBlockEmployee, [{ id: "", name: "Velg ansatt" }, ...state.employees.filter(e => e.active !== false).map(e => ({ id: e.name, name: e.name }))], els.personalBlockEmployee?.value || "", "name", "id");
+    fillSelect(els.personalBlockEmployee, [{ id: "", name: "Velg ansatt" }, ...activeEmployees.map(e => ({ id: e.name, name: e.name }))], els.personalBlockEmployee?.value || "", "name", "id");
     fillSelect(els.personalBlockType, PERSONAL_BLOCK_TYPES, els.personalBlockType?.value || PERSONAL_BLOCK_TYPES[0] || "");
     fillSelect(els.contextMenuType, PERSONAL_BLOCK_TYPES, els.contextMenuType?.value || "Ferie");
     fillSelect(els.viewMode, ["Uke", "Måned", "År"], state.viewMode);
@@ -2030,6 +2039,7 @@
       syncAssignDatesFromProject();
     }
   }
+
 
   function renderStats() {
     const visibleProjects = getVisibleProjects();
@@ -3113,11 +3123,18 @@
   function getFilteredEmployees() {
     return state.employees.filter(emp => {
       const isActive = emp.active !== false;
-      const matchesFilter = state.employeeFilter === "Alle ansatte" || emp.name === state.employeeFilter;
+      const selectedFilter = state.employeeFilter || "Alle ansatte";
+      const selectedGroup = selectedFilter.startsWith("group:") ? selectedFilter.slice(6) : "";
+      const employeeGroup = normalizeEmployeeGroup(emp.employee_group || "");
+      const matchesFilter =
+        selectedFilter === "Alle ansatte" ||
+        emp.name === selectedFilter ||
+        (selectedGroup && employeeGroup === selectedGroup);
       const matchesSearch = !state.search || emp.name.toLowerCase().includes(state.search);
       return isActive && matchesFilter && matchesSearch;
     });
   }
+
 
   function getCurrentRange() {
     if (state.viewMode === "Uke") {
