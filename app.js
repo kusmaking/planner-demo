@@ -2002,21 +2002,11 @@
     applyRoleChrome();
   }
 
-  function getEmployeeFilterItems() {
-    const activeEmployees = state.employees.filter(e => e.active !== false);
-    const groupItems = EMPLOYEE_GROUP_OPTIONS
-      .filter(group => group)
-      .map(group => ({ id: `group:${group}`, name: `Gruppe • ${group}` }));
-
-    return [
-      { name: "Alle ansatte", id: "Alle ansatte" },
-      ...groupItems,
-      ...activeEmployees.map(e => ({ id: e.name, name: e.name }))
-    ];
-  }
-
   function populateDynamicSelects() {
-    const employeeFilterItems = getEmployeeFilterItems();
+    const employeeFilterItems = [
+      { name: "Alle ansatte", id: "Alle ansatte" },
+      ...state.employees.filter(e => e.active !== false).map(e => ({ id: e.name, name: e.name }))
+    ];
 
     const visibleProjects = getVisibleProjects();
 
@@ -3123,15 +3113,9 @@
   function getFilteredEmployees() {
     return state.employees.filter(emp => {
       const isActive = emp.active !== false;
-      const filterValue = state.employeeFilter || "Alle ansatte";
-      const matchesGroupFilter = filterValue.startsWith("group:")
-        ? normalizeEmployeeGroup(emp.employee_group || "") === filterValue.slice(6)
-        : true;
-      const matchesNameFilter = !filterValue.startsWith("group:")
-        ? (filterValue === "Alle ansatte" || emp.name === filterValue)
-        : true;
+      const matchesFilter = state.employeeFilter === "Alle ansatte" || emp.name === state.employeeFilter;
       const matchesSearch = !state.search || emp.name.toLowerCase().includes(state.search);
-      return isActive && matchesGroupFilter && matchesNameFilter && matchesSearch;
+      return isActive && matchesFilter && matchesSearch;
     });
   }
 
