@@ -29,52 +29,13 @@
     },
     dragEntryId: null,
     justDraggedEntryId: null,
-    dragAnchor: {
-      timeUnit: "day",
-      slotOffset: 0
-    },
-    resize: {
-      active: false,
-      type: "",
-      targetId: "",
-      row: null,
-      bar: null,
-      originalEndDate: "",
-      previewEndDate: "",
-      originalValueSnapshot: null
-    },
     activeTab: "calendar",
-    calendarPanelOpen: false,
-    projectListFilter: "all",
-    contextMenu: {
-      visible: false,
-      employeeName: "",
-      startDate: "",
-      endDate: "",
-      x: 0,
-      y: 0
-    }
+    calendarPanelOpen: false
   };
 
   const els = {};
   const PERSONAL_BLOCK_TYPES = ["Kurs", "Ferie", "Syk", "Avspasering"];
   const PERSONAL_PROJECT_MARKER = "__personal_block_system_project__";
-  const EMPLOYEE_GROUP_OPTIONS = [
-    "",
-    "Offshore arbeider",
-    "Onshore arbeider",
-    "Lager og logistikk",
-    "Engineer",
-    "3 parts innleie"
-  ];
-  const EMPLOYEE_GROUP_STORAGE_KEY = "planner_employee_groups_v41";
-  const EMPLOYEE_GROUP_CARD_STYLES = {
-    "Offshore arbeider": "border-emerald-500 bg-emerald-50/40 hover:bg-emerald-50",
-    "Onshore arbeider": "border-blue-500 bg-blue-50/40 hover:bg-blue-50",
-    "Lager og logistikk": "border-amber-500 bg-amber-50/40 hover:bg-amber-50",
-    "Engineer": "border-violet-500 bg-violet-50/40 hover:bg-violet-50",
-    "3 parts innleie": "border-rose-500 bg-rose-50/40 hover:bg-rose-50"
-  };
   let saveStatusTimer = null;
   let calendarScrollSyncRaf = null;
 
@@ -85,7 +46,6 @@
     cacheElements();
     ensureAccountPanel();
     ensurePersonalBlockPanel();
-    ensureCalendarContextMenu();
     setupStaticOptions();
     bindEvents();
 
@@ -123,8 +83,7 @@
       "projectName", "projectCategory", "projectStatus", "projectPlannedStart", "projectPlannedEnd",
       "projectLocation", "projectHeadcount", "projectNotes", "saveProjectBtn", "deleteProjectBtn",
       "newEmployeeBtn", "employeeModal", "employeeModalTitle", "closeEmployeeModalBtn",
-      "employeeName", "employeeEmail", "employeePhone", "employeeTitle", "employeeGroup", "employeeActive", "saveEmployeeBtn", "deleteEmployeeBtn",
-      "calendarContextMenu", "contextMenuEmployee", "contextMenuStart", "contextMenuEnd", "contextMenuType", "contextMenuNotes", "contextMenuAddBtn", "contextMenuCloseBtn",
+      "employeeName", "employeeEmail", "employeePhone", "employeeTitle", "employeeActive", "saveEmployeeBtn", "deleteEmployeeBtn",
       "accountPanel", "accountUserInfo", "changePasswordBtn", "resetPasswordBtn", "logoutBtn", "loginBtn", "loginModal", "closeLoginModalBtn", "loginEmail", "loginPassword", "loginSubmitBtn", "forgotPasswordBtn"
     ];
 
@@ -222,70 +181,6 @@
     els.personalBlockEnd = document.getElementById("personalBlockEnd");
     els.personalBlockNotes = document.getElementById("personalBlockNotes");
     els.personalBlockSaveBtn = document.getElementById("personalBlockSaveBtn");
-  }
-
-
-
-  function ensureCalendarContextMenu() {
-    if (document.getElementById("calendarContextMenu")) {
-      els.calendarContextMenu = document.getElementById("calendarContextMenu");
-      els.contextMenuEmployee = document.getElementById("contextMenuEmployee");
-      els.contextMenuStart = document.getElementById("contextMenuStart");
-      els.contextMenuEnd = document.getElementById("contextMenuEnd");
-      els.contextMenuType = document.getElementById("contextMenuType");
-      els.contextMenuNotes = document.getElementById("contextMenuNotes");
-      els.contextMenuAddBtn = document.getElementById("contextMenuAddBtn");
-      els.contextMenuCloseBtn = document.getElementById("contextMenuCloseBtn");
-      return;
-    }
-
-    const menu = document.createElement("div");
-    menu.id = "calendarContextMenu";
-    menu.className = "fixed z-[120] hidden w-80 rounded-2xl border border-slate-200 bg-white shadow-2xl";
-    menu.innerHTML = `
-      <div class="p-4 border-b border-slate-200 flex items-center justify-between gap-3">
-        <div>
-          <div class="font-semibold">Legg til direkte blokk</div>
-          <div class="text-xs text-slate-500 mt-1">Fra høyreklikk i kalender</div>
-        </div>
-        <button id="contextMenuCloseBtn" class="rounded-lg border border-slate-300 px-3 py-1 text-sm">Lukk</button>
-      </div>
-      <div class="p-4 space-y-3">
-        <div>
-          <div class="text-xs text-slate-500">Ansatt</div>
-          <div id="contextMenuEmployee" class="font-medium text-slate-800"></div>
-        </div>
-        <div>
-          <div class="text-xs text-slate-500">Kategori</div>
-          <select id="contextMenuType" class="mt-1 w-full rounded-2xl border border-slate-300 px-3 py-2"></select>
-        </div>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <div>
-            <div class="text-xs text-slate-500">Fra</div>
-            <input id="contextMenuStart" type="date" class="mt-1 w-full rounded-2xl border border-slate-300 px-3 py-2" />
-          </div>
-          <div>
-            <div class="text-xs text-slate-500">Til</div>
-            <input id="contextMenuEnd" type="date" class="mt-1 w-full rounded-2xl border border-slate-300 px-3 py-2" />
-          </div>
-        </div>
-        <div>
-          <div class="text-xs text-slate-500">Notat / beskrivelse</div>
-          <textarea id="contextMenuNotes" class="mt-1 w-full rounded-2xl border border-slate-300 px-3 py-2" rows="4" placeholder="For eksempel kursnavn eller kommentar"></textarea>
-        </div>
-        <button id="contextMenuAddBtn" class="w-full rounded-2xl bg-slate-900 text-white px-4 py-2">Legg i kalender</button>
-      </div>
-    `;
-    document.body.appendChild(menu);
-
-    els.calendarContextMenu = menu;
-    els.contextMenuEmployee = document.getElementById("contextMenuEmployee");
-    els.contextMenuStart = document.getElementById("contextMenuStart");
-    els.contextMenuEnd = document.getElementById("contextMenuEnd");
-    els.contextMenuType = document.getElementById("contextMenuType");
-    els.contextMenuNotes = document.getElementById("contextMenuNotes");
-    els.contextMenuAddBtn = document.getElementById("contextMenuAddBtn");
-    els.contextMenuCloseBtn = document.getElementById("contextMenuCloseBtn");
   }
 
   function ensureLoginModal() {
@@ -654,7 +549,6 @@
     fillSelect(els.projectStatus, STATUS_OPTIONS, "Planlagt");
     fillSelect(els.editRole, ROLE_OPTIONS, "Supervisor");
     fillSelect(els.personalBlockType, PERSONAL_BLOCK_TYPES);
-    fillSelect(els.contextMenuType, PERSONAL_BLOCK_TYPES);
   }
 
   function bindEvents() {
@@ -727,17 +621,6 @@
     if (els.personalBlockSaveBtn) {
       els.personalBlockSaveBtn.addEventListener("click", createPersonalBlockEntry);
     }
-    if (els.contextMenuAddBtn) {
-      els.contextMenuAddBtn.addEventListener("click", createContextMenuPersonalBlockEntry);
-    }
-    if (els.contextMenuCloseBtn) {
-      els.contextMenuCloseBtn.addEventListener("click", hideCalendarContextMenu);
-    }
-    document.addEventListener("click", handleGlobalPointerClose, true);
-    window.addEventListener("scroll", hideCalendarContextMenu, true);
-    window.addEventListener("resize", hideCalendarContextMenu);
-    window.addEventListener("mousemove", handleResizePointerMove);
-    window.addEventListener("mouseup", handleResizePointerUp);
     if (els.resetDemoBtn) {
       els.resetDemoBtn.style.display = "none";
     }
@@ -926,11 +809,9 @@
   }
 
   function normalizeEmployees(list) {
-    const storedGroups = loadEmployeeGroupMap();
     return (list || []).map(emp => ({
       ...emp,
-      title: emp?.title || "",
-      employee_group: normalizeEmployeeGroup(emp?.employee_group || storedGroups[emp?.id] || "")
+      title: emp?.title || ""
     }));
   }
 
@@ -971,49 +852,12 @@
     };
   }
 
-
-  function loadEmployeeGroupMap() {
-    return load(EMPLOYEE_GROUP_STORAGE_KEY, {});
-  }
-
-  function saveEmployeeGroupMap() {
-    const groupMap = {};
-    state.employees.forEach(employee => {
-      const group = normalizeEmployeeGroup(employee?.employee_group || "");
-      if (employee?.id && group) {
-        groupMap[employee.id] = group;
-      }
-    });
-    localStorage.setItem(EMPLOYEE_GROUP_STORAGE_KEY, JSON.stringify(groupMap));
-  }
-
-  function normalizeEmployeeGroup(value) {
-    const group = String(value || "").trim();
-    return EMPLOYEE_GROUP_OPTIONS.includes(group) ? group : "";
-  }
-
-  function getEmployeeGroupCardClass(group) {
-    return EMPLOYEE_GROUP_CARD_STYLES[group] || "border-slate-200 bg-slate-50 hover:bg-slate-100";
-  }
-
-  function getEmployeeRowForRemote(employee) {
-    return {
-      id: employee.id,
-      name: employee.name,
-      email: employee.email,
-      phone: employee.phone,
-      title: employee.title,
-      active: employee.active
-    };
-  }
-
   function saveAllLocal() {
     localStorage.setItem(STORAGE_KEYS.employees, JSON.stringify(state.employees));
     localStorage.setItem(STORAGE_KEYS.projects, JSON.stringify(state.projects));
     localStorage.setItem(STORAGE_KEYS.entries, JSON.stringify(state.entries));
     localStorage.setItem(STORAGE_KEYS.auditLog, JSON.stringify(state.auditLog));
     localStorage.setItem(STORAGE_KEYS.notificationLog, JSON.stringify(state.notificationLog));
-    saveEmployeeGroupMap();
   }
 
   function persistUiState() {
@@ -1317,94 +1161,6 @@
 
 
 
-
-
-  function canSeePersonalBlockType(type) {
-    if (type !== "Syk") return true;
-    return canEditApp();
-  }
-
-  function getVisiblePersonalBlockTypes() {
-    return PERSONAL_BLOCK_TYPES.filter(canSeePersonalBlockType);
-  }
-
-  function getVisibleEntriesForEmployee(employeeName, rangeStart, rangeEnd) {
-    return (state.derived.entriesByEmployee.get(employeeName) || []).filter(entry => {
-      if (!overlaps(entry.start_date, entry.end_date, rangeStart, rangeEnd)) return false;
-      const project = getProjectById(entry.project_id);
-      if (isSystemPersonalProject(project) && !canSeePersonalBlockType(project.category)) return false;
-      return true;
-    });
-  }
-
-  function openCalendarContextMenu(employeeName, isoDate, x, y) {
-    if (!canEditApp() || !els.calendarContextMenu) return;
-
-    state.contextMenu = {
-      visible: true,
-      employeeName,
-      startDate: isoDate,
-      endDate: isoDate,
-      x,
-      y
-    };
-
-    if (els.contextMenuEmployee) els.contextMenuEmployee.textContent = employeeName;
-    if (els.contextMenuStart) els.contextMenuStart.value = isoDate;
-    if (els.contextMenuEnd) els.contextMenuEnd.value = isoDate;
-    fillSelect(els.contextMenuType, PERSONAL_BLOCK_TYPES);
-    if (els.contextMenuType) els.contextMenuType.value = "Ferie";
-    if (els.contextMenuNotes) els.contextMenuNotes.value = "";
-
-    const menu = els.calendarContextMenu;
-    menu.classList.remove("hidden");
-    menu.style.left = "0px";
-    menu.style.top = "0px";
-
-    requestAnimationFrame(() => {
-      const menuRect = menu.getBoundingClientRect();
-      const maxLeft = Math.max(12, window.innerWidth - menuRect.width - 12);
-      const maxTop = Math.max(12, window.innerHeight - menuRect.height - 12);
-      menu.style.left = `${Math.min(Math.max(12, x), maxLeft)}px`;
-      menu.style.top = `${Math.min(Math.max(12, y), maxTop)}px`;
-    });
-  }
-
-  function hideCalendarContextMenu() {
-    state.contextMenu.visible = false;
-    if (!els.calendarContextMenu) return;
-    els.calendarContextMenu.classList.add("hidden");
-  }
-
-  function handleGlobalPointerClose(event) {
-    if (!state.contextMenu.visible) return;
-    if (els.calendarContextMenu?.contains(event.target)) return;
-    hideCalendarContextMenu();
-  }
-
-  async function createContextMenuPersonalBlockEntry() {
-    const employeeName = state.contextMenu.employeeName;
-    const startDate = els.contextMenuStart?.value || state.contextMenu.startDate;
-    const endDate = els.contextMenuEnd?.value || state.contextMenu.endDate;
-    const type = els.contextMenuType?.value || "Ferie";
-    const notes = els.contextMenuNotes?.value?.trim() || "";
-    if (!employeeName || !startDate || !endDate || !type) return;
-    if (startDate > endDate) {
-      alert("Startdato kan ikke være etter sluttdato.");
-      return;
-    }
-
-    hideCalendarContextMenu();
-
-    if (els.personalBlockEmployee) els.personalBlockEmployee.value = employeeName;
-    if (els.personalBlockType) els.personalBlockType.value = type;
-    if (els.personalBlockStart) els.personalBlockStart.value = startDate;
-    if (els.personalBlockEnd) els.personalBlockEnd.value = endDate;
-    if (els.personalBlockNotes) els.personalBlockNotes.value = notes;
-
-    await createPersonalBlockEntry();
-  }
-
   function isPersonalBlockType(value) {
     return PERSONAL_BLOCK_TYPES.includes(value);
   }
@@ -1415,23 +1171,6 @@
 
   function getVisibleProjects() {
     return state.projects.filter(project => !isSystemPersonalProject(project));
-  }
-
-  function getProjectsForCurrentListFilter() {
-    const visibleProjects = getVisibleProjects().slice().sort((a, b) => compareProjectDates(a, b));
-    if (state.projectListFilter === "unstaffed") {
-      return visibleProjects.filter(project => getProjectAssignedCount(project.id) === 0);
-    }
-    return visibleProjects;
-  }
-
-  function openProjectListView(filter = "all") {
-    state.projectListFilter = filter === "unstaffed" ? "unstaffed" : "all";
-    setActiveTab("projects");
-    renderProjects();
-    if (els.projectList) {
-      els.projectList.scrollIntoView({ behavior: "smooth", block: "start" });
-    }
   }
 
   async function ensurePersonalProject(type) {
@@ -1799,7 +1538,6 @@
     els.employeeEmail.value = employee?.email || "";
     els.employeePhone.value = employee?.phone || "";
     els.employeeTitle.value = employee?.title || "";
-    fillSelect(els.employeeGroup, EMPLOYEE_GROUP_OPTIONS.map(value => ({ id: value, name: value || "Ingen gruppe valgt" })), normalizeEmployeeGroup(employee?.employee_group || ""), "name", "id");
     els.employeeActive.checked = employee?.active ?? true;
     els.deleteEmployeeBtn.style.display = employee ? "inline-flex" : "none";
 
@@ -1819,7 +1557,6 @@
     const email = els.employeeEmail.value.trim();
     const phone = els.employeePhone.value.trim();
     const title = els.employeeTitle.value.trim();
-    const employeeGroup = normalizeEmployeeGroup(els.employeeGroup?.value || "");
     const active = els.employeeActive.checked;
 
     if (!name) {
@@ -1843,7 +1580,6 @@
       employee.email = email;
       employee.phone = phone;
       employee.title = title;
-      employee.employee_group = employeeGroup;
       employee.active = active;
 
       if (oldName !== name) {
@@ -1864,7 +1600,6 @@
         email,
         phone,
         title,
-        employee_group: employeeGroup,
         active
       };
       state.employees.push(employee);
@@ -1874,7 +1609,7 @@
     state.employees.sort((a, b) => a.name.localeCompare(b.name, "no"));
     rebuildDerivedState();
 
-    const result = await saveRow("planner_employees", getEmployeeRowForRemote(employee));
+    const result = await saveRow("planner_employees", employee);
     if (!result.ok) return;
 
     closeEmployeeModal();
@@ -1896,7 +1631,6 @@
     if (!confirm("Vil du slette denne ansatte?")) return;
 
     state.employees = state.employees.filter(e => e.id !== employee.id);
-    saveEmployeeGroupMap();
     rebuildDerivedState();
     const result = await deleteRow("planner_employees", employee.id);
     if (!result.ok) {
@@ -1933,7 +1667,6 @@
         email: "",
         phone: "",
         title: "",
-        employee_group: "",
         active: true
       };
 
@@ -1946,7 +1679,7 @@
     rebuildDerivedState();
 
     if (inserted.length) {
-      const result = await saveRows("planner_employees", inserted.map(getEmployeeRowForRemote));
+      const result = await saveRows("planner_employees", inserted);
       if (!result.ok) {
         state.employees = state.employees.filter(e => !inserted.some(i => i.id === e.id));
         rebuildDerivedState();
@@ -2002,21 +1735,11 @@
     applyRoleChrome();
   }
 
-  function getEmployeeFilterItems() {
-    const activeEmployees = state.employees.filter(e => e.active !== false);
-    const groupItems = EMPLOYEE_GROUP_OPTIONS
-      .filter(group => group)
-      .map(group => ({ id: `group:${group}`, name: `Gruppe • ${group}` }));
-
-    return [
-      { name: "Alle ansatte", id: "Alle ansatte" },
-      ...groupItems,
-      ...activeEmployees.map(e => ({ id: e.name, name: e.name }))
-    ];
-  }
-
   function populateDynamicSelects() {
-    const employeeFilterItems = getEmployeeFilterItems();
+    const employeeFilterItems = [
+      { name: "Alle ansatte", id: "Alle ansatte" },
+      ...state.employees.filter(e => e.active !== false).map(e => ({ id: e.name, name: e.name }))
+    ];
 
     const visibleProjects = getVisibleProjects();
 
@@ -2026,7 +1749,6 @@
     fillSelect(els.editProject, state.projects, null, "name", "id");
     fillSelect(els.personalBlockEmployee, [{ id: "", name: "Velg ansatt" }, ...state.employees.filter(e => e.active !== false).map(e => ({ id: e.name, name: e.name }))], els.personalBlockEmployee?.value || "", "name", "id");
     fillSelect(els.personalBlockType, PERSONAL_BLOCK_TYPES, els.personalBlockType?.value || PERSONAL_BLOCK_TYPES[0] || "");
-    fillSelect(els.contextMenuType, PERSONAL_BLOCK_TYPES, els.contextMenuType?.value || "Ferie");
     fillSelect(els.viewMode, ["Uke", "Måned", "År"], state.viewMode);
     fillSelect(els.calendarMode, [
       { id: "personal", name: "Personalplan" },
@@ -2042,41 +1764,27 @@
   }
 
   function renderStats() {
+    const visibleEmployees = getFilteredEmployees();
+    const range = getCurrentRange();
     const visibleProjects = getVisibleProjects();
+    const entriesInRange = state.entries.filter(entry => overlaps(entry.start_date, entry.end_date, range.start, range.end));
+    const projectsInRange = visibleProjects.filter(project => projectOverlapsRange(project, range.start, range.end));
     const unstaffedProjects = visibleProjects.filter(project => getProjectAssignedCount(project.id) === 0);
 
     const cards = [
-      {
-        label: "Prosjekter",
-        value: visibleProjects.length,
-        filter: "all",
-        helper: "Vis alle prosjekter"
-      },
-      {
-        label: "Prosjekter uten bemanning",
-        value: unstaffedProjects.length,
-        filter: "unstaffed",
-        helper: "Vis prosjekter som må bemannes"
-      }
+      { label: "Ansatte", value: state.employees.filter(e => e.active !== false).length },
+      { label: "Prosjekter", value: visibleProjects.length },
+      { label: "Prosjekter uten bemanning", value: unstaffedProjects.length },
+      { label: "Tildelinger i visning", value: entriesInRange.length },
+      { label: state.calendarMode === "project" ? "Prosjekter i visning" : "Synlige ansatte", value: state.calendarMode === "project" ? projectsInRange.length : visibleEmployees.length }
     ];
 
     els.statsRow.innerHTML = cards.map(card => `
-      <button
-        type="button"
-        data-stats-project-filter="${escapeHtml(card.filter)}"
-        class="w-full rounded-2xl bg-white border border-slate-200 shadow-sm p-4 text-left hover:bg-slate-50 transition"
-      >
+      <div class="rounded-2xl bg-white border border-slate-200 shadow-sm p-4">
         <div class="text-sm text-slate-500">${escapeHtml(card.label)}</div>
         <div class="text-3xl font-bold mt-2">${escapeHtml(String(card.value))}</div>
-        <div class="text-xs text-slate-500 mt-2">${escapeHtml(card.helper)}</div>
-      </button>
+      </div>
     `).join("");
-
-    els.statsRow.querySelectorAll("[data-stats-project-filter]").forEach(btn => {
-      btn.addEventListener("click", () => {
-        openProjectListView(btn.dataset.statsProjectFilter || "all");
-      });
-    });
   }
 
 
@@ -2088,7 +1796,7 @@
       </div>
     `).join("");
 
-    const personalCategoryHtml = getVisiblePersonalBlockTypes().map(name => `
+    const personalCategoryHtml = PERSONAL_BLOCK_TYPES.map(name => `
       <div class="flex items-center gap-2">
         <span class="inline-block w-4 h-4 rounded ${CATEGORY_COLORS[name] || "bg-slate-400"}"></span>
         <span>${escapeHtml(name)}</span>
@@ -2144,29 +1852,10 @@
   }
 
   function renderProjects() {
-    const filteredProjects = getProjectsForCurrentListFilter();
-    const filterLabel = state.projectListFilter === "unstaffed" ? "Viser kun prosjekter uten bemanning." : "Viser alle prosjekter i stigende rekkefølge etter planlagt startdato.";
-    const emptyText = state.projectListFilter === "unstaffed" ? "Ingen prosjekter mangler bemanning." : "Ingen prosjekter.";
-
-    els.projectList.innerHTML = `
-      <div class="mb-4 flex flex-wrap items-center gap-2">
-        <button
-          type="button"
-          data-project-list-filter="all"
-          class="rounded-xl px-3 py-2 text-sm border ${state.projectListFilter === "all" ? "border-slate-900 bg-slate-900 text-white" : "border-slate-300 bg-white text-slate-700"}"
-        >
-          Alle prosjekter
-        </button>
-        <button
-          type="button"
-          data-project-list-filter="unstaffed"
-          class="rounded-xl px-3 py-2 text-sm border ${state.projectListFilter === "unstaffed" ? "border-slate-900 bg-slate-900 text-white" : "border-slate-300 bg-white text-slate-700"}"
-        >
-          Uten bemanning
-        </button>
-        <div class="text-sm text-slate-500">${escapeHtml(filterLabel)}</div>
-      </div>
-      ${filteredProjects.map(project => {
+    els.projectList.innerHTML = getVisibleProjects()
+      .slice()
+      .sort((a, b) => compareProjectDates(a, b))
+      .map(project => {
         const assigned = getProjectAssignedCount(project.id);
         const required = Number(project.headcount_required || 0);
         const staffing = getProjectStaffingLabel(project.id, required);
@@ -2221,15 +1910,7 @@
             </div>
           </div>
         `;
-      }).join("") || `<div class="text-sm text-slate-500">${escapeHtml(emptyText)}</div>`}
-    `;
-
-    els.projectList.querySelectorAll("[data-project-list-filter]").forEach(btn => {
-      btn.addEventListener("click", () => {
-        state.projectListFilter = btn.dataset.projectListFilter === "unstaffed" ? "unstaffed" : "all";
-        renderProjects();
-      });
-    });
+      }).join("") || `<div class="text-sm text-slate-500">Ingen prosjekter.</div>`;
 
     els.projectList.querySelectorAll("[data-project-id]").forEach(btn => {
       btn.addEventListener("click", () => openProjectModal(btn.dataset.projectId));
@@ -2280,11 +1961,8 @@
   }
 
   function renderEmployees() {
-    els.employeeList.innerHTML = state.employees.map(emp => {
-      const employeeGroup = normalizeEmployeeGroup(emp.employee_group || "");
-      const cardClass = getEmployeeGroupCardClass(employeeGroup);
-      return `
-      <button data-employee-id="${escapeHtml(emp.id)}" class="w-full text-left rounded-xl border-2 p-3 transition ${cardClass}">
+    els.employeeList.innerHTML = state.employees.map(emp => `
+      <button data-employee-id="${escapeHtml(emp.id)}" class="w-full text-left rounded-xl border border-slate-200 p-3 bg-slate-50 hover:bg-slate-100">
         <div class="flex items-center justify-between gap-2">
           <div class="font-medium">${escapeHtml(emp.name)}</div>
           <span class="text-xs ${emp.active ? "text-green-700" : "text-amber-700"}">${emp.active ? "Aktiv" : "Inaktiv"}</span>
@@ -2292,9 +1970,8 @@
         <div class="text-xs text-slate-500 mt-1">${escapeHtml(emp.email || "Ingen e-post")}</div>
         <div class="text-xs text-slate-500">${escapeHtml(emp.phone || "Ingen telefon")}</div>
         <div class="text-xs text-slate-500">${escapeHtml(emp.title || "Ingen stillingstittel")}</div>
-        <div class="mt-2 inline-flex rounded-full border border-current/20 bg-white/80 px-2 py-1 text-xs font-medium text-slate-700">${escapeHtml(employeeGroup || "Ingen gruppe valgt")}</div>
       </button>
-    `}).join("") || `<div class="text-sm text-slate-500">Ingen ansatte enda.</div>`;
+    `).join("") || `<div class="text-sm text-slate-500">Ingen ansatte enda.</div>`;
 
     els.employeeList.querySelectorAll("[data-employee-id]").forEach(btn => {
       btn.addEventListener("click", () => openEmployeeModal(btn.dataset.employeeId));
@@ -2411,7 +2088,8 @@
     const warnings = [];
 
     for (const employee of employees) {
-      const employeeEntries = getVisibleEntriesForEmployee(employee.name, range.start, range.end);
+      const employeeEntries = (state.derived.entriesByEmployee.get(employee.name) || [])
+        .filter(entry => overlaps(entry.start_date, entry.end_date, range.start, range.end));
 
       html += `
         <div class="sticky-col border-r border-b border-slate-200 px-3 py-3">
@@ -2427,7 +2105,7 @@
         const day = days[i];
         const weekend = isWeekend(day);
         const isTodayFlag = sameDate(day, new Date());
-        html += `<div data-drop-slot-index="${i}" data-drop-date="${toIsoDate(day)}" class="day-cell ${weekend ? "weekend" : ""} ${isTodayFlag ? "today" : ""}" style="position:absolute; left:${i * colWidth}px; width:${colWidth}px;"></div>`;
+        html += `<div class="day-cell ${weekend ? "weekend" : ""} ${isTodayFlag ? "today" : ""}" style="position:absolute; left:${i * colWidth}px; width:${colWidth}px;"></div>`;
       }
 
       html += `<div style="position:relative; width:${totalWidth}px; min-height:56px;">`;
@@ -2436,7 +2114,7 @@
         const project = getProjectById(entry.project_id);
         if (!project) continue;
 
-        const clipped = clipRange(asLocalDate(entry.start_date), asLocalDate(entry.end_date), range.start, range.end);
+        const clipped = clipRange(new Date(entry.start_date), new Date(entry.end_date), range.start, range.end);
         const startIndex = diffDays(range.start, clipped.start);
         const spanDays = diffDays(clipped.start, clipped.end) + 1;
         const left = startIndex * colWidth + 2;
@@ -2452,7 +2130,6 @@
           >
             <div class="font-semibold">${escapeHtml(displayProjectName(project))}</div>
             ${isSystemPersonalProject(project) ? "" : `<div class="text-[11px] opacity-90">${escapeHtml(entry.role)}</div>`}
-            <div data-resize-handle data-resize-type="entry" data-target-id="${escapeHtml(entry.id)}" title="Dra for å endre sluttdato" style="position:absolute; top:0; right:0; bottom:0; width:12px; cursor:ew-resize; border-left:1px solid rgba(255,255,255,0.35); background:linear-gradient(to left, rgba(255,255,255,0.35), rgba(255,255,255,0));"></div>
           </div>
         `;
 
@@ -2472,7 +2149,6 @@
     html += `</div></div>`;
     els.calendarWrap.innerHTML = html;
     bindEntryClicks();
-    bindResizeHandles();
     renderWarnings(uniqueArray(warnings));
   }
 
@@ -2500,7 +2176,8 @@
     const yearEnd = new Date(year, 11, 31);
 
     for (const employee of employees) {
-      const employeeEntries = getVisibleEntriesForEmployee(employee.name, yearStart, yearEnd);
+      const employeeEntries = (state.derived.entriesByEmployee.get(employee.name) || [])
+        .filter(entry => overlaps(entry.start_date, entry.end_date, yearStart, yearEnd));
 
       html += `
         <div class="sticky-col border-r border-b border-slate-200 px-3 py-3">
@@ -2513,7 +2190,7 @@
       html += `<div class="row-overlay border-b border-slate-200 drop-row" data-employee-name="${escapeHtml(employee.name)}" data-range-start="${toIsoDate(yearStart)}" data-col-width="${monthWidth}" data-total-cols="12" data-time-unit="month" style="grid-column: span 12; width:${totalWidth}px;">`;
 
       for (let i = 0; i < 12; i++) {
-        html += `<div data-drop-slot-index="${i}" data-drop-month-index="${i}" class="month-cell" style="position:absolute; left:${i * monthWidth}px; width:${monthWidth}px;"></div>`;
+        html += `<div class="month-cell" style="position:absolute; left:${i * monthWidth}px; width:${monthWidth}px;"></div>`;
       }
 
       html += `<div style="position:relative; width:${totalWidth}px; min-height:56px;">`;
@@ -2522,8 +2199,8 @@
         const project = getProjectById(entry.project_id);
         if (!project) continue;
 
-        const entryStart = asLocalDate(entry.start_date);
-        const entryEnd = asLocalDate(entry.end_date);
+        const entryStart = new Date(entry.start_date);
+        const entryEnd = new Date(entry.end_date);
         const startMonth = Math.max(0, entryStart.getFullYear() < year ? 0 : entryStart.getMonth());
         const endMonth = Math.min(11, entryEnd.getFullYear() > year ? 11 : entryEnd.getMonth());
         const spanMonths = (endMonth - startMonth) + 1;
@@ -2538,9 +2215,8 @@
             draggable="true"
             title="${escapeHtml(`${employee.name} | ${displayProjectName(project)} | ${entry.role} | ${entry.start_date} - ${entry.end_date}`)}"
           >
-            <div class="font-semibold">${escapeHtml(displayProjectName(project))}</div>
+            <div class="font-semibold">${escapeHtml(project.name)}</div>
             <div class="text-[11px] opacity-90">${escapeHtml(formatYearBarLabel(entry.start_date, entry.end_date))}</div>
-            <div data-resize-handle data-resize-type="entry" data-target-id="${escapeHtml(entry.id)}" title="Dra for å endre sluttdato" style="position:absolute; top:0; right:0; bottom:0; width:12px; cursor:ew-resize; border-left:1px solid rgba(255,255,255,0.35); background:linear-gradient(to left, rgba(255,255,255,0.35), rgba(255,255,255,0));"></div>
           </div>
         `;
       }
@@ -2551,7 +2227,6 @@
     html += `</div></div>`;
     els.calendarWrap.innerHTML = html;
     bindEntryClicks();
-    bindResizeHandles();
     renderWarnings(uniqueArray(warnings));
   }
 
@@ -2609,19 +2284,19 @@
         </div>
       `;
 
-      html += `<div class="row-overlay border-b border-slate-200" data-range-start="${toIsoDate(range.start)}" data-col-width="${colWidth}" data-total-cols="${days.length}" data-time-unit="day" style="grid-column: span ${days.length}; width:${totalWidth}px;">`;
+      html += `<div class="row-overlay border-b border-slate-200" style="grid-column: span ${days.length}; width:${totalWidth}px;">`;
 
       for (let i = 0; i < days.length; i++) {
         const day = days[i];
         const weekend = isWeekend(day);
         const isTodayFlag = sameDate(day, new Date());
-        html += `<div data-drop-slot-index="${i}" data-drop-date="${toIsoDate(day)}" class="day-cell ${weekend ? "weekend" : ""} ${isTodayFlag ? "today" : ""}" style="position:absolute; left:${i * colWidth}px; width:${colWidth}px;"></div>`;
+        html += `<div class="day-cell ${weekend ? "weekend" : ""} ${isTodayFlag ? "today" : ""}" style="position:absolute; left:${i * colWidth}px; width:${colWidth}px;"></div>`;
       }
 
       html += `<div style="position:relative; width:${totalWidth}px; min-height:56px;">`;
 
       if (project.planned_start_date && project.planned_end_date) {
-        const clipped = clipRange(asLocalDate(project.planned_start_date), asLocalDate(project.planned_end_date), range.start, range.end);
+        const clipped = clipRange(new Date(project.planned_start_date), new Date(project.planned_end_date), range.start, range.end);
         const startIndex = diffDays(range.start, clipped.start);
         const spanDays = diffDays(clipped.start, clipped.end) + 1;
         const left = startIndex * colWidth + 2;
@@ -2636,7 +2311,6 @@
           >
             <div class="font-semibold">${escapeHtml(project.name)}</div>
             <div class="text-[11px] opacity-90">${escapeHtml(staffing.text)}</div>
-            <div data-resize-handle data-resize-type="project" data-target-id="${escapeHtml(project.id)}" title="Dra for å endre sluttdato" style="position:absolute; top:0; right:0; bottom:0; width:12px; cursor:ew-resize; border-left:1px solid rgba(255,255,255,0.35); background:linear-gradient(to left, rgba(255,255,255,0.35), rgba(255,255,255,0));"></div>
           </div>
         `;
       }
@@ -2650,7 +2324,6 @@
     els.calendarWrap.querySelectorAll("[data-project-row-id]").forEach(el => {
       el.addEventListener("click", () => openProjectModal(el.dataset.projectRowId));
     });
-    bindResizeHandles();
 
     renderWarnings(uniqueArray(warnings));
   }
@@ -2687,17 +2360,17 @@
         </div>
       `;
 
-      html += `<div class="row-overlay border-b border-slate-200" data-range-start="${toIsoDate(range.start)}" data-col-width="${monthWidth}" data-total-cols="12" data-time-unit="month" style="grid-column: span 12; width:${totalWidth}px;">`;
+      html += `<div class="row-overlay border-b border-slate-200" style="grid-column: span 12; width:${totalWidth}px;">`;
 
       for (let i = 0; i < 12; i++) {
-        html += `<div data-drop-slot-index="${i}" data-drop-month-index="${i}" class="month-cell" style="position:absolute; left:${i * monthWidth}px; width:${monthWidth}px;"></div>`;
+        html += `<div class="month-cell" style="position:absolute; left:${i * monthWidth}px; width:${monthWidth}px;"></div>`;
       }
 
       html += `<div style="position:relative; width:${totalWidth}px; min-height:56px;">`;
 
       if (project.planned_start_date && project.planned_end_date) {
-        const start = asLocalDate(project.planned_start_date);
-        const end = asLocalDate(project.planned_end_date);
+        const start = new Date(project.planned_start_date);
+        const end = new Date(project.planned_end_date);
         const startMonth = Math.max(0, start.getFullYear() < year ? 0 : start.getMonth());
         const endMonth = Math.min(11, end.getFullYear() > year ? 11 : end.getMonth());
         const spanMonths = (endMonth - startMonth) + 1;
@@ -2713,7 +2386,6 @@
           >
             <div class="font-semibold">${escapeHtml(project.name)}</div>
             <div class="text-[11px] opacity-90">${escapeHtml(staffing.text)}</div>
-            <div data-resize-handle data-resize-type="project" data-target-id="${escapeHtml(project.id)}" title="Dra for å endre sluttdato" style="position:absolute; top:0; right:0; bottom:0; width:12px; cursor:ew-resize; border-left:1px solid rgba(255,255,255,0.35); background:linear-gradient(to left, rgba(255,255,255,0.35), rgba(255,255,255,0));"></div>
           </div>
         `;
       }
@@ -2727,7 +2399,6 @@
     els.calendarWrap.querySelectorAll("[data-project-row-id]").forEach(el => {
       el.addEventListener("click", () => openProjectModal(el.dataset.projectRowId));
     });
-    bindResizeHandles();
 
     renderWarnings(uniqueArray(warnings));
   }
@@ -2765,8 +2436,6 @@
 
       el.addEventListener("dragstart", event => {
         state.dragEntryId = el.dataset.entryId;
-        const row = el.closest(".row-overlay");
-        state.dragAnchor = getDragAnchorFromPointer(el, row, event.clientX);
         event.dataTransfer.effectAllowed = "move";
         event.dataTransfer.setData("text/plain", el.dataset.entryId);
         requestAnimationFrame(() => {
@@ -2777,26 +2446,12 @@
       el.addEventListener("dragend", () => {
         el.classList.remove("opacity-60");
         state.dragEntryId = null;
-        state.dragAnchor = { timeUnit: "day", slotOffset: 0 };
       });
     });
 
     if (!editable) return;
 
     els.calendarWrap.querySelectorAll(".drop-row").forEach(row => {
-      row.addEventListener("contextmenu", event => {
-        if (state.calendarMode !== "personal" || state.viewMode === "År") return;
-        event.preventDefault();
-        const targetEmployeeName = row.dataset.employeeName;
-        if (!targetEmployeeName) return;
-        const dropMeta = getDropMetaFromRow(row, event);
-        if (!dropMeta?.rangeStart || !Number.isFinite(dropMeta.colIndex)) return;
-        const selectedDate = dropMeta?.dropDate
-          ? toIsoDate(parseIsoDateLocal(dropMeta.dropDate))
-          : toIsoDate(addDays(parseIsoDateLocal(dropMeta.rangeStart), dropMeta.colIndex));
-        openCalendarContextMenu(targetEmployeeName, selectedDate, event.clientX + 8, event.clientY + 8);
-      });
-
       row.addEventListener("dragover", event => {
         if (!state.dragEntryId) return;
         event.preventDefault();
@@ -2825,215 +2480,6 @@
     return moveEntryByDrop(entryId, targetEmployeeName, null);
   }
 
-  function bindResizeHandles() {
-    if (!canEditApp()) return;
-
-    els.calendarWrap.querySelectorAll('[data-resize-handle]').forEach(handle => {
-      handle.addEventListener('mousedown', startResizeFromHandle);
-      handle.addEventListener('dragstart', event => {
-        event.preventDefault();
-        event.stopPropagation();
-      });
-    });
-  }
-
-  function startResizeFromHandle(event) {
-    event.preventDefault();
-    event.stopPropagation();
-
-    const handle = event.currentTarget;
-    const type = handle.dataset.resizeType || '';
-    const targetId = handle.dataset.targetId || '';
-    const bar = handle.closest('.entry-bar');
-    const row = handle.closest('.row-overlay');
-    if (!type || !targetId || !bar || !row) return;
-
-    const snapshot = getResizeSnapshot(type, targetId);
-    if (!snapshot) return;
-
-    state.resize = {
-      active: true,
-      type,
-      targetId,
-      row,
-      bar,
-      originalEndDate: snapshot.originalEndDate,
-      previewEndDate: snapshot.originalEndDate,
-      originalValueSnapshot: snapshot
-    };
-
-    document.body.style.userSelect = 'none';
-    document.body.style.cursor = 'ew-resize';
-  }
-
-  function getResizeSnapshot(type, targetId) {
-    if (type === 'entry') {
-      const entry = state.entries.find(item => item.id === targetId);
-      if (!entry) return null;
-      return {
-        entry,
-        originalEndDate: entry.end_date,
-        originalStartDate: entry.start_date
-      };
-    }
-
-    if (type === 'project') {
-      const project = state.projects.find(item => item.id === targetId);
-      if (!project) return null;
-      return {
-        project,
-        originalEndDate: project.planned_end_date || project.planned_start_date || '',
-        originalStartDate: project.planned_start_date || ''
-      };
-    }
-
-    return null;
-  }
-
-  function handleResizePointerMove(event) {
-    if (!state.resize.active || !state.resize.row) return;
-
-    const preview = getResizePreviewFromPointer(state.resize, event.clientX);
-    if (!preview?.endDate) return;
-
-    state.resize.previewEndDate = preview.endDate;
-    applyResizePreview(state.resize, preview);
-  }
-
-  function getResizePreviewFromPointer(resizeState, clientX) {
-    const row = resizeState.row;
-    const rowRect = row.getBoundingClientRect();
-    const syntheticEvent = { clientX, clientY: rowRect.top + (rowRect.height / 2) };
-    const dropMeta = getDropMetaFromRow(row, syntheticEvent);
-    const snapshot = resizeState.originalValueSnapshot;
-    if (!dropMeta || !snapshot?.originalStartDate) return null;
-
-    if (dropMeta.timeUnit === 'day') {
-      const pointerDate = dropMeta.dropDate
-        ? parseIsoDateLocal(dropMeta.dropDate)
-        : addDays(parseIsoDateLocal(dropMeta.rangeStart), Number(dropMeta.colIndex || 0));
-      const startDate = parseIsoDateLocal(snapshot.originalStartDate);
-      if (!pointerDate || !startDate) return null;
-      const resolvedEnd = pointerDate < startDate ? startDate : pointerDate;
-      return {
-        endDate: toIsoDate(resolvedEnd),
-        colIndex: dropMeta.colIndex,
-        timeUnit: 'day'
-      };
-    }
-
-    if (dropMeta.timeUnit === 'month') {
-      const monthIndex = Number.isFinite(dropMeta.dropMonthIndex) ? dropMeta.dropMonthIndex : Number(dropMeta.colIndex || 0);
-      const startDate = parseIsoDateLocal(snapshot.originalStartDate);
-      const originalEndDate = parseIsoDateLocal(snapshot.originalEndDate);
-      const rangeStart = parseIsoDateLocal(dropMeta.rangeStart);
-      if (!startDate || !rangeStart || !originalEndDate) return null;
-      const targetMonth = new Date(rangeStart.getFullYear(), rangeStart.getMonth() + monthIndex, 1);
-      const clampedDay = Math.min(originalEndDate.getDate(), daysInMonth(targetMonth.getFullYear(), targetMonth.getMonth()));
-      targetMonth.setDate(clampedDay);
-      const resolvedEnd = targetMonth < startDate ? startDate : targetMonth;
-      return {
-        endDate: toIsoDate(resolvedEnd),
-        colIndex: monthIndex,
-        timeUnit: 'month'
-      };
-    }
-
-    return null;
-  }
-
-  function applyResizePreview(resizeState, preview) {
-    const snapshot = resizeState.originalValueSnapshot;
-    if (!snapshot?.originalStartDate || !resizeState.bar || !resizeState.row) return;
-
-    const row = resizeState.row;
-    const totalCols = Number(row.dataset.totalCols || 0);
-    const slotWidth = Number(row.dataset.colWidth || 0);
-    const timeUnit = row.dataset.timeUnit || 'day';
-    if (!totalCols || !slotWidth) return;
-
-    let startIndex = 0;
-    let endIndex = 0;
-
-    if (timeUnit === 'day') {
-      const rangeStart = parseIsoDateLocal(row.dataset.rangeStart);
-      const startDate = parseIsoDateLocal(snapshot.originalStartDate);
-      const endDate = parseIsoDateLocal(preview.endDate);
-      if (!rangeStart || !startDate || !endDate) return;
-      startIndex = clampSlotIndex(diffDays(rangeStart, startDate), totalCols);
-      endIndex = clampSlotIndex(diffDays(rangeStart, endDate), totalCols);
-    } else {
-      const rangeStart = parseIsoDateLocal(row.dataset.rangeStart);
-      const startDate = parseIsoDateLocal(snapshot.originalStartDate);
-      const endDate = parseIsoDateLocal(preview.endDate);
-      if (!rangeStart || !startDate || !endDate) return;
-      startIndex = clampSlotIndex((startDate.getFullYear() - rangeStart.getFullYear()) * 12 + (startDate.getMonth() - rangeStart.getMonth()), totalCols);
-      endIndex = clampSlotIndex((endDate.getFullYear() - rangeStart.getFullYear()) * 12 + (endDate.getMonth() - rangeStart.getMonth()), totalCols);
-    }
-
-    const span = Math.max(1, endIndex - startIndex + 1);
-    resizeState.bar.style.width = `${Math.max(span * slotWidth - 4, 40)}px`;
-  }
-
-  async function handleResizePointerUp() {
-    if (!state.resize.active) return;
-
-    const resizeState = { ...state.resize };
-    document.body.style.userSelect = '';
-    document.body.style.cursor = '';
-    state.resize = {
-      active: false,
-      type: '',
-      targetId: '',
-      row: null,
-      bar: null,
-      originalEndDate: '',
-      previewEndDate: '',
-      originalValueSnapshot: null
-    };
-
-    const snapshot = resizeState.originalValueSnapshot;
-    const nextEndDate = resizeState.previewEndDate || resizeState.originalEndDate;
-    if (!snapshot || !nextEndDate || nextEndDate === resizeState.originalEndDate) {
-      renderCalendar();
-      return;
-    }
-
-    if (resizeState.type === 'entry' && snapshot.entry) {
-      const entry = snapshot.entry;
-      const originalEndDate = entry.end_date;
-      entry.end_date = nextEndDate;
-      rebuildDerivedState();
-      renderAll();
-      const result = await saveRow('planner_entries', entry);
-      if (!result.ok) {
-        entry.end_date = originalEndDate;
-        rebuildDerivedState();
-        renderAll();
-        return;
-      }
-      const project = getProjectById(entry.project_id);
-      void addAudit(`Endret sluttdato: ${displayProjectName(project) || 'Ukjent prosjekt'} for ${entry.employee_name} til ${nextEndDate}`);
-      return;
-    }
-
-    if (resizeState.type === 'project' && snapshot.project) {
-      const project = snapshot.project;
-      const originalEndDate = project.planned_end_date;
-      project.planned_end_date = nextEndDate;
-      rebuildDerivedState();
-      renderAll();
-      const result = await saveRow('planner_projects', project);
-      if (!result.ok) {
-        project.planned_end_date = originalEndDate;
-        rebuildDerivedState();
-        renderAll();
-        return;
-      }
-      void addAudit(`Endret prosjektsluttdato: ${project.name} til ${nextEndDate}`);
-    }
-  }
-
   async function moveEntryByDrop(entryId, targetEmployeeName, dropMeta = null) {
     if (!canEditApp()) return;
     const entry = state.entries.find(e => e.id === entryId);
@@ -3053,18 +2499,10 @@
     }
 
     if (dropMeta?.timeUnit === "day" && dropMeta.rangeStart && Number.isFinite(dropMeta.colIndex)) {
-      const durationDays = Math.max(0, diffDays(asLocalDate(entry.start_date), asLocalDate(entry.end_date)));
-      const adjustedIndex = getAdjustedDropColIndex(dropMeta);
-      const pointerBaseDate = dropMeta.dropDate
-        ? parseIsoDateLocal(dropMeta.dropDate)
-        : addDays(parseIsoDateLocal(dropMeta.rangeStart), dropMeta.colIndex);
-      const pointerDate = pointerBaseDate;
-      const anchorOffset = Math.max(0, Number(state.dragAnchor?.slotOffset || 0));
-      const newStart = addDays(pointerDate, -anchorOffset);
-      const fallbackStart = addDays(parseIsoDateLocal(dropMeta.rangeStart), adjustedIndex);
-      const resolvedStart = Number.isFinite(newStart?.getTime?.()) ? newStart : fallbackStart;
-      const newEnd = addDays(resolvedStart, durationDays);
-      const newStartIso = toIsoDate(resolvedStart);
+      const durationDays = Math.max(0, diffDays(new Date(entry.start_date), new Date(entry.end_date)));
+      const newStart = addDays(new Date(dropMeta.rangeStart), dropMeta.colIndex);
+      const newEnd = addDays(newStart, durationDays);
+      const newStartIso = toIsoDate(newStart);
       const newEndIso = toIsoDate(newEnd);
       if (entry.start_date !== newStartIso || entry.end_date !== newEndIso) {
         entry.start_date = newStartIso;
@@ -3074,11 +2512,10 @@
     }
 
     if (dropMeta?.timeUnit === "month" && dropMeta.rangeStart && Number.isFinite(dropMeta.colIndex)) {
-      const durationDays = Math.max(0, diffDays(asLocalDate(entry.start_date), asLocalDate(entry.end_date)));
-      const originalStart = asLocalDate(entry.start_date);
-      const targetMonthBase = parseIsoDateLocal(dropMeta.rangeStart);
-      const adjustedIndex = getAdjustedDropColIndex(dropMeta);
-      const shiftedStart = new Date(targetMonthBase.getFullYear(), targetMonthBase.getMonth() + adjustedIndex, 1);
+      const durationDays = Math.max(0, diffDays(new Date(entry.start_date), new Date(entry.end_date)));
+      const originalStart = new Date(entry.start_date);
+      const targetMonthBase = new Date(dropMeta.rangeStart);
+      const shiftedStart = new Date(targetMonthBase.getFullYear(), targetMonthBase.getMonth() + dropMeta.colIndex, 1);
       const clampedDay = Math.min(originalStart.getDate(), daysInMonth(shiftedStart.getFullYear(), shiftedStart.getMonth()));
       shiftedStart.setDate(clampedDay);
       const shiftedEnd = addDays(shiftedStart, durationDays);
@@ -3121,17 +2558,16 @@
   }
 
   function getFilteredEmployees() {
-    return state.employees.filter(emp => {
-      const isActive = emp.active !== false;
-      const filterValue = state.employeeFilter || "Alle ansatte";
-      const matchesGroupFilter = filterValue.startsWith("group:")
-        ? normalizeEmployeeGroup(emp.employee_group || "") === filterValue.slice(6)
-        : true;
-      const matchesNameFilter = !filterValue.startsWith("group:")
-        ? (filterValue === "Alle ansatte" || emp.name === filterValue)
-        : true;
+    const groupFilterPrefix = "group:";
+    const activeEmployees = sortEmployeesByGroupOrder(state.employees).filter(emp => emp.active !== false);
+
+    return activeEmployees.filter(emp => {
+      const employeeGroup = normalizeEmployeeGroup(emp.employee_group || "");
+      const matchesFilter = state.employeeFilter === "Alle ansatte"
+        || emp.name === state.employeeFilter
+        || (state.employeeFilter.startsWith(groupFilterPrefix) && employeeGroup === state.employeeFilter.slice(groupFilterPrefix.length));
       const matchesSearch = !state.search || emp.name.toLowerCase().includes(state.search);
-      return isActive && matchesGroupFilter && matchesNameFilter && matchesSearch;
+      return matchesFilter && matchesSearch;
     });
   }
 
@@ -3225,7 +2661,7 @@
 
   function formatDateTime(value) {
     if (!value) return "";
-    const d = asLocalDate(value);
+    const d = new Date(value);
     if (Number.isNaN(d.getTime())) return String(value);
     return new Intl.DateTimeFormat("no-NO", {
       day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit"
@@ -3233,14 +2669,14 @@
   }
 
   function formatDate(value) {
-    const d = asLocalDate(value);
+    const d = new Date(value);
     return new Intl.DateTimeFormat("no-NO", {
       day: "2-digit", month: "2-digit", year: "numeric"
     }).format(d);
   }
 
   function formatYearBarLabel(start, end) {
-    return `${capitalize(monthShort(asLocalDate(start)))}–${capitalize(monthShort(asLocalDate(end)))}`;
+    return `${capitalize(monthShort(new Date(start)))}–${capitalize(monthShort(new Date(end)))}`;
   }
 
 
@@ -3250,26 +2686,7 @@
   }
 
   function toIsoDate(date) {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    const day = String(date.getDate()).padStart(2, "0");
-    return `${year}-${month}-${day}`;
-  }
-
-  function parseIsoDateLocal(value) {
-    if (!value) return null;
-    const parts = String(value).split("-").map(Number);
-    if (parts.length !== 3 || parts.some(v => !Number.isFinite(v))) return null;
-    return new Date(parts[0], parts[1] - 1, parts[2]);
-  }
-
-  function asLocalDate(value) {
-    if (value instanceof Date) return new Date(value.getFullYear(), value.getMonth(), value.getDate());
-    if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
-      return parseIsoDateLocal(value);
-    }
-    const parsed = asLocalDate(value);
-    return Number.isNaN(parsed.getTime()) ? null : parsed;
+    return new Date(date.getFullYear(), date.getMonth(), date.getDate()).toISOString().slice(0, 10);
   }
 
   function startOfWeek(date) {
@@ -3289,7 +2706,7 @@
 
   function getDaysBetween(start, end) {
     const result = [];
-    const current = asLocalDate(start);
+    const current = new Date(start);
     while (current <= end) {
       result.push(new Date(current));
       current.setDate(current.getDate() + 1);
@@ -3304,10 +2721,10 @@
   }
 
   function overlaps(startA, endA, startB, endB) {
-    const a1 = asLocalDate(startA);
-    const a2 = asLocalDate(endA);
-    const b1 = asLocalDate(startB);
-    const b2 = asLocalDate(endB);
+    const a1 = new Date(startA);
+    const a2 = new Date(endA);
+    const b1 = new Date(startB);
+    const b2 = new Date(endB);
     return a1 <= b2 && a2 >= b1;
   }
 
@@ -3349,120 +2766,20 @@
     return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
   }
 
-
-  function getAdjustedDropColIndex(dropMeta) {
-    const totalCols = Number(dropMeta?.totalCols || 0);
-    const rawIndex = Number(dropMeta?.colIndex);
-    if (!Number.isFinite(rawIndex)) return 0;
-
-    const anchor = state.dragAnchor || { timeUnit: dropMeta?.timeUnit || "day", slotOffset: 0 };
-    const sameUnit = anchor.timeUnit === (dropMeta?.timeUnit || "day");
-    const anchorOffset = sameUnit ? Number(anchor.slotOffset || 0) : 0;
-    const adjusted = rawIndex - anchorOffset;
-
-    if (totalCols > 0) {
-      return clampSlotIndex(adjusted, totalCols);
-    }
-    return Math.max(0, adjusted);
-  }
-
-  function getDragAnchorFromPointer(entryEl, row, clientX) {
-    const timeUnit = row?.dataset?.timeUnit || "day";
-    const totalCols = Number(row?.dataset?.totalCols || 0);
-    const barRect = entryEl?.getBoundingClientRect?.();
-    const rowRect = row?.getBoundingClientRect?.();
-
-    if (!barRect || !rowRect || !totalCols || !rowRect.width) {
-      return { timeUnit, slotOffset: 0 };
-    }
-
-    const slotWidth = rowRect.width / totalCols;
-    if (!slotWidth) {
-      return { timeUnit, slotOffset: 0 };
-    }
-
-    const pointerOffsetPx = Math.max(0, Math.min(barRect.width - 1, clientX - barRect.left));
-    const spanSlots = Math.max(1, Math.round(barRect.width / slotWidth));
-    const slotOffset = Math.max(0, Math.min(spanSlots - 1, Math.floor(pointerOffsetPx / slotWidth)));
-
-    return { timeUnit, slotOffset };
-  }
-
   function getDropMetaFromRow(row, event) {
+    const rect = row.getBoundingClientRect();
     const colWidth = Number(row.dataset.colWidth || 0);
     const totalCols = Number(row.dataset.totalCols || 0);
     const timeUnit = row.dataset.timeUnit || "day";
     const rangeStart = row.dataset.rangeStart || null;
 
     if (!colWidth || !totalCols || !rangeStart) {
-      return { timeUnit, rangeStart, totalCols, colIndex: null, dropDate: null, dropMonthIndex: null };
+      return { timeUnit, rangeStart, colIndex: null };
     }
 
-    const slot = getDropSlotFromPointer(row, event.clientX, event.clientY);
-    if (slot) {
-      const idx = Number(slot.dataset.dropSlotIndex);
-      return {
-        timeUnit,
-        rangeStart,
-        totalCols,
-        colIndex: Number.isFinite(idx) ? clampSlotIndex(idx, totalCols) : null,
-        dropDate: slot.dataset.dropDate || null,
-        dropMonthIndex: Number.isFinite(Number(slot.dataset.dropMonthIndex)) ? Number(slot.dataset.dropMonthIndex) : null
-      };
-    }
-
-    const rect = row.getBoundingClientRect();
     const x = Math.max(0, Math.min(rect.width - 1, event.clientX - rect.left));
     const colIndex = Math.max(0, Math.min(totalCols - 1, Math.floor(x / colWidth)));
-    const fallbackDate = timeUnit === "day" ? toIsoDate(addDays(parseIsoDateLocal(rangeStart), colIndex)) : null;
-    return { timeUnit, rangeStart, totalCols, colIndex, dropDate: fallbackDate, dropMonthIndex: timeUnit === "month" ? colIndex : null };
-  }
-
-  function getDropSlotFromPointer(row, clientX, clientY) {
-    const slots = Array.from(row.querySelectorAll('[data-drop-slot-index]'));
-    if (!slots.length) return null;
-
-    if (typeof document.elementsFromPoint === 'function') {
-      const hitElements = document.elementsFromPoint(clientX, clientY);
-      for (const el of hitElements) {
-        if (!(el instanceof HTMLElement)) continue;
-        const slot = el.matches('[data-drop-slot-index]') ? el : el.closest('[data-drop-slot-index]');
-        if (slot && row.contains(slot)) return slot;
-      }
-    }
-
-    for (const slot of slots) {
-      const rect = slot.getBoundingClientRect();
-      if (clientX >= rect.left && clientX < rect.right && clientY >= rect.top && clientY < rect.bottom) {
-        return slot;
-      }
-    }
-
-    let bestSlot = null;
-    let bestDistance = Number.POSITIVE_INFINITY;
-    for (const slot of slots) {
-      const rect = slot.getBoundingClientRect();
-      const centerX = rect.left + (rect.width / 2);
-      const centerY = rect.top + (rect.height / 2);
-      const distance = Math.abs(clientX - centerX) + (Math.abs(clientY - centerY) * 0.25);
-      if (distance < bestDistance) {
-        bestDistance = distance;
-        bestSlot = slot;
-      }
-    }
-
-    return bestSlot;
-  }
-
-  function getDropSlotIndexFromPointer(row, clientX, clientY, totalCols) {
-    const slot = getDropSlotFromPointer(row, clientX, clientY);
-    if (!slot) return null;
-    const idx = Number(slot.dataset.dropSlotIndex);
-    return Number.isFinite(idx) ? clampSlotIndex(idx, totalCols) : null;
-  }
-
-  function clampSlotIndex(index, totalCols) {
-    return Math.max(0, Math.min(totalCols - 1, index));
+    return { timeUnit, rangeStart, colIndex };
   }
 
   function daysInMonth(year, monthIndex) {
@@ -3513,3 +2830,17 @@
       .replaceAll("'", "&#039;");
   }
 })();
+  function getEmployeeGroupRank(group) {
+    const normalized = normalizeEmployeeGroup(group);
+    const rank = EMPLOYEE_GROUP_OPTIONS.indexOf(normalized);
+    return rank === -1 ? Number.MAX_SAFE_INTEGER : rank;
+  }
+
+  function sortEmployeesByGroupOrder(employees) {
+    return employees.slice().sort((a, b) => {
+      const groupRankDiff = getEmployeeGroupRank(a?.employee_group || "") - getEmployeeGroupRank(b?.employee_group || "");
+      if (groupRankDiff !== 0) return groupRankDiff;
+      return String(a?.name || "").localeCompare(String(b?.name || ""), "no");
+    });
+  }
+
