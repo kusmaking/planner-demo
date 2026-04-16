@@ -1617,12 +1617,15 @@
   }
 
   function renderLegend() {
-    const categoryHtml = Object.entries(CATEGORY_COLORS).map(([name, classes]) => `
+    const categoryHtml = CATEGORY_OPTIONS.map(name => {
+      const classes = CATEGORY_COLORS[name] || "bg-slate-500 border-slate-600 text-white";
+      return `
       <div class="flex items-center gap-2">
         <span class="inline-block w-4 h-4 rounded ${classes}"></span>
         <span>${escapeHtml(name)}</span>
       </div>
-    `).join("");
+    `;
+    }).join("");
 
     const statusHtml = Object.keys(STATUS_COLORS).map(name => `
       <div class="flex items-center gap-2">
