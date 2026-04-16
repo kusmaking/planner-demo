@@ -46,6 +46,7 @@
     cacheElements();
     ensureAccountPanel();
     ensurePersonalBlockPanel();
+    ensureCalendarContextMenu();
     setupStaticOptions();
     bindEvents();
 
@@ -181,6 +182,53 @@
     els.personalBlockEnd = document.getElementById("personalBlockEnd");
     els.personalBlockNotes = document.getElementById("personalBlockNotes");
     els.personalBlockSaveBtn = document.getElementById("personalBlockSaveBtn");
+  }
+
+
+  function ensureCalendarContextMenu() {
+    if (document.getElementById("calendarContextMenu")) {
+      els.calendarContextMenu = document.getElementById("calendarContextMenu");
+      els.calendarContextMenuTitle = document.getElementById("calendarContextMenuTitle");
+      els.calendarContextType = document.getElementById("calendarContextType");
+      els.calendarContextStart = document.getElementById("calendarContextStart");
+      els.calendarContextEnd = document.getElementById("calendarContextEnd");
+      els.calendarContextNotes = document.getElementById("calendarContextNotes");
+      els.calendarContextSaveBtn = document.getElementById("calendarContextSaveBtn");
+      els.calendarContextCancelBtn = document.getElementById("calendarContextCancelBtn");
+      return;
+    }
+
+    const menu = document.createElement("div");
+    menu.id = "calendarContextMenu";
+    menu.className = "fixed hidden z-[80] w-[340px] rounded-2xl border border-slate-200 bg-white shadow-2xl";
+    menu.innerHTML = `
+      <div class="p-4 border-b border-slate-200">
+        <div id="calendarContextMenuTitle" class="font-semibold text-slate-900">Ny blokk</div>
+        <div class="text-sm text-slate-500 mt-1">Høyreklikk i personalplanen for å legge inn ferie, syk, kurs eller avspasering direkte på valgt ansatt og dato.</div>
+      </div>
+      <div class="p-4 space-y-3">
+        <select id="calendarContextType" class="w-full rounded-2xl border border-slate-300 px-3 py-2"></select>
+        <div class="grid grid-cols-2 gap-3">
+          <input id="calendarContextStart" type="date" class="rounded-2xl border border-slate-300 px-3 py-2" />
+          <input id="calendarContextEnd" type="date" class="rounded-2xl border border-slate-300 px-3 py-2" />
+        </div>
+        <textarea id="calendarContextNotes" class="w-full rounded-2xl border border-slate-300 px-3 py-2" rows="3" placeholder="Notat"></textarea>
+        <div class="flex gap-2">
+          <button id="calendarContextSaveBtn" class="flex-1 rounded-2xl bg-slate-900 text-white px-4 py-2">Lagre</button>
+          <button id="calendarContextCancelBtn" class="rounded-2xl border border-slate-300 bg-white px-4 py-2">Lukk</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(menu);
+
+    els.calendarContextMenu = menu;
+    els.calendarContextMenuTitle = document.getElementById("calendarContextMenuTitle");
+    els.calendarContextType = document.getElementById("calendarContextType");
+    els.calendarContextStart = document.getElementById("calendarContextStart");
+    els.calendarContextEnd = document.getElementById("calendarContextEnd");
+    els.calendarContextNotes = document.getElementById("calendarContextNotes");
+    els.calendarContextSaveBtn = document.getElementById("calendarContextSaveBtn");
+    els.calendarContextCancelBtn = document.getElementById("calendarContextCancelBtn");
   }
 
   function ensureLoginModal() {
@@ -549,6 +597,7 @@
     fillSelect(els.projectStatus, STATUS_OPTIONS, "Planlagt");
     fillSelect(els.editRole, ROLE_OPTIONS, "Supervisor");
     fillSelect(els.personalBlockType, PERSONAL_BLOCK_TYPES);
+    fillSelect(els.calendarContextType, PERSONAL_BLOCK_TYPES);
   }
 
   function bindEvents() {
@@ -621,6 +670,14 @@
     if (els.personalBlockSaveBtn) {
       els.personalBlockSaveBtn.addEventListener("click", createPersonalBlockEntry);
     }
+    if (els.calendarContextSaveBtn) {
+      els.calendarContextSaveBtn.addEventListener("click", saveCalendarContextBlock);
+    }
+    if (els.calendarContextCancelBtn) {
+      els.calendarContextCancelBtn.addEventListener("click", closeCalendarContextMenu);
+    }
+    document.addEventListener("click", handleDocumentClickForCalendarContextMenu);
+    window.addEventListener("scroll", closeCalendarContextMenu, true);
     if (els.resetDemoBtn) {
       els.resetDemoBtn.style.display = "none";
     }
@@ -1090,7 +1147,7 @@
     els.assignEnd.value = project.planned_end_date || "";
     if (els.assignSummary) {
       const required = Math.max(Number(project.headcount_required || 0), 1);
-      els.assignSummary.textContent = `${project.name} • Behov: ${required} person${required > 1 ? "er" : ""}`;
+      els.assignSummary.textContent = `${displayProjectName(project)} • Behov: ${required} person${required > 1 ? "er" : ""}`;
     }
   }
 
@@ -1202,37 +1259,70 @@
     return { ok: true, project };
   }
 
-  function clearPersonalBlockForm() {
-    if (els.personalBlockEmployee) els.personalBlockEmployee.value = "";
-    if (els.personalBlockType) els.personalBlockType.value = PERSONAL_BLOCK_TYPES[0] || "";
-    if (els.personalBlockStart) els.personalBlockStart.value = "";
-    if (els.personalBlockEnd) els.personalBlockEnd.value = "";
-    if (els.personalBlockNotes) els.personalBlockNotes.value = "";
+  function closeCalendarContextMenu() {
+    if (!els.calendarContextMenu) return;
+    els.calendarContextMenu.classList.add("hidden");
+    delete els.calendarContextMenu.dataset.employeeName;
+    delete els.calendarContextMenu.dataset.anchorDate;
+    if (els.calendarContextNotes) els.calendarContextNotes.value = "";
   }
 
-  async function createPersonalBlockEntry() {
-    if (!canEditApp()) return;
+  function handleDocumentClickForCalendarContextMenu(event) {
+    if (!els.calendarContextMenu || els.calendarContextMenu.classList.contains("hidden")) return;
+    if (els.calendarContextMenu.contains(event.target)) return;
+    closeCalendarContextMenu();
+  }
 
-    const employeeName = els.personalBlockEmployee?.value || "";
-    const type = els.personalBlockType?.value || "";
-    const startDate = els.personalBlockStart?.value || "";
-    const endDate = els.personalBlockEnd?.value || "";
-    const notes = els.personalBlockNotes?.value?.trim() || "";
+  function openCalendarContextMenu({ employeeName, anchorDate, clientX, clientY }) {
+    if (!els.calendarContextMenu) return;
+    const title = employeeName && anchorDate
+      ? `${employeeName} • ${formatDate(anchorDate)}`
+      : "Ny blokk";
 
+    els.calendarContextMenu.dataset.employeeName = employeeName || "";
+    els.calendarContextMenu.dataset.anchorDate = anchorDate || "";
+    if (els.calendarContextMenuTitle) els.calendarContextMenuTitle.textContent = title;
+    if (els.calendarContextType) els.calendarContextType.value = PERSONAL_BLOCK_TYPES[0] || "";
+    if (els.calendarContextStart) els.calendarContextStart.value = anchorDate || "";
+    if (els.calendarContextEnd) els.calendarContextEnd.value = anchorDate || "";
+    if (els.calendarContextNotes) els.calendarContextNotes.value = "";
+
+    els.calendarContextMenu.classList.remove("hidden");
+    els.calendarContextMenu.style.left = "0px";
+    els.calendarContextMenu.style.top = "0px";
+
+    const margin = 12;
+    const rect = els.calendarContextMenu.getBoundingClientRect();
+    const maxLeft = Math.max(margin, window.innerWidth - rect.width - margin);
+    const maxTop = Math.max(margin, window.innerHeight - rect.height - margin);
+    const left = Math.min(Math.max(margin, clientX), maxLeft);
+    const top = Math.min(Math.max(margin, clientY), maxTop);
+
+    els.calendarContextMenu.style.left = `${left}px`;
+    els.calendarContextMenu.style.top = `${top}px`;
+  }
+
+  async function savePersonalBlock({
+    employeeName,
+    type,
+    startDate,
+    endDate,
+    notes = ""
+  }) {
     if (!employeeName || !type || !startDate || !endDate) {
       alert("Velg ansatt, type og start/slutt.");
-      return;
+      return false;
     }
 
     if (startDate > endDate) {
       alert("Startdato kan ikke være etter sluttdato.");
-      return;
+      return false;
     }
 
     const ensured = await ensurePersonalProject(type);
     if (!ensured.ok || !ensured.project) {
       renderAll();
-      return;
+      return false;
     }
 
     const entry = {
@@ -1254,12 +1344,76 @@
       state.entries = state.entries.filter(item => item.id !== entry.id);
       rebuildDerivedState();
       renderAll();
-      return;
+      return false;
     }
 
+    void addAudit(`La inn ${type.toLowerCase()} direkte på ${employeeName}`);
+    return true;
+  }
+
+  function clearPersonalBlockForm() {
+    if (els.personalBlockEmployee) els.personalBlockEmployee.value = "";
+    if (els.personalBlockType) els.personalBlockType.value = PERSONAL_BLOCK_TYPES[0] || "";
+    if (els.personalBlockStart) els.personalBlockStart.value = "";
+    if (els.personalBlockEnd) els.personalBlockEnd.value = "";
+    if (els.personalBlockNotes) els.personalBlockNotes.value = "";
+  }
+
+  async function saveCalendarContextBlock(event) {
+    event?.preventDefault?.();
+    const employeeName = els.calendarContextMenu?.dataset.employeeName || "";
+    const type = els.calendarContextType?.value || "";
+    const startDate = els.calendarContextStart?.value || "";
+    const endDate = els.calendarContextEnd?.value || "";
+    const notes = els.calendarContextNotes?.value?.trim() || "";
+
+    const ok = await savePersonalBlock({ employeeName, type, startDate, endDate, notes });
+    if (!ok) return;
+
+    closeCalendarContextMenu();
     clearPersonalBlockForm();
     renderAll();
-    void addAudit(`La inn ${type.toLowerCase()} direkte på ${employeeName}`);
+  }
+
+  async function createPersonalBlockEntry() {
+    if (!canEditApp()) return;
+
+    const employeeName = els.personalBlockEmployee?.value || "";
+    const type = els.personalBlockType?.value || "";
+    const startDate = els.personalBlockStart?.value || "";
+    const endDate = els.personalBlockEnd?.value || "";
+    const notes = els.personalBlockNotes?.value?.trim() || "";
+
+    const ok = await savePersonalBlock({ employeeName, type, startDate, endDate, notes });
+    if (!ok) return;
+
+    clearPersonalBlockForm();
+    closeCalendarContextMenu();
+    renderAll();
+  }
+
+  function bindPersonalCalendarContextMenu() {
+    if (!els.calendarWrap || state.calendarMode !== "personal" || state.viewMode === "År") return;
+
+    els.calendarWrap.querySelectorAll(".drop-row[data-time-unit='day']").forEach(row => {
+      row.addEventListener("contextmenu", event => {
+        if (!canEditApp()) return;
+        if (event.target.closest("[data-entry-id]")) return;
+        event.preventDefault();
+
+        const employeeName = row.dataset.employeeName || "";
+        const dropMeta = getDropMetaFromRow(row, event);
+        if (!employeeName || !dropMeta?.rangeStart || !Number.isFinite(dropMeta.colIndex)) return;
+
+        const anchorDate = toIsoDate(addDays(new Date(dropMeta.rangeStart), dropMeta.colIndex));
+        openCalendarContextMenu({
+          employeeName,
+          anchorDate,
+          clientX: event.clientX,
+          clientY: event.clientY
+        });
+      });
+    });
   }
 
   async function createEntry() {
@@ -1329,8 +1483,8 @@
     clearAssignForm();
     renderAll();
 
-    void addAudit(`La inn ${newEntries.length} tildeling${newEntries.length > 1 ? "er" : ""} på ${project.name}`);
-    newEntries.forEach(entry => void addNotification(entry.employee_name, project.name));
+    void addAudit(`La inn ${newEntries.length} tildeling${newEntries.length > 1 ? "er" : ""} på ${displayProjectName(project)}`);
+    newEntries.forEach(entry => void addNotification(entry.employee_name, displayProjectName(project)));
   }
 
   function openEditModal(entryId) {
@@ -2149,6 +2303,7 @@
     html += `</div></div>`;
     els.calendarWrap.innerHTML = html;
     bindEntryClicks();
+    bindPersonalCalendarContextMenu();
     renderWarnings(uniqueArray(warnings));
   }
 
@@ -2215,8 +2370,8 @@
             draggable="true"
             title="${escapeHtml(`${employee.name} | ${displayProjectName(project)} | ${entry.role} | ${entry.start_date} - ${entry.end_date}`)}"
           >
-            <div class="font-semibold">${escapeHtml(project.name)}</div>
-            <div class="text-[11px] opacity-90">${escapeHtml(formatYearBarLabel(entry.start_date, entry.end_date))}</div>
+            <div class="font-semibold">${escapeHtml(displayProjectName(project))}</div>
+            ${isSystemPersonalProject(project) ? "" : `<div class="text-[11px] opacity-90">${escapeHtml(formatYearBarLabel(entry.start_date, entry.end_date))}</div>`}
           </div>
         `;
       }
@@ -2802,6 +2957,11 @@
     const categoryClasses = CATEGORY_COLORS[project.category] || "bg-slate-500 border-slate-600 text-white";
     const endedClasses = project.status === "Avsluttet" ? " opacity-70 grayscale" : "";
     return `${categoryClasses}${endedClasses}`;
+  }
+
+  function displayProjectName(project) {
+    if (!project) return "";
+    return isSystemPersonalProject(project) ? project.category : project.name;
   }
 
   function debounce(fn, wait = 100) {
