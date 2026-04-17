@@ -25,6 +25,13 @@
     remoteCapabilities: {
       employeeGroupColumn: false
     },
+    sync: {
+      channels: [],
+      pollTimer: null,
+      isRefreshing: false,
+      lastRefreshSource: "",
+      pollIntervalMs: 5000
+    },
     derived: {
       projectById: new Map(),
       entriesByEmployee: new Map(),
@@ -80,6 +87,7 @@
   };
   let saveStatusTimer = null;
   let calendarScrollSyncRaf = null;
+  let remoteRefreshDebounceTimer = null;
 
   document.addEventListener("DOMContentLoaded", init);
   window.addEventListener("resize", debounce(() => renderCalendar(), 120));
@@ -107,6 +115,7 @@
     }
 
     await bootData();
+    startRemoteSync();
     rebuildDerivedState();
     renderAll();
     clearAssignForm();
@@ -465,7 +474,7 @@
     const isSA = isSuperadmin();
 
     if (els.storageBadge) {
-      els.storageBadge.style.display = isSA ? "" : "none";
+      els.storageBadge.style.display = isLoggedIn ? "" : "none";
     }
 
     if (els.saveStatus) {
@@ -810,6 +819,16 @@
         if (e.target === els.loginModal) closeLoginModal();
       });
     }
+
+    document.addEventListener("visibilitychange", () => {
+      if (!document.hidden) {
+        scheduleRemoteRefresh("visibility");
+      }
+    });
+
+    window.addEventListener("focus", () => {
+      scheduleRemoteRefresh("focus");
+    });
   }
 
   function fillSelect(selectEl, values, selected = null, labelKey = null, valueKey = null) {
@@ -828,6 +847,81 @@
       if (selected !== null && option.value === selected) option.selected = true;
       selectEl.appendChild(option);
     });
+  }
+
+  function startRemoteSync() {
+    stopRemoteSync();
+    if (!state.supabaseReady || !supabaseClient) return;
+
+    const tables = [
+      "planner_employees",
+      "planner_projects",
+      "planner_entries",
+      "planner_audit_log",
+      "planner_notification_log"
+    ];
+
+    tables.forEach(table => {
+      const channel = supabaseClient
+        .channel(`planner-sync-${table}`)
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table },
+          () => {
+            scheduleRemoteRefresh(`realtime:${table}`);
+          }
+        )
+        .subscribe();
+
+      state.sync.channels.push(channel);
+    });
+
+    state.sync.pollTimer = window.setInterval(() => {
+      scheduleRemoteRefresh("poll");
+    }, state.sync.pollIntervalMs);
+  }
+
+  function stopRemoteSync() {
+    if (state.sync.pollTimer) {
+      window.clearInterval(state.sync.pollTimer);
+      state.sync.pollTimer = null;
+    }
+
+    if (state.sync.channels.length) {
+      state.sync.channels.forEach(channel => {
+        try {
+          supabaseClient?.removeChannel?.(channel);
+        } catch (_) {}
+      });
+      state.sync.channels = [];
+    }
+  }
+
+  function scheduleRemoteRefresh(source = "manual") {
+    if (!state.supabaseReady || !supabaseClient) return;
+    if (state.storageMode !== "supabase") return;
+    if (state.sync.isRefreshing) return;
+
+    window.clearTimeout(remoteRefreshDebounceTimer);
+    remoteRefreshDebounceTimer = window.setTimeout(() => {
+      void refreshFromRemote(source);
+    }, source.startsWith("realtime:") ? 120 : 250);
+  }
+
+  async function refreshFromRemote(source = "manual") {
+    if (!state.supabaseReady || !supabaseClient) return;
+    if (state.sync.isRefreshing) return;
+
+    state.sync.isRefreshing = true;
+    state.sync.lastRefreshSource = source;
+
+    try {
+      await fetchFromSupabase();
+      rebuildDerivedState();
+      renderAll();
+    } finally {
+      state.sync.isRefreshing = false;
+    }
   }
 
   async function bootData() {
@@ -1078,7 +1172,7 @@
   function updateBadge() {
     if (!els.storageBadge) return;
     if (state.storageMode === "supabase") {
-      els.storageBadge.textContent = "Supabase aktiv";
+      els.storageBadge.textContent = "Supabase synk aktiv";
       els.storageBadge.className = "rounded-xl border border-green-300 bg-green-50 text-green-700 px-3 py-2 text-sm";
     } else {
       els.storageBadge.textContent = "Lokal fallback";
@@ -3530,6 +3624,10 @@
       timeout = setTimeout(() => fn(...args), wait);
     };
   }
+
+  window.addEventListener("beforeunload", () => {
+    stopRemoteSync();
+  });
 
   function uniqueArray(arr) {
     return [...new Set(arr)];
