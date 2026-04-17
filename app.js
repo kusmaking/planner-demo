@@ -25,6 +25,13 @@
     remoteCapabilities: {
       employeeGroupColumn: false
     },
+    sync: {
+      channel: null,
+      pollingTimer: null,
+      pendingRefresh: false,
+      fetchInFlight: false,
+      lastRemoteRefreshAt: 0
+    },
     derived: {
       projectById: new Map(),
       entriesByEmployee: new Map(),
@@ -112,6 +119,7 @@
     clearAssignForm();
     clearPersonalBlockForm();
     applyRoleChrome();
+    startRemoteSync();
   }
 
   function cacheElements() {
@@ -570,6 +578,7 @@
     els.loginModal.classList.remove("flex");
     if (els.loginEmail) els.loginEmail.value = "";
     if (els.loginPassword) els.loginPassword.value = "";
+    flushPendingRemoteRefresh();
   }
 
   async function handleLogin() {
@@ -650,6 +659,109 @@
     }
 
     alert("Reset-link er sendt på e-post.");
+  }
+
+
+  function startRemoteSync() {
+    stopRemoteSync();
+
+    if (!state.supabaseReady || !supabaseClient) return;
+
+    const requestSyncRefresh = debounce(() => {
+      if (canAutoRefreshFromRemote()) {
+        void refreshFromRemote("realtime");
+      } else {
+        state.sync.pendingRefresh = true;
+      }
+    }, 250);
+
+    if (typeof supabaseClient.channel === "function") {
+      const channel = supabaseClient
+        .channel("planner-live-sync-v41")
+        .on("postgres_changes", { event: "*", schema: "public", table: "planner_employees" }, () => requestSyncRefresh())
+        .on("postgres_changes", { event: "*", schema: "public", table: "planner_projects" }, () => requestSyncRefresh())
+        .on("postgres_changes", { event: "*", schema: "public", table: "planner_entries" }, () => requestSyncRefresh())
+        .on("postgres_changes", { event: "*", schema: "public", table: "planner_audit_log" }, () => requestSyncRefresh())
+        .on("postgres_changes", { event: "*", schema: "public", table: "planner_notification_log" }, () => requestSyncRefresh())
+        .subscribe();
+
+      state.sync.channel = channel;
+    }
+
+    state.sync.pollingTimer = window.setInterval(() => {
+      if (!state.supabaseReady) return;
+      if (canAutoRefreshFromRemote()) {
+        void refreshFromRemote("poll");
+      } else {
+        state.sync.pendingRefresh = true;
+      }
+    }, 10000);
+  }
+
+  function stopRemoteSync() {
+    if (state.sync.pollingTimer) {
+      window.clearInterval(state.sync.pollingTimer);
+      state.sync.pollingTimer = null;
+    }
+
+    if (state.sync.channel && typeof supabaseClient?.removeChannel === "function") {
+      supabaseClient.removeChannel(state.sync.channel);
+    }
+    state.sync.channel = null;
+  }
+
+  function hasOpenEditorModal() {
+    const modalElements = [els.editModal, els.projectModal, els.employeeModal, els.loginModal];
+    return modalElements.some(el => el && !el.classList.contains("hidden"));
+  }
+
+  function canAutoRefreshFromRemote() {
+    return !state.dragEntryId && !state.resize.active && !hasOpenEditorModal();
+  }
+
+  async function refreshFromRemote(reason = "sync") {
+    if (!state.supabaseReady || state.sync.fetchInFlight) return;
+    if (reason === "poll" && document.hidden) return;
+
+    state.sync.fetchInFlight = true;
+
+    try {
+      await fetchFromSupabase();
+      rebuildDerivedState();
+      renderAll();
+      state.sync.lastRemoteRefreshAt = Date.now();
+      state.sync.pendingRefresh = false;
+    } finally {
+      state.sync.fetchInFlight = false;
+    }
+  }
+
+  function flushPendingRemoteRefresh() {
+    if (!state.sync.pendingRefresh || !state.supabaseReady) return;
+    if (!canAutoRefreshFromRemote()) return;
+
+    state.sync.pendingRefresh = false;
+    void refreshFromRemote("pending");
+  }
+
+  function handleSyncVisibilityChange() {
+    if (document.hidden || !state.supabaseReady) return;
+
+    if (canAutoRefreshFromRemote()) {
+      void refreshFromRemote("visibility");
+    } else {
+      state.sync.pendingRefresh = true;
+    }
+  }
+
+  function handleWindowFocusRefresh() {
+    if (!state.supabaseReady) return;
+
+    if (canAutoRefreshFromRemote()) {
+      void refreshFromRemote("focus");
+    } else {
+      state.sync.pendingRefresh = true;
+    }
   }
 
   function setupStaticOptions() {
@@ -741,6 +853,9 @@
     window.addEventListener("resize", hideCalendarContextMenu);
     window.addEventListener("mousemove", handleResizePointerMove);
     window.addEventListener("mouseup", handleResizePointerUp);
+    document.addEventListener("visibilitychange", handleSyncVisibilityChange);
+    window.addEventListener("focus", handleWindowFocusRefresh);
+    window.addEventListener("beforeunload", stopRemoteSync);
     if (els.resetDemoBtn) {
       els.resetDemoBtn.style.display = "none";
     }
@@ -1648,6 +1763,7 @@
     state.selectedEntryId = null;
     els.editModal.classList.add("hidden");
     els.editModal.classList.remove("flex");
+    flushPendingRemoteRefresh();
   }
 
   async function saveEditedEntry() {
@@ -1723,6 +1839,7 @@
     state.selectedProjectId = null;
     els.projectModal.classList.add("hidden");
     els.projectModal.classList.remove("flex");
+    flushPendingRemoteRefresh();
   }
 
   async function saveProjectFromModal() {
@@ -1843,6 +1960,7 @@
     state.selectedEmployeeId = null;
     els.employeeModal.classList.add("hidden");
     els.employeeModal.classList.remove("flex");
+    flushPendingRemoteRefresh();
   }
 
   async function saveEmployeeFromModal() {
@@ -3054,6 +3172,8 @@
       }
       void addAudit(`Endret prosjektsluttdato: ${project.name} til ${nextEndDate}`);
     }
+
+    flushPendingRemoteRefresh();
   }
 
   async function moveEntryByDrop(entryId, targetEmployeeName, dropMeta = null) {
