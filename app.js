@@ -12,6 +12,9 @@
     currentRole: "",
     authReady: false,
     employeeFilter: "Alle ansatte",
+    selectedEmployeeGroups: [],
+    groupFilterSearch: "",
+    employeeGroupFilterOpen: false,
     search: "",
     viewMode: "Måned",
     calendarMode: load(STORAGE_KEYS.calendarMode, "personal"),
@@ -85,6 +88,28 @@
     "Engineer": "border-violet-500 bg-violet-50/40 hover:bg-violet-50",
     "3 parts innleie": "border-rose-500 bg-rose-50/40 hover:bg-rose-50"
   };
+  const EMPLOYEE_GROUP_BADGE_STYLES = {
+    "Offshore arbeider": "border-emerald-200 bg-emerald-50 text-emerald-800",
+    "Onshore arbeider": "border-blue-200 bg-blue-50 text-blue-800",
+    "Lager og logistikk": "border-amber-200 bg-amber-50 text-amber-800",
+    "Engineer": "border-violet-200 bg-violet-50 text-violet-800",
+    "3 parts innleie": "border-rose-200 bg-rose-50 text-rose-800"
+  };
+  const EMPLOYEE_GROUP_DOT_STYLES = {
+    "Offshore arbeider": "bg-emerald-500",
+    "Onshore arbeider": "bg-blue-500",
+    "Lager og logistikk": "bg-amber-500",
+    "Engineer": "bg-violet-500",
+    "3 parts innleie": "bg-rose-500"
+  };
+  const EMPLOYEE_GROUP_ORDER = {
+    "Offshore arbeider": 1,
+    "Onshore arbeider": 2,
+    "Lager og logistikk": 3,
+    "Engineer": 4,
+    "3 parts innleie": 5
+  };
+  const EMPLOYEE_GROUP_FILTER_ALL_VALUE = "__all__";
   let saveStatusTimer = null;
   let calendarScrollSyncRaf = null;
 
@@ -93,6 +118,7 @@
 
   async function init() {
     cacheElements();
+    ensureEmployeeGroupFilterControl();
     ensureAccountPanel();
     ensurePersonalBlockPanel();
     ensureCalendarContextMenu();
@@ -142,6 +168,53 @@
     ids.forEach(id => els[id] = document.getElementById(id));
   }
 
+
+
+  function ensureEmployeeGroupFilterControl() {
+    if (!els.employeeFilter) return;
+
+    if (document.getElementById("employeeGroupFilterControl")) {
+      els.groupFilterControl = document.getElementById("employeeGroupFilterControl");
+      els.groupFilterButton = document.getElementById("employeeGroupFilterButton");
+      els.groupFilterLabel = document.getElementById("employeeGroupFilterLabel");
+      els.groupFilterPanel = document.getElementById("employeeGroupFilterPanel");
+      els.groupFilterSearch = document.getElementById("employeeGroupFilterSearch");
+      els.groupFilterOptions = document.getElementById("employeeGroupFilterOptions");
+      els.employeeFilter.classList.add("hidden");
+      renderEmployeeGroupFilterControl();
+      return;
+    }
+
+    const wrapper = document.createElement("div");
+    wrapper.id = "employeeGroupFilterControl";
+    wrapper.className = "relative";
+    wrapper.innerHTML = `
+      <button id="employeeGroupFilterButton" type="button" class="w-[280px] rounded-2xl border border-slate-300 bg-white px-3 py-2 text-left text-sm flex items-center justify-between gap-3">
+        <span id="employeeGroupFilterLabel" class="truncate">Alle ansatte / alle grupper</span>
+        <span class="text-slate-400">▾</span>
+      </button>
+      <div id="employeeGroupFilterPanel" class="hidden absolute left-0 top-full mt-2 z-40 w-[360px] rounded-2xl border border-slate-200 bg-white shadow-xl overflow-hidden">
+        <div class="p-3 border-b border-slate-200">
+          <input id="employeeGroupFilterSearch" type="text" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" placeholder="Søk gruppe" />
+        </div>
+        <div id="employeeGroupFilterOptions" class="max-h-[320px] overflow-auto"></div>
+      </div>
+    `;
+
+    els.employeeFilter.parentNode.insertBefore(wrapper, els.employeeFilter);
+    els.employeeFilter.classList.add("hidden");
+    els.employeeFilter.setAttribute("aria-hidden", "true");
+    els.employeeFilter.tabIndex = -1;
+
+    els.groupFilterControl = wrapper;
+    els.groupFilterButton = document.getElementById("employeeGroupFilterButton");
+    els.groupFilterLabel = document.getElementById("employeeGroupFilterLabel");
+    els.groupFilterPanel = document.getElementById("employeeGroupFilterPanel");
+    els.groupFilterSearch = document.getElementById("employeeGroupFilterSearch");
+    els.groupFilterOptions = document.getElementById("employeeGroupFilterOptions");
+
+    renderEmployeeGroupFilterControl();
+  }
 
   function ensureAccountPanel() {
     if (document.getElementById("accountPanel")) {
@@ -772,12 +845,170 @@
     fillSelect(els.contextMenuType, PERSONAL_BLOCK_TYPES);
   }
 
+
+  function toggleEmployeeGroupFilter(forceOpen = null) {
+    if (!els.groupFilterPanel) return;
+    const nextOpen = typeof forceOpen === "boolean" ? forceOpen : !state.employeeGroupFilterOpen;
+    state.employeeGroupFilterOpen = nextOpen;
+    els.groupFilterPanel.classList.toggle("hidden", !nextOpen);
+
+    if (nextOpen) {
+      requestAnimationFrame(() => {
+        if (els.groupFilterSearch) els.groupFilterSearch.focus();
+      });
+    }
+  }
+
+  function handleEmployeeGroupFilterOutsideClick(event) {
+    if (!state.employeeGroupFilterOpen || !els.groupFilterControl) return;
+    if (els.groupFilterControl.contains(event.target)) return;
+    toggleEmployeeGroupFilter(false);
+  }
+
+  function getEmployeeGroupBadgeClass(group) {
+    return EMPLOYEE_GROUP_BADGE_STYLES[group] || "border-slate-200 bg-slate-100 text-slate-700";
+  }
+
+  function getEmployeeGroupDotClass(group) {
+    return EMPLOYEE_GROUP_DOT_STYLES[group] || "bg-slate-400";
+  }
+
+  function getOrderedEmployeeGroups() {
+    return EMPLOYEE_GROUP_OPTIONS.filter(Boolean);
+  }
+
+  function getEmployeeGroupSortIndex(group) {
+    const normalized = normalizeEmployeeGroup(group || "");
+    return EMPLOYEE_GROUP_ORDER[normalized] || 999;
+  }
+
+  function getEmployeeGroupFilterLabel() {
+    const selectedGroups = state.selectedEmployeeGroups || [];
+    if (!selectedGroups.length) return "Alle ansatte / alle grupper";
+    if (selectedGroups.length <= 2) return selectedGroups.join(", ");
+    return `${selectedGroups.length} grupper valgt`;
+  }
+
+  function renderEmployeeGroupFilterControl() {
+    if (!els.groupFilterControl || !els.groupFilterLabel || !els.groupFilterOptions) return;
+    els.groupFilterLabel.textContent = getEmployeeGroupFilterLabel();
+    renderEmployeeGroupFilterOptions();
+    if (els.groupFilterPanel) {
+      els.groupFilterPanel.classList.toggle("hidden", !state.employeeGroupFilterOpen);
+    }
+  }
+
+  function renderEmployeeGroupFilterOptions() {
+    if (!els.groupFilterOptions) return;
+
+    const searchValue = String(state.groupFilterSearch || "").trim().toLowerCase();
+    const activeEmployees = state.employees.filter(employee => employee.active !== false);
+    const groupCounts = new Map();
+
+    activeEmployees.forEach(employee => {
+      const group = normalizeEmployeeGroup(employee.employee_group || "");
+      if (!group) return;
+      groupCounts.set(group, (groupCounts.get(group) || 0) + 1);
+    });
+
+    const groupOptions = getOrderedEmployeeGroups().filter(group => {
+      if (!searchValue) return true;
+      return group.toLowerCase().includes(searchValue);
+    });
+
+    const allMatchesSearch = !searchValue || "alle ansatte alle grupper".includes(searchValue);
+    const selectedGroups = new Set(state.selectedEmployeeGroups || []);
+
+    const allOptionHtml = allMatchesSearch ? `
+      <label class="flex items-center justify-between gap-3 px-3 py-3 hover:bg-slate-50 border-b border-slate-100">
+        <div>
+          <div class="font-medium text-sm">Alle ansatte</div>
+          <div class="text-xs text-slate-500">Vis alle grupper i kalenderen</div>
+        </div>
+        <input data-group-filter-checkbox type="checkbox" value="${EMPLOYEE_GROUP_FILTER_ALL_VALUE}" ${selectedGroups.size === 0 ? "checked" : ""} />
+      </label>
+    ` : "";
+
+    const groupOptionsHtml = groupOptions.map(group => `
+      <label class="flex items-center justify-between gap-3 px-3 py-3 hover:bg-slate-50 border-b border-slate-100">
+        <div class="flex items-center gap-2 min-w-0">
+          <span class="inline-block h-3 w-3 rounded-full ${getEmployeeGroupDotClass(group)}"></span>
+          <div class="min-w-0">
+            <div class="font-medium text-sm truncate">${escapeHtml(group)}</div>
+            <div class="text-xs text-slate-500">${groupCounts.get(group) || 0} ansatte</div>
+          </div>
+        </div>
+        <input data-group-filter-checkbox type="checkbox" value="${escapeHtml(group)}" ${selectedGroups.has(group) ? "checked" : ""} />
+      </label>
+    `).join("");
+
+    const emptyHtml = (!allOptionHtml && !groupOptionsHtml)
+      ? `<div class="px-3 py-4 text-sm text-slate-500">Fant ingen grupper.</div>`
+      : "";
+
+    els.groupFilterOptions.innerHTML = `${allOptionHtml}${groupOptionsHtml}${emptyHtml}`;
+  }
+
+  function handleEmployeeGroupFilterOptionChange(event) {
+    const checkbox = event.target.closest("[data-group-filter-checkbox]");
+    if (!checkbox) return;
+
+    const value = checkbox.value || "";
+    if (value === EMPLOYEE_GROUP_FILTER_ALL_VALUE) {
+      state.selectedEmployeeGroups = [];
+    } else {
+      const next = new Set(state.selectedEmployeeGroups || []);
+      if (checkbox.checked) {
+        next.add(value);
+      } else {
+        next.delete(value);
+      }
+      state.selectedEmployeeGroups = getOrderedEmployeeGroups().filter(group => next.has(group));
+    }
+
+    renderEmployeeGroupFilterControl();
+    renderCalendar();
+  }
+
+  function getEmployeeNameTabHtml(employee) {
+    const group = normalizeEmployeeGroup(employee?.employee_group || "");
+    const badgeClass = getEmployeeGroupBadgeClass(group);
+    return `<span class="inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold ${badgeClass}">${escapeHtml(employee?.name || "")}</span>`;
+  }
+
   function bindEvents() {
     els.searchInput.addEventListener("input", e => {
       state.search = e.target.value.trim().toLowerCase();
       renderStats();
       renderCalendar();
     });
+
+    if (els.groupFilterButton) {
+      els.groupFilterButton.addEventListener("click", event => {
+        event.preventDefault();
+        event.stopPropagation();
+        toggleEmployeeGroupFilter();
+      });
+    }
+
+    if (els.groupFilterSearch) {
+      els.groupFilterSearch.addEventListener("input", event => {
+        state.groupFilterSearch = event.target.value || "";
+        renderEmployeeGroupFilterOptions();
+      });
+      els.groupFilterSearch.addEventListener("keydown", event => {
+        if (event.key === "Escape") {
+          toggleEmployeeGroupFilter(false);
+        }
+      });
+    }
+
+    if (els.groupFilterOptions) {
+      els.groupFilterOptions.addEventListener("change", handleEmployeeGroupFilterOptionChange);
+      els.groupFilterOptions.addEventListener("click", event => event.stopPropagation());
+    }
+
+    document.addEventListener("click", handleEmployeeGroupFilterOutsideClick);
 
     bindTabEvents();
     if (els.calendarPanelHandleBtn) {
@@ -795,6 +1026,10 @@
 
     els.employeeFilter.addEventListener("change", e => {
       state.employeeFilter = e.target.value;
+      if (state.employeeFilter !== "Alle ansatte") {
+        state.selectedEmployeeGroups = [];
+        renderEmployeeGroupFilterControl();
+      }
       renderStats();
       renderCalendar();
     });
@@ -2161,6 +2396,7 @@
     const visibleProjects = getVisibleProjects();
 
     fillSelect(els.employeeFilter, employeeFilterItems, state.employeeFilter, "name", "id");
+    renderEmployeeGroupFilterControl();
     fillSelect(els.editEmployee, state.employees.filter(e => e.active !== false), null, "name", "name");
     fillSelect(els.assignProject, [{ id: "", name: "Velg prosjekt" }, ...visibleProjects.map(p => ({ id: p.id, name: p.name }))], "", "name", "id");
     fillSelect(els.editProject, state.projects, null, "name", "id");
@@ -2555,8 +2791,8 @@
 
       html += `
         <div class="sticky-col border-r border-b border-slate-200 px-3 py-3">
-          <div class="font-medium">${escapeHtml(employee.name)}</div>
-          <div class="text-xs text-slate-500">${escapeHtml(employee.email || "")}</div>
+          <div>${getEmployeeNameTabHtml(employee)}</div>
+          <div class="text-xs text-slate-500 mt-2">${escapeHtml(employee.email || "")}</div>
           <div class="text-xs text-slate-500">${escapeHtml(employee.title || "")}</div>
         </div>
       `;
@@ -2644,8 +2880,8 @@
 
       html += `
         <div class="sticky-col border-r border-b border-slate-200 px-3 py-3">
-          <div class="font-medium">${escapeHtml(employee.name)}</div>
-          <div class="text-xs text-slate-500">${escapeHtml(employee.email || "")}</div>
+          <div>${getEmployeeNameTabHtml(employee)}</div>
+          <div class="text-xs text-slate-500 mt-2">${escapeHtml(employee.email || "")}</div>
           <div class="text-xs text-slate-500">${escapeHtml(employee.title || "")}</div>
         </div>
       `;
@@ -3263,12 +3499,24 @@
   }
 
   function getFilteredEmployees() {
-    return state.employees.filter(emp => {
-      const isActive = emp.active !== false;
-      const matchesFilter = state.employeeFilter === "Alle ansatte" || emp.name === state.employeeFilter;
-      const matchesSearch = !state.search || emp.name.toLowerCase().includes(state.search);
-      return isActive && matchesFilter && matchesSearch;
-    });
+    const selectedGroups = state.selectedEmployeeGroups || [];
+    const useGroupFilterControl = !!els.groupFilterControl;
+
+    return state.employees
+      .filter(emp => {
+        const isActive = emp.active !== false;
+        const matchesLegacyFilter = state.employeeFilter === "Alle ansatte" || emp.name === state.employeeFilter;
+        const employeeGroup = normalizeEmployeeGroup(emp.employee_group || "");
+        const matchesGroupFilter = !selectedGroups.length || selectedGroups.includes(employeeGroup);
+        const matchesSearch = !state.search || emp.name.toLowerCase().includes(state.search);
+        const matchesFilter = useGroupFilterControl ? matchesGroupFilter : matchesLegacyFilter;
+        return isActive && matchesFilter && matchesSearch;
+      })
+      .sort((a, b) => {
+        const groupDiff = getEmployeeGroupSortIndex(a.employee_group) - getEmployeeGroupSortIndex(b.employee_group);
+        if (groupDiff !== 0) return groupDiff;
+        return a.name.localeCompare(b.name, "no");
+      });
   }
 
   function getCurrentRange() {
