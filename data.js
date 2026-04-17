@@ -1,219 +1,3644 @@
-const SUPABASE_URL = "https://glyftmrkjherfrapbnjx.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdseWZ0bXJramhlcmZyYXBibmp4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYwOTUwMzAsImV4cCI6MjA5MTY3MTAzMH0.6XEGISHw8D_HddO4iglkc9PdNRo-s3y_Ejxy80ALLfE";
+(() => {
+  const supabaseClient = window.supabase?.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-const STORAGE_KEYS = {
-  employees: "planner_employees_v41",
-  projects: "planner_projects_v41",
-  entries: "planner_entries_v41",
-  auditLog: "planner_audit_v41",
-  notificationLog: "planner_notifications_v41",
-  startDate: "planner_start_v41",
-  viewMode: "planner_view_v41",
-  calendarMode: "planner_calendar_mode_v41"
-};
+  const state = {
+    employees: [],
+    projects: [],
+    entries: [],
+    auditLog: [],
+    notificationLog: [],
+    currentUser: "Ikke innlogget",
+    currentUserEmail: "",
+    currentRole: "",
+    authReady: false,
+    employeeFilter: "Alle ansatte",
+    search: "",
+    viewMode: "Måned",
+    calendarMode: load(STORAGE_KEYS.calendarMode, "personal"),
+    startDate: startOfCurrentMonth(),
+    selectedEntryId: null,
+    selectedProjectId: null,
+    selectedEmployeeId: null,
+    storageMode: "local",
+    supabaseReady: false,
+    supabaseError: null,
+    remoteCapabilities: {
+      employeeGroupColumn: false
+    },
+    sync: {
+      channels: [],
+      pollTimer: null,
+      isRefreshing: false,
+      lastRefreshSource: "",
+      pollIntervalMs: 5000
+    },
+    derived: {
+      projectById: new Map(),
+      entriesByEmployee: new Map(),
+      entryCountByProject: new Map()
+    },
+    dragEntryId: null,
+    justDraggedEntryId: null,
+    dragAnchor: {
+      timeUnit: "day",
+      slotOffset: 0
+    },
+    resize: {
+      active: false,
+      type: "",
+      targetId: "",
+      row: null,
+      bar: null,
+      originalEndDate: "",
+      previewEndDate: "",
+      originalValueSnapshot: null
+    },
+    activeTab: "calendar",
+    calendarPanelOpen: false,
+    projectListFilter: "all",
+    contextMenu: {
+      visible: false,
+      employeeName: "",
+      startDate: "",
+      endDate: "",
+      x: 0,
+      y: 0
+    }
+  };
 
-const LEGACY_STORAGE_KEYS = {
-  employees: ["planner_employees_v31"],
-  projects: ["planner_projects_v31"],
-  entries: ["planner_entries_v31"],
-  auditLog: ["planner_audit_v31"],
-  notificationLog: ["planner_notifications_v31"],
-  startDate: ["planner_start_v31"],
-  viewMode: ["planner_view_v31"],
-  calendarMode: ["planner_calendar_mode_v31"]
-};
+  const els = {};
+  const PERSONAL_BLOCK_TYPES = ["Kurs", "Ferie", "Syk", "Avspasering"];
+  const PERSONAL_PROJECT_MARKER = "__personal_block_system_project__";
+  const EMPLOYEE_GROUP_OPTIONS = [
+    "",
+    "Offshore arbeider",
+    "Onshore arbeider",
+    "Lager og logistikk",
+    "Engineer",
+    "3 parts innleie"
+  ];
+  const EMPLOYEE_GROUP_STORAGE_KEY = "planner_employee_groups_v41";
+  const EMPLOYEE_GROUP_CARD_STYLES = {
+    "Offshore arbeider": "border-emerald-500 bg-emerald-50/40 hover:bg-emerald-50",
+    "Onshore arbeider": "border-blue-500 bg-blue-50/40 hover:bg-blue-50",
+    "Lager og logistikk": "border-amber-500 bg-amber-50/40 hover:bg-amber-50",
+    "Engineer": "border-violet-500 bg-violet-50/40 hover:bg-violet-50",
+    "3 parts innleie": "border-rose-500 bg-rose-50/40 hover:bg-rose-50"
+  };
+  let saveStatusTimer = null;
+  let calendarScrollSyncRaf = null;
+  let remoteRefreshDebounceTimer = null;
 
-const CATEGORY_COLORS = {
-  Offshore: "bg-green-500 border-green-600 text-white",
-  Travel: "bg-cyan-500 border-cyan-600 text-white",
-  Onshore: "bg-indigo-500 border-indigo-600 text-white",
-  Kurs: "bg-violet-500 border-violet-600 text-white",
-  Ferie: "bg-orange-400 border-orange-500 text-slate-900",
-  Syk: "bg-red-600 border-red-700 text-white",
-  Avspasering: "bg-amber-700 border-amber-800 text-white"
-};
+  document.addEventListener("DOMContentLoaded", init);
+  window.addEventListener("resize", debounce(() => renderCalendar(), 120));
 
-const STATUS_COLORS = {
-  Planlagt: "bg-blue-100 text-blue-800 border-blue-200",
-  "Pågår": "bg-green-100 text-green-800 border-green-200",
-  Avventer: "bg-yellow-100 text-yellow-800 border-yellow-200",
-  Avsluttet: "bg-slate-200 text-slate-700 border-slate-300",
-  "Fullført": "bg-slate-200 text-slate-700 border-slate-300"
-};
+  async function init() {
+    cacheElements();
+    ensureAccountPanel();
+    ensurePersonalBlockPanel();
+    ensureCalendarContextMenu();
+    setupStaticOptions();
+    bindEvents();
 
-const ROLE_CLASSES = {
-  "Supervisor": "ring-2 ring-yellow-400",
-  "Mekaniker 1": "ring-2 ring-blue-400",
-  "Mekaniker 2": "ring-2 ring-green-400",
-  "Mekaniker 3": "ring-2 ring-purple-400"
-};
+    state.viewMode = "Måned";
+    state.startDate = startOfCurrentMonth();
+    persistUiState();
 
-const ROLE_OPTIONS = ["Supervisor", "Mekaniker 1", "Mekaniker 2", "Mekaniker 3"];
-const CATEGORY_OPTIONS = ["Offshore", "Travel", "Onshore"];
-const STATUS_OPTIONS = ["Planlagt", "Pågår", "Avventer", "Avsluttet"];
+    await loadAuthUser();
 
-const DEFAULT_EMPLOYEES = [
-  { id: crypto.randomUUID(), name: "Olis Hansen", email: "olis@firma.no", phone: "+47 90000001", title: "", active: true },
-  { id: crypto.randomUUID(), name: "Kenneth Vallestad", email: "kenneth@firma.no", phone: "+47 90000002", title: "", active: true },
-  { id: crypto.randomUUID(), name: "Paul Chilver", email: "paul@firma.no", phone: "+47 90000003", title: "", active: true },
-  { id: crypto.randomUUID(), name: "Aliaksandr Skliarenka", email: "aliaksandr@firma.no", phone: "+47 90000004", title: "", active: true },
-  { id: crypto.randomUUID(), name: "Stian Egelandsdal", email: "stian@firma.no", phone: "+47 90000005", title: "", active: true },
-  { id: crypto.randomUUID(), name: "Sean Sarkic", email: "sean@firma.no", phone: "+47 90000006", title: "", active: true },
-  { id: crypto.randomUUID(), name: "Henrik Ueland", email: "henrik@firma.no", phone: "+47 90000007", title: "", active: true },
-  { id: crypto.randomUUID(), name: "Erlend Skryten Johnsen", email: "erlend@firma.no", phone: "+47 90000008", title: "", active: true },
-  { id: crypto.randomUUID(), name: "Fredrik Johansen", email: "fredrik@firma.no", phone: "+47 90000009", title: "", active: true },
-  { id: crypto.randomUUID(), name: "Tor-Marius Sande", email: "tormarius@firma.no", phone: "+47 90000010", title: "", active: true },
-  { id: crypto.randomUUID(), name: "Bjørn Heidar Asmundsson", email: "bjorn.heidar@firma.no", phone: "+47 90000011", title: "", active: true },
-  { id: crypto.randomUUID(), name: "Erling Sekse Bilstad", email: "erling@firma.no", phone: "+47 90000012", title: "", active: true },
-  { id: crypto.randomUUID(), name: "Bjørn Erik Hansen", email: "bjorn.erik@firma.no", phone: "+47 90000013", title: "", active: true },
-  { id: crypto.randomUUID(), name: "Suzanne Sola Hestvik", email: "suzanne@firma.no", phone: "+47 90000014", title: "", active: true },
-  { id: crypto.randomUUID(), name: "Steinar Engtrø", email: "steinar@firma.no", phone: "+47 90000015", title: "", active: true },
-  { id: crypto.randomUUID(), name: "Joar Bergsholm", email: "joar@firma.no", phone: "+47 90000016", title: "", active: true },
-  { id: crypto.randomUUID(), name: "Joachim Fosse", email: "joachim@firma.no", phone: "+47 90000017", title: "", active: true },
-  { id: crypto.randomUUID(), name: "Karl Fredrik Tofte", email: "karl@firma.no", phone: "+47 90000018", title: "", active: true },
-  { id: crypto.randomUUID(), name: "Emil Skaue Nielse", email: "emil@firma.no", phone: "+47 90000019", title: "", active: true },
-  { id: crypto.randomUUID(), name: "Håkon Lea", email: "haakon@firma.no", phone: "+47 90000020", title: "", active: true },
-  { id: crypto.randomUUID(), name: "Bjørnar Rugland - verksted", email: "bjornar.rugland@firma.no", phone: "+47 90000021", title: "", active: true },
-  { id: crypto.randomUUID(), name: "Ihor Kaluhin - verksted", email: "ihor@firma.no", phone: "+47 90000022", title: "", active: true },
-  { id: crypto.randomUUID(), name: "Ivan Vrcic - Lager", email: "ivan@firma.no", phone: "+47 90000023", title: "", active: true },
-  { id: crypto.randomUUID(), name: "Andreas Lende", email: "andreas.lende@firma.no", phone: "+47 90000024", title: "", active: true },
-  { id: crypto.randomUUID(), name: "Aironas Larsen", email: "aironas@firma.no", phone: "+47 90000025", title: "", active: true }
-];
+    if (supabaseClient?.auth) {
+      supabaseClient.auth.onAuthStateChange((event) => {
+        if (event === "SIGNED_OUT") {
+          window.location.replace(window.location.origin + window.location.pathname);
+        }
+      });
+    }
 
-const DEFAULT_PROJECTS = [
-  {
-    id: crypto.randomUUID(),
-    name: "PBF California",
-    category: "Offshore",
-    status: "Pågår",
-    planned_start_date: "2026-01-10",
-    planned_end_date: "2026-01-25",
-    location: "Offshore",
-    headcount_required: 2,
-    notes: "Fra eksisterende plan"
-  },
-  {
-    id: crypto.randomUUID(),
-    name: "IZO-30220 Tyrkia",
-    category: "Offshore",
-    status: "Pågår",
-    planned_start_date: "2026-01-12",
-    planned_end_date: "2026-01-26",
-    location: "Offshore",
-    headcount_required: 2,
-    notes: "Fra eksisterende plan"
-  },
-  {
-    id: crypto.randomUUID(),
-    name: "Shell Bukom",
-    category: "Offshore",
-    status: "Pågår",
-    planned_start_date: "2026-01-12",
-    planned_end_date: "2026-01-23",
-    location: "Offshore",
-    headcount_required: 1,
-    notes: "Fra eksisterende plan"
-  },
-  {
-    id: crypto.randomUUID(),
-    name: "Kurs Kårstø",
-    category: "Kurs",
-    status: "Planlagt",
-    planned_start_date: "2026-01-12",
-    planned_end_date: "2026-01-16",
-    location: "Onshore",
-    headcount_required: 1,
-    notes: "Kurs"
-  },
-  {
-    id: crypto.randomUUID(),
-    name: "Ferie",
-    category: "Ferie",
-    status: "Planlagt",
-    planned_start_date: "2026-01-06",
-    planned_end_date: "2026-01-09",
-    location: "",
-    headcount_required: 0,
-    notes: "Fravær"
-  },
-  {
-    id: crypto.randomUUID(),
-    name: "Training",
-    category: "Kurs",
-    status: "Planlagt",
-    planned_start_date: "2026-01-06",
-    planned_end_date: "2026-01-07",
-    location: "Onshore",
-    headcount_required: 1,
-    notes: "Opplæring"
-  },
-  {
-    id: crypto.randomUUID(),
-    name: "Onshore",
-    category: "Onshore",
-    status: "Planlagt",
-    planned_start_date: "2026-01-01",
-    planned_end_date: "2026-03-31",
-    location: "Onshore",
-    headcount_required: 2,
-    notes: "Fast kapasitet"
-  },
-  {
-    id: crypto.randomUUID(),
-    name: "Travel",
-    category: "Travel",
-    status: "Planlagt",
-    planned_start_date: "2026-01-01",
-    planned_end_date: "2026-01-07",
-    location: "",
-    headcount_required: 2,
-    notes: "Reiseblokk"
-  },
-  {
-    id: crypto.randomUUID(),
-    name: "Åsgard A 18CL900",
-    category: "Offshore",
-    status: "Planlagt",
-    planned_start_date: "2026-03-02",
-    planned_end_date: "2026-03-13",
-    location: "Offshore",
-    headcount_required: 2,
-    notes: "Planlagt oppdrag"
-  },
-  {
-    id: crypto.randomUUID(),
-    name: "New Platform Upgrade",
-    category: "Offshore",
-    status: "Planlagt",
-    planned_start_date: "2026-04-06",
-    planned_end_date: "2026-04-22",
-    location: "Offshore",
-    headcount_required: 3,
-    notes: "Ikke bemannet ennå"
+    await bootData();
+    startRemoteSync();
+    rebuildDerivedState();
+    renderAll();
+    clearAssignForm();
+    clearPersonalBlockForm();
+    applyRoleChrome();
   }
-];
 
-function projectIdByName(name) {
-  return DEFAULT_PROJECTS.find(p => p.name === name)?.id || DEFAULT_PROJECTS[0].id;
-}
+  function cacheElements() {
+    const ids = [
+      "statsRow", "searchInput", "employeeFilter", "viewMode", "calendarMode", "prevBtn", "nextBtn", "todayBtn",
+      "calendarWrap", "warningBox", "legendList", "projectList", "assignProject", "assignEmployeesWrap", "assignSummary", "assignRole",
+      "assignStart", "assignEnd", "assignNotes", "assignBtn", "bulkEmployees", "bulkAddBtn",
+      "employeeList", "kanbanBoard", "notificationList", "auditList", "editModal", "closeModalBtn",
+      "editProject", "editEmployee", "editRole", "editStart", "editEnd", "editNotes",
+      "saveEditBtn", "deleteEditBtn", "storageBadge", "resetDemoBtn", "systemStatus", "rangeTitle",
+      "saveStatus", "plannerTabs", "tabCalendarBtn", "tabProjectsBtn", "tabEmployeesBtn", "tabAdminBtn", "tabCalendarSection", "tabProjectsSection", "tabEmployeesSection", "tabAdminSection", "calendarMainCol", "calendarPanelCol", "calendarPanelHandleBtn", "calendarPanelCloseBtn", "calendarPanelContent", "newProjectBtn", "projectModal", "projectModalTitle", "closeProjectModalBtn",
+      "projectName", "projectCategory", "projectStatus", "projectPlannedStart", "projectPlannedEnd",
+      "projectLocation", "projectHeadcount", "projectNotes", "saveProjectBtn", "deleteProjectBtn",
+      "newEmployeeBtn", "employeeModal", "employeeModalTitle", "closeEmployeeModalBtn",
+      "employeeName", "employeeEmail", "employeePhone", "employeeTitle", "employeeGroup", "employeeActive", "saveEmployeeBtn", "deleteEmployeeBtn",
+      "calendarContextMenu", "contextMenuEmployee", "contextMenuStart", "contextMenuEnd", "contextMenuType", "contextMenuNotes", "contextMenuAddBtn", "contextMenuCloseBtn",
+      "accountPanel", "accountUserInfo", "changePasswordBtn", "resetPasswordBtn", "logoutBtn", "loginBtn", "loginModal", "closeLoginModalBtn", "loginEmail", "loginPassword", "loginSubmitBtn", "forgotPasswordBtn"
+    ];
 
-const DEFAULT_ENTRIES = [
-  { id: crypto.randomUUID(), project_id: projectIdByName("Travel"), employee_name: "Paul Chilver", role: "Supervisor", start_date: "2026-01-01", end_date: "2026-01-07", notes: "Travel" },
-  { id: crypto.randomUUID(), project_id: projectIdByName("Training"), employee_name: "Aliaksandr Skliarenka", role: "Mekaniker 1", start_date: "2026-01-06", end_date: "2026-01-07", notes: "Training" },
-  { id: crypto.randomUUID(), project_id: projectIdByName("PBF California"), employee_name: "Aliaksandr Skliarenka", role: "Mekaniker 1", start_date: "2026-01-12", end_date: "2026-01-23", notes: "PBF California" },
-  { id: crypto.randomUUID(), project_id: projectIdByName("Travel"), employee_name: "Sean Sarkic", role: "Supervisor", start_date: "2026-01-01", end_date: "2026-01-07", notes: "Travel" },
-  { id: crypto.randomUUID(), project_id: projectIdByName("IZO-30220 Tyrkia"), employee_name: "Sean Sarkic", role: "Supervisor", start_date: "2026-01-13", end_date: "2026-01-24", notes: "IZO-30220 Tyrkia" },
-  { id: crypto.randomUUID(), project_id: projectIdByName("Shell Bukom"), employee_name: "Henrik Ueland", role: "Mekaniker 2", start_date: "2026-01-12", end_date: "2026-01-23", notes: "Shell Bukom" },
-  { id: crypto.randomUUID(), project_id: projectIdByName("Onshore"), employee_name: "Olis Hansen", role: "Supervisor", start_date: "2026-01-01", end_date: "2026-03-31", notes: "Admin / planlegging" },
-  { id: crypto.randomUUID(), project_id: projectIdByName("Onshore"), employee_name: "Kenneth Vallestad", role: "Supervisor", start_date: "2026-01-01", end_date: "2026-03-31", notes: "Koordinering" },
-  { id: crypto.randomUUID(), project_id: projectIdByName("Kurs Kårstø"), employee_name: "Bjørn Heidar Asmundsson", role: "Supervisor", start_date: "2026-01-12", end_date: "2026-01-16", notes: "Kurs Kårstø" },
-  { id: crypto.randomUUID(), project_id: projectIdByName("Ferie"), employee_name: "Erling Sekse Bilstad", role: "Supervisor", start_date: "2026-01-06", end_date: "2026-01-09", notes: "Ferie" },
-  { id: crypto.randomUUID(), project_id: projectIdByName("Åsgard A 18CL900"), employee_name: "Steinar Engtrø", role: "Supervisor", start_date: "2026-03-02", end_date: "2026-03-13", notes: "Åsgard A" },
-  { id: crypto.randomUUID(), project_id: projectIdByName("Åsgard A 18CL900"), employee_name: "Joar Bergsholm", role: "Mekaniker 1", start_date: "2026-03-02", end_date: "2026-03-13", notes: "Åsgard A" }
-];
+    ids.forEach(id => els[id] = document.getElementById(id));
+  }
 
-const DEFAULT_AUDIT_LOG = [
-  { id: crypto.randomUUID(), user_name: "Olis Hansen", action_text: "Initialiserte planleggingsverktøy versjon 4.1", created_at: new Date().toISOString() }
-];
 
-const DEFAULT_NOTIFICATION_LOG = [];
+  function ensureAccountPanel() {
+    if (document.getElementById("accountPanel")) {
+      els.accountPanel = document.getElementById("accountPanel");
+      els.accountUserInfo = document.getElementById("accountUserInfo");
+      els.changePasswordBtn = document.getElementById("changePasswordBtn");
+      els.resetPasswordBtn = document.getElementById("resetPasswordBtn");
+      els.logoutBtn = document.getElementById("logoutBtn");
+      els.loginBtn = document.getElementById("loginBtn");
+      ensureLoginModal();
+      return;
+    }
+
+    const panel = document.createElement("div");
+    panel.id = "accountPanel";
+    panel.className = "flex flex-wrap items-center justify-end gap-2";
+    panel.innerHTML = `
+      <div id="accountUserInfo" class="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700">Ikke innlogget</div>
+      <button id="loginBtn" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm hover:bg-slate-50">Logg inn</button>
+      <button id="changePasswordBtn" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm hover:bg-slate-50">Endre passord</button>
+      <button id="resetPasswordBtn" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm hover:bg-slate-50">Send reset-link</button>
+      <button id="logoutBtn" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm hover:bg-slate-50">Logg ut</button>
+    `;
+
+    const anchor = els.storageBadge?.parentElement || document.body.firstElementChild || document.body;
+    anchor.appendChild(panel);
+
+    els.accountPanel = panel;
+    els.accountUserInfo = document.getElementById("accountUserInfo");
+    els.changePasswordBtn = document.getElementById("changePasswordBtn");
+    els.resetPasswordBtn = document.getElementById("resetPasswordBtn");
+    els.logoutBtn = document.getElementById("logoutBtn");
+    els.loginBtn = document.getElementById("loginBtn");
+
+    ensureLoginModal();
+  }
+
+
+  function ensurePersonalBlockPanel() {
+    const employeeSection = els.tabEmployeesSection;
+    if (!employeeSection) return;
+
+    const existingEmployeeCol = employeeSection.firstElementChild;
+    if (existingEmployeeCol) {
+      existingEmployeeCol.className = "xl:col-span-1";
+      const employeeList = existingEmployeeCol.querySelector("#employeeList");
+      if (employeeList) {
+        employeeList.className = "space-y-2 max-h-[760px] overflow-auto scrollbar-thin";
+      }
+    }
+
+    if (document.getElementById("personalBlockCard")) {
+      els.personalBlockEmployee = document.getElementById("personalBlockEmployee");
+      els.personalBlockType = document.getElementById("personalBlockType");
+      els.personalBlockStart = document.getElementById("personalBlockStart");
+      els.personalBlockEnd = document.getElementById("personalBlockEnd");
+      els.personalBlockNotes = document.getElementById("personalBlockNotes");
+      els.personalBlockSaveBtn = document.getElementById("personalBlockSaveBtn");
+      return;
+    }
+
+    const wrapper = document.createElement("div");
+    wrapper.className = "xl:col-span-3";
+    wrapper.innerHTML = `
+      <div id="personalBlockCard" class="rounded-2xl bg-white border border-slate-200 shadow-sm h-full">
+        <div class="p-4 border-b border-slate-200">
+          <h2 class="font-semibold">Direkte blokk på ansatt</h2>
+          <p class="text-sm text-slate-500 mt-1">Brukes for kurs, ferie, syk og avspasering direkte på personen, uten å gå via prosjektmodulen.</p>
+        </div>
+        <div class="p-4 space-y-4">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <select id="personalBlockEmployee" class="w-full rounded-2xl border border-slate-300 px-3 py-2"></select>
+            <select id="personalBlockType" class="w-full rounded-2xl border border-slate-300 px-3 py-2"></select>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <input id="personalBlockStart" type="date" class="rounded-2xl border border-slate-300 px-3 py-2" />
+            <input id="personalBlockEnd" type="date" class="rounded-2xl border border-slate-300 px-3 py-2" />
+          </div>
+          <textarea id="personalBlockNotes" class="w-full rounded-2xl border border-slate-300 px-3 py-2" rows="4" placeholder="Notat"></textarea>
+          <button id="personalBlockSaveBtn" class="w-full rounded-2xl bg-slate-900 text-white px-4 py-2">Lagre blokk i kalender</button>
+        </div>
+      </div>
+    `;
+    employeeSection.appendChild(wrapper);
+
+    els.personalBlockEmployee = document.getElementById("personalBlockEmployee");
+    els.personalBlockType = document.getElementById("personalBlockType");
+    els.personalBlockStart = document.getElementById("personalBlockStart");
+    els.personalBlockEnd = document.getElementById("personalBlockEnd");
+    els.personalBlockNotes = document.getElementById("personalBlockNotes");
+    els.personalBlockSaveBtn = document.getElementById("personalBlockSaveBtn");
+  }
+
+
+
+  function ensureCalendarContextMenu() {
+    if (document.getElementById("calendarContextMenu")) {
+      els.calendarContextMenu = document.getElementById("calendarContextMenu");
+      els.contextMenuEmployee = document.getElementById("contextMenuEmployee");
+      els.contextMenuStart = document.getElementById("contextMenuStart");
+      els.contextMenuEnd = document.getElementById("contextMenuEnd");
+      els.contextMenuType = document.getElementById("contextMenuType");
+      els.contextMenuNotes = document.getElementById("contextMenuNotes");
+      els.contextMenuAddBtn = document.getElementById("contextMenuAddBtn");
+      els.contextMenuCloseBtn = document.getElementById("contextMenuCloseBtn");
+      return;
+    }
+
+    const menu = document.createElement("div");
+    menu.id = "calendarContextMenu";
+    menu.className = "fixed z-[120] hidden w-80 rounded-2xl border border-slate-200 bg-white shadow-2xl";
+    menu.innerHTML = `
+      <div class="p-4 border-b border-slate-200 flex items-center justify-between gap-3">
+        <div>
+          <div class="font-semibold">Legg til direkte blokk</div>
+          <div class="text-xs text-slate-500 mt-1">Fra høyreklikk i kalender</div>
+        </div>
+        <button id="contextMenuCloseBtn" class="rounded-lg border border-slate-300 px-3 py-1 text-sm">Lukk</button>
+      </div>
+      <div class="p-4 space-y-3">
+        <div>
+          <div class="text-xs text-slate-500">Ansatt</div>
+          <div id="contextMenuEmployee" class="font-medium text-slate-800"></div>
+        </div>
+        <div>
+          <div class="text-xs text-slate-500">Kategori</div>
+          <select id="contextMenuType" class="mt-1 w-full rounded-2xl border border-slate-300 px-3 py-2"></select>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div>
+            <div class="text-xs text-slate-500">Fra</div>
+            <input id="contextMenuStart" type="date" class="mt-1 w-full rounded-2xl border border-slate-300 px-3 py-2" />
+          </div>
+          <div>
+            <div class="text-xs text-slate-500">Til</div>
+            <input id="contextMenuEnd" type="date" class="mt-1 w-full rounded-2xl border border-slate-300 px-3 py-2" />
+          </div>
+        </div>
+        <div>
+          <div class="text-xs text-slate-500">Notat / beskrivelse</div>
+          <textarea id="contextMenuNotes" class="mt-1 w-full rounded-2xl border border-slate-300 px-3 py-2" rows="4" placeholder="For eksempel kursnavn eller kommentar"></textarea>
+        </div>
+        <button id="contextMenuAddBtn" class="w-full rounded-2xl bg-slate-900 text-white px-4 py-2">Legg i kalender</button>
+      </div>
+    `;
+    document.body.appendChild(menu);
+
+    els.calendarContextMenu = menu;
+    els.contextMenuEmployee = document.getElementById("contextMenuEmployee");
+    els.contextMenuStart = document.getElementById("contextMenuStart");
+    els.contextMenuEnd = document.getElementById("contextMenuEnd");
+    els.contextMenuType = document.getElementById("contextMenuType");
+    els.contextMenuNotes = document.getElementById("contextMenuNotes");
+    els.contextMenuAddBtn = document.getElementById("contextMenuAddBtn");
+    els.contextMenuCloseBtn = document.getElementById("contextMenuCloseBtn");
+  }
+
+  function ensureLoginModal() {
+    if (document.getElementById("loginModal")) {
+      els.loginModal = document.getElementById("loginModal");
+      els.closeLoginModalBtn = document.getElementById("closeLoginModalBtn");
+      els.loginEmail = document.getElementById("loginEmail");
+      els.loginPassword = document.getElementById("loginPassword");
+      els.loginSubmitBtn = document.getElementById("loginSubmitBtn");
+      els.forgotPasswordBtn = document.getElementById("forgotPasswordBtn");
+      return;
+    }
+
+    const modal = document.createElement("div");
+    modal.id = "loginModal";
+    modal.className = "fixed inset-0 bg-black/40 hidden items-center justify-center p-4";
+    modal.innerHTML = `
+      <div class="w-full max-w-md rounded-2xl bg-white shadow-xl">
+        <div class="p-4 border-b border-slate-200 flex items-center justify-between">
+          <h2 class="font-semibold">Logg inn</h2>
+          <button id="closeLoginModalBtn" class="rounded-lg border border-slate-300 px-3 py-1 text-sm">Lukk</button>
+        </div>
+        <div class="p-4 space-y-4">
+          <input id="loginEmail" type="email" class="w-full rounded-2xl border border-slate-300 px-3 py-2" placeholder="E-post" />
+          <input id="loginPassword" type="password" class="w-full rounded-2xl border border-slate-300 px-3 py-2" placeholder="Passord" />
+          <button id="loginSubmitBtn" class="w-full rounded-2xl bg-slate-900 text-white px-4 py-2">Logg inn</button>
+          <button id="forgotPasswordBtn" class="w-full rounded-2xl border border-slate-300 bg-white px-4 py-2">Glemt passord?</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+
+    els.loginModal = modal;
+    els.closeLoginModalBtn = document.getElementById("closeLoginModalBtn");
+    els.loginEmail = document.getElementById("loginEmail");
+    els.loginPassword = document.getElementById("loginPassword");
+    els.loginSubmitBtn = document.getElementById("loginSubmitBtn");
+    els.forgotPasswordBtn = document.getElementById("forgotPasswordBtn");
+  }
+
+  async function loadAuthUser() {
+    if (!supabaseClient?.auth) {
+      state.authReady = true;
+      return;
+    }
+
+    try {
+      const { data: userData, error: userError } = await supabaseClient.auth.getUser();
+      if (userError) throw userError;
+
+      const user = userData?.user || null;
+      state.currentUserEmail = user?.email || "";
+      state.currentUser = user?.user_metadata?.full_name || user?.email || "Ikke innlogget";
+      state.currentRole = "";
+
+      try {
+        const { data, error } = await supabaseClient.rpc("get_my_profile");
+        if (!error && Array.isArray(data) && data[0]) {
+          state.currentRole = data[0].role || "";
+          if (data[0].full_name) state.currentUser = data[0].full_name;
+          if (data[0].email) state.currentUserEmail = data[0].email;
+        }
+      } catch (_) {}
+
+      state.authReady = true;
+      updateAccountPanel();
+    } catch (err) {
+      state.authReady = true;
+      state.supabaseError = err?.message || state.supabaseError;
+      updateAccountPanel();
+    }
+  }
+
+  function isSuperadmin() {
+    return state.currentRole === "superadmin";
+  }
+
+  function isPlanner() {
+    return state.currentRole === "planner";
+  }
+
+  function isLoggedInUser() {
+    return !!state.currentUserEmail;
+  }
+
+  function canPlanApp() {
+    return isSuperadmin() || isPlanner();
+  }
+
+  function canEditApp() {
+    return canPlanApp();
+  }
+
+  function getCardByElement(el) {
+    return el?.closest(".rounded-2xl.bg-white.border.border-slate-200.shadow-sm") || null;
+  }
+
+  function setCardDisplayByElement(el, visible) {
+    const card = getCardByElement(el);
+    if (card) card.style.display = visible ? "" : "none";
+  }
+
+  function setCardDisplayById(id, visible) {
+    const el = document.getElementById(id);
+    const card = getCardByElement(el);
+    if (card) card.style.display = visible ? "" : "none";
+  }
+
+  function updateAccountPanel() {
+    if (!els.accountUserInfo) return;
+    const roleText = state.currentRole ? ` • ${state.currentRole}` : "";
+    const nameText = state.currentUser || state.currentUserEmail || "Ikke innlogget";
+    els.accountUserInfo.textContent = `${nameText}${roleText}`;
+  }
+
+  function bindTabEvents() {
+    if (els.tabCalendarBtn) els.tabCalendarBtn.addEventListener("click", () => setActiveTab("calendar"));
+    if (els.tabProjectsBtn) els.tabProjectsBtn.addEventListener("click", () => setActiveTab("projects"));
+    if (els.tabEmployeesBtn) els.tabEmployeesBtn.addEventListener("click", () => setActiveTab("employees"));
+    if (els.tabAdminBtn) els.tabAdminBtn.addEventListener("click", () => setActiveTab("admin"));
+  }
+
+  function setActiveTab(tabName) {
+    state.activeTab = tabName;
+    renderLayoutTabs();
+  }
+
+  function renderLayoutTabs() {
+    const canPlan = canPlanApp();
+    const allowedTabs = canPlan ? ["calendar", "projects", "employees", "admin"] : ["calendar"];
+
+    if (!allowedTabs.includes(state.activeTab)) {
+      state.activeTab = "calendar";
+    }
+
+    const buttons = {
+      calendar: els.tabCalendarBtn,
+      projects: els.tabProjectsBtn,
+      employees: els.tabEmployeesBtn,
+      admin: els.tabAdminBtn
+    };
+
+    const sections = {
+      calendar: els.tabCalendarSection,
+      projects: els.tabProjectsSection,
+      employees: els.tabEmployeesSection,
+      admin: els.tabAdminSection
+    };
+
+    Object.entries(buttons).forEach(([name, btn]) => {
+      if (!btn) return;
+      const visible = allowedTabs.includes(name);
+      btn.style.display = visible ? "" : "none";
+      btn.className = [
+        "rounded-2xl px-4 py-2 text-sm border transition",
+        state.activeTab === name
+          ? "border-slate-900 bg-slate-900 text-white"
+          : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+      ].join(" ");
+    });
+
+    Object.entries(sections).forEach(([name, section]) => {
+      if (!section) return;
+      section.style.display = state.activeTab === name ? "" : "none";
+    });
+  }
+
+
+  function applyRoleChrome() {
+    updateAccountPanel();
+
+    const canPlan = canPlanApp();
+    const isLoggedIn = isLoggedInUser();
+    const isSA = isSuperadmin();
+
+    if (els.storageBadge) {
+      els.storageBadge.style.display = isLoggedIn ? "" : "none";
+    }
+
+    if (els.saveStatus) {
+      els.saveStatus.style.display = canPlan ? "" : "none";
+    }
+
+    if (els.resetDemoBtn) {
+      els.resetDemoBtn.style.display = isSA ? "" : "none";
+    }
+
+    if (els.loginBtn) {
+      els.loginBtn.style.display = isLoggedIn ? "none" : "";
+    }
+
+    if (els.changePasswordBtn) {
+      els.changePasswordBtn.style.display = isLoggedIn ? "" : "none";
+    }
+
+    if (els.resetPasswordBtn) {
+      els.resetPasswordBtn.style.display = isLoggedIn ? "" : "none";
+    }
+
+    if (els.logoutBtn) {
+      els.logoutBtn.style.display = isLoggedIn ? "" : "none";
+    }
+
+    if (els.newProjectBtn) {
+      els.newProjectBtn.style.display = canPlan ? "" : "none";
+    }
+
+    if (els.newEmployeeBtn) {
+      els.newEmployeeBtn.style.display = canPlan ? "" : "none";
+    }
+
+    if (els.bulkAddBtn) {
+      els.bulkAddBtn.style.display = canPlan ? "" : "none";
+    }
+
+    if (els.bulkEmployees) {
+      els.bulkEmployees.disabled = !canPlan;
+      els.bulkEmployees.style.display = canPlan ? "" : "none";
+    }
+
+    if (els.assignBtn) {
+      els.assignBtn.style.display = canPlan ? "" : "none";
+    }
+
+    if (els.assignProject) els.assignProject.disabled = !canPlan;
+    if (els.assignStart) els.assignStart.disabled = !canPlan;
+    if (els.assignEnd) els.assignEnd.disabled = !canPlan;
+    if (els.assignNotes) els.assignNotes.disabled = !canPlan;
+
+    setCardDisplayByElement(els.newProjectBtn, canPlan);       // Prosjekter
+    setCardDisplayByElement(els.assignBtn, canPlan);           // Tildel prosjekt i kalender
+    setCardDisplayByElement(els.newEmployeeBtn, canPlan);      // Ansatte
+    setCardDisplayById("kanbanBoard", canPlan);                // Kanban – prosjekter
+    setCardDisplayById("notificationList", isSA);              // Varsellogg
+    setCardDisplayById("auditList", isSA);                     // Endringslogg
+
+    if (!canPlan) {
+      closeEditModal();
+      closeProjectModal();
+      closeEmployeeModal();
+    }
+
+    renderLayoutTabs();
+    renderCalendarPanel();
+  }
+
+  async function handleLogout() {
+    if (!supabaseClient?.auth) return;
+    try {
+      const { error } = await supabaseClient.auth.signOut();
+      if (error) throw error;
+
+      state.currentUser = "Ikke innlogget";
+      state.currentUserEmail = "";
+      state.currentRole = "";
+      closeLoginModal();
+      if (els.loginEmail) els.loginEmail.value = "";
+      if (els.loginPassword) els.loginPassword.value = "";
+      window.location.reload();
+    } catch (error) {
+      alert(`Kunne ikke logge ut: ${error?.message || "Ukjent feil"}`);
+    }
+  }
+
+  function openLoginModal() {
+    if (!els.loginModal) return;
+    if (els.loginEmail) els.loginEmail.value = "";
+    if (els.loginPassword) els.loginPassword.value = "";
+    els.loginModal.classList.remove("hidden");
+    els.loginModal.classList.add("flex");
+    if (els.loginEmail) {
+      els.loginEmail.focus();
+    }
+  }
+
+  function closeLoginModal() {
+    if (!els.loginModal) return;
+    els.loginModal.classList.add("hidden");
+    els.loginModal.classList.remove("flex");
+    if (els.loginEmail) els.loginEmail.value = "";
+    if (els.loginPassword) els.loginPassword.value = "";
+  }
+
+  async function handleLogin() {
+    if (!supabaseClient?.auth) return;
+
+    const email = els.loginEmail?.value?.trim() || "";
+    const password = els.loginPassword?.value || "";
+
+    if (!email || !password) {
+      alert("Legg inn e-post og passord.");
+      return;
+    }
+
+    const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
+    if (error) {
+      alert(`Kunne ikke logge inn: ${error.message}`);
+      return;
+    }
+
+    closeLoginModal();
+    if (els.loginEmail) els.loginEmail.value = "";
+    if (els.loginPassword) els.loginPassword.value = "";
+    window.location.reload();
+  }
+
+  async function handleForgotPassword() {
+    if (!supabaseClient?.auth) return;
+
+    const email = els.loginEmail?.value?.trim() || "";
+    if (!email) {
+      alert("Legg inn e-postadressen din først.");
+      return;
+    }
+
+    const { error } = await supabaseClient.auth.resetPasswordForEmail(email, {
+      redirectTo: window.location.origin
+    });
+
+    if (error) {
+      alert(`Kunne ikke sende reset-link: ${error.message}`);
+      return;
+    }
+
+    alert("Reset-link er sendt på e-post.");
+  }
+
+  async function handleChangePassword() {
+    if (!supabaseClient?.auth) return;
+
+    const newPassword = prompt("Nytt passord:");
+    if (!newPassword) return;
+    if (newPassword.length < 6) {
+      alert("Passordet må være minst 6 tegn.");
+      return;
+    }
+
+    const { error } = await supabaseClient.auth.updateUser({ password: newPassword });
+    if (error) {
+      alert(`Kunne ikke endre passord: ${error.message}`);
+      return;
+    }
+
+    alert("Passordet er endret.");
+  }
+
+  async function handleResetPassword() {
+    if (!supabaseClient?.auth) return;
+    const email = state.currentUserEmail || prompt("E-postadresse:");
+    if (!email) return;
+
+    const { error } = await supabaseClient.auth.resetPasswordForEmail(email, {
+      redirectTo: window.location.origin
+    });
+
+    if (error) {
+      alert(`Kunne ikke sende reset-link: ${error.message}`);
+      return;
+    }
+
+    alert("Reset-link er sendt på e-post.");
+  }
+
+  function setupStaticOptions() {
+    fillSelect(els.projectCategory, CATEGORY_OPTIONS);
+    fillSelect(els.projectStatus, STATUS_OPTIONS, "Planlagt");
+    fillSelect(els.editRole, ROLE_OPTIONS, "Supervisor");
+    fillSelect(els.personalBlockType, PERSONAL_BLOCK_TYPES);
+    fillSelect(els.contextMenuType, PERSONAL_BLOCK_TYPES);
+  }
+
+  function bindEvents() {
+    els.searchInput.addEventListener("input", e => {
+      state.search = e.target.value.trim().toLowerCase();
+      renderStats();
+      renderCalendar();
+    });
+
+    bindTabEvents();
+    if (els.calendarPanelHandleBtn) {
+      els.calendarPanelHandleBtn.addEventListener("click", () => {
+        state.calendarPanelOpen = !state.calendarPanelOpen;
+        renderCalendarPanel();
+      });
+    }
+    if (els.calendarPanelCloseBtn) {
+      els.calendarPanelCloseBtn.addEventListener("click", () => {
+        state.calendarPanelOpen = false;
+        renderCalendarPanel();
+      });
+    }
+
+    els.employeeFilter.addEventListener("change", e => {
+      state.employeeFilter = e.target.value;
+      renderStats();
+      renderCalendar();
+    });
+
+    els.viewMode.addEventListener("change", e => {
+      state.viewMode = e.target.value;
+      persistUiState();
+      renderStats();
+      renderCalendar();
+    });
+
+    els.calendarMode.addEventListener("change", e => {
+      state.calendarMode = e.target.value;
+      persistUiState();
+      renderStats();
+      renderCalendar();
+    });
+
+    els.prevBtn.addEventListener("click", () => {
+      shiftPeriod(-1);
+      renderStats();
+      renderCalendar();
+    });
+
+    els.nextBtn.addEventListener("click", () => {
+      shiftPeriod(1);
+      renderStats();
+      renderCalendar();
+    });
+
+    els.todayBtn.addEventListener("click", () => {
+      state.startDate = state.viewMode === "År"
+        ? new Date(new Date().getFullYear(), 0, 1)
+        : state.viewMode === "Måned"
+          ? startOfCurrentMonth()
+          : startOfWeek(new Date());
+      persistUiState();
+      renderStats();
+      renderCalendar();
+    });
+
+    els.assignProject.addEventListener("change", syncAssignDatesFromProject);
+    els.assignBtn.addEventListener("click", createEntry);
+    els.bulkAddBtn.addEventListener("click", bulkAddEmployees);
+    if (els.personalBlockSaveBtn) {
+      els.personalBlockSaveBtn.addEventListener("click", createPersonalBlockEntry);
+    }
+    if (els.contextMenuAddBtn) {
+      els.contextMenuAddBtn.addEventListener("click", createContextMenuPersonalBlockEntry);
+    }
+    if (els.contextMenuCloseBtn) {
+      els.contextMenuCloseBtn.addEventListener("click", hideCalendarContextMenu);
+    }
+    document.addEventListener("click", handleGlobalPointerClose, true);
+    window.addEventListener("scroll", hideCalendarContextMenu, true);
+    window.addEventListener("resize", hideCalendarContextMenu);
+    window.addEventListener("mousemove", handleResizePointerMove);
+    window.addEventListener("mouseup", handleResizePointerUp);
+    if (els.resetDemoBtn) {
+      els.resetDemoBtn.style.display = "none";
+    }
+
+    els.closeModalBtn.addEventListener("click", closeEditModal);
+    els.saveEditBtn.addEventListener("click", saveEditedEntry);
+    els.deleteEditBtn.addEventListener("click", deleteEditedEntry);
+
+    els.newProjectBtn.addEventListener("click", () => openProjectModal());
+    els.closeProjectModalBtn.addEventListener("click", closeProjectModal);
+    els.saveProjectBtn.addEventListener("click", saveProjectFromModal);
+    els.deleteProjectBtn.addEventListener("click", deleteProjectFromModal);
+
+    els.newEmployeeBtn.addEventListener("click", () => openEmployeeModal());
+    els.closeEmployeeModalBtn.addEventListener("click", closeEmployeeModal);
+    els.saveEmployeeBtn.addEventListener("click", saveEmployeeFromModal);
+    els.deleteEmployeeBtn.addEventListener("click", deleteEmployeeFromModal);
+
+    els.editModal.addEventListener("click", e => {
+      if (e.target === els.editModal) closeEditModal();
+    });
+
+    els.projectModal.addEventListener("click", e => {
+      if (e.target === els.projectModal) closeProjectModal();
+    });
+
+    els.employeeModal.addEventListener("click", e => {
+      if (e.target === els.employeeModal) closeEmployeeModal();
+    });
+
+    if (els.changePasswordBtn) {
+      els.changePasswordBtn.addEventListener("click", handleChangePassword);
+    }
+
+    if (els.resetPasswordBtn) {
+      els.resetPasswordBtn.addEventListener("click", handleResetPassword);
+    }
+
+    if (els.logoutBtn) {
+      els.logoutBtn.addEventListener("click", handleLogout);
+    }
+
+    if (els.loginBtn) {
+      els.loginBtn.addEventListener("click", openLoginModal);
+    }
+
+    if (els.closeLoginModalBtn) {
+      els.closeLoginModalBtn.addEventListener("click", closeLoginModal);
+    }
+
+    if (els.loginSubmitBtn) {
+      els.loginSubmitBtn.addEventListener("click", handleLogin);
+    }
+
+    if (els.forgotPasswordBtn) {
+      els.forgotPasswordBtn.addEventListener("click", handleForgotPassword);
+    }
+
+    if (els.loginPassword) {
+      els.loginPassword.addEventListener("keydown", e => {
+        if (e.key === "Enter") handleLogin();
+      });
+    }
+
+    if (els.loginModal) {
+      els.loginModal.addEventListener("click", e => {
+        if (e.target === els.loginModal) closeLoginModal();
+      });
+    }
+
+    document.addEventListener("visibilitychange", () => {
+      if (!document.hidden) {
+        scheduleRemoteRefresh("visibility");
+      }
+    });
+
+    window.addEventListener("focus", () => {
+      scheduleRemoteRefresh("focus");
+    });
+  }
+
+  function fillSelect(selectEl, values, selected = null, labelKey = null, valueKey = null) {
+    if (!selectEl) return;
+    selectEl.innerHTML = "";
+
+    values.forEach(item => {
+      const option = document.createElement("option");
+      if (typeof item === "object") {
+        option.value = valueKey ? item[valueKey] : item.id;
+        option.textContent = labelKey ? item[labelKey] : item.name;
+      } else {
+        option.value = item;
+        option.textContent = item;
+      }
+      if (selected !== null && option.value === selected) option.selected = true;
+      selectEl.appendChild(option);
+    });
+  }
+
+  function startRemoteSync() {
+    stopRemoteSync();
+    if (!state.supabaseReady || !supabaseClient) return;
+
+    const tables = [
+      "planner_employees",
+      "planner_projects",
+      "planner_entries",
+      "planner_audit_log",
+      "planner_notification_log"
+    ];
+
+    tables.forEach(table => {
+      const channel = supabaseClient
+        .channel(`planner-sync-${table}`)
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table },
+          () => {
+            scheduleRemoteRefresh(`realtime:${table}`);
+          }
+        )
+        .subscribe();
+
+      state.sync.channels.push(channel);
+    });
+
+    state.sync.pollTimer = window.setInterval(() => {
+      scheduleRemoteRefresh("poll");
+    }, state.sync.pollIntervalMs);
+  }
+
+  function stopRemoteSync() {
+    if (state.sync.pollTimer) {
+      window.clearInterval(state.sync.pollTimer);
+      state.sync.pollTimer = null;
+    }
+
+    if (state.sync.channels.length) {
+      state.sync.channels.forEach(channel => {
+        try {
+          supabaseClient?.removeChannel?.(channel);
+        } catch (_) {}
+      });
+      state.sync.channels = [];
+    }
+  }
+
+  function scheduleRemoteRefresh(source = "manual") {
+    if (!state.supabaseReady || !supabaseClient) return;
+    if (state.storageMode !== "supabase") return;
+    if (state.sync.isRefreshing) return;
+
+    window.clearTimeout(remoteRefreshDebounceTimer);
+    remoteRefreshDebounceTimer = window.setTimeout(() => {
+      void refreshFromRemote(source);
+    }, source.startsWith("realtime:") ? 120 : 250);
+  }
+
+  async function refreshFromRemote(source = "manual") {
+    if (!state.supabaseReady || !supabaseClient) return;
+    if (state.sync.isRefreshing) return;
+
+    state.sync.isRefreshing = true;
+    state.sync.lastRefreshSource = source;
+
+    try {
+      await fetchFromSupabase();
+      rebuildDerivedState();
+      renderAll();
+    } finally {
+      state.sync.isRefreshing = false;
+    }
+  }
+
+  async function bootData() {
+    const localData = loadAllLocal();
+    state.employees = normalizeEmployees(localData.employees);
+    state.projects = normalizeProjects(localData.projects);
+    state.entries = localData.entries;
+    state.auditLog = localData.auditLog;
+    state.notificationLog = localData.notificationLog;
+
+    if (!supabaseClient) {
+      state.storageMode = "local";
+      state.supabaseReady = false;
+      state.supabaseError = "Supabase-biblioteket ble ikke lastet.";
+      setSaveStatus("Lokal fallback", "warn");
+      updateBadge();
+      return;
+    }
+
+    const ok = await testSupabase();
+    if (!ok) {
+      state.storageMode = "local";
+      setSaveStatus("Lokal fallback", "warn");
+      updateBadge();
+      renderAll();
+      return;
+    }
+
+    await fetchFromSupabase();
+
+    const hasMainData = state.employees.length || state.projects.length || state.entries.length;
+    if (!hasMainData) {
+      state.employees = normalizeEmployees(structuredClone(DEFAULT_EMPLOYEES));
+      state.projects = normalizeProjects(structuredClone(DEFAULT_PROJECTS));
+      state.entries = structuredClone(DEFAULT_ENTRIES);
+      state.auditLog = structuredClone(DEFAULT_AUDIT_LOG);
+      state.notificationLog = structuredClone(DEFAULT_NOTIFICATION_LOG);
+      saveAllLocal();
+      await seedDemoDataBatch();
+      await fetchFromSupabase();
+    }
+
+    setSaveStatus("Lagret", "ok");
+  }
+
+  async function testSupabase() {
+    try {
+      const { error } = await supabaseClient.from("planner_employees").select("id", { head: true, count: "exact" });
+      if (error) throw error;
+
+      state.remoteCapabilities.employeeGroupColumn = await detectEmployeeGroupColumn();
+
+      state.supabaseReady = true;
+      state.storageMode = "supabase";
+      state.supabaseError = null;
+      return true;
+    } catch (err) {
+      state.supabaseReady = false;
+      state.supabaseError = err?.message || "Ukjent Supabase-feil.";
+      return false;
+    }
+  }
+
+  async function detectEmployeeGroupColumn() {
+    try {
+      const { error } = await supabaseClient
+        .from("planner_employees")
+        .select("id, employee_group")
+        .limit(1);
+
+      if (error) {
+        const message = String(error.message || "").toLowerCase();
+        if (message.includes("employee_group")) return false;
+        throw error;
+      }
+
+      return true;
+    } catch (err) {
+      console.warn("Kunne ikke verifisere employee_group-kolonne i Supabase:", err);
+      return false;
+    }
+  }
+
+  async function fetchFromSupabase() {
+    if (!state.supabaseReady) return;
+
+    try {
+      const [
+        employeesRes,
+        projectsRes,
+        entriesRes,
+        auditRes,
+        notificationRes
+      ] = await Promise.all([
+        supabaseClient.from("planner_employees").select("*").order("name"),
+        supabaseClient.from("planner_projects").select("*").order("planned_start_date", { ascending: true }),
+        supabaseClient.from("planner_entries").select("*").order("start_date"),
+        supabaseClient.from("planner_audit_log").select("*").order("created_at", { ascending: false }).limit(100),
+        supabaseClient.from("planner_notification_log").select("*").order("created_at", { ascending: false }).limit(100)
+      ]);
+
+      [employeesRes, projectsRes, entriesRes, auditRes, notificationRes].forEach(r => {
+        if (r.error) throw r.error;
+      });
+
+      state.employees = normalizeEmployees(employeesRes.data || []);
+      state.projects = normalizeProjects(projectsRes.data || []);
+      state.entries = entriesRes.data || [];
+      state.auditLog = auditRes.data || [];
+      state.notificationLog = notificationRes.data || [];
+
+      saveAllLocal();
+      state.storageMode = "supabase";
+      state.supabaseError = null;
+      updateBadge();
+    } catch (err) {
+      state.storageMode = "local";
+      state.supabaseError = err?.message || "Kunne ikke hente data.";
+      updateBadge();
+      setSaveStatus("Feil ved henting", "error");
+    }
+  }
+
+  function normalizeEmployees(list) {
+    const storedGroups = loadEmployeeGroupMap();
+    return (list || []).map(emp => ({
+      ...emp,
+      title: emp?.title || "",
+      employee_group: normalizeEmployeeGroup(emp?.employee_group || storedGroups[emp?.id] || "")
+    }));
+  }
+
+  function normalizeProjects(list) {
+    return (list || []).map(project => ({
+      ...project,
+      category: project?.category === "Project" ? "Offshore" : project?.category,
+      status: project?.status === "Fullført" ? "Avsluttet" : project?.status
+    }));
+  }
+
+  function loadLegacyValue(currentKey, legacyKeys, fallback) {
+    const current = load(currentKey, null);
+    if (current !== null) return current;
+    for (const key of legacyKeys || []) {
+      const legacy = load(key, null);
+      if (legacy !== null) return legacy;
+    }
+    return fallback;
+  }
+
+  function load(key, fallback) {
+    try {
+      const raw = localStorage.getItem(key);
+      return raw ? JSON.parse(raw) : fallback;
+    } catch {
+      return fallback;
+    }
+  }
+
+  function loadAllLocal() {
+    return {
+      employees: loadLegacyValue(STORAGE_KEYS.employees, LEGACY_STORAGE_KEYS.employees, structuredClone(DEFAULT_EMPLOYEES)),
+      projects: loadLegacyValue(STORAGE_KEYS.projects, LEGACY_STORAGE_KEYS.projects, structuredClone(DEFAULT_PROJECTS)),
+      entries: loadLegacyValue(STORAGE_KEYS.entries, LEGACY_STORAGE_KEYS.entries, structuredClone(DEFAULT_ENTRIES)),
+      auditLog: loadLegacyValue(STORAGE_KEYS.auditLog, LEGACY_STORAGE_KEYS.auditLog, structuredClone(DEFAULT_AUDIT_LOG)),
+      notificationLog: loadLegacyValue(STORAGE_KEYS.notificationLog, LEGACY_STORAGE_KEYS.notificationLog, structuredClone(DEFAULT_NOTIFICATION_LOG))
+    };
+  }
+
+
+  function loadEmployeeGroupMap() {
+    return load(EMPLOYEE_GROUP_STORAGE_KEY, {});
+  }
+
+  function saveEmployeeGroupMap() {
+    const groupMap = {};
+    state.employees.forEach(employee => {
+      const group = normalizeEmployeeGroup(employee?.employee_group || "");
+      if (employee?.id && group) {
+        groupMap[employee.id] = group;
+      }
+    });
+    localStorage.setItem(EMPLOYEE_GROUP_STORAGE_KEY, JSON.stringify(groupMap));
+  }
+
+  function normalizeEmployeeGroup(value) {
+    const group = String(value || "").trim();
+    return EMPLOYEE_GROUP_OPTIONS.includes(group) ? group : "";
+  }
+
+  function getEmployeeGroupCardClass(group) {
+    return EMPLOYEE_GROUP_CARD_STYLES[group] || "border-slate-200 bg-slate-50 hover:bg-slate-100";
+  }
+
+  function getEmployeeRowForRemote(employee) {
+    const row = {
+      id: employee.id,
+      name: employee.name,
+      email: employee.email,
+      phone: employee.phone,
+      title: employee.title,
+      active: employee.active
+    };
+
+    if (state.remoteCapabilities.employeeGroupColumn) {
+      row.employee_group = normalizeEmployeeGroup(employee.employee_group || "");
+    }
+
+    return row;
+  }
+
+  function saveAllLocal() {
+    localStorage.setItem(STORAGE_KEYS.employees, JSON.stringify(state.employees));
+    localStorage.setItem(STORAGE_KEYS.projects, JSON.stringify(state.projects));
+    localStorage.setItem(STORAGE_KEYS.entries, JSON.stringify(state.entries));
+    localStorage.setItem(STORAGE_KEYS.auditLog, JSON.stringify(state.auditLog));
+    localStorage.setItem(STORAGE_KEYS.notificationLog, JSON.stringify(state.notificationLog));
+    saveEmployeeGroupMap();
+  }
+
+  function persistUiState() {
+    localStorage.setItem(STORAGE_KEYS.startDate, JSON.stringify(toIsoDate(state.startDate)));
+    localStorage.setItem(STORAGE_KEYS.viewMode, JSON.stringify(state.viewMode));
+    localStorage.setItem(STORAGE_KEYS.calendarMode, JSON.stringify(state.calendarMode));
+  }
+
+  function setSaveStatus(text, variant = "neutral") {
+    clearTimeout(saveStatusTimer);
+    const base = "rounded-xl px-3 py-2 text-sm border ";
+    const map = {
+      neutral: "border-slate-300 bg-white text-slate-700",
+      saving: "border-blue-300 bg-blue-50 text-blue-700",
+      ok: "border-green-300 bg-green-50 text-green-700",
+      warn: "border-amber-300 bg-amber-50 text-amber-700",
+      error: "border-red-300 bg-red-50 text-red-700"
+    };
+    els.saveStatus.textContent = text;
+    els.saveStatus.className = base + (map[variant] || map.neutral);
+
+    if (variant === "ok") {
+      saveStatusTimer = setTimeout(() => {
+        els.saveStatus.textContent = "Klar";
+        els.saveStatus.className = base + map.neutral;
+      }, 1800);
+    }
+  }
+
+  function updateBadge() {
+    if (!els.storageBadge) return;
+    if (state.storageMode === "supabase") {
+      els.storageBadge.textContent = "Supabase synk aktiv";
+      els.storageBadge.className = "rounded-xl border border-green-300 bg-green-50 text-green-700 px-3 py-2 text-sm";
+    } else {
+      els.storageBadge.textContent = "Lokal fallback";
+      els.storageBadge.className = "rounded-xl border border-amber-300 bg-amber-50 text-amber-700 px-3 py-2 text-sm";
+    }
+  }
+
+  async function saveRow(table, row) {
+    saveAllLocal();
+    if (!state.supabaseReady) {
+      setSaveStatus("Lagret lokalt", "warn");
+      return { ok: true };
+    }
+
+    setSaveStatus("Lagrer...", "saving");
+    const { error } = await supabaseClient.from(table).upsert(row);
+    if (error) {
+      state.supabaseError = error.message;
+      state.storageMode = "local";
+      updateBadge();
+      setSaveStatus("Feil ved lagring", "error");
+      renderSystemStatus();
+      return { ok: false, error };
+    }
+
+    state.storageMode = "supabase";
+    state.supabaseError = null;
+    updateBadge();
+    setSaveStatus("Lagret", "ok");
+    return { ok: true };
+  }
+
+  async function saveRows(table, rows) {
+    saveAllLocal();
+    if (!state.supabaseReady) {
+      setSaveStatus("Lagret lokalt", "warn");
+      return { ok: true };
+    }
+
+    setSaveStatus("Lagrer...", "saving");
+    const { error } = await supabaseClient.from(table).upsert(rows);
+    if (error) {
+      state.supabaseError = error.message;
+      state.storageMode = "local";
+      updateBadge();
+      setSaveStatus("Feil ved lagring", "error");
+      renderSystemStatus();
+      return { ok: false, error };
+    }
+
+    state.storageMode = "supabase";
+    state.supabaseError = null;
+    updateBadge();
+    setSaveStatus("Lagret", "ok");
+    return { ok: true };
+  }
+
+  async function deleteRow(table, id) {
+    saveAllLocal();
+    if (!state.supabaseReady) {
+      setSaveStatus("Slettet lokalt", "warn");
+      return { ok: true };
+    }
+
+    setSaveStatus("Lagrer...", "saving");
+    const { error } = await supabaseClient.from(table).delete().eq("id", id);
+    if (error) {
+      state.supabaseError = error.message;
+      state.storageMode = "local";
+      updateBadge();
+      setSaveStatus("Feil ved sletting", "error");
+      renderSystemStatus();
+      return { ok: false, error };
+    }
+
+    state.storageMode = "supabase";
+    state.supabaseError = null;
+    updateBadge();
+    setSaveStatus("Lagret", "ok");
+    return { ok: true };
+  }
+
+  async function addAudit(text) {
+    const row = {
+      id: crypto.randomUUID(),
+      user_name: state.currentUser,
+      action_text: text,
+      created_at: new Date().toISOString()
+    };
+
+    state.auditLog.unshift(row);
+    state.auditLog = state.auditLog.slice(0, 100);
+    saveAllLocal();
+
+    if (!state.supabaseReady) return { ok: true };
+
+    try {
+      const { error } = await supabaseClient.from("planner_audit_log").insert(row);
+      if (error) throw error;
+      return { ok: true };
+    } catch (err) {
+      console.error("Audit log feilet:", err);
+      return { ok: false, error: err };
+    }
+  }
+
+  async function addNotification(employeeName, projectName) {
+    const row = {
+      id: crypto.randomUUID(),
+      type: "System",
+      recipient: employeeName,
+      target: projectName,
+      created_at: new Date().toISOString()
+    };
+
+    state.notificationLog.unshift(row);
+    state.notificationLog = state.notificationLog.slice(0, 100);
+    saveAllLocal();
+
+    if (!state.supabaseReady) return { ok: true };
+
+    try {
+      const { error } = await supabaseClient.from("planner_notification_log").insert(row);
+      if (error) throw error;
+      return { ok: true };
+    } catch (err) {
+      console.error("Notification log feilet:", err);
+      return { ok: false, error: err };
+    }
+  }
+
+  async function seedDemoDataBatch() {
+    if (!state.supabaseReady) return;
+    await saveRows("planner_employees", state.employees.map(getEmployeeRowForRemote));
+    await saveRows("planner_projects", state.projects);
+    await saveRows("planner_entries", state.entries);
+    await saveRows("planner_audit_log", state.auditLog);
+    if (state.notificationLog.length) {
+      await saveRows("planner_notification_log", state.notificationLog);
+    }
+  }
+
+  async function resetDemo() {
+    if (!confirm("Vil du nullstille til demo-data?")) return;
+
+    state.employees = normalizeEmployees(structuredClone(DEFAULT_EMPLOYEES));
+    state.projects = normalizeProjects(structuredClone(DEFAULT_PROJECTS));
+    state.entries = structuredClone(DEFAULT_ENTRIES);
+    state.auditLog = structuredClone(DEFAULT_AUDIT_LOG);
+    state.notificationLog = structuredClone(DEFAULT_NOTIFICATION_LOG);
+    state.startDate = new Date("2026-01-05");
+    state.viewMode = "Uke";
+    state.calendarMode = "personal";
+    rebuildDerivedState();
+    persistUiState();
+    saveAllLocal();
+
+    if (state.supabaseReady) {
+      setSaveStatus("Nullstiller...", "saving");
+      await clearAllTables();
+      await seedDemoDataBatch();
+      await fetchFromSupabase();
+      rebuildDerivedState();
+      setSaveStatus("Lagret", "ok");
+    }
+
+    renderAll();
+  }
+
+  async function clearAllTables() {
+    const tables = [
+      "planner_entries",
+      "planner_projects",
+      "planner_employees",
+      "planner_audit_log",
+      "planner_notification_log"
+    ];
+
+    for (const table of tables) {
+      const { error } = await supabaseClient.from(table).delete().not("id", "is", null);
+      if (error) throw error;
+    }
+  }
+
+  function syncAssignDatesFromProject() {
+    const project = getProjectById(els.assignProject.value);
+    renderAssignEmployeeSelectors();
+    if (!project) {
+      els.assignStart.value = "";
+      els.assignEnd.value = "";
+      if (els.assignSummary) {
+        els.assignSummary.textContent = "Velg et prosjekt for å starte bemanning.";
+      }
+      return;
+    }
+    els.assignStart.value = project.planned_start_date || "";
+    els.assignEnd.value = project.planned_end_date || "";
+    if (els.assignSummary) {
+      const required = Math.max(Number(project.headcount_required || 0), 1);
+      els.assignSummary.textContent = `${project.name} • Behov: ${required} person${required > 1 ? "er" : ""}`;
+    }
+  }
+
+  function clearAssignForm() {
+    if (els.assignProject) els.assignProject.value = "";
+    if (els.assignStart) els.assignStart.value = "";
+    if (els.assignEnd) els.assignEnd.value = "";
+    if (els.assignNotes) els.assignNotes.value = "";
+    if (els.assignSummary) els.assignSummary.textContent = "Velg et prosjekt for å starte bemanning.";
+    renderAssignEmployeeSelectors();
+  }
+
+
+  function getDefaultRoleForIndex(index) {
+    return ROLE_OPTIONS[index] || ROLE_OPTIONS[ROLE_OPTIONS.length - 1] || "";
+  }
+
+  function getAssignAssignments() {
+    if (!els.assignEmployeesWrap) return [];
+    return Array.from(els.assignEmployeesWrap.querySelectorAll("[data-assign-row]")).map((row, index) => {
+      const employeeSelect = row.querySelector("[data-assign-employee-select]");
+      const roleSelect = row.querySelector("[data-assign-role-select]");
+      return {
+        employee_name: employeeSelect?.value?.trim() || "",
+        role: roleSelect?.value || getDefaultRoleForIndex(index)
+      };
+    }).filter(item => item.employee_name);
+  }
+
+  function renderAssignEmployeeSelectors() {
+    if (!els.assignEmployeesWrap) return;
+    const project = getProjectById(els.assignProject?.value);
+    const activeEmployees = state.employees.filter(e => e.active !== false);
+    const count = Math.max(Number(project?.headcount_required || 0), 1);
+    const currentRows = Array.from(els.assignEmployeesWrap.querySelectorAll("[data-assign-row]")).map((row, index) => ({
+      employee_name: row.querySelector("[data-assign-employee-select]")?.value || "",
+      role: row.querySelector("[data-assign-role-select]")?.value || getDefaultRoleForIndex(index)
+    }));
+
+    const blocks = [];
+    for (let i = 0; i < count; i++) {
+      const selectedEmployee = currentRows[i]?.employee_name || "";
+      const selectedRole = currentRows[i]?.role || getDefaultRoleForIndex(i);
+      const employeeOptions = ['<option value="">Velg ansatt</option>']
+        .concat(activeEmployees.map(emp => `<option value="${escapeHtml(emp.name)}" ${emp.name === selectedEmployee ? "selected" : ""}>${escapeHtml(emp.name)}</option>`))
+        .join("");
+      const roleOptions = ROLE_OPTIONS.map(role => `<option value="${escapeHtml(role)}" ${role === selectedRole ? "selected" : ""}>${escapeHtml(role)}</option>`).join("");
+
+      blocks.push(`
+        <div data-assign-row class="rounded-2xl border border-slate-200 bg-slate-50 p-3 space-y-3">
+          <div class="text-sm font-medium text-slate-700">Bemanning ${i + 1}</div>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div class="space-y-1">
+              <label class="text-sm text-slate-600">Ansatt</label>
+              <select data-assign-employee-select class="w-full rounded-2xl border border-slate-300 px-3 py-2 bg-white">${employeeOptions}</select>
+            </div>
+            <div class="space-y-1">
+              <label class="text-sm text-slate-600">Rolle</label>
+              <select data-assign-role-select class="w-full rounded-2xl border border-slate-300 px-3 py-2 bg-white">${roleOptions}</select>
+            </div>
+          </div>
+        </div>
+      `);
+    }
+
+    els.assignEmployeesWrap.innerHTML = blocks.join("");
+  }
+
+
+
+
+
+  function canSeePersonalBlockType(type) {
+    if (type !== "Syk") return true;
+    return canEditApp();
+  }
+
+  function getVisiblePersonalBlockTypes() {
+    return PERSONAL_BLOCK_TYPES.filter(canSeePersonalBlockType);
+  }
+
+  function getVisibleEntriesForEmployee(employeeName, rangeStart, rangeEnd) {
+    return (state.derived.entriesByEmployee.get(employeeName) || []).filter(entry => {
+      if (!overlaps(entry.start_date, entry.end_date, rangeStart, rangeEnd)) return false;
+      const project = getProjectById(entry.project_id);
+      if (isSystemPersonalProject(project) && !canSeePersonalBlockType(project.category)) return false;
+      return true;
+    });
+  }
+
+  function openCalendarContextMenu(employeeName, isoDate, x, y) {
+    if (!canEditApp() || !els.calendarContextMenu) return;
+
+    state.contextMenu = {
+      visible: true,
+      employeeName,
+      startDate: isoDate,
+      endDate: isoDate,
+      x,
+      y
+    };
+
+    if (els.contextMenuEmployee) els.contextMenuEmployee.textContent = employeeName;
+    if (els.contextMenuStart) els.contextMenuStart.value = isoDate;
+    if (els.contextMenuEnd) els.contextMenuEnd.value = isoDate;
+    fillSelect(els.contextMenuType, PERSONAL_BLOCK_TYPES);
+    if (els.contextMenuType) els.contextMenuType.value = "Ferie";
+    if (els.contextMenuNotes) els.contextMenuNotes.value = "";
+
+    const menu = els.calendarContextMenu;
+    menu.classList.remove("hidden");
+    menu.style.left = "0px";
+    menu.style.top = "0px";
+
+    requestAnimationFrame(() => {
+      const menuRect = menu.getBoundingClientRect();
+      const maxLeft = Math.max(12, window.innerWidth - menuRect.width - 12);
+      const maxTop = Math.max(12, window.innerHeight - menuRect.height - 12);
+      menu.style.left = `${Math.min(Math.max(12, x), maxLeft)}px`;
+      menu.style.top = `${Math.min(Math.max(12, y), maxTop)}px`;
+    });
+  }
+
+  function hideCalendarContextMenu() {
+    state.contextMenu.visible = false;
+    if (!els.calendarContextMenu) return;
+    els.calendarContextMenu.classList.add("hidden");
+  }
+
+  function handleGlobalPointerClose(event) {
+    if (!state.contextMenu.visible) return;
+    if (els.calendarContextMenu?.contains(event.target)) return;
+    hideCalendarContextMenu();
+  }
+
+  async function createContextMenuPersonalBlockEntry() {
+    const employeeName = state.contextMenu.employeeName;
+    const startDate = els.contextMenuStart?.value || state.contextMenu.startDate;
+    const endDate = els.contextMenuEnd?.value || state.contextMenu.endDate;
+    const type = els.contextMenuType?.value || "Ferie";
+    const notes = els.contextMenuNotes?.value?.trim() || "";
+    if (!employeeName || !startDate || !endDate || !type) return;
+    if (startDate > endDate) {
+      alert("Startdato kan ikke være etter sluttdato.");
+      return;
+    }
+
+    hideCalendarContextMenu();
+
+    if (els.personalBlockEmployee) els.personalBlockEmployee.value = employeeName;
+    if (els.personalBlockType) els.personalBlockType.value = type;
+    if (els.personalBlockStart) els.personalBlockStart.value = startDate;
+    if (els.personalBlockEnd) els.personalBlockEnd.value = endDate;
+    if (els.personalBlockNotes) els.personalBlockNotes.value = notes;
+
+    await createPersonalBlockEntry();
+  }
+
+  function isPersonalBlockType(value) {
+    return PERSONAL_BLOCK_TYPES.includes(value);
+  }
+
+  function isSystemPersonalProject(project) {
+    return !!project && project.notes === PERSONAL_PROJECT_MARKER && isPersonalBlockType(project.category);
+  }
+
+  function getVisibleProjects() {
+    return state.projects.filter(project => !isSystemPersonalProject(project));
+  }
+
+  function getProjectsForCurrentListFilter() {
+    const visibleProjects = getVisibleProjects().slice().sort((a, b) => compareProjectDates(a, b));
+    if (state.projectListFilter === "unstaffed") {
+      return visibleProjects.filter(project => getProjectAssignedCount(project.id) === 0);
+    }
+    return visibleProjects;
+  }
+
+  function openProjectListView(filter = "all") {
+    state.projectListFilter = filter === "unstaffed" ? "unstaffed" : "all";
+    setActiveTab("projects");
+    renderProjects();
+    if (els.projectList) {
+      els.projectList.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }
+
+  async function ensurePersonalProject(type) {
+    let project = state.projects.find(item => isSystemPersonalProject(item) && item.category === type);
+    if (project) return { ok: true, project };
+
+    project = {
+      id: crypto.randomUUID(),
+      name: `System • ${type}`,
+      category: type,
+      status: "Planlagt",
+      planned_start_date: null,
+      planned_end_date: null,
+      location: "",
+      headcount_required: 0,
+      notes: PERSONAL_PROJECT_MARKER
+    };
+
+    state.projects.push(project);
+    rebuildDerivedState();
+
+    const result = await saveRow("planner_projects", project);
+    if (!result.ok) {
+      state.projects = state.projects.filter(item => item.id !== project.id);
+      rebuildDerivedState();
+      return { ok: false, error: result.error || new Error("Kunne ikke opprette systemprosjekt.") };
+    }
+
+    return { ok: true, project };
+  }
+
+  function clearPersonalBlockForm() {
+    if (els.personalBlockEmployee) els.personalBlockEmployee.value = "";
+    if (els.personalBlockType) els.personalBlockType.value = PERSONAL_BLOCK_TYPES[0] || "";
+    if (els.personalBlockStart) els.personalBlockStart.value = "";
+    if (els.personalBlockEnd) els.personalBlockEnd.value = "";
+    if (els.personalBlockNotes) els.personalBlockNotes.value = "";
+  }
+
+  async function createPersonalBlockEntry() {
+    if (!canEditApp()) return;
+
+    const employeeName = els.personalBlockEmployee?.value || "";
+    const type = els.personalBlockType?.value || "";
+    const startDate = els.personalBlockStart?.value || "";
+    const endDate = els.personalBlockEnd?.value || "";
+    const notes = els.personalBlockNotes?.value?.trim() || "";
+
+    if (!employeeName || !type || !startDate || !endDate) {
+      alert("Velg ansatt, type og start/slutt.");
+      return;
+    }
+
+    if (startDate > endDate) {
+      alert("Startdato kan ikke være etter sluttdato.");
+      return;
+    }
+
+    const ensured = await ensurePersonalProject(type);
+    if (!ensured.ok || !ensured.project) {
+      renderAll();
+      return;
+    }
+
+    const entry = {
+      id: crypto.randomUUID(),
+      project_id: ensured.project.id,
+      employee_name: employeeName,
+      role: "Supervisor",
+      start_date: startDate,
+      end_date: endDate,
+      notes
+    };
+
+    state.entries.push(entry);
+    rebuildDerivedState();
+    renderAll();
+
+    const result = await saveRow("planner_entries", entry);
+    if (!result.ok) {
+      state.entries = state.entries.filter(item => item.id !== entry.id);
+      rebuildDerivedState();
+      renderAll();
+      return;
+    }
+
+    clearPersonalBlockForm();
+    renderAll();
+    void addAudit(`La inn ${type.toLowerCase()} direkte på ${employeeName}`);
+  }
+
+  async function createEntry() {
+    if (!canEditApp()) return;
+    const projectId = els.assignProject.value;
+    const assignments = getAssignAssignments();
+    const employeeNames = assignments.map(item => item.employee_name);
+    const uniqueEmployeeNames = [...new Set(employeeNames)];
+    let startDate = els.assignStart.value;
+    let endDate = els.assignEnd.value;
+    const notes = els.assignNotes.value.trim();
+
+    if (!projectId || !uniqueEmployeeNames.length) {
+      alert("Fyll ut prosjekt og minst én ansatt.");
+      return;
+    }
+
+    if (uniqueEmployeeNames.length !== employeeNames.length) {
+      alert("Samme ansatt kan ikke velges flere ganger i samme bemanning.");
+      return;
+    }
+
+    const project = getProjectById(projectId);
+    if (!project) {
+      alert("Prosjekt finnes ikke.");
+      return;
+    }
+
+    if (!startDate) startDate = project.planned_start_date || "";
+    if (!endDate) endDate = project.planned_end_date || "";
+
+    if (!startDate || !endDate) {
+      alert("Prosjekt eller tildeling mangler start/slutt.");
+      return;
+    }
+
+    if (startDate > endDate) {
+      alert("Startdato kan ikke være etter sluttdato.");
+      return;
+    }
+
+    const uniqueAssignments = assignments.filter((item, index) =>
+      item.employee_name && employeeNames.indexOf(item.employee_name) === index
+    );
+
+    const newEntries = uniqueAssignments.map(item => ({
+      id: crypto.randomUUID(),
+      project_id: projectId,
+      employee_name: item.employee_name,
+      role: item.role,
+      start_date: startDate,
+      end_date: endDate,
+      notes
+    }));
+
+    state.entries.push(...newEntries);
+    rebuildDerivedState();
+    const result = await saveRows("planner_entries", newEntries);
+    if (!result.ok) {
+      const ids = new Set(newEntries.map(entry => entry.id));
+      state.entries = state.entries.filter(e => !ids.has(e.id));
+      rebuildDerivedState();
+      renderAll();
+      return;
+    }
+
+    clearAssignForm();
+    renderAll();
+
+    void addAudit(`La inn ${newEntries.length} tildeling${newEntries.length > 1 ? "er" : ""} på ${project.name}`);
+    newEntries.forEach(entry => void addNotification(entry.employee_name, project.name));
+  }
+
+  function openEditModal(entryId) {
+    if (!canEditApp()) return;
+    state.selectedEntryId = entryId;
+    const entry = state.entries.find(e => e.id === entryId);
+    if (!entry) return;
+
+    fillSelect(els.editProject, state.projects, entry.project_id, "name", "id");
+    fillSelect(els.editEmployee, state.employees.filter(e => e.active !== false), entry.employee_name, "name", "name");
+    fillSelect(els.editRole, ROLE_OPTIONS, entry.role);
+
+    els.editStart.value = entry.start_date;
+    els.editEnd.value = entry.end_date;
+    els.editNotes.value = entry.notes || "";
+
+    els.editModal.classList.remove("hidden");
+    els.editModal.classList.add("flex");
+  }
+
+  function closeEditModal() {
+    state.selectedEntryId = null;
+    els.editModal.classList.add("hidden");
+    els.editModal.classList.remove("flex");
+  }
+
+  async function saveEditedEntry() {
+    if (!canEditApp()) return;
+    const entry = state.entries.find(e => e.id === state.selectedEntryId);
+    if (!entry) return;
+
+    if (els.editStart.value > els.editEnd.value) {
+      alert("Startdato kan ikke være etter sluttdato.");
+      return;
+    }
+
+    entry.project_id = els.editProject.value;
+    entry.employee_name = els.editEmployee.value;
+    entry.role = els.editRole.value;
+    entry.start_date = els.editStart.value;
+    entry.end_date = els.editEnd.value;
+    entry.notes = els.editNotes.value.trim();
+    rebuildDerivedState();
+
+    const result = await saveRow("planner_entries", entry);
+    if (!result.ok) return;
+
+    const project = getProjectById(entry.project_id);
+    closeEditModal();
+    renderAll();
+    void addAudit(`Redigerte tildeling: ${entry.employee_name} → ${displayProjectName(project) || "Ukjent prosjekt"}`);
+  }
+
+  async function deleteEditedEntry() {
+    if (!canEditApp()) return;
+    const entry = state.entries.find(e => e.id === state.selectedEntryId);
+    if (!entry) return;
+    if (!confirm("Vil du fjerne denne tildelingen?")) return;
+
+    state.entries = state.entries.filter(e => e.id !== state.selectedEntryId);
+    rebuildDerivedState();
+    const result = await deleteRow("planner_entries", state.selectedEntryId);
+    if (!result.ok) {
+      state.entries.push(entry);
+      rebuildDerivedState();
+      renderAll();
+      return;
+    }
+
+    const project = getProjectById(entry.project_id);
+    closeEditModal();
+    renderAll();
+    void addAudit(`Slettet tildeling: ${entry.employee_name} → ${displayProjectName(project) || "Ukjent prosjekt"}`);
+  }
+
+  function openProjectModal(projectId = null) {
+    if (!canEditApp()) return;
+    state.selectedProjectId = projectId;
+    const project = state.projects.find(p => p.id === projectId);
+
+    els.projectModalTitle.textContent = project ? "Rediger prosjekt" : "Nytt prosjekt";
+    els.projectName.value = project?.name || "";
+    fillSelect(els.projectCategory, CATEGORY_OPTIONS, project?.category || "Offshore");
+    fillSelect(els.projectStatus, STATUS_OPTIONS, project?.status || "Planlagt");
+    els.projectPlannedStart.value = project?.planned_start_date || "";
+    els.projectPlannedEnd.value = project?.planned_end_date || "";
+    els.projectLocation.value = project?.location || "";
+    els.projectHeadcount.value = project?.headcount_required ?? "";
+    els.projectNotes.value = project?.notes || "";
+    els.deleteProjectBtn.style.display = project ? "inline-flex" : "none";
+
+    els.projectModal.classList.remove("hidden");
+    els.projectModal.classList.add("flex");
+  }
+
+  function closeProjectModal() {
+    state.selectedProjectId = null;
+    els.projectModal.classList.add("hidden");
+    els.projectModal.classList.remove("flex");
+  }
+
+  async function saveProjectFromModal() {
+    if (!canEditApp()) return;
+    const name = els.projectName.value.trim();
+    const category = els.projectCategory.value;
+    const status = els.projectStatus.value;
+    const plannedStart = els.projectPlannedStart.value;
+    const plannedEnd = els.projectPlannedEnd.value;
+    const location = els.projectLocation.value.trim();
+    const headcountRequired = Number(els.projectHeadcount.value || 0);
+    const notes = els.projectNotes.value.trim();
+
+    if (!name) {
+      alert("Legg inn prosjektnavn.");
+      return;
+    }
+
+    if (plannedStart && plannedEnd && plannedStart > plannedEnd) {
+      alert("Planlagt start kan ikke være etter planlagt slutt.");
+      return;
+    }
+
+    const duplicate = getVisibleProjects().find(p =>
+      p.name.toLowerCase() === name.toLowerCase() && p.id !== state.selectedProjectId
+    );
+    if (duplicate) {
+      alert("Et prosjekt med dette navnet finnes allerede.");
+      return;
+    }
+
+    let project = state.projects.find(p => p.id === state.selectedProjectId);
+
+    if (project) {
+      project.name = name;
+      project.category = category;
+      project.status = status;
+      project.planned_start_date = plannedStart || null;
+      project.planned_end_date = plannedEnd || null;
+      project.location = location;
+      project.headcount_required = headcountRequired;
+      project.notes = notes;
+    } else {
+      project = {
+        id: crypto.randomUUID(),
+        name,
+        category,
+        status,
+        planned_start_date: plannedStart || null,
+        planned_end_date: plannedEnd || null,
+        location,
+        headcount_required: headcountRequired,
+        notes
+      };
+      state.projects.push(project);
+    }
+
+    state.projects = normalizeProjects(state.projects);
+    state.projects.sort((a, b) => compareProjectDates(a, b));
+    rebuildDerivedState();
+
+    const result = await saveRow("planner_projects", project);
+    if (!result.ok) return;
+
+    closeProjectModal();
+    renderAll();
+    void addAudit(`${state.selectedProjectId ? "Redigerte" : "Opprettet"} prosjekt: ${name}`);
+  }
+
+  async function deleteProjectFromModal() {
+    if (!canEditApp()) return;
+    const project = state.projects.find(p => p.id === state.selectedProjectId);
+    if (!project) return;
+
+    const hasEntries = state.entries.some(e => e.project_id === project.id);
+    if (hasEntries) {
+      alert("Prosjektet kan ikke slettes før tilhørende tildelinger er fjernet.");
+      return;
+    }
+
+    if (!confirm("Vil du slette dette prosjektet?")) return;
+
+    state.projects = state.projects.filter(p => p.id !== project.id);
+    rebuildDerivedState();
+    const result = await deleteRow("planner_projects", project.id);
+    if (!result.ok) {
+      state.projects.push(project);
+      state.projects.sort((a, b) => compareProjectDates(a, b));
+      rebuildDerivedState();
+      renderAll();
+      return;
+    }
+
+    closeProjectModal();
+    renderAll();
+    void addAudit(`Slettet prosjekt: ${project.name}`);
+  }
+
+  function openEmployeeModal(employeeId = null) {
+    if (!canEditApp()) return;
+    state.selectedEmployeeId = employeeId;
+    const employee = state.employees.find(e => e.id === employeeId);
+
+    els.employeeModalTitle.textContent = employee ? "Rediger ansatt" : "Ny ansatt";
+    els.employeeName.value = employee?.name || "";
+    els.employeeEmail.value = employee?.email || "";
+    els.employeePhone.value = employee?.phone || "";
+    els.employeeTitle.value = employee?.title || "";
+    fillSelect(els.employeeGroup, EMPLOYEE_GROUP_OPTIONS.map(value => ({ id: value, name: value || "Ingen gruppe valgt" })), normalizeEmployeeGroup(employee?.employee_group || ""), "name", "id");
+    els.employeeActive.checked = employee?.active ?? true;
+    els.deleteEmployeeBtn.style.display = employee ? "inline-flex" : "none";
+
+    els.employeeModal.classList.remove("hidden");
+    els.employeeModal.classList.add("flex");
+  }
+
+  function closeEmployeeModal() {
+    state.selectedEmployeeId = null;
+    els.employeeModal.classList.add("hidden");
+    els.employeeModal.classList.remove("flex");
+  }
+
+  async function saveEmployeeFromModal() {
+    if (!canEditApp()) return;
+    const name = els.employeeName.value.trim();
+    const email = els.employeeEmail.value.trim();
+    const phone = els.employeePhone.value.trim();
+    const title = els.employeeTitle.value.trim();
+    const employeeGroup = normalizeEmployeeGroup(els.employeeGroup?.value || "");
+    const active = els.employeeActive.checked;
+
+    if (!name) {
+      alert("Legg inn navn.");
+      return;
+    }
+
+    const duplicate = state.employees.find(e =>
+      e.name.toLowerCase() === name.toLowerCase() && e.id !== state.selectedEmployeeId
+    );
+    if (duplicate) {
+      alert("En ansatt med dette navnet finnes allerede.");
+      return;
+    }
+
+    let employee = state.employees.find(e => e.id === state.selectedEmployeeId);
+
+    if (employee) {
+      const oldName = employee.name;
+      employee.name = name;
+      employee.email = email;
+      employee.phone = phone;
+      employee.title = title;
+      employee.employee_group = employeeGroup;
+      employee.active = active;
+
+      if (oldName !== name) {
+        const affectedEntries = state.entries.filter(entry => entry.employee_name === oldName);
+        for (const entry of affectedEntries) {
+          entry.employee_name = name;
+        }
+        rebuildDerivedState();
+        if (affectedEntries.length) {
+          const saveEntriesResult = await saveRows("planner_entries", affectedEntries);
+          if (!saveEntriesResult.ok) return;
+        }
+      }
+    } else {
+      employee = {
+        id: crypto.randomUUID(),
+        name,
+        email,
+        phone,
+        title,
+        employee_group: employeeGroup,
+        active
+      };
+      state.employees.push(employee);
+    }
+
+    state.employees = normalizeEmployees(state.employees);
+    state.employees.sort((a, b) => a.name.localeCompare(b.name, "no"));
+    rebuildDerivedState();
+
+    const result = await saveRow("planner_employees", getEmployeeRowForRemote(employee));
+    if (!result.ok) return;
+
+    closeEmployeeModal();
+    renderAll();
+    void addAudit(`${state.selectedEmployeeId ? "Redigerte" : "Opprettet"} ansatt: ${name}`);
+  }
+
+  async function deleteEmployeeFromModal() {
+    if (!canEditApp()) return;
+    const employee = state.employees.find(e => e.id === state.selectedEmployeeId);
+    if (!employee) return;
+
+    const hasEntries = state.entries.some(e => e.employee_name === employee.name);
+    if (hasEntries) {
+      alert("Ansatt kan ikke slettes før tilhørende tildelinger er fjernet. Sett eventuelt ansatt som inaktiv.");
+      return;
+    }
+
+    if (!confirm("Vil du slette denne ansatte?")) return;
+
+    state.employees = state.employees.filter(e => e.id !== employee.id);
+    saveEmployeeGroupMap();
+    rebuildDerivedState();
+    const result = await deleteRow("planner_employees", employee.id);
+    if (!result.ok) {
+      state.employees.push(employee);
+      state.employees.sort((a, b) => a.name.localeCompare(b.name, "no"));
+      rebuildDerivedState();
+      renderAll();
+      return;
+    }
+
+    closeEmployeeModal();
+    renderAll();
+    void addAudit(`Slettet ansatt: ${employee.name}`);
+  }
+
+  async function bulkAddEmployees() {
+    if (!canEditApp()) return;
+    const names = els.bulkEmployees.value.split("\n").map(v => v.trim()).filter(Boolean);
+    if (!names.length) {
+      alert("Lim inn minst ett navn.");
+      return;
+    }
+
+    let count = 0;
+    const inserted = [];
+
+    for (const name of names) {
+      const exists = state.employees.some(e => e.name.toLowerCase() === name.toLowerCase());
+      if (exists) continue;
+
+      const employee = {
+        id: crypto.randomUUID(),
+        name,
+        email: "",
+        phone: "",
+        title: "",
+        employee_group: "",
+        active: true
+      };
+
+      state.employees.push(employee);
+      inserted.push(employee);
+      count++;
+    }
+
+    state.employees.sort((a, b) => a.name.localeCompare(b.name, "no"));
+    rebuildDerivedState();
+
+    if (inserted.length) {
+      const result = await saveRows("planner_employees", inserted.map(getEmployeeRowForRemote));
+      if (!result.ok) {
+        state.employees = state.employees.filter(e => !inserted.some(i => i.id === e.id));
+        rebuildDerivedState();
+        renderAll();
+        return;
+      }
+    }
+
+    els.bulkEmployees.value = "";
+    renderAll();
+    void addAudit(`La til ${count} ansatte via masseimport`);
+  }
+
+  function rebuildDerivedState() {
+    const projectById = new Map();
+    const entriesByEmployee = new Map();
+    const entryCountByProject = new Map();
+
+    state.projects.forEach(project => {
+      projectById.set(project.id, project);
+    });
+
+    state.entries.forEach(entry => {
+      if (!entriesByEmployee.has(entry.employee_name)) {
+        entriesByEmployee.set(entry.employee_name, []);
+      }
+      entriesByEmployee.get(entry.employee_name).push(entry);
+      entryCountByProject.set(entry.project_id, (entryCountByProject.get(entry.project_id) || 0) + 1);
+    });
+
+    entriesByEmployee.forEach(list => {
+      list.sort((a, b) => a.start_date.localeCompare(b.start_date));
+    });
+
+    state.derived.projectById = projectById;
+    state.derived.entriesByEmployee = entriesByEmployee;
+    state.derived.entryCountByProject = entryCountByProject;
+  }
+
+  function renderAll() {
+    populateDynamicSelects();
+    renderStats();
+    renderLegend();
+    renderCalendarPanel();
+    renderProjects();
+    renderEmployees();
+    renderCalendar();
+    renderKanban();
+    renderNotifications();
+    renderAudit();
+    renderSystemStatus();
+    updateBadge();
+    applyRoleChrome();
+  }
+
+  function populateDynamicSelects() {
+    const employeeFilterItems = [
+      { name: "Alle ansatte", id: "Alle ansatte" },
+      ...state.employees.filter(e => e.active !== false).map(e => ({ id: e.name, name: e.name }))
+    ];
+
+    const visibleProjects = getVisibleProjects();
+
+    fillSelect(els.employeeFilter, employeeFilterItems, state.employeeFilter, "name", "id");
+    fillSelect(els.editEmployee, state.employees.filter(e => e.active !== false), null, "name", "name");
+    fillSelect(els.assignProject, [{ id: "", name: "Velg prosjekt" }, ...visibleProjects.map(p => ({ id: p.id, name: p.name }))], "", "name", "id");
+    fillSelect(els.editProject, state.projects, null, "name", "id");
+    fillSelect(els.personalBlockEmployee, [{ id: "", name: "Velg ansatt" }, ...state.employees.filter(e => e.active !== false).map(e => ({ id: e.name, name: e.name }))], els.personalBlockEmployee?.value || "", "name", "id");
+    fillSelect(els.personalBlockType, PERSONAL_BLOCK_TYPES, els.personalBlockType?.value || PERSONAL_BLOCK_TYPES[0] || "");
+    fillSelect(els.contextMenuType, PERSONAL_BLOCK_TYPES, els.contextMenuType?.value || "Ferie");
+    fillSelect(els.viewMode, ["Uke", "Måned", "År"], state.viewMode);
+    fillSelect(els.calendarMode, [
+      { id: "personal", name: "Personalplan" },
+      { id: "project", name: "Prosjektplan" }
+    ], state.calendarMode, "name", "id");
+    renderAssignEmployeeSelectors();
+    if (!els.assignProject.value) {
+      if (els.assignStart) els.assignStart.value = "";
+      if (els.assignEnd) els.assignEnd.value = "";
+    } else {
+      syncAssignDatesFromProject();
+    }
+  }
+
+  function renderStats() {
+    const visibleProjects = getVisibleProjects();
+    const unstaffedProjects = visibleProjects.filter(project => getProjectAssignedCount(project.id) === 0);
+
+    const cards = [
+      {
+        label: "Prosjekter",
+        value: visibleProjects.length,
+        filter: "all",
+        helper: "Vis alle prosjekter"
+      },
+      {
+        label: "Prosjekter uten bemanning",
+        value: unstaffedProjects.length,
+        filter: "unstaffed",
+        helper: "Vis prosjekter som må bemannes"
+      }
+    ];
+
+    els.statsRow.innerHTML = cards.map(card => `
+      <button
+        type="button"
+        data-stats-project-filter="${escapeHtml(card.filter)}"
+        class="w-full rounded-2xl bg-white border border-slate-200 shadow-sm p-4 text-left hover:bg-slate-50 transition"
+      >
+        <div class="text-sm text-slate-500">${escapeHtml(card.label)}</div>
+        <div class="text-3xl font-bold mt-2">${escapeHtml(String(card.value))}</div>
+        <div class="text-xs text-slate-500 mt-2">${escapeHtml(card.helper)}</div>
+      </button>
+    `).join("");
+
+    els.statsRow.querySelectorAll("[data-stats-project-filter]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        openProjectListView(btn.dataset.statsProjectFilter || "all");
+      });
+    });
+  }
+
+
+  function renderLegend() {
+    const projectCategoryHtml = ["Offshore", "Travel", "Onshore"].map(name => `
+      <div class="flex items-center gap-2">
+        <span class="inline-block w-4 h-4 rounded ${CATEGORY_COLORS[name] || "bg-slate-400"}"></span>
+        <span>${escapeHtml(name)}</span>
+      </div>
+    `).join("");
+
+    const personalCategoryHtml = getVisiblePersonalBlockTypes().map(name => `
+      <div class="flex items-center gap-2">
+        <span class="inline-block w-4 h-4 rounded ${CATEGORY_COLORS[name] || "bg-slate-400"}"></span>
+        <span>${escapeHtml(name)}</span>
+      </div>
+    `).join("");
+
+    const statusHtml = Object.keys(STATUS_COLORS).map(name => `
+      <div class="flex items-center gap-2">
+        <span class="inline-block rounded-full border px-2 py-0.5 ${STATUS_COLORS[name]}">${escapeHtml(name)}</span>
+      </div>
+    `).join("");
+
+    els.legendList.innerHTML = `
+      <div>
+        <div class="font-medium mb-2">Prosjekter</div>
+        <div class="space-y-2">${projectCategoryHtml}</div>
+      </div>
+      <div class="pt-4 border-t border-slate-200">
+        <div class="font-medium mb-2">Direkte blokk på ansatt</div>
+        <div class="space-y-2">${personalCategoryHtml}</div>
+      </div>
+      <div class="pt-4 border-t border-slate-200">
+        <div class="font-medium mb-2">Prosjektstatus</div>
+        <div class="space-y-2">${statusHtml}</div>
+      </div>
+    `;
+  }
+
+  function renderCalendarPanel() {
+    if (!els.calendarPanelCol || !els.calendarPanelHandleBtn || !els.calendarPanelContent) return;
+
+    const isDesktop = window.innerWidth >= 1280;
+
+    if (!isDesktop) {
+      els.calendarPanelCol.className = "w-full shrink-0 rounded-2xl bg-white border border-slate-200 shadow-sm overflow-hidden transition-all duration-300";
+      els.calendarPanelContent.classList.remove("hidden");
+      els.calendarPanelHandleBtn.className = "w-12 shrink-0 border-r border-slate-200 bg-slate-50 text-slate-700 text-xs font-semibold tracking-wide";
+      els.calendarPanelHandleBtn.textContent = "Panel";
+      return;
+    }
+
+    if (state.calendarPanelOpen) {
+      els.calendarPanelCol.className = "xl:w-80 w-full shrink-0 rounded-2xl bg-white border border-slate-200 shadow-sm overflow-hidden transition-all duration-300";
+      els.calendarPanelContent.classList.remove("hidden");
+      els.calendarPanelHandleBtn.className = "w-12 shrink-0 border-r border-slate-200 bg-slate-50 text-slate-700 text-xs font-semibold tracking-wide [writing-mode:vertical-rl] rotate-180";
+      els.calendarPanelHandleBtn.textContent = "Panel";
+    } else {
+      els.calendarPanelCol.className = "xl:w-12 w-full shrink-0 rounded-2xl bg-white border border-slate-200 shadow-sm overflow-hidden transition-all duration-300";
+      els.calendarPanelContent.classList.add("hidden");
+      els.calendarPanelHandleBtn.className = "w-12 shrink-0 border-r-0 bg-slate-50 text-slate-700 text-xs font-semibold tracking-wide [writing-mode:vertical-rl] rotate-180";
+      els.calendarPanelHandleBtn.textContent = "Panel";
+    }
+  }
+
+  function renderProjects() {
+    const filteredProjects = getProjectsForCurrentListFilter();
+    const filterLabel = state.projectListFilter === "unstaffed" ? "Viser kun prosjekter uten bemanning." : "Viser alle prosjekter i stigende rekkefølge etter planlagt startdato.";
+    const emptyText = state.projectListFilter === "unstaffed" ? "Ingen prosjekter mangler bemanning." : "Ingen prosjekter.";
+
+    els.projectList.innerHTML = `
+      <div class="mb-4 flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          data-project-list-filter="all"
+          class="rounded-xl px-3 py-2 text-sm border ${state.projectListFilter === "all" ? "border-slate-900 bg-slate-900 text-white" : "border-slate-300 bg-white text-slate-700"}"
+        >
+          Alle prosjekter
+        </button>
+        <button
+          type="button"
+          data-project-list-filter="unstaffed"
+          class="rounded-xl px-3 py-2 text-sm border ${state.projectListFilter === "unstaffed" ? "border-slate-900 bg-slate-900 text-white" : "border-slate-300 bg-white text-slate-700"}"
+        >
+          Uten bemanning
+        </button>
+        <div class="text-sm text-slate-500">${escapeHtml(filterLabel)}</div>
+      </div>
+      ${filteredProjects.map(project => {
+        const assigned = getProjectAssignedCount(project.id);
+        const required = Number(project.headcount_required || 0);
+        const staffing = getProjectStaffingLabel(project.id, required);
+        const projectEntries = state.entries
+          .filter(entry => entry.project_id === project.id)
+          .slice()
+          .sort((a, b) => a.start_date.localeCompare(b.start_date) || a.employee_name.localeCompare(b.employee_name, "no"));
+        const projectCardClasses = project.status === "Avsluttet"
+          ? "rounded-xl border border-slate-300 p-3 bg-slate-100"
+          : "rounded-xl border border-slate-200 p-3 bg-slate-50";
+
+        const assignmentsHtml = projectEntries.length
+          ? `
+            <div class="mt-3 rounded-xl border border-slate-200 bg-white p-3">
+              <div class="text-xs font-semibold uppercase tracking-wide text-slate-500">Tildelte ressurser</div>
+              <div class="mt-2 space-y-2">
+                ${projectEntries.map(entry => `
+                  <div class="flex items-start justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                    <div class="min-w-0">
+                      <div class="text-sm font-medium text-slate-800">${escapeHtml(entry.employee_name || "Ukjent ansatt")}</div>
+                      <div class="text-xs text-slate-500">${escapeHtml(entry.role || "")}</div>
+                      <div class="text-xs text-slate-500">${escapeHtml(formatDate(entry.start_date))} – ${escapeHtml(formatDate(entry.end_date))}</div>
+                    </div>
+                    <button data-project-entry-delete-id="${escapeHtml(entry.id)}" class="shrink-0 rounded-lg border border-red-200 bg-white px-2 py-1 text-xs text-red-700 hover:bg-red-50">Fjern</button>
+                  </div>
+                `).join("")}
+              </div>
+            </div>
+          `
+          : `
+            <div class="mt-3 rounded-xl border border-dashed border-slate-300 bg-white px-3 py-3 text-xs text-slate-500">
+              Ingen tildelte ressurser på prosjektet.
+            </div>
+          `;
+
+        return `
+          <div class="${projectCardClasses}">
+            <div class="flex items-start justify-between gap-3">
+              <div>
+                <div class="font-medium">${escapeHtml(project.name)}</div>
+                <div class="text-xs text-slate-500 mt-1">${escapeHtml(project.category)}${project.location ? ` • ${escapeHtml(project.location)}` : ""}</div>
+                <div class="text-xs text-slate-600 mt-1">${escapeHtml(formatProjectDateRange(project))}</div>
+                <div class="text-xs mt-1 ${staffing.variant}">${escapeHtml(staffing.text)}${required ? ` (${assigned}/${required})` : ""}</div>
+              </div>
+              <span class="rounded-full border px-2 py-0.5 text-xs ${STATUS_COLORS[project.status] || "bg-slate-100 border-slate-200 text-slate-700"}">${escapeHtml(project.status)}</span>
+            </div>
+            <div class="text-xs text-slate-600 mt-2">${escapeHtml(project.notes || "")}</div>
+            ${assignmentsHtml}
+            <div class="mt-3 flex flex-wrap gap-2">
+              <button data-project-staff-id="${escapeHtml(project.id)}" class="rounded-xl bg-slate-900 text-white px-3 py-2 text-sm">Bemann</button>
+              <button data-project-id="${escapeHtml(project.id)}" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm">Rediger</button>
+            </div>
+          </div>
+        `;
+      }).join("") || `<div class="text-sm text-slate-500">${escapeHtml(emptyText)}</div>`}
+    `;
+
+    els.projectList.querySelectorAll("[data-project-list-filter]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        state.projectListFilter = btn.dataset.projectListFilter === "unstaffed" ? "unstaffed" : "all";
+        renderProjects();
+      });
+    });
+
+    els.projectList.querySelectorAll("[data-project-id]").forEach(btn => {
+      btn.addEventListener("click", () => openProjectModal(btn.dataset.projectId));
+    });
+
+    els.projectList.querySelectorAll("[data-project-staff-id]").forEach(btn => {
+      btn.addEventListener("click", () => startProjectStaffing(btn.dataset.projectStaffId));
+    });
+
+    els.projectList.querySelectorAll("[data-project-entry-delete-id]").forEach(btn => {
+      btn.addEventListener("click", () => deleteEntryFromProjectCard(btn.dataset.projectEntryDeleteId));
+    });
+  }
+
+  function startProjectStaffing(projectId) {
+    if (!els.assignProject) return;
+    setActiveTab("projects");
+    els.assignProject.value = projectId;
+    syncAssignDatesFromProject();
+    els.assignProject.scrollIntoView({ behavior: "smooth", block: "center" });
+  }
+
+  async function deleteEntryFromProjectCard(entryId) {
+    if (!canEditApp()) return;
+    const entry = state.entries.find(item => item.id === entryId);
+    if (!entry) {
+      alert("Fant ikke tildelingen.");
+      return;
+    }
+
+    const project = getProjectById(entry.project_id);
+    const confirmText = `Fjern tildeling for ${entry.employee_name} fra ${project?.name || "prosjekt"}?`;
+    if (!confirm(confirmText)) return;
+
+    state.entries = state.entries.filter(item => item.id !== entryId);
+    rebuildDerivedState();
+    renderAll();
+
+    const result = await deleteRow("planner_entries", entryId);
+    if (!result.ok) {
+      state.entries.push(entry);
+      rebuildDerivedState();
+      renderAll();
+      return;
+    }
+
+    void addAudit(`Slettet tildeling fra prosjektkort: ${entry.employee_name} → ${displayProjectName(project) || "Ukjent prosjekt"}`);
+  }
+
+  function renderEmployees() {
+    els.employeeList.innerHTML = state.employees.map(emp => {
+      const employeeGroup = normalizeEmployeeGroup(emp.employee_group || "");
+      const cardClass = getEmployeeGroupCardClass(employeeGroup);
+      return `
+      <button data-employee-id="${escapeHtml(emp.id)}" class="w-full text-left rounded-xl border-2 p-3 transition ${cardClass}">
+        <div class="flex items-center justify-between gap-2">
+          <div class="font-medium">${escapeHtml(emp.name)}</div>
+          <span class="text-xs ${emp.active ? "text-green-700" : "text-amber-700"}">${emp.active ? "Aktiv" : "Inaktiv"}</span>
+        </div>
+        <div class="text-xs text-slate-500 mt-1">${escapeHtml(emp.email || "Ingen e-post")}</div>
+        <div class="text-xs text-slate-500">${escapeHtml(emp.phone || "Ingen telefon")}</div>
+        <div class="text-xs text-slate-500">${escapeHtml(emp.title || "Ingen stillingstittel")}</div>
+        <div class="mt-2 inline-flex rounded-full border border-current/20 bg-white/80 px-2 py-1 text-xs font-medium text-slate-700">${escapeHtml(employeeGroup || "Ingen gruppe valgt")}</div>
+      </button>
+    `}).join("") || `<div class="text-sm text-slate-500">Ingen ansatte enda.</div>`;
+
+    els.employeeList.querySelectorAll("[data-employee-id]").forEach(btn => {
+      btn.addEventListener("click", () => openEmployeeModal(btn.dataset.employeeId));
+    });
+  }
+
+  function renderKanban() {
+    const groups = STATUS_OPTIONS.map(status => ({
+      status,
+      projects: getVisibleProjects().filter(p => p.status === status)
+    }));
+
+    els.kanbanBoard.innerHTML = groups.map(group => `
+      <div class="rounded-2xl border border-slate-200 bg-slate-50">
+        <div class="p-3 border-b border-slate-200 font-medium">${escapeHtml(group.status)} (${group.projects.length})</div>
+        <div class="p-3 space-y-2">
+          ${group.projects.length ? group.projects.map(project => `
+            <div class="rounded-xl border border-slate-200 ${project.status === "Avsluttet" ? "bg-slate-100" : "bg-white"} p-3">
+              <div class="font-medium">${escapeHtml(project.name)}</div>
+              <div class="mt-1 text-xs text-slate-500">${escapeHtml(project.category)}${project.location ? ` • ${escapeHtml(project.location)}` : ""}</div>
+              <div class="mt-1 text-xs text-slate-600">${escapeHtml(formatProjectDateRange(project))}</div>
+              <div class="mt-2 text-xs text-slate-600">${escapeHtml(project.notes || "")}</div>
+            </div>
+          `).join("") : `<div class="text-sm text-slate-400">Ingen prosjekter</div>`}
+        </div>
+      </div>
+    `).join("");
+  }
+
+  function renderNotifications() {
+    els.notificationList.innerHTML = state.notificationLog.slice(0, 30).map(row => `
+      <div class="rounded-xl border border-slate-200 p-3">
+        <div class="font-medium">${escapeHtml(row.type)}</div>
+        <div class="text-sm text-slate-600">${escapeHtml(row.recipient)} → ${escapeHtml(row.target || "")}</div>
+        <div class="text-xs text-slate-400 mt-1">${escapeHtml(formatDateTime(row.created_at))}</div>
+      </div>
+    `).join("") || `<div class="text-sm text-slate-500">Ingen varsler.</div>`;
+  }
+
+  function renderAudit() {
+    els.auditList.innerHTML = state.auditLog.slice(0, 30).map(row => `
+      <div class="rounded-xl border border-slate-200 p-3">
+        <div class="font-medium">${escapeHtml(row.user_name || "System")}</div>
+        <div class="text-sm text-slate-600">${escapeHtml(row.action_text || "")}</div>
+        <div class="text-xs text-slate-400 mt-1">${escapeHtml(formatDateTime(row.created_at))}</div>
+      </div>
+    `).join("") || `<div class="text-sm text-slate-500">Ingen endringer.</div>`;
+  }
+
+  function renderSystemStatus() {
+    if (!els.systemStatus) return;
+    const lines = [
+      `<div><span class="font-medium">Lagring:</span> ${state.storageMode === "supabase" ? "Supabase" : "Lokal fallback"}</div>`,
+      `<div><span class="font-medium">Kalendervisning:</span> ${state.calendarMode === "project" ? "Prosjektplan" : "Personalplan"}</div>`,
+      `<div><span class="font-medium">Aktive ansatte:</span> ${state.employees.filter(e => e.active !== false).length}</div>`,
+      `<div><span class="font-medium">Antall prosjekter:</span> ${getVisibleProjects().length}</div>`,
+      `<div><span class="font-medium">Antall tildelinger:</span> ${state.entries.length}</div>`
+    ];
+
+    if (state.supabaseError) {
+      lines.push(`<div class="text-red-600"><span class="font-medium">Feil:</span> ${escapeHtml(state.supabaseError)}</div>`);
+    }
+
+    els.systemStatus.innerHTML = lines.join("");
+  }
+
+  function renderCalendar() {
+    if (!els.calendarWrap) return;
+    els.rangeTitle.innerHTML = getRangeTitle();
+
+    if (state.calendarMode === "project") {
+      renderProjectCalendar();
+      return;
+    }
+
+    if (state.viewMode === "År") {
+      renderPersonalYearCalendar();
+      return;
+    }
+
+    renderPersonalDayCalendar();
+  }
+
+  function renderPersonalDayCalendar() {
+    const range = getCurrentRange();
+    const days = getDaysBetween(range.start, range.end);
+    const employees = getFilteredEmployees();
+
+    const calendarWrapWidth = Math.max(els.calendarWrap.clientWidth - 8, 900);
+    const stickyWidth = 280;
+    const usableWidth = Math.max(calendarWrapWidth - stickyWidth, state.viewMode === "Uke" ? 980 : 1100);
+    const colWidth = usableWidth / days.length;
+    const totalWidth = colWidth * days.length;
+
+    let html = `<div class="calendar-shell" style="width:${stickyWidth + totalWidth}px;">`;
+    html += `<div class="day-grid border border-slate-200 rounded-2xl overflow-hidden" style="grid-template-columns:${stickyWidth}px repeat(${days.length}, ${colWidth}px);">`;
+    html += `<div class="sticky-col z-30 border-b border-r border-slate-200 bg-slate-50 px-3 py-3 font-semibold">Ansatt</div>`;
+
+    for (const day of days) {
+      const weekend = isWeekend(day);
+      const isTodayFlag = sameDate(day, new Date());
+      const weekLabel = state.viewMode === "Uke" ? `<div>Uke ${getIsoWeek(day)}</div>` : "";
+
+      html += `
+        <div class="border-b border-r border-slate-200 px-2 py-2 text-center text-xs ${weekend ? "bg-slate-50" : "bg-white"} ${isTodayFlag ? "text-blue-700 font-semibold" : "text-slate-600"}">
+          <div class="font-semibold">${weekdayShort(day)}</div>
+          ${weekLabel}
+          <div class="font-semibold">${day.getDate()}</div>
+          <div>${monthShort(day)}</div>
+        </div>
+      `;
+    }
+
+    const warnings = [];
+
+    for (const employee of employees) {
+      const employeeEntries = getVisibleEntriesForEmployee(employee.name, range.start, range.end);
+
+      html += `
+        <div class="sticky-col border-r border-b border-slate-200 px-3 py-3">
+          <div class="font-medium">${escapeHtml(employee.name)}</div>
+          <div class="text-xs text-slate-500">${escapeHtml(employee.email || "")}</div>
+          <div class="text-xs text-slate-500">${escapeHtml(employee.title || "")}</div>
+        </div>
+      `;
+
+      html += `<div class="row-overlay border-b border-slate-200 drop-row" data-employee-name="${escapeHtml(employee.name)}" data-range-start="${toIsoDate(range.start)}" data-col-width="${colWidth}" data-total-cols="${days.length}" data-time-unit="day" style="grid-column: span ${days.length}; width:${totalWidth}px;">`;
+
+      for (let i = 0; i < days.length; i++) {
+        const day = days[i];
+        const weekend = isWeekend(day);
+        const isTodayFlag = sameDate(day, new Date());
+        html += `<div data-drop-slot-index="${i}" data-drop-date="${toIsoDate(day)}" class="day-cell ${weekend ? "weekend" : ""} ${isTodayFlag ? "today" : ""}" style="position:absolute; left:${i * colWidth}px; width:${colWidth}px;"></div>`;
+      }
+
+      html += `<div style="position:relative; width:${totalWidth}px; min-height:56px;">`;
+
+      for (const entry of employeeEntries) {
+        const project = getProjectById(entry.project_id);
+        if (!project) continue;
+
+        const clipped = clipRange(asLocalDate(entry.start_date), asLocalDate(entry.end_date), range.start, range.end);
+        const startIndex = diffDays(range.start, clipped.start);
+        const spanDays = diffDays(clipped.start, clipped.end) + 1;
+        const left = startIndex * colWidth + 2;
+        const width = Math.max(spanDays * colWidth - 4, 40);
+
+        html += `
+          <div
+            class="entry-bar ${getEntryBarClasses(project, entry.role)}"
+            style="left:${left}px; width:${width}px;"
+            data-entry-id="${escapeHtml(entry.id)}"
+            draggable="true"
+            title="${escapeHtml(`${employee.name} | ${displayProjectName(project)} | ${entry.role} | ${entry.start_date} - ${entry.end_date}${entry.notes ? ` | ${entry.notes}` : ""}`)}"
+          >
+            <div class="font-semibold">${escapeHtml(displayProjectName(project))}</div>
+            ${isSystemPersonalProject(project) ? "" : `<div class="text-[11px] opacity-90">${escapeHtml(entry.role)}</div>`}
+            <div data-resize-handle data-resize-type="entry" data-target-id="${escapeHtml(entry.id)}" title="Dra for å endre sluttdato" style="position:absolute; top:0; right:0; bottom:0; width:12px; cursor:ew-resize; border-left:1px solid rgba(255,255,255,0.35); background:linear-gradient(to left, rgba(255,255,255,0.35), rgba(255,255,255,0));"></div>
+          </div>
+        `;
+
+        const overlappingCount = employeeEntries.filter(other =>
+          other.id !== entry.id &&
+          overlaps(entry.start_date, entry.end_date, other.start_date, other.end_date)
+        ).length;
+
+        if (overlappingCount > 0) {
+          warnings.push(`${employee.name} har overlappende tildelinger rundt ${entry.start_date}–${entry.end_date}.`);
+        }
+      }
+
+      html += `</div></div>`;
+    }
+
+    html += `</div></div>`;
+    els.calendarWrap.innerHTML = html;
+    bindEntryClicks();
+    bindResizeHandles();
+    renderWarnings(uniqueArray(warnings));
+  }
+
+  function renderPersonalYearCalendar() {
+    const employees = getFilteredEmployees();
+    const year = state.startDate.getFullYear();
+    const months = Array.from({ length: 12 }, (_, i) => new Date(year, i, 1));
+
+    const calendarWrapWidth = Math.max(els.calendarWrap.clientWidth - 8, 900);
+    const stickyWidth = 280;
+    const usableWidth = Math.max(calendarWrapWidth - stickyWidth, 1000);
+    const monthWidth = usableWidth / 12;
+    const totalWidth = monthWidth * 12;
+
+    let html = `<div class="calendar-shell" style="width:${stickyWidth + totalWidth}px;">`;
+    html += `<div class="month-summary-grid border border-slate-200 rounded-2xl overflow-hidden" style="grid-template-columns:${stickyWidth}px repeat(12, ${monthWidth}px);">`;
+    html += `<div class="sticky-col z-30 border-b border-r border-slate-200 bg-slate-50 px-3 py-3 font-semibold">Ansatt</div>`;
+
+    for (const month of months) {
+      html += `<div class="border-b border-r border-slate-200 px-2 py-3 text-center text-sm bg-white text-slate-700 font-medium">${escapeHtml(capitalize(monthLong(month)))}</div>`;
+    }
+
+    const warnings = [];
+    const yearStart = new Date(year, 0, 1);
+    const yearEnd = new Date(year, 11, 31);
+
+    for (const employee of employees) {
+      const employeeEntries = getVisibleEntriesForEmployee(employee.name, yearStart, yearEnd);
+
+      html += `
+        <div class="sticky-col border-r border-b border-slate-200 px-3 py-3">
+          <div class="font-medium">${escapeHtml(employee.name)}</div>
+          <div class="text-xs text-slate-500">${escapeHtml(employee.email || "")}</div>
+          <div class="text-xs text-slate-500">${escapeHtml(employee.title || "")}</div>
+        </div>
+      `;
+
+      html += `<div class="row-overlay border-b border-slate-200 drop-row" data-employee-name="${escapeHtml(employee.name)}" data-range-start="${toIsoDate(yearStart)}" data-col-width="${monthWidth}" data-total-cols="12" data-time-unit="month" style="grid-column: span 12; width:${totalWidth}px;">`;
+
+      for (let i = 0; i < 12; i++) {
+        html += `<div data-drop-slot-index="${i}" data-drop-month-index="${i}" class="month-cell" style="position:absolute; left:${i * monthWidth}px; width:${monthWidth}px;"></div>`;
+      }
+
+      html += `<div style="position:relative; width:${totalWidth}px; min-height:56px;">`;
+
+      for (const entry of employeeEntries) {
+        const project = getProjectById(entry.project_id);
+        if (!project) continue;
+
+        const entryStart = asLocalDate(entry.start_date);
+        const entryEnd = asLocalDate(entry.end_date);
+        const startMonth = Math.max(0, entryStart.getFullYear() < year ? 0 : entryStart.getMonth());
+        const endMonth = Math.min(11, entryEnd.getFullYear() > year ? 11 : entryEnd.getMonth());
+        const spanMonths = (endMonth - startMonth) + 1;
+        const left = startMonth * monthWidth + 2;
+        const width = Math.max(spanMonths * monthWidth - 4, 40);
+
+        html += `
+          <div
+            class="entry-bar ${getEntryBarClasses(project, entry.role)}"
+            style="left:${left}px; width:${width}px;"
+            data-entry-id="${escapeHtml(entry.id)}"
+            draggable="true"
+            title="${escapeHtml(`${employee.name} | ${displayProjectName(project)} | ${entry.role} | ${entry.start_date} - ${entry.end_date}`)}"
+          >
+            <div class="font-semibold">${escapeHtml(displayProjectName(project))}</div>
+            <div class="text-[11px] opacity-90">${escapeHtml(formatYearBarLabel(entry.start_date, entry.end_date))}</div>
+            <div data-resize-handle data-resize-type="entry" data-target-id="${escapeHtml(entry.id)}" title="Dra for å endre sluttdato" style="position:absolute; top:0; right:0; bottom:0; width:12px; cursor:ew-resize; border-left:1px solid rgba(255,255,255,0.35); background:linear-gradient(to left, rgba(255,255,255,0.35), rgba(255,255,255,0));"></div>
+          </div>
+        `;
+      }
+
+      html += `</div></div>`;
+    }
+
+    html += `</div></div>`;
+    els.calendarWrap.innerHTML = html;
+    bindEntryClicks();
+    bindResizeHandles();
+    renderWarnings(uniqueArray(warnings));
+  }
+
+  function renderProjectCalendar() {
+    const range = getCurrentRange();
+    const warnings = [];
+
+    if (state.viewMode === "År") {
+      renderProjectYearCalendar(range, warnings);
+      return;
+    }
+
+    renderProjectDayCalendar(range, warnings);
+  }
+
+  function renderProjectDayCalendar(range, warnings) {
+    const days = getDaysBetween(range.start, range.end);
+    const projects = getVisibleProjects().filter(project => projectOverlapsRange(project, range.start, range.end));
+
+    const calendarWrapWidth = Math.max(els.calendarWrap.clientWidth - 8, 900);
+    const stickyWidth = 320;
+    const usableWidth = Math.max(calendarWrapWidth - stickyWidth, state.viewMode === "Uke" ? 980 : 1100);
+    const colWidth = usableWidth / days.length;
+    const totalWidth = colWidth * days.length;
+
+    let html = `<div class="calendar-shell" style="width:${stickyWidth + totalWidth}px;">`;
+    html += `<div class="day-grid border border-slate-200 rounded-2xl overflow-hidden" style="grid-template-columns:${stickyWidth}px repeat(${days.length}, ${colWidth}px);">`;
+    html += `<div class="sticky-col z-30 border-b border-r border-slate-200 bg-slate-50 px-3 py-3 font-semibold">Prosjekt</div>`;
+
+    for (const day of days) {
+      const weekend = isWeekend(day);
+      const isTodayFlag = sameDate(day, new Date());
+      const weekLabel = state.viewMode === "Uke" ? `<div>Uke ${getIsoWeek(day)}</div>` : "";
+
+      html += `
+        <div class="border-b border-r border-slate-200 px-2 py-2 text-center text-xs ${weekend ? "bg-slate-50" : "bg-white"} ${isTodayFlag ? "text-blue-700 font-semibold" : "text-slate-600"}">
+          <div class="font-semibold">${weekdayShort(day)}</div>
+          ${weekLabel}
+          <div class="font-semibold">${day.getDate()}</div>
+          <div>${monthShort(day)}</div>
+        </div>
+      `;
+    }
+
+    for (const project of projects) {
+      const assigned = getProjectAssignedCount(project.id);
+      const required = Number(project.headcount_required || 0);
+      const staffing = getProjectStaffingLabel(project.id, required);
+
+      html += `
+        <div class="sticky-col border-r border-b border-slate-200 px-3 py-3 ${project.status === "Avsluttet" ? "bg-slate-100" : ""}">
+          <div class="font-medium">${escapeHtml(project.name)}</div>
+          <div class="text-xs text-slate-500">${escapeHtml(project.location || "")}</div>
+          <div class="text-xs ${staffing.variant} mt-1">${escapeHtml(staffing.text)}${required ? ` (${assigned}/${required})` : ""}</div>
+        </div>
+      `;
+
+      html += `<div class="row-overlay border-b border-slate-200" data-range-start="${toIsoDate(range.start)}" data-col-width="${colWidth}" data-total-cols="${days.length}" data-time-unit="day" style="grid-column: span ${days.length}; width:${totalWidth}px;">`;
+
+      for (let i = 0; i < days.length; i++) {
+        const day = days[i];
+        const weekend = isWeekend(day);
+        const isTodayFlag = sameDate(day, new Date());
+        html += `<div data-drop-slot-index="${i}" data-drop-date="${toIsoDate(day)}" class="day-cell ${weekend ? "weekend" : ""} ${isTodayFlag ? "today" : ""}" style="position:absolute; left:${i * colWidth}px; width:${colWidth}px;"></div>`;
+      }
+
+      html += `<div style="position:relative; width:${totalWidth}px; min-height:56px;">`;
+
+      if (project.planned_start_date && project.planned_end_date) {
+        const clipped = clipRange(asLocalDate(project.planned_start_date), asLocalDate(project.planned_end_date), range.start, range.end);
+        const startIndex = diffDays(range.start, clipped.start);
+        const spanDays = diffDays(clipped.start, clipped.end) + 1;
+        const left = startIndex * colWidth + 2;
+        const width = Math.max(spanDays * colWidth - 4, 40);
+
+        html += `
+          <div
+            class="entry-bar ${getProjectBarClasses(project)}"
+            style="left:${left}px; width:${width}px;"
+            data-project-row-id="${escapeHtml(project.id)}"
+            title="${escapeHtml(`${project.name} | ${formatProjectDateRange(project)} | ${staffing.text}`)}"
+          >
+            <div class="font-semibold">${escapeHtml(project.name)}</div>
+            <div class="text-[11px] opacity-90">${escapeHtml(staffing.text)}</div>
+            <div data-resize-handle data-resize-type="project" data-target-id="${escapeHtml(project.id)}" title="Dra for å endre sluttdato" style="position:absolute; top:0; right:0; bottom:0; width:12px; cursor:ew-resize; border-left:1px solid rgba(255,255,255,0.35); background:linear-gradient(to left, rgba(255,255,255,0.35), rgba(255,255,255,0));"></div>
+          </div>
+        `;
+      }
+
+      html += `</div></div>`;
+    }
+
+    html += `</div></div>`;
+    els.calendarWrap.innerHTML = html;
+
+    els.calendarWrap.querySelectorAll("[data-project-row-id]").forEach(el => {
+      el.addEventListener("click", () => openProjectModal(el.dataset.projectRowId));
+    });
+    bindResizeHandles();
+
+    renderWarnings(uniqueArray(warnings));
+  }
+
+  function renderProjectYearCalendar(range, warnings) {
+    const year = range.start.getFullYear();
+    const months = Array.from({ length: 12 }, (_, i) => new Date(year, i, 1));
+    const projects = getVisibleProjects().filter(project => projectOverlapsRange(project, range.start, range.end));
+
+    const calendarWrapWidth = Math.max(els.calendarWrap.clientWidth - 8, 900);
+    const stickyWidth = 320;
+    const usableWidth = Math.max(calendarWrapWidth - stickyWidth, 1000);
+    const monthWidth = usableWidth / 12;
+    const totalWidth = monthWidth * 12;
+
+    let html = `<div class="calendar-shell" style="width:${stickyWidth + totalWidth}px;">`;
+    html += `<div class="month-summary-grid border border-slate-200 rounded-2xl overflow-hidden" style="grid-template-columns:${stickyWidth}px repeat(12, ${monthWidth}px);">`;
+    html += `<div class="sticky-col z-30 border-b border-r border-slate-200 bg-slate-50 px-3 py-3 font-semibold">Prosjekt</div>`;
+
+    for (const month of months) {
+      html += `<div class="border-b border-r border-slate-200 px-2 py-3 text-center text-sm bg-white text-slate-700 font-medium">${escapeHtml(capitalize(monthLong(month)))}</div>`;
+    }
+
+    for (const project of projects) {
+      const assigned = getProjectAssignedCount(project.id);
+      const required = Number(project.headcount_required || 0);
+      const staffing = getProjectStaffingLabel(project.id, required);
+
+      html += `
+        <div class="sticky-col border-r border-b border-slate-200 px-3 py-3 ${project.status === "Avsluttet" ? "bg-slate-100" : ""}">
+          <div class="font-medium">${escapeHtml(project.name)}</div>
+          <div class="text-xs text-slate-500">${escapeHtml(project.location || "")}</div>
+          <div class="text-xs ${staffing.variant} mt-1">${escapeHtml(staffing.text)}${required ? ` (${assigned}/${required})` : ""}</div>
+        </div>
+      `;
+
+      html += `<div class="row-overlay border-b border-slate-200" data-range-start="${toIsoDate(range.start)}" data-col-width="${monthWidth}" data-total-cols="12" data-time-unit="month" style="grid-column: span 12; width:${totalWidth}px;">`;
+
+      for (let i = 0; i < 12; i++) {
+        html += `<div data-drop-slot-index="${i}" data-drop-month-index="${i}" class="month-cell" style="position:absolute; left:${i * monthWidth}px; width:${monthWidth}px;"></div>`;
+      }
+
+      html += `<div style="position:relative; width:${totalWidth}px; min-height:56px;">`;
+
+      if (project.planned_start_date && project.planned_end_date) {
+        const start = asLocalDate(project.planned_start_date);
+        const end = asLocalDate(project.planned_end_date);
+        const startMonth = Math.max(0, start.getFullYear() < year ? 0 : start.getMonth());
+        const endMonth = Math.min(11, end.getFullYear() > year ? 11 : end.getMonth());
+        const spanMonths = (endMonth - startMonth) + 1;
+        const left = startMonth * monthWidth + 2;
+        const width = Math.max(spanMonths * monthWidth - 4, 40);
+
+        html += `
+          <div
+            class="entry-bar ${getProjectBarClasses(project)}"
+            style="left:${left}px; width:${width}px;"
+            data-project-row-id="${escapeHtml(project.id)}"
+            title="${escapeHtml(`${project.name} | ${formatProjectDateRange(project)} | ${staffing.text}`)}"
+          >
+            <div class="font-semibold">${escapeHtml(project.name)}</div>
+            <div class="text-[11px] opacity-90">${escapeHtml(staffing.text)}</div>
+            <div data-resize-handle data-resize-type="project" data-target-id="${escapeHtml(project.id)}" title="Dra for å endre sluttdato" style="position:absolute; top:0; right:0; bottom:0; width:12px; cursor:ew-resize; border-left:1px solid rgba(255,255,255,0.35); background:linear-gradient(to left, rgba(255,255,255,0.35), rgba(255,255,255,0));"></div>
+          </div>
+        `;
+      }
+
+      html += `</div></div>`;
+    }
+
+    html += `</div></div>`;
+    els.calendarWrap.innerHTML = html;
+
+    els.calendarWrap.querySelectorAll("[data-project-row-id]").forEach(el => {
+      el.addEventListener("click", () => openProjectModal(el.dataset.projectRowId));
+    });
+    bindResizeHandles();
+
+    renderWarnings(uniqueArray(warnings));
+  }
+
+  function renderWarnings(warnings) {
+    if (!warnings.length) {
+      els.warningBox.classList.add("hidden");
+      els.warningBox.innerHTML = "";
+      return;
+    }
+
+    els.warningBox.classList.remove("hidden");
+    els.warningBox.innerHTML = `
+      <div class="font-semibold mb-2">Mulige konflikter</div>
+      <ul class="list-disc pl-5 space-y-1">
+        ${warnings.map(w => `<li>${escapeHtml(w)}</li>`).join("")}
+      </ul>
+    `;
+  }
+
+  function bindEntryClicks() {
+    const editable = canEditApp();
+
+    els.calendarWrap.querySelectorAll("[data-entry-id]").forEach(el => {
+      if (!editable) {
+        el.setAttribute("draggable", "false");
+        el.style.cursor = "default";
+        return;
+      }
+
+      el.addEventListener("click", () => {
+        if (state.justDraggedEntryId === el.dataset.entryId) return;
+        openEditModal(el.dataset.entryId);
+      });
+
+      el.addEventListener("dragstart", event => {
+        state.dragEntryId = el.dataset.entryId;
+        const row = el.closest(".row-overlay");
+        state.dragAnchor = getDragAnchorFromPointer(el, row, event.clientX);
+        event.dataTransfer.effectAllowed = "move";
+        event.dataTransfer.setData("text/plain", el.dataset.entryId);
+        requestAnimationFrame(() => {
+          el.classList.add("opacity-60");
+        });
+      });
+
+      el.addEventListener("dragend", () => {
+        el.classList.remove("opacity-60");
+        state.dragEntryId = null;
+        state.dragAnchor = { timeUnit: "day", slotOffset: 0 };
+      });
+    });
+
+    if (!editable) return;
+
+    els.calendarWrap.querySelectorAll(".drop-row").forEach(row => {
+      row.addEventListener("contextmenu", event => {
+        if (state.calendarMode !== "personal" || state.viewMode === "År") return;
+        event.preventDefault();
+        const targetEmployeeName = row.dataset.employeeName;
+        if (!targetEmployeeName) return;
+        const dropMeta = getDropMetaFromRow(row, event);
+        if (!dropMeta?.rangeStart || !Number.isFinite(dropMeta.colIndex)) return;
+        const selectedDate = dropMeta?.dropDate
+          ? toIsoDate(parseIsoDateLocal(dropMeta.dropDate))
+          : toIsoDate(addDays(parseIsoDateLocal(dropMeta.rangeStart), dropMeta.colIndex));
+        openCalendarContextMenu(targetEmployeeName, selectedDate, event.clientX + 8, event.clientY + 8);
+      });
+
+      row.addEventListener("dragover", event => {
+        if (!state.dragEntryId) return;
+        event.preventDefault();
+        event.dataTransfer.dropEffect = "move";
+        row.classList.add("ring-2", "ring-sky-300", "ring-inset");
+      });
+
+      row.addEventListener("dragleave", () => {
+        row.classList.remove("ring-2", "ring-sky-300", "ring-inset");
+      });
+
+      row.addEventListener("drop", async event => {
+        event.preventDefault();
+        row.classList.remove("ring-2", "ring-sky-300", "ring-inset");
+        const entryId = event.dataTransfer.getData("text/plain") || state.dragEntryId;
+        const targetEmployeeName = row.dataset.employeeName;
+        if (!entryId || !targetEmployeeName) return;
+
+        const dropMeta = getDropMetaFromRow(row, event);
+        await moveEntryByDrop(entryId, targetEmployeeName, dropMeta);
+      });
+    });
+  }
+
+  async function moveEntryToEmployee(entryId, targetEmployeeName) {
+    return moveEntryByDrop(entryId, targetEmployeeName, null);
+  }
+
+  function bindResizeHandles() {
+    if (!canEditApp()) return;
+
+    els.calendarWrap.querySelectorAll('[data-resize-handle]').forEach(handle => {
+      handle.addEventListener('mousedown', startResizeFromHandle);
+      handle.addEventListener('dragstart', event => {
+        event.preventDefault();
+        event.stopPropagation();
+      });
+    });
+  }
+
+  function startResizeFromHandle(event) {
+    event.preventDefault();
+    event.stopPropagation();
+
+    const handle = event.currentTarget;
+    const type = handle.dataset.resizeType || '';
+    const targetId = handle.dataset.targetId || '';
+    const bar = handle.closest('.entry-bar');
+    const row = handle.closest('.row-overlay');
+    if (!type || !targetId || !bar || !row) return;
+
+    const snapshot = getResizeSnapshot(type, targetId);
+    if (!snapshot) return;
+
+    state.resize = {
+      active: true,
+      type,
+      targetId,
+      row,
+      bar,
+      originalEndDate: snapshot.originalEndDate,
+      previewEndDate: snapshot.originalEndDate,
+      originalValueSnapshot: snapshot
+    };
+
+    document.body.style.userSelect = 'none';
+    document.body.style.cursor = 'ew-resize';
+  }
+
+  function getResizeSnapshot(type, targetId) {
+    if (type === 'entry') {
+      const entry = state.entries.find(item => item.id === targetId);
+      if (!entry) return null;
+      return {
+        entry,
+        originalEndDate: entry.end_date,
+        originalStartDate: entry.start_date
+      };
+    }
+
+    if (type === 'project') {
+      const project = state.projects.find(item => item.id === targetId);
+      if (!project) return null;
+      return {
+        project,
+        originalEndDate: project.planned_end_date || project.planned_start_date || '',
+        originalStartDate: project.planned_start_date || ''
+      };
+    }
+
+    return null;
+  }
+
+  function handleResizePointerMove(event) {
+    if (!state.resize.active || !state.resize.row) return;
+
+    const preview = getResizePreviewFromPointer(state.resize, event.clientX);
+    if (!preview?.endDate) return;
+
+    state.resize.previewEndDate = preview.endDate;
+    applyResizePreview(state.resize, preview);
+  }
+
+  function getResizePreviewFromPointer(resizeState, clientX) {
+    const row = resizeState.row;
+    const rowRect = row.getBoundingClientRect();
+    const syntheticEvent = { clientX, clientY: rowRect.top + (rowRect.height / 2) };
+    const dropMeta = getDropMetaFromRow(row, syntheticEvent);
+    const snapshot = resizeState.originalValueSnapshot;
+    if (!dropMeta || !snapshot?.originalStartDate) return null;
+
+    if (dropMeta.timeUnit === 'day') {
+      const pointerDate = dropMeta.dropDate
+        ? parseIsoDateLocal(dropMeta.dropDate)
+        : addDays(parseIsoDateLocal(dropMeta.rangeStart), Number(dropMeta.colIndex || 0));
+      const startDate = parseIsoDateLocal(snapshot.originalStartDate);
+      if (!pointerDate || !startDate) return null;
+      const resolvedEnd = pointerDate < startDate ? startDate : pointerDate;
+      return {
+        endDate: toIsoDate(resolvedEnd),
+        colIndex: dropMeta.colIndex,
+        timeUnit: 'day'
+      };
+    }
+
+    if (dropMeta.timeUnit === 'month') {
+      const monthIndex = Number.isFinite(dropMeta.dropMonthIndex) ? dropMeta.dropMonthIndex : Number(dropMeta.colIndex || 0);
+      const startDate = parseIsoDateLocal(snapshot.originalStartDate);
+      const originalEndDate = parseIsoDateLocal(snapshot.originalEndDate);
+      const rangeStart = parseIsoDateLocal(dropMeta.rangeStart);
+      if (!startDate || !rangeStart || !originalEndDate) return null;
+      const targetMonth = new Date(rangeStart.getFullYear(), rangeStart.getMonth() + monthIndex, 1);
+      const clampedDay = Math.min(originalEndDate.getDate(), daysInMonth(targetMonth.getFullYear(), targetMonth.getMonth()));
+      targetMonth.setDate(clampedDay);
+      const resolvedEnd = targetMonth < startDate ? startDate : targetMonth;
+      return {
+        endDate: toIsoDate(resolvedEnd),
+        colIndex: monthIndex,
+        timeUnit: 'month'
+      };
+    }
+
+    return null;
+  }
+
+  function applyResizePreview(resizeState, preview) {
+    const snapshot = resizeState.originalValueSnapshot;
+    if (!snapshot?.originalStartDate || !resizeState.bar || !resizeState.row) return;
+
+    const row = resizeState.row;
+    const totalCols = Number(row.dataset.totalCols || 0);
+    const slotWidth = Number(row.dataset.colWidth || 0);
+    const timeUnit = row.dataset.timeUnit || 'day';
+    if (!totalCols || !slotWidth) return;
+
+    let startIndex = 0;
+    let endIndex = 0;
+
+    if (timeUnit === 'day') {
+      const rangeStart = parseIsoDateLocal(row.dataset.rangeStart);
+      const startDate = parseIsoDateLocal(snapshot.originalStartDate);
+      const endDate = parseIsoDateLocal(preview.endDate);
+      if (!rangeStart || !startDate || !endDate) return;
+      startIndex = clampSlotIndex(diffDays(rangeStart, startDate), totalCols);
+      endIndex = clampSlotIndex(diffDays(rangeStart, endDate), totalCols);
+    } else {
+      const rangeStart = parseIsoDateLocal(row.dataset.rangeStart);
+      const startDate = parseIsoDateLocal(snapshot.originalStartDate);
+      const endDate = parseIsoDateLocal(preview.endDate);
+      if (!rangeStart || !startDate || !endDate) return;
+      startIndex = clampSlotIndex((startDate.getFullYear() - rangeStart.getFullYear()) * 12 + (startDate.getMonth() - rangeStart.getMonth()), totalCols);
+      endIndex = clampSlotIndex((endDate.getFullYear() - rangeStart.getFullYear()) * 12 + (endDate.getMonth() - rangeStart.getMonth()), totalCols);
+    }
+
+    const span = Math.max(1, endIndex - startIndex + 1);
+    resizeState.bar.style.width = `${Math.max(span * slotWidth - 4, 40)}px`;
+  }
+
+  async function handleResizePointerUp() {
+    if (!state.resize.active) return;
+
+    const resizeState = { ...state.resize };
+    document.body.style.userSelect = '';
+    document.body.style.cursor = '';
+    state.resize = {
+      active: false,
+      type: '',
+      targetId: '',
+      row: null,
+      bar: null,
+      originalEndDate: '',
+      previewEndDate: '',
+      originalValueSnapshot: null
+    };
+
+    const snapshot = resizeState.originalValueSnapshot;
+    const nextEndDate = resizeState.previewEndDate || resizeState.originalEndDate;
+    if (!snapshot || !nextEndDate || nextEndDate === resizeState.originalEndDate) {
+      renderCalendar();
+      return;
+    }
+
+    if (resizeState.type === 'entry' && snapshot.entry) {
+      const entry = snapshot.entry;
+      const originalEndDate = entry.end_date;
+      entry.end_date = nextEndDate;
+      rebuildDerivedState();
+      renderAll();
+      const result = await saveRow('planner_entries', entry);
+      if (!result.ok) {
+        entry.end_date = originalEndDate;
+        rebuildDerivedState();
+        renderAll();
+        return;
+      }
+      const project = getProjectById(entry.project_id);
+      void addAudit(`Endret sluttdato: ${displayProjectName(project) || 'Ukjent prosjekt'} for ${entry.employee_name} til ${nextEndDate}`);
+      return;
+    }
+
+    if (resizeState.type === 'project' && snapshot.project) {
+      const project = snapshot.project;
+      const originalEndDate = project.planned_end_date;
+      project.planned_end_date = nextEndDate;
+      rebuildDerivedState();
+      renderAll();
+      const result = await saveRow('planner_projects', project);
+      if (!result.ok) {
+        project.planned_end_date = originalEndDate;
+        rebuildDerivedState();
+        renderAll();
+        return;
+      }
+      void addAudit(`Endret prosjektsluttdato: ${project.name} til ${nextEndDate}`);
+    }
+  }
+
+  async function moveEntryByDrop(entryId, targetEmployeeName, dropMeta = null) {
+    if (!canEditApp()) return;
+    const entry = state.entries.find(e => e.id === entryId);
+    if (!entry) return;
+
+    const previous = {
+      employee_name: entry.employee_name,
+      start_date: entry.start_date,
+      end_date: entry.end_date
+    };
+
+    let changed = false;
+
+    if (targetEmployeeName && entry.employee_name !== targetEmployeeName) {
+      entry.employee_name = targetEmployeeName;
+      changed = true;
+    }
+
+    if (dropMeta?.timeUnit === "day" && dropMeta.rangeStart && Number.isFinite(dropMeta.colIndex)) {
+      const durationDays = Math.max(0, diffDays(asLocalDate(entry.start_date), asLocalDate(entry.end_date)));
+      const adjustedIndex = getAdjustedDropColIndex(dropMeta);
+      const pointerBaseDate = dropMeta.dropDate
+        ? parseIsoDateLocal(dropMeta.dropDate)
+        : addDays(parseIsoDateLocal(dropMeta.rangeStart), dropMeta.colIndex);
+      const pointerDate = pointerBaseDate;
+      const anchorOffset = Math.max(0, Number(state.dragAnchor?.slotOffset || 0));
+      const newStart = addDays(pointerDate, -anchorOffset);
+      const fallbackStart = addDays(parseIsoDateLocal(dropMeta.rangeStart), adjustedIndex);
+      const resolvedStart = Number.isFinite(newStart?.getTime?.()) ? newStart : fallbackStart;
+      const newEnd = addDays(resolvedStart, durationDays);
+      const newStartIso = toIsoDate(resolvedStart);
+      const newEndIso = toIsoDate(newEnd);
+      if (entry.start_date !== newStartIso || entry.end_date !== newEndIso) {
+        entry.start_date = newStartIso;
+        entry.end_date = newEndIso;
+        changed = true;
+      }
+    }
+
+    if (dropMeta?.timeUnit === "month" && dropMeta.rangeStart && Number.isFinite(dropMeta.colIndex)) {
+      const durationDays = Math.max(0, diffDays(asLocalDate(entry.start_date), asLocalDate(entry.end_date)));
+      const originalStart = asLocalDate(entry.start_date);
+      const targetMonthBase = parseIsoDateLocal(dropMeta.rangeStart);
+      const adjustedIndex = getAdjustedDropColIndex(dropMeta);
+      const shiftedStart = new Date(targetMonthBase.getFullYear(), targetMonthBase.getMonth() + adjustedIndex, 1);
+      const clampedDay = Math.min(originalStart.getDate(), daysInMonth(shiftedStart.getFullYear(), shiftedStart.getMonth()));
+      shiftedStart.setDate(clampedDay);
+      const shiftedEnd = addDays(shiftedStart, durationDays);
+      const newStartIso = toIsoDate(shiftedStart);
+      const newEndIso = toIsoDate(shiftedEnd);
+      if (entry.start_date !== newStartIso || entry.end_date !== newEndIso) {
+        entry.start_date = newStartIso;
+        entry.end_date = newEndIso;
+        changed = true;
+      }
+    }
+
+    if (!changed) return;
+
+    rebuildDerivedState();
+    renderStats();
+    renderCalendar();
+
+    const result = await saveRow("planner_entries", entry);
+    if (!result.ok) {
+      entry.employee_name = previous.employee_name;
+      entry.start_date = previous.start_date;
+      entry.end_date = previous.end_date;
+      rebuildDerivedState();
+      renderStats();
+      renderCalendar();
+      return;
+    }
+
+    state.justDraggedEntryId = entryId;
+    setTimeout(() => {
+      if (state.justDraggedEntryId === entryId) state.justDraggedEntryId = null;
+    }, 250);
+
+    const project = getProjectById(entry.project_id);
+    renderProjects();
+    renderEmployees();
+    renderSystemStatus();
+    void addAudit(`Flyttet tildeling: ${displayProjectName(project) || "Ukjent prosjekt"} fra ${previous.employee_name} (${previous.start_date}–${previous.end_date}) til ${entry.employee_name} (${entry.start_date}–${entry.end_date})`);
+  }
+
+  function getFilteredEmployees() {
+    return state.employees.filter(emp => {
+      const isActive = emp.active !== false;
+      const matchesFilter = state.employeeFilter === "Alle ansatte" || emp.name === state.employeeFilter;
+      const matchesSearch = !state.search || emp.name.toLowerCase().includes(state.search);
+      return isActive && matchesFilter && matchesSearch;
+    });
+  }
+
+  function getCurrentRange() {
+    if (state.viewMode === "Uke") {
+      const start = startOfWeek(state.startDate);
+      return { start, end: addDays(start, 6) };
+    }
+
+    if (state.viewMode === "Måned") {
+      return {
+        start: new Date(state.startDate.getFullYear(), state.startDate.getMonth(), 1),
+        end: new Date(state.startDate.getFullYear(), state.startDate.getMonth() + 1, 0)
+      };
+    }
+
+    return {
+      start: new Date(state.startDate.getFullYear(), 0, 1),
+      end: new Date(state.startDate.getFullYear(), 11, 31)
+    };
+  }
+
+  function getRangeTitle() {
+    const range = getCurrentRange();
+    const viewLabel = state.calendarMode === "project" ? "Prosjektplan" : "Personalplan";
+
+    if (state.viewMode === "Uke") {
+      return `${viewLabel} • Uke ${getIsoWeek(range.start)} • ${formatDate(range.start)} – ${formatDate(range.end)}`;
+    }
+
+    if (state.viewMode === "Måned") {
+      return `${viewLabel} • ${capitalize(monthLong(range.start))} ${range.start.getFullYear()}`;
+    }
+
+    return `${viewLabel} • ${range.start.getFullYear()}`;
+  }
+
+  function shiftPeriod(direction) {
+    if (state.viewMode === "Uke") {
+      state.startDate = addDays(startOfWeek(state.startDate), direction * 7);
+    } else if (state.viewMode === "Måned") {
+      state.startDate = new Date(state.startDate.getFullYear(), state.startDate.getMonth() + direction, 1);
+    } else {
+      state.startDate = new Date(state.startDate.getFullYear() + direction, 0, 1);
+    }
+    persistUiState();
+  }
+
+  function getProjectById(id) {
+    return state.derived.projectById.get(id) || null;
+  }
+
+  function getProjectAssignedCount(projectId) {
+    return state.derived.entryCountByProject.get(projectId) || 0;
+  }
+
+  function getProjectStaffingLabel(projectId, required) {
+    const assigned = getProjectAssignedCount(projectId);
+
+    if (assigned === 0) {
+      return { text: "Ikke bemannet", variant: "text-red-700" };
+    }
+
+    if (required > 0 && assigned < required) {
+      return { text: "Delvis bemannet", variant: "text-amber-700" };
+    }
+
+    return { text: "Bemannet", variant: "text-green-700" };
+  }
+
+  function projectOverlapsRange(project, rangeStart, rangeEnd) {
+    if (!project.planned_start_date || !project.planned_end_date) return false;
+    return overlaps(project.planned_start_date, project.planned_end_date, rangeStart, rangeEnd);
+  }
+
+  function compareProjectDates(a, b) {
+    const aDate = a.planned_start_date || "9999-12-31";
+    const bDate = b.planned_start_date || "9999-12-31";
+    if (aDate === bDate) return a.name.localeCompare(b.name, "no");
+    return aDate.localeCompare(bDate);
+  }
+
+  function formatProjectDateRange(project) {
+    if (!project.planned_start_date && !project.planned_end_date) return "Ingen planlagt periode";
+    if (project.planned_start_date && project.planned_end_date) {
+      return `${formatDate(project.planned_start_date)} – ${formatDate(project.planned_end_date)}`;
+    }
+    if (project.planned_start_date) return `Fra ${formatDate(project.planned_start_date)}`;
+    return `Til ${formatDate(project.planned_end_date)}`;
+  }
+
+  function formatDateTime(value) {
+    if (!value) return "";
+    const d = asLocalDate(value);
+    if (Number.isNaN(d.getTime())) return String(value);
+    return new Intl.DateTimeFormat("no-NO", {
+      day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit"
+    }).format(d);
+  }
+
+  function formatDate(value) {
+    const d = asLocalDate(value);
+    return new Intl.DateTimeFormat("no-NO", {
+      day: "2-digit", month: "2-digit", year: "numeric"
+    }).format(d);
+  }
+
+  function formatYearBarLabel(start, end) {
+    return `${capitalize(monthShort(asLocalDate(start)))}–${capitalize(monthShort(asLocalDate(end)))}`;
+  }
+
+
+  function startOfCurrentMonth() {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), 1);
+  }
+
+  function toIsoDate(date) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  }
+
+  function parseIsoDateLocal(value) {
+    if (!value) return null;
+    const parts = String(value).split("-").map(Number);
+    if (parts.length !== 3 || parts.some(v => !Number.isFinite(v))) return null;
+    return new Date(parts[0], parts[1] - 1, parts[2]);
+  }
+
+  function asLocalDate(value) {
+    if (!value) return null;
+
+    if (value instanceof Date) {
+      return Number.isNaN(value.getTime()) ? null : new Date(value.getFullYear(), value.getMonth(), value.getDate());
+    }
+
+    if (typeof value === "string") {
+      if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+        return parseIsoDateLocal(value);
+      }
+
+      const parsedFromString = new Date(value);
+      return Number.isNaN(parsedFromString.getTime())
+        ? null
+        : new Date(parsedFromString.getFullYear(), parsedFromString.getMonth(), parsedFromString.getDate());
+    }
+
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime())
+      ? null
+      : new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate());
+  }
+
+  function startOfWeek(date) {
+    const d = new Date(date);
+    const day = d.getDay();
+    const diff = day === 0 ? -6 : 1 - day;
+    d.setDate(d.getDate() + diff);
+    d.setHours(0, 0, 0, 0);
+    return d;
+  }
+
+  function addDays(date, days) {
+    const d = new Date(date);
+    d.setDate(d.getDate() + days);
+    return d;
+  }
+
+  function getDaysBetween(start, end) {
+    const result = [];
+    const current = asLocalDate(start);
+    while (current <= end) {
+      result.push(new Date(current));
+      current.setDate(current.getDate() + 1);
+    }
+    return result;
+  }
+
+  function diffDays(a, b) {
+    const one = new Date(a.getFullYear(), a.getMonth(), a.getDate()).getTime();
+    const two = new Date(b.getFullYear(), b.getMonth(), b.getDate()).getTime();
+    return Math.round((two - one) / 86400000);
+  }
+
+  function overlaps(startA, endA, startB, endB) {
+    const a1 = asLocalDate(startA);
+    const a2 = asLocalDate(endA);
+    const b1 = asLocalDate(startB);
+    const b2 = asLocalDate(endB);
+    return a1 <= b2 && a2 >= b1;
+  }
+
+  function clipRange(start, end, rangeStart, rangeEnd) {
+    return {
+      start: start < rangeStart ? rangeStart : start,
+      end: end > rangeEnd ? rangeEnd : end
+    };
+  }
+
+  function sameDate(a, b) {
+    return a.getFullYear() === b.getFullYear() &&
+      a.getMonth() === b.getMonth() &&
+      a.getDate() === b.getDate();
+  }
+
+  function isWeekend(date) {
+    const day = date.getDay();
+    return day === 0 || day === 6;
+  }
+
+  function weekdayShort(date) {
+    return capitalize(new Intl.DateTimeFormat("no-NO", { weekday: "short" }).format(date));
+  }
+
+  function monthShort(date) {
+    return new Intl.DateTimeFormat("no-NO", { month: "short" }).format(date);
+  }
+
+  function monthLong(date) {
+    return new Intl.DateTimeFormat("no-NO", { month: "long" }).format(date);
+  }
+
+  function getIsoWeek(date) {
+    const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+    const dayNum = d.getUTCDay() || 7;
+    d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+    const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+    return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+  }
+
+
+  function getAdjustedDropColIndex(dropMeta) {
+    const totalCols = Number(dropMeta?.totalCols || 0);
+    const rawIndex = Number(dropMeta?.colIndex);
+    if (!Number.isFinite(rawIndex)) return 0;
+
+    const anchor = state.dragAnchor || { timeUnit: dropMeta?.timeUnit || "day", slotOffset: 0 };
+    const sameUnit = anchor.timeUnit === (dropMeta?.timeUnit || "day");
+    const anchorOffset = sameUnit ? Number(anchor.slotOffset || 0) : 0;
+    const adjusted = rawIndex - anchorOffset;
+
+    if (totalCols > 0) {
+      return clampSlotIndex(adjusted, totalCols);
+    }
+    return Math.max(0, adjusted);
+  }
+
+  function getDragAnchorFromPointer(entryEl, row, clientX) {
+    const timeUnit = row?.dataset?.timeUnit || "day";
+    const totalCols = Number(row?.dataset?.totalCols || 0);
+    const barRect = entryEl?.getBoundingClientRect?.();
+    const rowRect = row?.getBoundingClientRect?.();
+
+    if (!barRect || !rowRect || !totalCols || !rowRect.width) {
+      return { timeUnit, slotOffset: 0 };
+    }
+
+    const slotWidth = rowRect.width / totalCols;
+    if (!slotWidth) {
+      return { timeUnit, slotOffset: 0 };
+    }
+
+    const pointerOffsetPx = Math.max(0, Math.min(barRect.width - 1, clientX - barRect.left));
+    const spanSlots = Math.max(1, Math.round(barRect.width / slotWidth));
+    const slotOffset = Math.max(0, Math.min(spanSlots - 1, Math.floor(pointerOffsetPx / slotWidth)));
+
+    return { timeUnit, slotOffset };
+  }
+
+  function getDropMetaFromRow(row, event) {
+    const colWidth = Number(row.dataset.colWidth || 0);
+    const totalCols = Number(row.dataset.totalCols || 0);
+    const timeUnit = row.dataset.timeUnit || "day";
+    const rangeStart = row.dataset.rangeStart || null;
+
+    if (!colWidth || !totalCols || !rangeStart) {
+      return { timeUnit, rangeStart, totalCols, colIndex: null, dropDate: null, dropMonthIndex: null };
+    }
+
+    const slot = getDropSlotFromPointer(row, event.clientX, event.clientY);
+    if (slot) {
+      const idx = Number(slot.dataset.dropSlotIndex);
+      return {
+        timeUnit,
+        rangeStart,
+        totalCols,
+        colIndex: Number.isFinite(idx) ? clampSlotIndex(idx, totalCols) : null,
+        dropDate: slot.dataset.dropDate || null,
+        dropMonthIndex: Number.isFinite(Number(slot.dataset.dropMonthIndex)) ? Number(slot.dataset.dropMonthIndex) : null
+      };
+    }
+
+    const rect = row.getBoundingClientRect();
+    const x = Math.max(0, Math.min(rect.width - 1, event.clientX - rect.left));
+    const colIndex = Math.max(0, Math.min(totalCols - 1, Math.floor(x / colWidth)));
+    const fallbackDate = timeUnit === "day" ? toIsoDate(addDays(parseIsoDateLocal(rangeStart), colIndex)) : null;
+    return { timeUnit, rangeStart, totalCols, colIndex, dropDate: fallbackDate, dropMonthIndex: timeUnit === "month" ? colIndex : null };
+  }
+
+  function getDropSlotFromPointer(row, clientX, clientY) {
+    const slots = Array.from(row.querySelectorAll('[data-drop-slot-index]'));
+    if (!slots.length) return null;
+
+    if (typeof document.elementsFromPoint === 'function') {
+      const hitElements = document.elementsFromPoint(clientX, clientY);
+      for (const el of hitElements) {
+        if (!(el instanceof HTMLElement)) continue;
+        const slot = el.matches('[data-drop-slot-index]') ? el : el.closest('[data-drop-slot-index]');
+        if (slot && row.contains(slot)) return slot;
+      }
+    }
+
+    for (const slot of slots) {
+      const rect = slot.getBoundingClientRect();
+      if (clientX >= rect.left && clientX < rect.right && clientY >= rect.top && clientY < rect.bottom) {
+        return slot;
+      }
+    }
+
+    let bestSlot = null;
+    let bestDistance = Number.POSITIVE_INFINITY;
+    for (const slot of slots) {
+      const rect = slot.getBoundingClientRect();
+      const centerX = rect.left + (rect.width / 2);
+      const centerY = rect.top + (rect.height / 2);
+      const distance = Math.abs(clientX - centerX) + (Math.abs(clientY - centerY) * 0.25);
+      if (distance < bestDistance) {
+        bestDistance = distance;
+        bestSlot = slot;
+      }
+    }
+
+    return bestSlot;
+  }
+
+  function getDropSlotIndexFromPointer(row, clientX, clientY, totalCols) {
+    const slot = getDropSlotFromPointer(row, clientX, clientY);
+    if (!slot) return null;
+    const idx = Number(slot.dataset.dropSlotIndex);
+    return Number.isFinite(idx) ? clampSlotIndex(idx, totalCols) : null;
+  }
+
+  function clampSlotIndex(index, totalCols) {
+    return Math.max(0, Math.min(totalCols - 1, index));
+  }
+
+  function daysInMonth(year, monthIndex) {
+    return new Date(year, monthIndex + 1, 0).getDate();
+  }
+
+  function capitalize(value) {
+    const str = String(value || "");
+    return str.charAt(0).toUpperCase() + str.slice(1);
+  }
+
+  function displayProjectName(project) {
+    if (!project) return "";
+    return isSystemPersonalProject(project) ? project.category : project.name;
+  }
+
+  function getEntryBarClasses(project, role) {
+    const categoryClasses = CATEGORY_COLORS[project.category] || "bg-slate-500 border-slate-600 text-white";
+    const roleClasses = ROLE_CLASSES[role] || "";
+    const endedClasses = project.status === "Avsluttet" ? " opacity-70 grayscale" : "";
+    return `${categoryClasses} ${roleClasses}${endedClasses}`;
+  }
+
+  function getProjectBarClasses(project) {
+    const categoryClasses = CATEGORY_COLORS[project.category] || "bg-slate-500 border-slate-600 text-white";
+    const endedClasses = project.status === "Avsluttet" ? " opacity-70 grayscale" : "";
+    return `${categoryClasses}${endedClasses}`;
+  }
+
+  function debounce(fn, wait = 100) {
+    let timeout;
+    return (...args) => {
+      clearTimeout(timeout);
+      timeout = setTimeout(() => fn(...args), wait);
+    };
+  }
+
+  window.addEventListener("beforeunload", () => {
+    stopRemoteSync();
+  });
+
+  function uniqueArray(arr) {
+    return [...new Set(arr)];
+  }
+
+  function escapeHtml(value) {
+    return String(value ?? "")
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#039;");
+  }
+})();
