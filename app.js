@@ -22,9 +22,6 @@
     storageMode: "local",
     supabaseReady: false,
     supabaseError: null,
-    remoteCapabilities: {
-      employeeGroupColumn: false
-    },
     derived: {
       projectById: new Map(),
       entriesByEmployee: new Map(),
@@ -521,10 +518,7 @@
     setCardDisplayByElement(els.newProjectBtn, canPlan);       // Prosjekter
     setCardDisplayByElement(els.assignBtn, canPlan);           // Tildel prosjekt i kalender
     setCardDisplayByElement(els.newEmployeeBtn, canPlan);      // Ansatte
-
-    // Admin-fanen brukes kun som endringslogg for planner og superadmin.
-    // Andre admin-kort skjules for å unngå at annen funksjonalitet påvirkes.
-    setCardDisplayById("kanbanBoard", false);                 // Kanban – prosjekter
+    setCardDisplayById("kanbanBoard", false);                  // Kanban – prosjekter
     setCardDisplayById("notificationList", false);            // Varsellogg
     setCardDisplayById("auditList", canPlan);                 // Endringslogg
 
@@ -880,9 +874,6 @@
     try {
       const { error } = await supabaseClient.from("planner_employees").select("id", { head: true, count: "exact" });
       if (error) throw error;
-
-      state.remoteCapabilities.employeeGroupColumn = await detectEmployeeGroupColumn();
-
       state.supabaseReady = true;
       state.storageMode = "supabase";
       state.supabaseError = null;
@@ -890,26 +881,6 @@
     } catch (err) {
       state.supabaseReady = false;
       state.supabaseError = err?.message || "Ukjent Supabase-feil.";
-      return false;
-    }
-  }
-
-  async function detectEmployeeGroupColumn() {
-    try {
-      const { error } = await supabaseClient
-        .from("planner_employees")
-        .select("id, employee_group")
-        .limit(1);
-
-      if (error) {
-        const message = String(error.message || "").toLowerCase();
-        if (message.includes("employee_group")) return false;
-        throw error;
-      }
-
-      return true;
-    } catch (err) {
-      console.warn("Kunne ikke verifisere employee_group-kolonne i Supabase:", err);
       return false;
     }
   }
@@ -1026,7 +997,7 @@
   }
 
   function getEmployeeRowForRemote(employee) {
-    const row = {
+    return {
       id: employee.id,
       name: employee.name,
       email: employee.email,
@@ -1034,12 +1005,6 @@
       title: employee.title,
       active: employee.active
     };
-
-    if (state.remoteCapabilities.employeeGroupColumn) {
-      row.employee_group = normalizeEmployeeGroup(employee.employee_group || "");
-    }
-
-    return row;
   }
 
   function saveAllLocal() {
@@ -1215,7 +1180,7 @@
 
   async function seedDemoDataBatch() {
     if (!state.supabaseReady) return;
-    await saveRows("planner_employees", state.employees.map(getEmployeeRowForRemote));
+    await saveRows("planner_employees", state.employees);
     await saveRows("planner_projects", state.projects);
     await saveRows("planner_entries", state.entries);
     await saveRows("planner_audit_log", state.auditLog);
@@ -3283,27 +3248,12 @@
   }
 
   function asLocalDate(value) {
-    if (!value) return null;
-
-    if (value instanceof Date) {
-      return Number.isNaN(value.getTime()) ? null : new Date(value.getFullYear(), value.getMonth(), value.getDate());
+    if (value instanceof Date) return new Date(value.getFullYear(), value.getMonth(), value.getDate());
+    if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+      return parseIsoDateLocal(value);
     }
-
-    if (typeof value === "string") {
-      if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
-        return parseIsoDateLocal(value);
-      }
-
-      const parsedFromString = new Date(value);
-      return Number.isNaN(parsedFromString.getTime())
-        ? null
-        : new Date(parsedFromString.getFullYear(), parsedFromString.getMonth(), parsedFromString.getDate());
-    }
-
-    const parsed = new Date(value);
-    return Number.isNaN(parsed.getTime())
-      ? null
-      : new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate());
+    const parsed = asLocalDate(value);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
   }
 
   function startOfWeek(date) {
