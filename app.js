@@ -66,6 +66,11 @@
       endDate: "",
       x: 0,
       y: 0
+    },
+    availability: {
+      available: [],
+      unavailable: [],
+      summary: null
     }
   };
 
@@ -122,6 +127,7 @@
     ensureAccountPanel();
     ensurePersonalBlockPanel();
     ensureCalendarContextMenu();
+    ensureAvailabilityPanel();
     setupStaticOptions();
     bindEvents();
 
@@ -370,6 +376,62 @@
     els.contextMenuNotes = document.getElementById("contextMenuNotes");
     els.contextMenuAddBtn = document.getElementById("contextMenuAddBtn");
     els.contextMenuCloseBtn = document.getElementById("contextMenuCloseBtn");
+  }
+
+  function ensureAvailabilityPanel() {
+    const projectsSection = els.tabProjectsSection;
+    if (!projectsSection) return;
+
+    if (document.getElementById("availabilityCard")) {
+      els.availabilityCard = document.getElementById("availabilityCard");
+      els.availabilitySummary = document.getElementById("availabilitySummary");
+      els.availabilityAvailableList = document.getElementById("availabilityAvailableList");
+      els.availabilityUnavailableList = document.getElementById("availabilityUnavailableList");
+      els.availabilityAvailableCount = document.getElementById("availabilityAvailableCount");
+      els.availabilityUnavailableCount = document.getElementById("availabilityUnavailableCount");
+      return;
+    }
+
+    const wrapper = document.createElement("div");
+    wrapper.className = "xl:col-span-5";
+    wrapper.innerHTML = `
+      <div id="availabilityCard" class="rounded-2xl bg-white border border-slate-200 shadow-sm">
+        <div class="p-4 border-b border-slate-200">
+          <h2 class="font-semibold">Tilgjengelige ansatte i valgt periode</h2>
+          <p class="text-sm text-slate-500 mt-1">Beslutningsstøtte for bemanning. Systemet sjekker andre prosjekter, kurs, ferie, syk og avspasering i valgt periode.</p>
+        </div>
+        <div class="p-4 space-y-4">
+          <div id="availabilitySummary" class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+            Velg prosjekt og gyldig fra/til-dato for å analysere tilgjengelighet.
+          </div>
+          <div class="grid grid-cols-1 xl:grid-cols-2 gap-4">
+            <div>
+              <div class="mb-2 flex items-center justify-between gap-2">
+                <h3 class="font-medium text-green-700">Tilgjengelige</h3>
+                <span id="availabilityAvailableCount" class="text-xs text-slate-500"></span>
+              </div>
+              <div id="availabilityAvailableList" class="space-y-2"></div>
+            </div>
+            <div>
+              <div class="mb-2 flex items-center justify-between gap-2">
+                <h3 class="font-medium text-red-700">Ikke tilgjengelige</h3>
+                <span id="availabilityUnavailableCount" class="text-xs text-slate-500"></span>
+              </div>
+              <div id="availabilityUnavailableList" class="space-y-2"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+
+    projectsSection.appendChild(wrapper);
+
+    els.availabilityCard = document.getElementById("availabilityCard");
+    els.availabilitySummary = document.getElementById("availabilitySummary");
+    els.availabilityAvailableList = document.getElementById("availabilityAvailableList");
+    els.availabilityUnavailableList = document.getElementById("availabilityUnavailableList");
+    els.availabilityAvailableCount = document.getElementById("availabilityAvailableCount");
+    els.availabilityUnavailableCount = document.getElementById("availabilityUnavailableCount");
   }
 
   function ensureLoginModal() {
@@ -1072,6 +1134,8 @@
     });
 
     els.assignProject.addEventListener("change", syncAssignDatesFromProject);
+    els.assignStart.addEventListener("change", updateAvailabilityAnalysis);
+    els.assignEnd.addEventListener("change", updateAvailabilityAnalysis);
     els.assignBtn.addEventListener("click", createEntry);
     els.bulkAddBtn.addEventListener("click", bulkAddEmployees);
     if (els.personalBlockSaveBtn) {
@@ -1630,12 +1694,14 @@
       if (els.assignStart) els.assignStart.value = "";
       if (els.assignEnd) els.assignEnd.value = "";
       updateAssignSummary(null);
+      updateAvailabilityAnalysis();
       return;
     }
 
     if (els.assignStart) els.assignStart.value = project.planned_start_date || "";
     if (els.assignEnd) els.assignEnd.value = project.planned_end_date || "";
     updateAssignSummary(project);
+    updateAvailabilityAnalysis();
   }
 
   function clearAssignForm() {
@@ -1645,6 +1711,7 @@
     if (els.assignNotes) els.assignNotes.value = "";
     updateAssignSummary(null);
     renderAssignEmployeeSelectors("", []);
+    updateAvailabilityAnalysis();
   }
 
 
@@ -1717,6 +1784,142 @@
 
 
 
+
+  function analyzeAvailabilityForPeriod(projectId, startDate, endDate) {
+    const available = [];
+    const unavailable = [];
+
+    if (!startDate || !endDate || startDate > endDate) {
+      return {
+        available,
+        unavailable,
+        summary: {
+          valid: false,
+          projectName: projectId ? (getProjectById(projectId)?.name || "Valgt prosjekt") : "Ingen prosjekt valgt",
+          startDate,
+          endDate
+        }
+      };
+    }
+
+    const activeEmployees = state.employees
+      .filter(employee => employee.active !== false)
+      .slice()
+      .sort((a, b) => {
+        const groupDiff = getEmployeeGroupSortIndex(a.employee_group) - getEmployeeGroupSortIndex(b.employee_group);
+        if (groupDiff !== 0) return groupDiff;
+        return a.name.localeCompare(b.name, "no");
+      });
+
+    for (const employee of activeEmployees) {
+      const conflicts = (state.derived.entriesByEmployee.get(employee.name) || [])
+        .filter(entry => overlaps(entry.start_date, entry.end_date, startDate, endDate))
+        .filter(entry => !(projectId && entry.project_id === projectId))
+        .map(entry => buildAvailabilityConflict(entry));
+
+      const item = {
+        id: employee.id,
+        name: employee.name,
+        title: employee.title || "",
+        group: normalizeEmployeeGroup(employee.employee_group || ""),
+        conflicts
+      };
+
+      if (conflicts.length) {
+        unavailable.push(item);
+      } else {
+        available.push(item);
+      }
+    }
+
+    return {
+      available,
+      unavailable,
+      summary: {
+        valid: true,
+        projectName: projectId ? (getProjectById(projectId)?.name || "Valgt prosjekt") : "Ingen prosjekt valgt",
+        startDate,
+        endDate
+      }
+    };
+  }
+
+  function buildAvailabilityConflict(entry) {
+    const project = getProjectById(entry.project_id);
+    const category = String(project?.category || "").trim();
+    const isAbsenceBlock = PERSONAL_BLOCK_TYPES.includes(category);
+    const label = isAbsenceBlock ? category : (project?.name || "Ukjent prosjekt");
+
+    return {
+      label,
+      startDate: entry.start_date,
+      endDate: entry.end_date,
+      role: entry.role || "",
+      notes: entry.notes || "",
+      isAbsenceBlock
+    };
+  }
+
+  function updateAvailabilityAnalysis() {
+    if (!els.availabilitySummary || !els.availabilityAvailableList || !els.availabilityUnavailableList) return;
+
+    const projectId = els.assignProject?.value || "";
+    const startDate = els.assignStart?.value || "";
+    const endDate = els.assignEnd?.value || "";
+
+    const analysis = analyzeAvailabilityForPeriod(projectId, startDate, endDate);
+    state.availability.available = analysis.available;
+    state.availability.unavailable = analysis.unavailable;
+    state.availability.summary = analysis.summary;
+    renderAvailabilityPanel();
+  }
+
+  function renderAvailabilityPanel() {
+    if (!els.availabilitySummary || !els.availabilityAvailableList || !els.availabilityUnavailableList) return;
+
+    const summary = state.availability.summary;
+    if (!summary || !summary.valid) {
+      els.availabilitySummary.textContent = "Velg prosjekt og gyldig fra/til-dato for å analysere tilgjengelighet.";
+      els.availabilityAvailableList.innerHTML = `<div class="text-sm text-slate-500">Ingen analyse kjørt.</div>`;
+      els.availabilityUnavailableList.innerHTML = `<div class="text-sm text-slate-500">Ingen analyse kjørt.</div>`;
+      if (els.availabilityAvailableCount) els.availabilityAvailableCount.textContent = "";
+      if (els.availabilityUnavailableCount) els.availabilityUnavailableCount.textContent = "";
+      return;
+    }
+
+    els.availabilitySummary.textContent = `${summary.projectName} • ${formatDate(summary.startDate)} – ${formatDate(summary.endDate)} • ${state.availability.available.length} tilgjengelige / ${state.availability.unavailable.length} ikke tilgjengelige`;
+    if (els.availabilityAvailableCount) els.availabilityAvailableCount.textContent = `${state.availability.available.length} stk`;
+    if (els.availabilityUnavailableCount) els.availabilityUnavailableCount.textContent = `${state.availability.unavailable.length} stk`;
+
+    els.availabilityAvailableList.innerHTML = state.availability.available.length
+      ? state.availability.available.map(employee => `
+        <div class="rounded-xl border border-green-200 bg-green-50 p-3">
+          <div class="font-medium text-slate-900">${escapeHtml(employee.name)}</div>
+          <div class="text-xs text-slate-500 mt-1">${escapeHtml(employee.group || "Ingen gruppe valgt")}${employee.title ? ` • ${escapeHtml(employee.title)}` : ""}</div>
+          <div class="text-xs text-green-700 mt-2">Tilgjengelig i valgt periode</div>
+        </div>
+      `).join("")
+      : `<div class="text-sm text-slate-500">Ingen tilgjengelige ansatte i valgt periode.</div>`;
+
+    els.availabilityUnavailableList.innerHTML = state.availability.unavailable.length
+      ? state.availability.unavailable.map(employee => `
+        <div class="rounded-xl border border-red-200 bg-red-50 p-3">
+          <div class="font-medium text-slate-900">${escapeHtml(employee.name)}</div>
+          <div class="text-xs text-slate-500 mt-1">${escapeHtml(employee.group || "Ingen gruppe valgt")}${employee.title ? ` • ${escapeHtml(employee.title)}` : ""}</div>
+          <div class="mt-2 space-y-2">
+            ${employee.conflicts.map(conflict => `
+              <div class="rounded-lg border border-red-200 bg-white px-3 py-2">
+                <div class="text-xs font-medium text-red-700">${escapeHtml(conflict.isAbsenceBlock ? conflict.label : `Opptatt: ${conflict.label}`)}</div>
+                <div class="text-xs text-slate-600 mt-1">${escapeHtml(formatDate(conflict.startDate))} – ${escapeHtml(formatDate(conflict.endDate))}</div>
+                ${conflict.role && !conflict.isAbsenceBlock ? `<div class="text-xs text-slate-500 mt-1">Rolle: ${escapeHtml(conflict.role)}</div>` : ""}
+                ${conflict.notes ? `<div class="text-xs text-slate-500 mt-1">${escapeHtml(conflict.notes)}</div>` : ""}
+              </div>
+            `).join("")}
+          </div>
+        </div>
+      `).join("")
+      : `<div class="text-sm text-slate-500">Ingen konflikter i valgt periode.</div>`;
+  }
 
   function canSeePersonalBlockType(type) {
     if (type !== "Syk") return true;
@@ -2402,6 +2605,7 @@
     renderSystemStatus();
     updateBadge();
     applyRoleChrome();
+    updateAvailabilityAnalysis();
   }
 
   function populateDynamicSelects() {
