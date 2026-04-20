@@ -2485,11 +2485,6 @@
 
 
   function renderLegend() {
-    const currentRange = getCurrentRange();
-    const holidayItems = getNorwegianHolidaysForYear(currentRange.start.getFullYear());
-    const rangeStartIso = toIsoDate(currentRange.start);
-    const rangeEndIso = toIsoDate(currentRange.end);
-
     const projectCategoryHtml = ["Offshore", "Travel", "Onshore"].map(name => `
       <div class="flex items-center gap-2">
         <span class="inline-block w-4 h-4 rounded ${CATEGORY_COLORS[name] || "bg-slate-400"}"></span>
@@ -2510,19 +2505,6 @@
       </div>
     `).join("");
 
-    const holidayHtml = holidayItems.map(item => {
-      const inVisibleRange = item.date >= rangeStartIso && item.date <= rangeEndIso;
-      return `
-        <div class="flex items-start justify-between gap-3 rounded-xl border px-3 py-2 ${inVisibleRange ? "border-red-200 bg-red-50" : "border-slate-200 bg-slate-50"}">
-          <div class="min-w-0">
-            <div class="font-medium ${inVisibleRange ? "text-red-700" : "text-slate-700"}">${escapeHtml(item.name)}</div>
-            <div class="text-xs ${inVisibleRange ? "text-red-600" : "text-slate-500"}">${escapeHtml(item.weekdayLabel)}</div>
-          </div>
-          <div class="shrink-0 text-xs font-semibold ${inVisibleRange ? "text-red-700" : "text-slate-500"}">${escapeHtml(item.displayDate)}</div>
-        </div>
-      `;
-    }).join("");
-
     els.legendList.innerHTML = `
       <div>
         <div class="font-medium mb-2">Prosjekter</div>
@@ -2535,10 +2517,6 @@
       <div class="pt-4 border-t border-slate-200">
         <div class="font-medium mb-2">Prosjektstatus</div>
         <div class="space-y-2">${statusHtml}</div>
-      </div>
-      <div class="pt-4 border-t border-slate-200">
-        <div class="font-medium mb-2">Norske helligdager ${currentRange.start.getFullYear()}</div>
-        <div class="space-y-2">${holidayHtml}</div>
       </div>
     `;
   }
@@ -2822,20 +2800,15 @@
 
     for (const day of days) {
       const weekend = isWeekend(day);
-      const holiday = getNorwegianHolidayByDate(day);
       const isTodayFlag = sameDate(day, new Date());
-      const weekLabel = getCalendarWeekLabel(day);
-      const headerBgClass = holiday ? "bg-red-50" : weekend ? "bg-slate-50" : "bg-white";
-      const headerTextClass = holiday ? "text-red-700" : isTodayFlag ? "text-blue-700 font-semibold" : "text-slate-600";
-      const holidayLabel = holiday ? `<div class="mt-1 text-[10px] leading-tight font-semibold text-red-600">${escapeHtml(holiday.name)}</div>` : "";
+      const weekLabel = state.viewMode === "Uke" ? `<div>Uke ${getIsoWeek(day)}</div>` : "";
 
       html += `
-        <div class="border-b border-r border-slate-200 px-2 py-2 text-center text-xs ${headerBgClass} ${headerTextClass}" title="${escapeHtml(holiday ? holiday.name : '')}">
+        <div class="border-b border-r border-slate-200 px-2 py-2 text-center text-xs ${weekend ? "bg-slate-50" : "bg-white"} ${isTodayFlag ? "text-blue-700 font-semibold" : "text-slate-600"}">
           <div class="font-semibold">${weekdayShort(day)}</div>
           ${weekLabel}
           <div class="font-semibold">${day.getDate()}</div>
           <div>${monthShort(day)}</div>
-          ${holidayLabel}
         </div>
       `;
     }
@@ -2858,11 +2831,8 @@
       for (let i = 0; i < days.length; i++) {
         const day = days[i];
         const weekend = isWeekend(day);
-        const holiday = getNorwegianHolidayByDate(day);
         const isTodayFlag = sameDate(day, new Date());
-        const backgroundColor = holiday ? '#fef2f2' : weekend ? '#f8fafc' : '#ffffff';
-        const accentBorder = holiday ? 'box-shadow: inset 0 4px 0 #dc2626;' : '';
-        html += `<div data-drop-slot-index="${i}" data-drop-date="${toIsoDate(day)}" class="day-cell ${weekend ? "weekend" : ""} ${isTodayFlag ? "today" : ""}" title="${escapeHtml(holiday ? holiday.name : '')}" style="position:absolute; left:${i * colWidth}px; width:${colWidth}px; background:${backgroundColor}; ${accentBorder}"></div>`;
+        html += `<div data-drop-slot-index="${i}" data-drop-date="${toIsoDate(day)}" class="day-cell ${weekend ? "weekend" : ""} ${isTodayFlag ? "today" : ""}" style="position:absolute; left:${i * colWidth}px; width:${colWidth}px;"></div>`;
       }
 
       html += `<div style="position:relative; width:${totalWidth}px; min-height:56px;">`;
@@ -2927,9 +2897,7 @@
     html += `<div class="sticky-col z-30 border-b border-r border-slate-200 bg-slate-50 px-3 py-3 font-semibold">Ansatt</div>`;
 
     for (const month of months) {
-      const holidayCount = getHolidayCountForMonth(year, month.getMonth());
-      const holidayBadge = holidayCount ? `<div class="mt-1 text-[10px] font-semibold text-red-600">${holidayCount} helligdag${holidayCount > 1 ? 'er' : ''}</div>` : "";
-      html += `<div class="border-b border-r border-slate-200 px-2 py-3 text-center text-sm bg-white text-slate-700 font-medium">${escapeHtml(capitalize(monthLong(month)))}${holidayBadge}</div>`;
+      html += `<div class="border-b border-r border-slate-200 px-2 py-3 text-center text-sm bg-white text-slate-700 font-medium">${escapeHtml(capitalize(monthLong(month)))}</div>`;
     }
 
     const warnings = [];
@@ -2950,10 +2918,7 @@
       html += `<div class="row-overlay border-b border-slate-200 drop-row" data-employee-name="${escapeHtml(employee.name)}" data-range-start="${toIsoDate(yearStart)}" data-col-width="${monthWidth}" data-total-cols="12" data-time-unit="month" style="grid-column: span 12; width:${totalWidth}px;">`;
 
       for (let i = 0; i < 12; i++) {
-        const holidayCount = getHolidayCountForMonth(year, i);
-        const monthBackground = holidayCount ? '#fff7f7' : '#ffffff';
-        const monthAccent = holidayCount ? 'box-shadow: inset 0 4px 0 #fca5a5;' : '';
-        html += `<div data-drop-slot-index="${i}" data-drop-month-index="${i}" class="month-cell" title="${holidayCount ? `${holidayCount} helligdag${holidayCount > 1 ? 'er' : ''}` : ''}" style="position:absolute; left:${i * monthWidth}px; width:${monthWidth}px; background:${monthBackground}; ${monthAccent}"></div>`;
+        html += `<div data-drop-slot-index="${i}" data-drop-month-index="${i}" class="month-cell" style="position:absolute; left:${i * monthWidth}px; width:${monthWidth}px;"></div>`;
       }
 
       html += `<div style="position:relative; width:${totalWidth}px; min-height:56px;">`;
@@ -3023,20 +2988,15 @@
 
     for (const day of days) {
       const weekend = isWeekend(day);
-      const holiday = getNorwegianHolidayByDate(day);
       const isTodayFlag = sameDate(day, new Date());
-      const weekLabel = getCalendarWeekLabel(day);
-      const headerBgClass = holiday ? "bg-red-50" : weekend ? "bg-slate-50" : "bg-white";
-      const headerTextClass = holiday ? "text-red-700" : isTodayFlag ? "text-blue-700 font-semibold" : "text-slate-600";
-      const holidayLabel = holiday ? `<div class="mt-1 text-[10px] leading-tight font-semibold text-red-600">${escapeHtml(holiday.name)}</div>` : "";
+      const weekLabel = state.viewMode === "Uke" ? `<div>Uke ${getIsoWeek(day)}</div>` : "";
 
       html += `
-        <div class="border-b border-r border-slate-200 px-2 py-2 text-center text-xs ${headerBgClass} ${headerTextClass}" title="${escapeHtml(holiday ? holiday.name : '')}">
+        <div class="border-b border-r border-slate-200 px-2 py-2 text-center text-xs ${weekend ? "bg-slate-50" : "bg-white"} ${isTodayFlag ? "text-blue-700 font-semibold" : "text-slate-600"}">
           <div class="font-semibold">${weekdayShort(day)}</div>
           ${weekLabel}
           <div class="font-semibold">${day.getDate()}</div>
           <div>${monthShort(day)}</div>
-          ${holidayLabel}
         </div>
       `;
     }
@@ -3059,11 +3019,8 @@
       for (let i = 0; i < days.length; i++) {
         const day = days[i];
         const weekend = isWeekend(day);
-        const holiday = getNorwegianHolidayByDate(day);
         const isTodayFlag = sameDate(day, new Date());
-        const backgroundColor = holiday ? '#fef2f2' : weekend ? '#f8fafc' : '#ffffff';
-        const accentBorder = holiday ? 'box-shadow: inset 0 4px 0 #dc2626;' : '';
-        html += `<div data-drop-slot-index="${i}" data-drop-date="${toIsoDate(day)}" class="day-cell ${weekend ? "weekend" : ""} ${isTodayFlag ? "today" : ""}" title="${escapeHtml(holiday ? holiday.name : '')}" style="position:absolute; left:${i * colWidth}px; width:${colWidth}px; background:${backgroundColor}; ${accentBorder}"></div>`;
+        html += `<div data-drop-slot-index="${i}" data-drop-date="${toIsoDate(day)}" class="day-cell ${weekend ? "weekend" : ""} ${isTodayFlag ? "today" : ""}" style="position:absolute; left:${i * colWidth}px; width:${colWidth}px;"></div>`;
       }
 
       html += `<div style="position:relative; width:${totalWidth}px; min-height:56px;">`;
@@ -3119,9 +3076,7 @@
     html += `<div class="sticky-col z-30 border-b border-r border-slate-200 bg-slate-50 px-3 py-3 font-semibold">Prosjekt</div>`;
 
     for (const month of months) {
-      const holidayCount = getHolidayCountForMonth(year, month.getMonth());
-      const holidayBadge = holidayCount ? `<div class="mt-1 text-[10px] font-semibold text-red-600">${holidayCount} helligdag${holidayCount > 1 ? 'er' : ''}</div>` : "";
-      html += `<div class="border-b border-r border-slate-200 px-2 py-3 text-center text-sm bg-white text-slate-700 font-medium">${escapeHtml(capitalize(monthLong(month)))}${holidayBadge}</div>`;
+      html += `<div class="border-b border-r border-slate-200 px-2 py-3 text-center text-sm bg-white text-slate-700 font-medium">${escapeHtml(capitalize(monthLong(month)))}</div>`;
     }
 
     for (const project of projects) {
@@ -3140,10 +3095,7 @@
       html += `<div class="row-overlay border-b border-slate-200" data-range-start="${toIsoDate(range.start)}" data-col-width="${monthWidth}" data-total-cols="12" data-time-unit="month" style="grid-column: span 12; width:${totalWidth}px;">`;
 
       for (let i = 0; i < 12; i++) {
-        const holidayCount = getHolidayCountForMonth(year, i);
-        const monthBackground = holidayCount ? '#fff7f7' : '#ffffff';
-        const monthAccent = holidayCount ? 'box-shadow: inset 0 4px 0 #fca5a5;' : '';
-        html += `<div data-drop-slot-index="${i}" data-drop-month-index="${i}" class="month-cell" title="${holidayCount ? `${holidayCount} helligdag${holidayCount > 1 ? 'er' : ''}` : ''}" style="position:absolute; left:${i * monthWidth}px; width:${monthWidth}px; background:${monthBackground}; ${monthAccent}"></div>`;
+        html += `<div data-drop-slot-index="${i}" data-drop-month-index="${i}" class="month-cell" style="position:absolute; left:${i * monthWidth}px; width:${monthWidth}px;"></div>`;
       }
 
       html += `<div style="position:relative; width:${totalWidth}px; min-height:56px;">`;
@@ -3705,67 +3657,6 @@
   }
 
 
-  function getNorwegianHolidaysForYear(year) {
-    const easterSunday = getEasterSunday(year);
-    const rows = [
-      { date: `${year}-01-01`, name: "Nyttårsdag" },
-      { date: toIsoDate(addDays(easterSunday, -3)), name: "Skjærtorsdag" },
-      { date: toIsoDate(addDays(easterSunday, -2)), name: "Langfredag" },
-      { date: toIsoDate(easterSunday), name: "1. påskedag" },
-      { date: toIsoDate(addDays(easterSunday, 1)), name: "2. påskedag" },
-      { date: `${year}-05-01`, name: "Arbeidernes dag" },
-      { date: `${year}-05-17`, name: "Grunnlovsdag" },
-      { date: toIsoDate(addDays(easterSunday, 39)), name: "Kristi himmelfartsdag" },
-      { date: toIsoDate(addDays(easterSunday, 49)), name: "1. pinsedag" },
-      { date: toIsoDate(addDays(easterSunday, 50)), name: "2. pinsedag" },
-      { date: `${year}-12-25`, name: "1. juledag" },
-      { date: `${year}-12-26`, name: "2. juledag" }
-    ];
-
-    return rows
-      .map(item => {
-        const date = parseIsoDateLocal(item.date);
-        return {
-          ...item,
-          displayDate: formatDate(item.date),
-          weekdayLabel: capitalize(new Intl.DateTimeFormat("no-NO", { weekday: "long" }).format(date))
-        };
-      })
-      .sort((a, b) => a.date.localeCompare(b.date));
-  }
-
-  function getNorwegianHolidayByDate(date) {
-    const localDate = asLocalDate(date);
-    if (!localDate) return null;
-    const isoDate = toIsoDate(localDate);
-    return getNorwegianHolidaysForYear(localDate.getFullYear()).find(item => item.date === isoDate) || null;
-  }
-
-  function getHolidayCountForMonth(year, monthIndex) {
-    return getNorwegianHolidaysForYear(year).filter(item => {
-      const date = parseIsoDateLocal(item.date);
-      return date && date.getMonth() === monthIndex;
-    }).length;
-  }
-
-  function getEasterSunday(year) {
-    const a = year % 19;
-    const b = Math.floor(year / 100);
-    const c = year % 100;
-    const d = Math.floor(b / 4);
-    const e = b % 4;
-    const f = Math.floor((b + 8) / 25);
-    const g = Math.floor((b - f + 1) / 3);
-    const h = (19 * a + b - d - g + 15) % 30;
-    const i = Math.floor(c / 4);
-    const k = c % 4;
-    const l = (32 + 2 * e + 2 * i - h - k) % 7;
-    const m = Math.floor((a + 11 * h + 22 * l) / 451);
-    const month = Math.floor((h + l - 7 * m + 114) / 31);
-    const day = ((h + l - 7 * m + 114) % 31) + 1;
-    return new Date(year, month - 1, day);
-  }
-
   function startOfCurrentMonth() {
     const now = new Date();
     return new Date(now.getFullYear(), now.getMonth(), 1);
@@ -3884,17 +3775,6 @@
     d.setUTCDate(d.getUTCDate() + 4 - dayNum);
     const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
     return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
-  }
-
-  function getCalendarWeekLabel(day) {
-    const weekNumber = getIsoWeek(day);
-    if (state.viewMode === "Uke") {
-      return `<div>Uke ${weekNumber}</div>`;
-    }
-    if (state.viewMode === "Måned" && day.getDay() === 1) {
-      return `<div class="mt-0.5 text-[10px] font-semibold">Uke ${weekNumber}</div>`;
-    }
-    return "";
   }
 
 
