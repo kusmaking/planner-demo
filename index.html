@@ -6,27 +6,6 @@
   <title>Personal planlegging</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
-    :root {
-      --izo-dark: #0b232c;
-      --izo-medium: #354A55;
-      --izo-light: #5F7581;
-      --izo-bg: #f5f5f5;
-      --izo-accent: #51ffcc;
-      --izo-accent-soft: #14cba8;
-      --izo-accent-dark: #00726c;
-      --izo-sky: #9dffff;
-      --izo-line: #d7e0e5;
-      --izo-panel: #ffffff;
-      --izo-panel-soft: #fbfcfc;
-      --izo-shadow: 0 14px 36px rgba(11, 35, 44, 0.10);
-    }
-
-    body {
-      background: linear-gradient(180deg, #e8edf0 0%, var(--izo-bg) 100%) !important;
-      color: var(--izo-dark) !important;
-      font-family: "Neue Haas Unica", Arial, sans-serif;
-    }
-
     .scrollbar-thin::-webkit-scrollbar { height: 10px; width: 10px; }
     .scrollbar-thin::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 9999px; }
     .scrollbar-thin::-webkit-scrollbar-track { background: #f8fafc; }
@@ -49,7 +28,7 @@
       white-space: nowrap;
       text-overflow: ellipsis;
       cursor: pointer;
-      box-shadow: 0 2px 6px rgba(15, 23, 42, 0.14);
+      box-shadow: 0 1px 2px rgba(15, 23, 42, 0.12);
     }
 
     .month-cell, .day-cell {
@@ -62,27 +41,36 @@
     .day-cell.weekend { background: #f8fafc; }
     .day-cell.today { background: #eff6ff; }
 
-    .max-w-\[1900px\] {
-      max-width: 1880px !important;
+
+    :root {
+      --izo-dark: #0b232c;
+      --izo-medium: #354A55;
+      --izo-light: #5F7581;
+      --izo-bg: #f5f5f5;
+      --izo-accent: #51ffcc;
+      --izo-accent-soft: #14cba8;
+      --izo-accent-dark: #00726c;
+      --izo-line: #d6dde2;
     }
 
-    body > div.max-w-\[1900px\],
-    .max-w-\[1900px\] {
-      padding-top: 24px !important;
+    body {
+      background: linear-gradient(180deg, #e9eef1 0%, #f3f5f6 100%) !important;
+      color: var(--izo-dark);
+      font-family: "Neue Haas Unica", Arial, sans-serif;
     }
 
-    header.flex.flex-col.xl\:flex-row.xl\:items-center.xl\:justify-between.gap-4 {
+    .izo-header {
       position: relative;
       overflow: hidden;
-      border-radius: 30px;
-      padding: 28px 30px !important;
-      background: linear-gradient(135deg, var(--izo-dark) 0%, #173845 56%, #214a59 100%);
-      color: #ffffff;
-      border: 1px solid rgba(255,255,255,0.06);
-      box-shadow: 0 18px 44px rgba(11, 35, 44, 0.22);
+      border-radius: 28px;
+      background: linear-gradient(135deg, var(--izo-dark) 0%, #173845 55%, #214a59 100%);
+      color: #fff;
+      padding: 28px 30px 26px;
+      box-shadow: 0 14px 40px rgba(11,35,44,.22);
+      border: 1px solid rgba(255,255,255,.06);
     }
 
-    header.flex.flex-col.xl\:flex-row.xl\:items-center.xl\:justify-between.gap-4::before {
+    .izo-header::before {
       content: "";
       position: absolute;
       right: -120px;
@@ -90,356 +78,185 @@
       width: 520px;
       height: 520px;
       border-radius: 50%;
-      background: radial-gradient(circle at 30% 30%, rgba(81,255,204,0.26), rgba(81,255,204,0) 62%);
+      background: radial-gradient(circle at 30% 30%, rgba(81,255,204,.28), rgba(81,255,204,0) 62%);
       pointer-events: none;
     }
 
-    header.flex.flex-col.xl\:flex-row.xl\:items-center.xl\:justify-between.gap-4::after {
+    .izo-header::after {
       content: "IZOMAX";
       position: absolute;
       right: 18px;
-      bottom: -12px;
+      bottom: -10px;
       font-size: 96px;
-      line-height: 1;
-      letter-spacing: 0.08em;
+      letter-spacing: .08em;
       font-weight: 800;
-      color: rgba(255,255,255,0.05);
+      color: rgba(255,255,255,.045);
       pointer-events: none;
       user-select: none;
     }
 
-    header.flex.flex-col.xl\:flex-row.xl\:items-center.xl\:justify-between.gap-4 > div {
+    .izo-brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 14px;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,.9);
       position: relative;
       z-index: 1;
     }
 
-    header h1.text-3xl {
-      font-size: 2.7rem !important;
-      letter-spacing: -0.03em;
-      color: #ffffff !important;
-      margin-bottom: 0 !important;
+    .izo-brand-mark {
+      width: 14px;
+      height: 14px;
+      border-radius: 3px;
+      background: var(--izo-accent);
+      box-shadow: 18px 0 0 rgba(81,255,204,.55), 36px 0 0 rgba(81,255,204,.2);
+      display: inline-block;
+      margin-right: 28px;
     }
 
-    header p.text-slate-600 {
-      color: rgba(255,255,255,0.76) !important;
-      font-size: 1rem;
-      max-width: 720px;
-    }
-
-    #storageBadge,
-    #saveStatus,
-    #accountUserInfo,
-    #loginBtn,
-    #changePasswordBtn,
-    #resetPasswordBtn,
-    #logoutBtn {
+    .izo-title {
+      margin: 0;
+      font-size: 42px !important;
+      line-height: 1.05;
+      letter-spacing: -.02em;
+      color: #fff;
       position: relative;
       z-index: 1;
+    }
+
+    .izo-actions {
+      position: relative;
+      z-index: 1;
+    }
+
+    #storageBadge, #saveStatus, #accountUserInfo, #loginBtn, #changePasswordBtn, #resetPasswordBtn, #logoutBtn {
       border-radius: 999px !important;
-      border-color: rgba(255,255,255,0.14) !important;
-      background: rgba(255,255,255,0.08) !important;
-      color: #ffffff !important;
+      border-color: rgba(255,255,255,.14) !important;
+      background: rgba(255,255,255,.10) !important;
+      color: #fff !important;
       backdrop-filter: blur(8px);
-      box-shadow: none !important;
     }
 
-    #saveStatus {
-      background: rgba(81,255,204,0.16) !important;
-      color: #f4fffd !important;
-    }
-
-    #statsRow > button,
-    #statsRow > div {
+    #plannerTabs {
       border-radius: 24px !important;
-      border-color: var(--izo-line) !important;
-      background: linear-gradient(180deg, #ffffff 0%, var(--izo-panel-soft) 100%) !important;
-      box-shadow: var(--izo-shadow) !important;
+      border-color: #dbe3e7 !important;
+      background: rgba(255,255,255,.92) !important;
+      box-shadow: 0 10px 28px rgba(11,35,44,.08) !important;
+      backdrop-filter: blur(8px);
     }
 
-    #plannerTabs,
-    #calendarMainCol,
-    #calendarPanelCol,
+    #plannerTabs button {
+      border-radius: 999px !important;
+      font-weight: 700 !important;
+    }
+
+    #tabCalendarBtn {
+      background: var(--izo-dark) !important;
+      border-color: var(--izo-dark) !important;
+      color: #fff !important;
+    }
+
+    #tabCalendarSection > #calendarMainCol,
+    #tabCalendarSection > aside,
     #tabProjectsSection > div > div,
     #tabEmployeesSection > div > div,
     #tabAdminSection > div {
       border-radius: 28px !important;
-      border-color: var(--izo-line) !important;
-      background: var(--izo-panel) !important;
-      box-shadow: var(--izo-shadow) !important;
-    }
-
-    #plannerTabs {
-      background: linear-gradient(180deg, #ffffff 0%, var(--izo-panel-soft) 100%) !important;
-      padding: 16px !important;
-    }
-
-    #tabCalendarBtn,
-    #tabProjectsBtn,
-    #tabEmployeesBtn,
-    #tabAdminBtn {
-      border-radius: 999px !important;
-      min-height: 48px;
-      padding-left: 18px !important;
-      padding-right: 18px !important;
-      font-weight: 700 !important;
-      letter-spacing: 0.01em;
-      box-shadow: none !important;
+      border-color: #dbe3e7 !important;
+      box-shadow: 0 10px 28px rgba(11,35,44,.08) !important;
     }
 
     #calendarMainCol {
       position: relative;
       overflow: hidden;
+      background: #fff !important;
     }
 
     #calendarMainCol::after {
       content: "AOGV";
       position: absolute;
-      right: 22px;
-      bottom: 8px;
+      right: 26px;
+      bottom: 20px;
       font-size: 112px;
-      line-height: 1;
       font-weight: 800;
-      letter-spacing: 0.08em;
-      color: rgba(11,35,44,0.03);
-      user-select: none;
+      letter-spacing: .08em;
+      color: rgba(11,35,44,.03);
       pointer-events: none;
-      z-index: 0;
+      user-select: none;
     }
 
-    #calendarMainCol > * {
+    #calendarMainCol > div, #calendarWrap {
       position: relative;
       z-index: 1;
     }
 
-    #calendarMainCol > .p-4.border-b.border-slate-200.flex.flex-col.lg\:flex-row.lg\:items-center.lg\:justify-between.gap-3,
-    #plannerTabs,
-    #calendarPanelContent > .p-4.border-b.border-slate-200.flex.items-center.justify-between.gap-3 {
-      background: linear-gradient(180deg, #ffffff 0%, #fbfcfc 100%) !important;
-    }
-
-    #searchInput,
-    #employeeFilter,
-    #calendarMode,
-    #viewMode,
-    #assignProject,
-    #assignStart,
-    #assignEnd,
-    #assignNotes,
-    #bulkEmployees,
-    #projectName,
-    #projectCategory,
-    #projectStatus,
-    #projectPlannedStart,
-    #projectPlannedEnd,
-    #projectLocation,
-    #projectHeadcount,
-    #projectNotes,
-    #employeeName,
-    #employeeEmail,
-    #employeePhone,
-    #employeeTitle,
-    #employeeGroup,
-    #editProject,
-    #editEmployee,
-    #editRole,
-    #editStart,
-    #editEnd,
-    #editNotes,
-    #personalBlockEmployee,
-    #personalBlockType,
-    #personalBlockStart,
-    #personalBlockEnd,
-    #personalBlockNotes,
-    #loginEmail,
-    #loginPassword,
-    #contextMenuStart,
-    #contextMenuEnd,
-    #contextMenuType,
-    #contextMenuNotes {
+    #tabCalendarSection input,
+    #tabCalendarSection select,
+    #tabProjectsSection input,
+    #tabProjectsSection select,
+    #tabProjectsSection textarea,
+    #tabEmployeesSection input,
+    #tabEmployeesSection select,
+    #tabEmployeesSection textarea,
+    #tabAdminSection input,
+    #tabAdminSection select,
+    #tabAdminSection textarea,
+    #projectModal input,
+    #projectModal select,
+    #projectModal textarea,
+    #employeeModal input,
+    #employeeModal select,
+    #editModal input,
+    #editModal select,
+    #editModal textarea {
       border-radius: 18px !important;
       border-color: #ccd6db !important;
       background: #fbfcfc !important;
       color: var(--izo-dark) !important;
-      box-shadow: inset 0 1px 0 rgba(255,255,255,0.72);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.65);
     }
 
-    #employeeGroupFilterButton,
-    #prevBtn,
-    #todayBtn,
-    #nextBtn,
-    #newProjectBtn,
-    #newEmployeeBtn,
-    #assignBtn,
-    #bulkAddBtn,
-    #saveProjectBtn,
-    #deleteProjectBtn,
-    #saveEmployeeBtn,
-    #deleteEmployeeBtn,
-    #saveEditBtn,
-    #deleteEditBtn,
-    #personalBlockSaveBtn,
-    #calendarPanelCloseBtn,
-    #closeModalBtn,
-    #closeProjectModalBtn,
-    #closeEmployeeModalBtn,
-    #contextMenuAddBtn,
-    #contextMenuCloseBtn,
-    #loginSubmitBtn,
-    #forgotPasswordBtn,
-    [data-project-staff-id],
-    [data-project-id],
-    [data-project-entry-delete-id] {
+    #prevBtn, #todayBtn, #nextBtn,
+    #newProjectBtn, #newEmployeeBtn, #assignBtn,
+    #bulkAddBtn, #saveProjectBtn, #deleteProjectBtn,
+    #saveEmployeeBtn, #deleteEmployeeBtn,
+    #saveEditBtn, #deleteEditBtn,
+    #calendarPanelCloseBtn {
       border-radius: 18px !important;
       font-weight: 700 !important;
     }
 
-    #todayBtn,
-    #assignBtn,
-    #saveProjectBtn,
-    #saveEmployeeBtn,
-    #saveEditBtn,
-    #personalBlockSaveBtn,
-    #loginSubmitBtn,
-    [data-project-staff-id] {
-      background: var(--izo-dark) !important;
-      border-color: var(--izo-dark) !important;
-      color: #ffffff !important;
-    }
-
-    #todayBtn:hover,
-    #assignBtn:hover,
-    #saveProjectBtn:hover,
-    #saveEmployeeBtn:hover,
-    #saveEditBtn:hover,
-    #personalBlockSaveBtn:hover,
-    #loginSubmitBtn:hover,
-    [data-project-staff-id]:hover {
-      background: #173845 !important;
-      border-color: #173845 !important;
-    }
-
-    #prevBtn,
-    #nextBtn,
-    #bulkAddBtn,
-    #deleteProjectBtn,
-    #deleteEmployeeBtn,
-    #deleteEditBtn,
-    #calendarPanelCloseBtn,
-    #closeModalBtn,
-    #closeProjectModalBtn,
-    #closeEmployeeModalBtn,
-    #contextMenuCloseBtn,
-    #forgotPasswordBtn,
-    [data-project-id],
-    [data-project-entry-delete-id] {
-      background: #ffffff !important;
-      border-color: #cad4d9 !important;
-      color: var(--izo-medium) !important;
+    #todayBtn, #assignBtn, #newProjectBtn, #newEmployeeBtn, #saveProjectBtn, #saveEmployeeBtn, #saveEditBtn {
+      background: var(--izo-accent) !important;
+      border-color: transparent !important;
+      color: var(--izo-dark) !important;
     }
 
     #calendarPanelHandleBtn {
-      background: linear-gradient(180deg, #ffffff 0%, #f4f7f8 100%) !important;
-      color: var(--izo-medium) !important;
-      font-weight: 800 !important;
-      letter-spacing: 0.08em !important;
-    }
-
-    #rangeTitle {
-      color: var(--izo-medium) !important;
-      font-weight: 700 !important;
-      font-size: 0.98rem !important;
-    }
-
-    #warningBox {
-      border-radius: 22px !important;
-      box-shadow: 0 8px 24px rgba(127,29,29,0.08);
-    }
-
-    #calendarWrap,
-    #projectList,
-    #employeeList,
-    #kanbanBoard,
-    #notificationList,
-    #auditList {
-      position: relative;
-      z-index: 1;
-    }
-
-    #projectList > div.rounded-xl,
-    #employeeList > button,
-    #notificationList > div,
-    #auditList > div,
-    #kanbanBoard > div,
-    #assignEmployeesWrap > div,
-    [data-assign-row],
-    #assignSummary {
-      border-radius: 22px !important;
-    }
-
-    #legendList {
+      background: linear-gradient(180deg, #eef3f4 0%, #f7f9fa 100%) !important;
       color: var(--izo-medium) !important;
     }
 
-    #projectList .bg-slate-50,
-    #kanbanBoard .bg-slate-50,
-    #assignSummary.bg-slate-50,
-    [data-assign-row].bg-slate-50 {
-      background: #f7fafb !important;
+    #calendarPanelContent h2, #plannerTabs + * h2, #tabProjectsSection h2, #tabEmployeesSection h2, #tabAdminSection h2 {
+      color: var(--izo-dark) !important;
     }
 
-    #projectList .bg-slate-100,
-    #kanbanBoard .bg-slate-100 {
-      background: #eef3f5 !important;
-    }
-
-    #editModal > div,
-    #projectModal > div,
-    #employeeModal > div,
-    #loginModal > div,
-    #calendarContextMenu {
-      border-radius: 28px !important;
-      border: 1px solid var(--izo-line) !important;
-      box-shadow: 0 24px 60px rgba(11,35,44,0.18) !important;
-    }
-
-    #calendarContextMenu .p-4.border-b.border-slate-200,
-    #editModal .p-4.border-b.border-slate-200,
-    #projectModal .p-4.border-b.border-slate-200,
-    #employeeModal .p-4.border-b.border-slate-200,
-    #loginModal .p-4.border-b.border-slate-200 {
-      background: linear-gradient(180deg, #ffffff 0%, #fbfcfc 100%) !important;
-    }
-
-    .head-left,
-    .head-day {
-      background: #f9fbfb !important;
-    }
-
-    .head-day,
-    .sticky-col {
-      color: var(--izo-medium);
-    }
   </style>
 </head>
 <body class="bg-slate-100 text-slate-900">
   <div class="max-w-[1900px] mx-auto p-6 space-y-6">
-    <header class="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4">
+    <header class="izo-header flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4">
       <div>
-        <div class="flex items-center gap-3 mb-3 text-xs uppercase tracking-[0.22em] font-semibold text-white/80">
-          <span class="inline-flex items-center gap-2">
-            <span class="inline-flex items-center gap-[6px]">
-              <span class="block w-3.5 h-3.5 rounded-[3px] bg-[#51ffcc]"></span>
-              <span class="block w-3.5 h-3.5 rounded-[3px] bg-[#51ffcc]/60"></span>
-              <span class="block w-3.5 h-3.5 rounded-[3px] bg-[#51ffcc]/25"></span>
-            </span>
-            Izomax
-          </span>
-        </div>
-        <h1 class="text-3xl font-bold tracking-tight">Personal planlegging</h1>
-        
+        <div class="izo-brand"><span class="izo-brand-mark"></span><span>Izomax</span></div>
+        <h1 class="izo-title">Personal planlegging</h1>
       </div>
 
-      <div class="flex flex-wrap gap-2 items-center">
+      <div class="izo-actions flex flex-wrap gap-2 items-center">
         <span id="storageBadge" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm">Laster...</span>
         <span id="saveStatus" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm">Klar</span>
       </div>
