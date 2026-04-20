@@ -2824,7 +2824,7 @@
       const weekend = isWeekend(day);
       const holiday = getNorwegianHolidayByDate(day);
       const isTodayFlag = sameDate(day, new Date());
-      const weekLabel = state.viewMode === "Uke" ? `<div>Uke ${getIsoWeek(day)}</div>` : "";
+      const weekLabel = getCalendarWeekLabel(day);
       const headerBgClass = holiday ? "bg-red-50" : weekend ? "bg-slate-50" : "bg-white";
       const headerTextClass = holiday ? "text-red-700" : isTodayFlag ? "text-blue-700 font-semibold" : "text-slate-600";
       const holidayLabel = holiday ? `<div class="mt-1 text-[10px] leading-tight font-semibold text-red-600">${escapeHtml(holiday.name)}</div>` : "";
@@ -3025,7 +3025,7 @@
       const weekend = isWeekend(day);
       const holiday = getNorwegianHolidayByDate(day);
       const isTodayFlag = sameDate(day, new Date());
-      const weekLabel = state.viewMode === "Uke" ? `<div>Uke ${getIsoWeek(day)}</div>` : "";
+      const weekLabel = getCalendarWeekLabel(day);
       const headerBgClass = holiday ? "bg-red-50" : weekend ? "bg-slate-50" : "bg-white";
       const headerTextClass = holiday ? "text-red-700" : isTodayFlag ? "text-blue-700 font-semibold" : "text-slate-600";
       const holidayLabel = holiday ? `<div class="mt-1 text-[10px] leading-tight font-semibold text-red-600">${escapeHtml(holiday.name)}</div>` : "";
@@ -3884,6 +3884,17 @@
     d.setUTCDate(d.getUTCDate() + 4 - dayNum);
     const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
     return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+  }
+
+  function getCalendarWeekLabel(day) {
+    const weekNumber = getIsoWeek(day);
+    if (state.viewMode === "Uke") {
+      return `<div>Uke ${weekNumber}</div>`;
+    }
+    if (state.viewMode === "Måned" && day.getDay() === 1) {
+      return `<div class="mt-0.5 text-[10px] font-semibold">Uke ${weekNumber}</div>`;
+    }
+    return "";
   }
 
 
