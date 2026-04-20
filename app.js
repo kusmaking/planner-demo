@@ -22,6 +22,7 @@
     selectedEntryId: null,
     selectedProjectId: null,
     selectedEmployeeId: null,
+    focusProjectId: "",
     storageMode: "local",
     supabaseReady: false,
     supabaseError: null,
@@ -157,7 +158,7 @@
   function cacheElements() {
     const ids = [
       "statsRow", "searchInput", "employeeFilter", "viewMode", "calendarMode", "prevBtn", "nextBtn", "todayBtn",
-      "calendarWrap", "warningBox", "legendList", "projectList", "assignProject", "assignEmployeesWrap", "assignSummary", "assignRole",
+      "calendarWrap", "warningBox", "legendList", "projectList", "projectWorkspaceCard", "projectWorkspaceEmpty", "projectWorkspaceContent", "projectWorkspaceTitle", "projectWorkspaceMeta", "projectWorkspaceNotes", "projectWorkspaceAssignments", "projectWorkspaceActions", "assignProject", "assignEmployeesWrap", "assignSummary", "assignRole",
       "assignStart", "assignEnd", "assignNotes", "assignBtn", "bulkEmployees", "bulkAddBtn",
       "employeeList", "kanbanBoard", "notificationList", "auditList", "editModal", "closeModalBtn",
       "editProject", "editEmployee", "editRole", "editStart", "editEnd", "editNotes",
@@ -1133,7 +1134,15 @@
       renderCalendar();
     });
 
-    els.assignProject.addEventListener("change", syncAssignDatesFromProject);
+    els.assignProject.addEventListener("change", () => {
+      const projectId = els.assignProject?.value || "";
+      if (projectId) state.focusProjectId = projectId;
+      syncAssignDatesFromProject();
+      updateAvailabilityAnalysis();
+      renderProjects();
+    });
+    els.assignStart.addEventListener("change", updateAvailabilityAnalysis);
+    els.assignEnd.addEventListener("change", updateAvailabilityAnalysis);
     els.assignStart.addEventListener("change", updateAvailabilityAnalysis);
     els.assignEnd.addEventListener("change", updateAvailabilityAnalysis);
     els.assignBtn.addEventListener("click", createEntry);
@@ -1701,6 +1710,7 @@
     if (els.assignStart) els.assignStart.value = project.planned_start_date || "";
     if (els.assignEnd) els.assignEnd.value = project.planned_end_date || "";
     updateAssignSummary(project);
+    updateAvailabilityAnalysis();
     updateAvailabilityAnalysis();
   }
 
@@ -2378,6 +2388,7 @@
     if (!confirm("Vil du slette dette prosjektet?")) return;
 
     state.projects = state.projects.filter(p => p.id !== project.id);
+    if (state.focusProjectId === project.id) state.focusProjectId = "";
     rebuildDerivedState();
     const result = await deleteRow("planner_projects", project.id);
     if (!result.ok) {
@@ -2604,6 +2615,7 @@
     renderAudit();
     renderSystemStatus();
     updateBadge();
+    updateAvailabilityAnalysis();
     applyRoleChrome();
     updateAvailabilityAnalysis();
   }
@@ -2751,115 +2763,207 @@
     }
   }
 
+  function getRelevantProjectStatuses() {
+    return ["Planlagt", "Pågår", "Avventer"];
+  }
+
+  function getActiveProjectsForWorkspace() {
+    const relevant = new Set(getRelevantProjectStatuses());
+    return getVisibleProjects()
+      .filter(project => relevant.has(project.status))
+      .slice()
+      .sort((a, b) => compareProjectDates(a, b));
+  }
+
+  function getArchivedProjectsForWorkspace() {
+    return getVisibleProjects()
+      .filter(project => project.status === "Avsluttet")
+      .slice()
+      .sort((a, b) => compareProjectDates(a, b));
+  }
+
+  function setFocusProject(projectId) {
+    state.focusProjectId = projectId || "";
+    renderProjects();
+  }
+
+  function ensureFocusProject(activeProjects, archivedProjects) {
+    const allProjects = [...activeProjects, ...archivedProjects];
+    if (!allProjects.length) {
+      state.focusProjectId = "";
+      return null;
+    }
+
+    let focused = allProjects.find(project => project.id === state.focusProjectId) || null;
+    if (!focused) {
+      focused = activeProjects[0] || archivedProjects[0] || null;
+      state.focusProjectId = focused?.id || "";
+    }
+
+    return focused;
+  }
+
+  function renderProjectWorkspace(project) {
+    if (!els.projectWorkspaceCard || !els.projectWorkspaceEmpty || !els.projectWorkspaceContent) return;
+
+    if (!project) {
+      els.projectWorkspaceEmpty.classList.remove("hidden");
+      els.projectWorkspaceContent.classList.add("hidden");
+      if (els.projectWorkspaceTitle) els.projectWorkspaceTitle.textContent = "Ingen prosjekt valgt";
+      if (els.projectWorkspaceMeta) els.projectWorkspaceMeta.innerHTML = "";
+      if (els.projectWorkspaceNotes) els.projectWorkspaceNotes.textContent = "";
+      if (els.projectWorkspaceAssignments) els.projectWorkspaceAssignments.innerHTML = `<div class="text-sm text-slate-500">Velg et prosjekt fra listen for å se detaljer.</div>`;
+      if (els.projectWorkspaceActions) els.projectWorkspaceActions.innerHTML = "";
+      return;
+    }
+
+    const assigned = getProjectAssignedCount(project.id);
+    const required = Number(project.headcount_required || 0);
+    const staffing = getProjectStaffingLabel(project.id, required);
+    const projectEntries = state.entries
+      .filter(entry => entry.project_id === project.id)
+      .slice()
+      .sort((a, b) => a.start_date.localeCompare(b.start_date) || a.employee_name.localeCompare(b.employee_name, "no"));
+
+    els.projectWorkspaceEmpty.classList.add("hidden");
+    els.projectWorkspaceContent.classList.remove("hidden");
+    if (els.projectWorkspaceTitle) els.projectWorkspaceTitle.textContent = project.name;
+    if (els.projectWorkspaceMeta) {
+      els.projectWorkspaceMeta.innerHTML = `
+        <div class="flex flex-wrap items-center gap-2">
+          <span class="rounded-full border px-2 py-0.5 text-xs ${STATUS_COLORS[project.status] || "bg-slate-100 border-slate-200 text-slate-700"}">${escapeHtml(project.status)}</span>
+          <span class="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs text-slate-700">${escapeHtml(project.category)}</span>
+          ${project.location ? `<span class="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs text-slate-700">${escapeHtml(project.location)}</span>` : ""}
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm text-slate-600">
+          <div><span class="font-medium text-slate-700">Periode:</span><br>${escapeHtml(formatProjectDateRange(project))}</div>
+          <div><span class="font-medium text-slate-700">Bemanning:</span><br><span class="${staffing.variant}">${escapeHtml(staffing.text)}</span>${required ? ` (${assigned}/${required})` : ""}</div>
+          <div><span class="font-medium text-slate-700">Status:</span><br>${escapeHtml(project.status)}</div>
+        </div>
+      `;
+    }
+    if (els.projectWorkspaceNotes) {
+      els.projectWorkspaceNotes.textContent = project.notes || "Ingen prosjektnotater.";
+    }
+    if (els.projectWorkspaceAssignments) {
+      els.projectWorkspaceAssignments.innerHTML = projectEntries.length
+        ? projectEntries.map(entry => `
+          <div class="flex items-start justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-3">
+            <div class="min-w-0">
+              <div class="text-sm font-medium text-slate-800">${escapeHtml(entry.employee_name)}</div>
+              <div class="text-xs text-slate-500 mt-1">${escapeHtml(entry.role || "")}</div>
+              <div class="text-xs text-slate-500">${escapeHtml(formatDate(entry.start_date))} – ${escapeHtml(formatDate(entry.end_date))}</div>
+            </div>
+            <button data-project-entry-delete-id="${escapeHtml(entry.id)}" class="shrink-0 rounded-lg border border-red-200 bg-white px-2 py-1 text-xs text-red-700 hover:bg-red-50">Fjern</button>
+          </div>
+        `).join("")
+        : `<div class="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-3 py-4 text-sm text-slate-500">Ingen tildelte ressurser på prosjektet ennå.</div>`;
+    }
+    if (els.projectWorkspaceActions) {
+      els.projectWorkspaceActions.innerHTML = `
+        <button data-project-workspace-staff-id="${escapeHtml(project.id)}" class="rounded-xl bg-slate-900 text-white px-3 py-2 text-sm">Bemann prosjekt</button>
+        <button data-project-workspace-edit-id="${escapeHtml(project.id)}" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm">Rediger prosjekt</button>
+      `;
+      const staffBtn = els.projectWorkspaceActions.querySelector('[data-project-workspace-staff-id]');
+      const editBtn = els.projectWorkspaceActions.querySelector('[data-project-workspace-edit-id]');
+      if (staffBtn) staffBtn.addEventListener('click', () => startProjectStaffing(project.id));
+      if (editBtn) editBtn.addEventListener('click', () => openProjectModal(project.id));
+    }
+    els.projectWorkspaceAssignments.querySelectorAll('[data-project-entry-delete-id]').forEach(btn => {
+      btn.addEventListener('click', () => deleteEntryFromProjectCard(btn.dataset.projectEntryDeleteId));
+    });
+  }
+
   function renderProjects() {
-    const filteredProjects = getProjectsForCurrentListFilter();
-    const filterLabel = state.projectListFilter === "unstaffed" ? "Viser kun prosjekter uten bemanning." : "Viser alle prosjekter i stigende rekkefølge etter planlagt startdato.";
-    const emptyText = state.projectListFilter === "unstaffed" ? "Ingen prosjekter mangler bemanning." : "Ingen prosjekter.";
+    const allActiveProjects = getActiveProjectsForWorkspace();
+    const activeProjects = state.projectListFilter === "unstaffed"
+      ? allActiveProjects.filter(project => getProjectAssignedCount(project.id) === 0)
+      : allActiveProjects;
+    const archivedProjects = getArchivedProjectsForWorkspace();
+    const focusedProject = ensureFocusProject(activeProjects, archivedProjects);
+    const activeDescription = state.projectListFilter === "unstaffed"
+      ? "Viser aktive prosjekter som fortsatt mangler bemanning."
+      : "Viser kun planlagt, pågår og avventer.";
+
+    const renderProjectRow = (project, archived = false) => {
+      const assigned = getProjectAssignedCount(project.id);
+      const required = Number(project.headcount_required || 0);
+      const staffing = getProjectStaffingLabel(project.id, required);
+      const isFocused = project.id === state.focusProjectId;
+      const baseClasses = archived
+        ? "border-slate-200 bg-slate-50 hover:bg-slate-100"
+        : isFocused
+          ? "border-slate-900 bg-slate-900 text-white"
+          : "border-slate-200 bg-white hover:bg-slate-50";
+      const secondaryTextClass = isFocused ? "text-slate-200" : "text-slate-500";
+      const staffingClass = isFocused ? "text-slate-100" : staffing.variant;
+
+      return `
+        <button type="button" data-project-focus-id="${escapeHtml(project.id)}" class="w-full rounded-2xl border p-4 text-left transition ${baseClasses}">
+          <div class="flex items-start justify-between gap-3">
+            <div class="min-w-0">
+              <div class="font-semibold truncate">${escapeHtml(project.name)}</div>
+              <div class="mt-1 text-xs ${secondaryTextClass}">${escapeHtml(project.category)}${project.location ? ` • ${escapeHtml(project.location)}` : ""}</div>
+              <div class="mt-1 text-xs ${secondaryTextClass}">${escapeHtml(formatProjectDateRange(project))}</div>
+            </div>
+            <span class="rounded-full border px-2 py-0.5 text-xs ${isFocused ? "border-white/30 bg-white/10 text-white" : (STATUS_COLORS[project.status] || "bg-slate-100 border-slate-200 text-slate-700")}">${escapeHtml(project.status)}</span>
+          </div>
+          <div class="mt-3 flex flex-wrap items-center gap-3 text-xs">
+            <span class="${staffingClass}">${escapeHtml(staffing.text)}${required ? ` (${assigned}/${required})` : ""}</span>
+            ${project.notes ? `<span class="${secondaryTextClass} truncate">${escapeHtml(project.notes)}</span>` : ""}
+          </div>
+        </button>
+      `;
+    };
 
     els.projectList.innerHTML = `
-      <div class="mb-4 flex flex-wrap items-center gap-2">
-        <button
-          type="button"
-          data-project-list-filter="all"
-          class="rounded-xl px-3 py-2 text-sm border ${state.projectListFilter === "all" ? "border-slate-900 bg-slate-900 text-white" : "border-slate-300 bg-white text-slate-700"}"
-        >
-          Alle prosjekter
-        </button>
-        <button
-          type="button"
-          data-project-list-filter="unstaffed"
-          class="rounded-xl px-3 py-2 text-sm border ${state.projectListFilter === "unstaffed" ? "border-slate-900 bg-slate-900 text-white" : "border-slate-300 bg-white text-slate-700"}"
-        >
-          Uten bemanning
-        </button>
-        <div class="text-sm text-slate-500">${escapeHtml(filterLabel)}</div>
-      </div>
-      ${filteredProjects.map(project => {
-        const assigned = getProjectAssignedCount(project.id);
-        const required = Number(project.headcount_required || 0);
-        const staffing = getProjectStaffingLabel(project.id, required);
-        const projectEntries = state.entries
-          .filter(entry => entry.project_id === project.id)
-          .slice()
-          .sort((a, b) => a.start_date.localeCompare(b.start_date) || a.employee_name.localeCompare(b.employee_name, "no"));
-        const projectCardClasses = project.status === "Avsluttet"
-          ? "rounded-xl border border-slate-300 p-3 bg-slate-100"
-          : "rounded-xl border border-slate-200 p-3 bg-slate-50";
-
-        const assignmentsHtml = projectEntries.length
-          ? `
-            <div class="mt-3 rounded-xl border border-slate-200 bg-white p-3">
-              <div class="text-xs font-semibold uppercase tracking-wide text-slate-500">Tildelte ressurser</div>
-              <div class="mt-2 space-y-2">
-                ${projectEntries.map(entry => `
-                  <div class="flex items-start justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
-                    <div class="min-w-0">
-                      <div class="text-sm font-medium text-slate-800">${escapeHtml(entry.employee_name || "Ukjent ansatt")}</div>
-                      <div class="text-xs text-slate-500">${escapeHtml(entry.role || "")}</div>
-                      <div class="text-xs text-slate-500">${escapeHtml(formatDate(entry.start_date))} – ${escapeHtml(formatDate(entry.end_date))}</div>
-                    </div>
-                    <button data-project-entry-delete-id="${escapeHtml(entry.id)}" class="shrink-0 rounded-lg border border-red-200 bg-white px-2 py-1 text-xs text-red-700 hover:bg-red-50">Fjern</button>
-                  </div>
-                `).join("")}
-              </div>
+      <div class="space-y-6">
+        <div>
+          <div class="mb-3 flex items-center justify-between gap-3">
+            <div>
+              <div class="font-semibold text-slate-900">Aktive prosjekter</div>
+              <div class="text-sm text-slate-500">${escapeHtml(activeDescription)}</div>
             </div>
-          `
-          : `
-            <div class="mt-3 rounded-xl border border-dashed border-slate-300 bg-white px-3 py-3 text-xs text-slate-500">
-              Ingen tildelte ressurser på prosjektet.
-            </div>
-          `;
-
-        return `
-          <div class="${projectCardClasses}">
-            <div class="flex items-start justify-between gap-3">
-              <div>
-                <div class="font-medium">${escapeHtml(project.name)}</div>
-                <div class="text-xs text-slate-500 mt-1">${escapeHtml(project.category)}${project.location ? ` • ${escapeHtml(project.location)}` : ""}</div>
-                <div class="text-xs text-slate-600 mt-1">${escapeHtml(formatProjectDateRange(project))}</div>
-                <div class="text-xs mt-1 ${staffing.variant}">${escapeHtml(staffing.text)}${required ? ` (${assigned}/${required})` : ""}</div>
-              </div>
-              <span class="rounded-full border px-2 py-0.5 text-xs ${STATUS_COLORS[project.status] || "bg-slate-100 border-slate-200 text-slate-700"}">${escapeHtml(project.status)}</span>
-            </div>
-            <div class="text-xs text-slate-600 mt-2">${escapeHtml(project.notes || "")}</div>
-            ${assignmentsHtml}
-            <div class="mt-3 flex flex-wrap gap-2">
-              <button data-project-staff-id="${escapeHtml(project.id)}" class="rounded-xl bg-slate-900 text-white px-3 py-2 text-sm">Bemann</button>
-              <button data-project-id="${escapeHtml(project.id)}" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm">Rediger</button>
-            </div>
+            <span class="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs text-slate-700">${activeProjects.length} aktive</span>
           </div>
-        `;
-      }).join("") || `<div class="text-sm text-slate-500">${escapeHtml(emptyText)}</div>`}
+          <div class="space-y-3">
+            ${activeProjects.length ? activeProjects.map(project => renderProjectRow(project, false)).join("") : `<div class="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-sm text-slate-500">Ingen aktive prosjekter.</div>`}
+          </div>
+        </div>
+        <div class="border-t border-slate-200 pt-4">
+          <div class="mb-3 flex items-center justify-between gap-3">
+            <div>
+              <div class="font-semibold text-slate-900">Arkiv</div>
+              <div class="text-sm text-slate-500">Avsluttede prosjekter holdes utenfor hovedbildet.</div>
+            </div>
+            <span class="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs text-slate-700">${archivedProjects.length} avsluttet</span>
+          </div>
+          <div class="space-y-3">
+            ${archivedProjects.length ? archivedProjects.map(project => renderProjectRow(project, true)).join("") : `<div class="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-sm text-slate-500">Ingen arkiverte prosjekter.</div>`}
+          </div>
+        </div>
+      </div>
     `;
 
-    els.projectList.querySelectorAll("[data-project-list-filter]").forEach(btn => {
-      btn.addEventListener("click", () => {
-        state.projectListFilter = btn.dataset.projectListFilter === "unstaffed" ? "unstaffed" : "all";
-        renderProjects();
-      });
+    els.projectList.querySelectorAll('[data-project-focus-id]').forEach(btn => {
+      btn.addEventListener('click', () => setFocusProject(btn.dataset.projectFocusId));
     });
 
-    els.projectList.querySelectorAll("[data-project-id]").forEach(btn => {
-      btn.addEventListener("click", () => openProjectModal(btn.dataset.projectId));
-    });
-
-    els.projectList.querySelectorAll("[data-project-staff-id]").forEach(btn => {
-      btn.addEventListener("click", () => startProjectStaffing(btn.dataset.projectStaffId));
-    });
-
-    els.projectList.querySelectorAll("[data-project-entry-delete-id]").forEach(btn => {
-      btn.addEventListener("click", () => deleteEntryFromProjectCard(btn.dataset.projectEntryDeleteId));
-    });
+    renderProjectWorkspace(focusedProject);
   }
 
   function startProjectStaffing(projectId) {
     if (!els.assignProject) return;
+    state.focusProjectId = projectId || "";
     setActiveTab("projects");
     els.assignProject.value = projectId;
     if (els.assignNotes) els.assignNotes.value = "";
     syncAssignDatesFromProject({ projectId, rows: [] });
+    updateAvailabilityAnalysis();
     els.assignProject.scrollIntoView({ behavior: "smooth", block: "center" });
+    renderProjects();
   }
+
 
   async function deleteEntryFromProjectCard(entryId) {
     if (!canEditApp()) return;
