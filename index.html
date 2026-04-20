@@ -5,10 +5,304 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Personal planlegging</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  
   <style>
+    :root{
+      --izo-dark:#0b232c;
+      --izo-dark-2:#102b35;
+      --izo-medium:#354A55;
+      --izo-light:#5F7581;
+      --izo-surface:#ffffff;
+      --izo-accent:#51ffcc;
+      --izo-accent-soft:#14cba8;
+      --izo-accent-dark:#00726c;
+      --izo-sky:#9dffff;
+      --line:#d7e0e4;
+      --shadow-strong:0 18px 40px rgba(11,35,44,.14);
+      --shadow-soft:0 10px 24px rgba(11,35,44,.08);
+    }
+
     .scrollbar-thin::-webkit-scrollbar { height: 10px; width: 10px; }
     .scrollbar-thin::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 9999px; }
     .scrollbar-thin::-webkit-scrollbar-track { background: #f8fafc; }
+
+    body{
+      background:
+        radial-gradient(circle at top right, rgba(81,255,204,.10), transparent 22%),
+        linear-gradient(180deg,#edf2f4 0%, #f7f9fa 100%) !important;
+      color:var(--izo-dark);
+      font-family:Arial, sans-serif;
+    }
+
+    body > div.max-w-\[1900px\]{
+      position:relative;
+    }
+
+    .topbar{
+      border-radius:32px;
+      overflow:hidden;
+      background:
+        linear-gradient(130deg, rgba(81,255,204,.10), rgba(81,255,204,0) 28%),
+        linear-gradient(135deg, var(--izo-dark) 0%, var(--izo-dark-2) 55%, #173d49 100%);
+      color:#fff;
+      box-shadow:var(--shadow-strong);
+      position:relative;
+      border:1px solid rgba(255,255,255,.08);
+      min-height:170px;
+    }
+    .topbar::before{
+      content:"";
+      position:absolute;
+      right:-110px; top:-80px;
+      width:420px; height:420px; border-radius:50%;
+      background:radial-gradient(circle, rgba(157,255,255,.18) 0%, rgba(157,255,255,0) 62%);
+    }
+    .topbar::after{
+      content:"IZOMAX";
+      position:absolute;
+      right:24px;
+      bottom:-14px;
+      font-size:120px;
+      font-weight:800;
+      letter-spacing:.12em;
+      color:rgba(255,255,255,.04);
+      user-select:none;
+      pointer-events:none;
+    }
+    .topbar-inner{
+      position:relative;
+      z-index:1;
+      padding:28px 30px 26px;
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:20px;
+    }
+    .brand{
+      display:flex;
+      flex-direction:column;
+      gap:14px;
+    }
+    .brand-row{
+      display:flex;
+      align-items:center;
+      gap:12px;
+      font-size:13px;
+      font-weight:700;
+      letter-spacing:.16em;
+      text-transform:uppercase;
+      color:rgba(255,255,255,.86);
+    }
+    .brand-mark{
+      width:42px; height:10px; border-radius:999px;
+      background:linear-gradient(90deg, var(--izo-accent), rgba(81,255,204,.35));
+      box-shadow:0 0 0 1px rgba(255,255,255,.08) inset;
+      display:inline-block;
+    }
+    .topbar h1{
+      margin:0;
+      font-size:44px;
+      line-height:1;
+      letter-spacing:-.03em;
+      font-weight:800;
+      color:#fff;
+    }
+    .topbar-meta{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      margin-top:6px;
+    }
+    .topbar-pill{
+      border-radius:999px;
+      padding:10px 14px;
+      font-size:13px;
+      font-weight:700;
+      background:rgba(255,255,255,.08);
+      border:1px solid rgba(255,255,255,.10);
+      color:#fff;
+      backdrop-filter:blur(6px);
+    }
+    .topbar-pill.primary{
+      background:var(--izo-accent);
+      border-color:transparent;
+      color:var(--izo-dark);
+    }
+    .topbar-status{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      align-items:flex-start;
+      justify-content:flex-end;
+      position:relative;
+      z-index:2;
+    }
+    .topbar-status #storageBadge,
+    .topbar-status #saveStatus{
+      border-radius:18px !important;
+      padding:.8rem 1rem !important;
+      border-color:rgba(255,255,255,.14) !important;
+      background:rgba(255,255,255,.08) !important;
+      color:#fff !important;
+      backdrop-filter:blur(6px);
+      box-shadow:none !important;
+    }
+
+    #statsRow > *{
+      border-radius:24px !important;
+      border-color:#d9e2e7 !important;
+      box-shadow:var(--shadow-soft) !important;
+      background:#fff !important;
+    }
+
+    #plannerTabs{
+      border-radius:28px !important;
+      border-color:#d9e2e7 !important;
+      box-shadow:var(--shadow-soft) !important;
+      background:linear-gradient(180deg,#ffffff 0%, #fbfcfd 100%) !important;
+      padding:1rem !important;
+    }
+    #plannerTabs button{
+      height:48px;
+      border-radius:16px !important;
+      font-weight:800;
+      box-shadow:0 2px 6px rgba(11,35,44,.04);
+    }
+    #plannerTabs button.border-slate-900,
+    #plannerTabs button.bg-slate-900{
+      background:var(--izo-dark) !important;
+      border-color:var(--izo-dark) !important;
+      box-shadow:0 10px 18px rgba(11,35,44,.16) !important;
+    }
+
+    #calendarMainCol,
+    #calendarPanelCol,
+    #tabProjectsSection > div > div,
+    #tabEmployeesSection > div > div,
+    #tabAdminSection > div{
+      border-radius:30px !important;
+      border-color:#d8e0e4 !important;
+      box-shadow:var(--shadow-soft) !important;
+      background:#fff !important;
+    }
+
+    #calendarMainCol{
+      position:relative;
+      overflow:hidden;
+    }
+    #calendarMainCol::after{
+      content:"AOGV";
+      position:absolute;
+      right:28px;
+      bottom:10px;
+      font-size:128px;
+      font-weight:900;
+      letter-spacing:.08em;
+      color:rgba(11,35,44,.028);
+      pointer-events:none;
+      user-select:none;
+      z-index:0;
+    }
+    #calendarMainCol > *{
+      position:relative;
+      z-index:1;
+    }
+
+    #calendarMainCol > div:first-child{
+      background:
+        linear-gradient(180deg, rgba(81,255,204,.05), rgba(81,255,204,0)),
+        #f9fbfb !important;
+      border-bottom-color:var(--line) !important;
+      padding:1.1rem !important;
+    }
+
+    #searchInput,
+    #employeeFilter,
+    #calendarMode,
+    #viewMode,
+    #assignProject,
+    #assignStart,
+    #assignEnd,
+    #assignNotes,
+    #projectName,
+    #projectCategory,
+    #projectStatus,
+    #projectPlannedStart,
+    #projectPlannedEnd,
+    #projectLocation,
+    #projectHeadcount,
+    #projectNotes,
+    #employeeName,
+    #employeeEmail,
+    #employeePhone,
+    #employeeTitle,
+    #employeeGroup,
+    #bulkEmployees,
+    #editProject,
+    #editEmployee,
+    #editRole,
+    #editStart,
+    #editEnd,
+    #editNotes{
+      border-radius:16px !important;
+      border-color:#cad5db !important;
+      background:#fff !important;
+      box-shadow:0 3px 8px rgba(11,35,44,.04);
+    }
+
+    #prevBtn,
+    #todayBtn,
+    #nextBtn,
+    #newProjectBtn,
+    #newEmployeeBtn,
+    #bulkAddBtn,
+    #assignBtn,
+    #saveProjectBtn,
+    #deleteProjectBtn,
+    #saveEmployeeBtn,
+    #deleteEmployeeBtn,
+    #saveEditBtn,
+    #deleteEditBtn,
+    #closeModalBtn,
+    #closeProjectModalBtn,
+    #closeEmployeeModalBtn,
+    #calendarPanelCloseBtn,
+    #calendarPanelHandleBtn{
+      border-radius:16px !important;
+      font-weight:800 !important;
+      box-shadow:0 3px 8px rgba(11,35,44,.04);
+    }
+    #todayBtn,
+    #newProjectBtn,
+    #newEmployeeBtn,
+    #assignBtn,
+    #saveProjectBtn,
+    #saveEmployeeBtn,
+    #saveEditBtn{
+      background:var(--izo-accent) !important;
+      color:var(--izo-dark) !important;
+      border-color:transparent !important;
+    }
+    #calendarPanelHandleBtn{
+      background:linear-gradient(180deg, rgba(81,255,204,.06), rgba(81,255,204,0)), #f8fafb !important;
+      color:var(--izo-medium) !important;
+    }
+
+    #rangeTitle{
+      background:#fff !important;
+      border-bottom-color:var(--line) !important;
+      padding:.95rem 1.1rem !important;
+      color:var(--izo-dark) !important;
+      font-weight:800;
+    }
+    #calendarMainCol > div:nth-child(3){
+      background:#fcfdfd !important;
+      border-bottom-color:var(--line) !important;
+      color:var(--izo-light) !important;
+    }
+    #warningBox{
+      border-radius:20px !important;
+    }
 
     .calendar-shell { width: 100%; min-width: 100%; }
     .day-grid, .month-summary-grid { display: grid; gap: 0; align-items: stretch; width: 100%; }
@@ -41,226 +335,42 @@
     .day-cell.weekend { background: #f8fafc; }
     .day-cell.today { background: #eff6ff; }
 
-
-    :root {
-      --izo-dark: #0b232c;
-      --izo-medium: #354A55;
-      --izo-light: #5F7581;
-      --izo-bg: #f5f5f5;
-      --izo-accent: #51ffcc;
-      --izo-accent-soft: #14cba8;
-      --izo-accent-dark: #00726c;
-      --izo-line: #d6dde2;
+    @media (max-width:1240px){
+      .topbar-inner{
+        flex-direction:column;
+      }
+      .topbar-status{
+        justify-content:flex-start;
+      }
+      .topbar::after{
+        font-size:80px;
+      }
     }
-
-    body {
-      background: linear-gradient(180deg, #e9eef1 0%, #f3f5f6 100%) !important;
-      color: var(--izo-dark);
-      font-family: "Neue Haas Unica", Arial, sans-serif;
-    }
-
-    .izo-header {
-      position: relative;
-      overflow: hidden;
-      border-radius: 28px;
-      background: linear-gradient(135deg, var(--izo-dark) 0%, #173845 55%, #214a59 100%);
-      color: #fff;
-      padding: 28px 30px 26px;
-      box-shadow: 0 14px 40px rgba(11,35,44,.22);
-      border: 1px solid rgba(255,255,255,.06);
-    }
-
-    .izo-header::before {
-      content: "";
-      position: absolute;
-      right: -120px;
-      top: -80px;
-      width: 520px;
-      height: 520px;
-      border-radius: 50%;
-      background: radial-gradient(circle at 30% 30%, rgba(81,255,204,.28), rgba(81,255,204,0) 62%);
-      pointer-events: none;
-    }
-
-    .izo-header::after {
-      content: "IZOMAX";
-      position: absolute;
-      right: 18px;
-      bottom: -10px;
-      font-size: 96px;
-      letter-spacing: .08em;
-      font-weight: 800;
-      color: rgba(255,255,255,.045);
-      pointer-events: none;
-      user-select: none;
-    }
-
-    .izo-brand {
-      display: inline-flex;
-      align-items: center;
-      gap: 12px;
-      margin-bottom: 14px;
-      font-size: 13px;
-      font-weight: 700;
-      letter-spacing: .08em;
-      text-transform: uppercase;
-      color: rgba(255,255,255,.9);
-      position: relative;
-      z-index: 1;
-    }
-
-    .izo-brand-mark {
-      width: 14px;
-      height: 14px;
-      border-radius: 3px;
-      background: var(--izo-accent);
-      box-shadow: 18px 0 0 rgba(81,255,204,.55), 36px 0 0 rgba(81,255,204,.2);
-      display: inline-block;
-      margin-right: 28px;
-    }
-
-    .izo-title {
-      margin: 0;
-      font-size: 42px !important;
-      line-height: 1.05;
-      letter-spacing: -.02em;
-      color: #fff;
-      position: relative;
-      z-index: 1;
-    }
-
-    .izo-actions {
-      position: relative;
-      z-index: 1;
-    }
-
-    #storageBadge, #saveStatus, #accountUserInfo, #loginBtn, #changePasswordBtn, #resetPasswordBtn, #logoutBtn {
-      border-radius: 999px !important;
-      border-color: rgba(255,255,255,.14) !important;
-      background: rgba(255,255,255,.10) !important;
-      color: #fff !important;
-      backdrop-filter: blur(8px);
-    }
-
-    #plannerTabs {
-      border-radius: 24px !important;
-      border-color: #dbe3e7 !important;
-      background: rgba(255,255,255,.92) !important;
-      box-shadow: 0 10px 28px rgba(11,35,44,.08) !important;
-      backdrop-filter: blur(8px);
-    }
-
-    #plannerTabs button {
-      border-radius: 999px !important;
-      font-weight: 700 !important;
-    }
-
-    #tabCalendarBtn {
-      background: var(--izo-dark) !important;
-      border-color: var(--izo-dark) !important;
-      color: #fff !important;
-    }
-
-    #tabCalendarSection > #calendarMainCol,
-    #tabCalendarSection > aside,
-    #tabProjectsSection > div > div,
-    #tabEmployeesSection > div > div,
-    #tabAdminSection > div {
-      border-radius: 28px !important;
-      border-color: #dbe3e7 !important;
-      box-shadow: 0 10px 28px rgba(11,35,44,.08) !important;
-    }
-
-    #calendarMainCol {
-      position: relative;
-      overflow: hidden;
-      background: #fff !important;
-    }
-
-    #calendarMainCol::after {
-      content: "AOGV";
-      position: absolute;
-      right: 26px;
-      bottom: 20px;
-      font-size: 112px;
-      font-weight: 800;
-      letter-spacing: .08em;
-      color: rgba(11,35,44,.03);
-      pointer-events: none;
-      user-select: none;
-    }
-
-    #calendarMainCol > div, #calendarWrap {
-      position: relative;
-      z-index: 1;
-    }
-
-    #tabCalendarSection input,
-    #tabCalendarSection select,
-    #tabProjectsSection input,
-    #tabProjectsSection select,
-    #tabProjectsSection textarea,
-    #tabEmployeesSection input,
-    #tabEmployeesSection select,
-    #tabEmployeesSection textarea,
-    #tabAdminSection input,
-    #tabAdminSection select,
-    #tabAdminSection textarea,
-    #projectModal input,
-    #projectModal select,
-    #projectModal textarea,
-    #employeeModal input,
-    #employeeModal select,
-    #editModal input,
-    #editModal select,
-    #editModal textarea {
-      border-radius: 18px !important;
-      border-color: #ccd6db !important;
-      background: #fbfcfc !important;
-      color: var(--izo-dark) !important;
-      box-shadow: inset 0 1px 0 rgba(255,255,255,.65);
-    }
-
-    #prevBtn, #todayBtn, #nextBtn,
-    #newProjectBtn, #newEmployeeBtn, #assignBtn,
-    #bulkAddBtn, #saveProjectBtn, #deleteProjectBtn,
-    #saveEmployeeBtn, #deleteEmployeeBtn,
-    #saveEditBtn, #deleteEditBtn,
-    #calendarPanelCloseBtn {
-      border-radius: 18px !important;
-      font-weight: 700 !important;
-    }
-
-    #todayBtn, #assignBtn, #newProjectBtn, #newEmployeeBtn, #saveProjectBtn, #saveEmployeeBtn, #saveEditBtn {
-      background: var(--izo-accent) !important;
-      border-color: transparent !important;
-      color: var(--izo-dark) !important;
-    }
-
-    #calendarPanelHandleBtn {
-      background: linear-gradient(180deg, #eef3f4 0%, #f7f9fa 100%) !important;
-      color: var(--izo-medium) !important;
-    }
-
-    #calendarPanelContent h2, #plannerTabs + * h2, #tabProjectsSection h2, #tabEmployeesSection h2, #tabAdminSection h2 {
-      color: var(--izo-dark) !important;
-    }
-
   </style>
+
 </head>
 <body class="bg-slate-100 text-slate-900">
   <div class="max-w-[1900px] mx-auto p-6 space-y-6">
-    <header class="izo-header flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4">
-      <div>
-        <div class="izo-brand"><span class="izo-brand-mark"></span><span>Izomax</span></div>
-        <h1 class="izo-title">Personal planlegging</h1>
-      </div>
+    
+    <header class="topbar">
+      <div class="topbar-inner">
+        <div class="brand">
+          <div class="brand-row"><span class="brand-mark"></span><span>Izomax</span></div>
+          <h1 class="text-3xl font-bold tracking-tight">Personal planlegging</h1>
+          <div class="topbar-meta">
+            <span class="topbar-pill primary">Designoppdatering</span>
+            <span class="topbar-pill">Izomax uttrykk</span>
+            <span class="topbar-pill">Funksjoner urørt</span>
+          </div>
+        </div>
 
-      <div class="izo-actions flex flex-wrap gap-2 items-center">
-        <span id="storageBadge" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm">Laster...</span>
-        <span id="saveStatus" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm">Klar</span>
+        <div class="topbar-status">
+          <span id="storageBadge" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm">Laster...</span>
+          <span id="saveStatus" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm">Klar</span>
+        </div>
       </div>
     </header>
+
 
     <section id="statsRow" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4"></section>
 
