@@ -1741,6 +1741,15 @@
     return getAssignRowsSnapshot().filter(item => item.employee_name);
   }
 
+  function getProjectStaffingMetrics(projectId) {
+    const project = getProjectById(projectId);
+    const required = Math.max(Number(project?.headcount_required || 0), 0);
+    const assigned = projectId ? getProjectAssignedCount(projectId) : 0;
+    const remaining = Math.max(required - assigned, 0);
+    const overbooked = assigned > required ? assigned - required : 0;
+    return { required, assigned, remaining, overbooked };
+  }
+
   function updateAssignSummary(project) {
     if (!els.assignSummary) return;
     if (!project) {
@@ -1748,10 +1757,16 @@
       return;
     }
 
-    const required = Math.max(Number(project.headcount_required || 0), 1);
+    const { required, assigned, remaining, overbooked } = getProjectStaffingMetrics(project.id);
     const startLabel = project.planned_start_date ? formatDate(project.planned_start_date) : "ingen start";
     const endLabel = project.planned_end_date ? formatDate(project.planned_end_date) : "ingen slutt";
-    els.assignSummary.textContent = `${project.name} • Behov: ${required} person${required > 1 ? "er" : ""} • ${startLabel} – ${endLabel}`;
+
+    let staffingText = `${project.name} • Behov: ${required} • Tildelt: ${assigned} • Gjenstår: ${remaining} • ${startLabel} – ${endLabel}`;
+    if (overbooked > 0) {
+      staffingText += ` • Overbemannet med ${overbooked}`;
+    }
+
+    els.assignSummary.textContent = staffingText;
   }
 
   function renderAssignEmployeeSelectors(projectId = null, preservedRows = null) {
@@ -1760,7 +1775,17 @@
     const project = getProjectById(resolvedProjectId);
     const activeEmployees = state.employees.filter(e => e.active !== false);
     const currentRows = Array.isArray(preservedRows) ? preservedRows : getAssignRowsSnapshot();
-    const count = Math.max(Number(project?.headcount_required || 0), currentRows.length || 0, 1);
+    const { remaining, overbooked } = getProjectStaffingMetrics(resolvedProjectId);
+    const baseCount = project ? remaining : 0;
+    const count = Math.max(baseCount, currentRows.length || 0);
+
+    if (project && count === 0) {
+      const statusMessage = overbooked > 0
+        ? `Prosjektet er allerede overbemannet med ${overbooked}. Fjern eller juster eksisterende tildelinger for å legge til nye.`
+        : "Prosjektet er fullbemannet. Ingen ledige bemanningsplasser igjen.";
+      els.assignEmployeesWrap.innerHTML = `<div class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-sm text-slate-600">${escapeHtml(statusMessage)}</div>`;
+      return;
+    }
 
     const blocks = [];
     for (let i = 0; i < count; i++) {
