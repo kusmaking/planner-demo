@@ -335,6 +335,43 @@
     .day-cell.weekend { background: #f8fafc; }
     .day-cell.today { background: #eff6ff; }
 
+    /* bugfix: synlig tekst i konto-knapper og korrekt dropdown for gruppefilter */
+    .topbar-status #accountPanel{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+      align-items:flex-start;
+      justify-content:flex-end;
+    }
+    .topbar-status #accountPanel #accountUserInfo{
+      color:var(--izo-dark) !important;
+      background:#fff !important;
+      border-color:#d8e0e4 !important;
+    }
+    .topbar-status #accountPanel button{
+      color:var(--izo-dark) !important;
+      background:#fff !important;
+      border-color:#d8e0e4 !important;
+    }
+    .topbar-status #accountPanel button:hover{
+      background:#f8fafc !important;
+    }
+
+    #calendarMainCol{
+      position:relative;
+      overflow:visible;
+    }
+    #calendarMainCol > div:first-child{
+      z-index:60 !important;
+    }
+    #employeeGroupFilterControl{
+      position:relative;
+      z-index:70;
+    }
+    #employeeGroupFilterPanel{
+      z-index:80 !important;
+    }
+
     @media (max-width:1240px){
       .topbar-inner{
         flex-direction:column;
