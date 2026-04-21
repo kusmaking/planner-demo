@@ -1995,56 +1995,6 @@
 
 
 
-  function describeEntryConflict(entry) {
-    const project = getProjectById(entry?.project_id);
-    const label = displayProjectName(project) || "Ukjent prosjekt";
-    const roleText = entry?.role ? ` • ${entry.role}` : "";
-    return `${label}${roleText} (${entry.start_date}–${entry.end_date})`;
-  }
-
-  function getEmployeeConflictingEntries(employeeName, startDate, endDate, options = {}) {
-    const excludeEntryId = options.excludeEntryId || "";
-    return state.entries.filter(entry => {
-      if (entry.employee_name !== employeeName) return false;
-      if (excludeEntryId && entry.id === excludeEntryId) return false;
-      return overlaps(entry.start_date, entry.end_date, startDate, endDate);
-    });
-  }
-
-  function validateEmployeeAllocation(employeeName, startDate, endDate, options = {}) {
-    if (!employeeName || !startDate || !endDate) {
-      return { ok: false, reason: 'Manglende ansatt eller dato.' };
-    }
-    const conflicts = getEmployeeConflictingEntries(employeeName, startDate, endDate, options);
-    if (!conflicts.length) {
-      return { ok: true, conflicts: [] };
-    }
-    return {
-      ok: false,
-      conflicts,
-      message: `${employeeName} har allerede tildeling i perioden ${startDate}–${endDate}: ${conflicts.map(describeEntryConflict).join(', ')}`
-    };
-  }
-
-  function buildOverlapMap(entries) {
-    const overlapMap = new Map();
-    const pairMessages = [];
-    for (let i = 0; i < entries.length; i++) {
-      for (let j = i + 1; j < entries.length; j++) {
-        const a = entries[i];
-        const b = entries[j];
-        if (a.employee_name !== b.employee_name) continue;
-        if (!overlaps(a.start_date, a.end_date, b.start_date, b.end_date)) continue;
-        overlapMap.set(a.id, true);
-        overlapMap.set(b.id, true);
-        const overlapStart = a.start_date > b.start_date ? a.start_date : b.start_date;
-        const overlapEnd = a.end_date < b.end_date ? a.end_date : b.end_date;
-        pairMessages.push(`${a.employee_name} har overlapp mellom ${describeEntryConflict(a)} og ${describeEntryConflict(b)} • konflikt ${overlapStart}–${overlapEnd}.`);
-      }
-    }
-    return { overlapMap, pairMessages: [...new Set(pairMessages)] };
-  }
-
   function analyzeAvailabilityForPeriod(projectId, startDate, endDate) {
     const available = [];
     const unavailable = [];
@@ -2352,12 +2302,6 @@
       return;
     }
 
-    const allocationCheck = validateEmployeeAllocation(employeeName, startDate, endDate);
-    if (!allocationCheck.ok) {
-      alert(allocationCheck.message || "Ansatt har allerede en overlappende tildeling i perioden.");
-      return;
-    }
-
     const ensured = await ensurePersonalProject(type);
     if (!ensured.ok || !ensured.project) {
       renderAll();
@@ -2391,87 +2335,117 @@
     void addAudit(`La inn ${type.toLowerCase()} direkte på ${employeeName}`);
   }
 
-  async function createEntry() {
-    if (!canEditApp()) return;
-    const projectId = els.assignProject.value;
-    const assignments = getAssignAssignments();
-    const employeeNames = assignments.map(item => item.employee_name);
-    const uniqueEmployeeNames = [...new Set(employeeNames)];
-    let startDate = els.assignStart.value;
-    let endDate = els.assignEnd.value;
-    const notes = els.assignNotes.value.trim();
 
-    if (!projectId || !uniqueEmployeeNames.length) {
-      alert("Fyll ut prosjekt og minst én ansatt.");
-      return;
-    }
+function getEntryOverlapConflicts(candidateEntry, excludeEntryId = null) {
+  if (!candidateEntry?.employee_name || !candidateEntry?.start_date || !candidateEntry?.end_date) return [];
+  return state.entries.filter(other =>
+    other &&
+    other.id !== excludeEntryId &&
+    other.employee_name === candidateEntry.employee_name &&
+    overlaps(candidateEntry.start_date, candidateEntry.end_date, other.start_date, other.end_date)
+  );
+}
 
-    if (uniqueEmployeeNames.length !== employeeNames.length) {
-      alert("Samme ansatt kan ikke velges flere ganger i samme bemanning.");
-      return;
-    }
+function getEntryConflictSummary(candidateEntry, conflicts) {
+  const project = getProjectById(candidateEntry.project_id);
+  const targetName = candidateEntry.employee_name || "Ansatt";
+  const lines = conflicts.slice(0, 6).map(conflict => {
+    const conflictProject = getProjectById(conflict.project_id);
+    return `${displayProjectName(conflictProject) || "Ukjent aktivitet"} (${conflict.start_date} – ${conflict.end_date})`;
+  });
+  const header = `${targetName} kan ikke legges inn på ${displayProjectName(project) || "valgt prosjekt"} i perioden ${candidateEntry.start_date} – ${candidateEntry.end_date}.`;
+  return `${header}\nKonflikt med:\n- ${lines.join("\n- ")}`;
+}
 
-    const project = getProjectById(projectId);
-    if (!project) {
-      alert("Prosjekt finnes ikke.");
-      return;
-    }
+function hasIllegalEntryOverlap(candidateEntry, excludeEntryId = null) {
+  return getEntryOverlapConflicts(candidateEntry, excludeEntryId).length > 0;
+}
 
-    if (!startDate) startDate = project.planned_start_date || "";
-    if (!endDate) endDate = project.planned_end_date || "";
+function entryHasVisibleConflict(entry) {
+  return hasIllegalEntryOverlap(entry, entry.id);
+}
 
-    if (!startDate || !endDate) {
-      alert("Prosjekt eller tildeling mangler start/slutt.");
-      return;
-    }
 
-    if (startDate > endDate) {
-      alert("Startdato kan ikke være etter sluttdato.");
-      return;
-    }
+async function createEntry() {
+  if (!canEditApp()) return;
+  const projectId = els.assignProject.value;
+  const assignments = getAssignAssignments();
+  const employeeNames = assignments.map(item => item.employee_name);
+  const uniqueEmployeeNames = [...new Set(employeeNames)];
+  let startDate = els.assignStart.value;
+  let endDate = els.assignEnd.value;
+  const notes = els.assignNotes.value.trim();
 
-    const uniqueAssignments = assignments.filter((item, index) =>
-      item.employee_name && employeeNames.indexOf(item.employee_name) === index
-    );
-
-    const blockingConflict = uniqueAssignments
-      .map(item => validateEmployeeAllocation(item.employee_name, startDate, endDate))
-      .find(result => !result.ok);
-
-    if (blockingConflict) {
-      alert(blockingConflict.message || "En eller flere ansatte har overlappende tildelinger i perioden.");
-      return;
-    }
-
-    const newEntries = uniqueAssignments.map(item => ({
-      id: crypto.randomUUID(),
-      project_id: projectId,
-      employee_name: item.employee_name,
-      role: item.role,
-      start_date: startDate,
-      end_date: endDate,
-      notes
-    }));
-
-    state.entries.push(...newEntries);
-    rebuildDerivedState();
-    const result = await saveRows("planner_entries", newEntries);
-    if (!result.ok) {
-      const ids = new Set(newEntries.map(entry => entry.id));
-      state.entries = state.entries.filter(e => !ids.has(e.id));
-      rebuildDerivedState();
-      renderAll();
-      return;
-    }
-
-    clearAssignForm();
-    renderAll();
-
-    void addAudit(`La inn ${newEntries.length} tildeling${newEntries.length > 1 ? "er" : ""} på ${project.name}`);
-    newEntries.forEach(entry => void addNotification(entry.employee_name, project.name));
+  if (!projectId || !uniqueEmployeeNames.length) {
+    alert("Fyll ut prosjekt og minst én ansatt.");
+    return;
   }
 
-  function openEditModal(entryId) {
+  if (uniqueEmployeeNames.length !== employeeNames.length) {
+    alert("Samme ansatt kan ikke velges flere ganger i samme bemanning.");
+    return;
+  }
+
+  const project = getProjectById(projectId);
+  if (!project) {
+    alert("Prosjekt finnes ikke.");
+    return;
+  }
+
+  if (!startDate) startDate = project.planned_start_date || "";
+  if (!endDate) endDate = project.planned_end_date || "";
+
+  if (!startDate || !endDate) {
+    alert("Prosjekt eller tildeling mangler start/slutt.");
+    return;
+  }
+
+  if (startDate > endDate) {
+    alert("Startdato kan ikke være etter sluttdato.");
+    return;
+  }
+
+  const uniqueAssignments = assignments.filter((item, index) =>
+    item.employee_name && employeeNames.indexOf(item.employee_name) === index
+  );
+
+  const newEntries = uniqueAssignments.map(item => ({
+    id: crypto.randomUUID(),
+    project_id: projectId,
+    employee_name: item.employee_name,
+    role: item.role,
+    start_date: startDate,
+    end_date: endDate,
+    notes
+  }));
+
+  for (const newEntry of newEntries) {
+    const conflicts = getEntryOverlapConflicts(newEntry);
+    if (conflicts.length) {
+      alert(getEntryConflictSummary(newEntry, conflicts));
+      return;
+    }
+  }
+
+  state.entries.push(...newEntries);
+  rebuildDerivedState();
+  const result = await saveRows("planner_entries", newEntries);
+  if (!result.ok) {
+    const ids = new Set(newEntries.map(entry => entry.id));
+    state.entries = state.entries.filter(e => !ids.has(e.id));
+    rebuildDerivedState();
+    renderAll();
+    return;
+  }
+
+  clearAssignForm();
+  renderAll();
+
+  void addAudit(`La inn ${newEntries.length} tildeling${newEntries.length > 1 ? "er" : ""} på ${project.name}`);
+  newEntries.forEach(entry => void addNotification(entry.employee_name, project.name));
+}
+
+function openEditModal(entryId) {
     if (!canEditApp()) return;
     state.selectedEntryId = entryId;
     const entry = state.entries.find(e => e.id === entryId);
@@ -2496,63 +2470,57 @@
     flushPendingRemoteRefresh();
   }
 
-  async function saveEditedEntry() {
-    if (!canEditApp()) return;
-    const entry = state.entries.find(e => e.id === state.selectedEntryId);
-    if (!entry) return;
 
-    if (els.editStart.value > els.editEnd.value) {
-      alert("Startdato kan ikke være etter sluttdato.");
-      return;
-    }
+async function saveEditedEntry() {
+  if (!canEditApp()) return;
+  const entry = state.entries.find(e => e.id === state.selectedEntryId);
+  if (!entry) return;
 
-    const previous = {
-      project_id: entry.project_id,
-      employee_name: entry.employee_name,
-      role: entry.role,
-      start_date: entry.start_date,
-      end_date: entry.end_date,
-      notes: entry.notes
-    };
-
-    const nextEmployeeName = els.editEmployee.value;
-    const nextStartDate = els.editStart.value;
-    const nextEndDate = els.editEnd.value;
-
-    const allocationCheck = validateEmployeeAllocation(nextEmployeeName, nextStartDate, nextEndDate, { excludeEntryId: entry.id });
-    if (!allocationCheck.ok) {
-      alert(allocationCheck.message || "Ansatt har allerede en overlappende tildeling i perioden.");
-      return;
-    }
-
-    entry.project_id = els.editProject.value;
-    entry.employee_name = nextEmployeeName;
-    entry.role = els.editRole.value;
-    entry.start_date = nextStartDate;
-    entry.end_date = nextEndDate;
-    entry.notes = els.editNotes.value.trim();
-    rebuildDerivedState();
-
-    const result = await saveRow("planner_entries", entry);
-    if (!result.ok) {
-      entry.project_id = previous.project_id;
-      entry.employee_name = previous.employee_name;
-      entry.role = previous.role;
-      entry.start_date = previous.start_date;
-      entry.end_date = previous.end_date;
-      entry.notes = previous.notes;
-      rebuildDerivedState();
-      renderAll();
-      return;
-    }
-
-    const project = getProjectById(entry.project_id);
-    closeEditModal();
-    renderAll();
-    void addAudit(`Redigerte tildeling: ${entry.employee_name} → ${displayProjectName(project) || "Ukjent prosjekt"}`);
+  if (els.editStart.value > els.editEnd.value) {
+    alert("Startdato kan ikke være etter sluttdato.");
+    return;
   }
 
-  async function deleteEditedEntry() {
+  const previous = {
+    project_id: entry.project_id,
+    employee_name: entry.employee_name,
+    role: entry.role,
+    start_date: entry.start_date,
+    end_date: entry.end_date,
+    notes: entry.notes
+  };
+
+  entry.project_id = els.editProject.value;
+  entry.employee_name = els.editEmployee.value;
+  entry.role = els.editRole.value;
+  entry.start_date = els.editStart.value;
+  entry.end_date = els.editEnd.value;
+  entry.notes = els.editNotes.value.trim();
+
+  const conflicts = getEntryOverlapConflicts(entry, entry.id);
+  if (conflicts.length) {
+    Object.assign(entry, previous);
+    alert(getEntryConflictSummary({ ...entry, ...previous }, conflicts));
+    return;
+  }
+
+  rebuildDerivedState();
+
+  const result = await saveRow("planner_entries", entry);
+  if (!result.ok) {
+    Object.assign(entry, previous);
+    rebuildDerivedState();
+    renderAll();
+    return;
+  }
+
+  const project = getProjectById(entry.project_id);
+  closeEditModal();
+  renderAll();
+  void addAudit(`Redigerte tildeling: ${entry.employee_name} → ${displayProjectName(project) || "Ukjent prosjekt"}`);
+}
+
+async function deleteEditedEntry() {
     if (!canEditApp()) return;
     const entry = state.entries.find(e => e.id === state.selectedEntryId);
     if (!entry) return;
@@ -3396,7 +3364,6 @@
     const range = getCurrentRange();
     const days = getDaysBetween(range.start, range.end);
     const employees = getFilteredEmployees();
-    const overlapState = buildOverlapMap(state.entries);
 
     const stickyWidth = 238;
     const colWidth = Math.max(28, state.viewMode === "Uke" ? 38 : 32);
@@ -3406,7 +3373,7 @@
     html += `<div class="day-grid border border-slate-200 rounded-2xl overflow-visible" style="grid-template-columns:${stickyWidth}px repeat(${days.length}, ${colWidth}px);">`;
     html += renderTimelineHeaderRows(days, "Ansatt");
 
-    const warnings = [...overlapState.pairMessages];
+    const warnings = [];
 
     for (const employee of employees) {
       const employeeEntries = getVisibleEntriesForEmployee(employee.name, range.start, range.end);
@@ -3442,7 +3409,7 @@
 
         html += `
           <div
-            class="entry-bar ${getEntryBarClasses(project, entry.role)} ${overlapState.overlapMap.has(entry.id) ? "overlap-conflict" : ""}"
+            class="entry-bar ${getEntryBarClasses(project, entry.role, entry)}"
             style="left:${left}px; width:${width}px;"
             data-entry-id="${escapeHtml(entry.id)}"
             draggable="true"
@@ -3453,6 +3420,15 @@
             <div data-resize-handle data-resize-type="entry" data-target-id="${escapeHtml(entry.id)}" title="Dra for å endre sluttdato" style="position:absolute; top:0; right:0; bottom:0; width:12px; cursor:ew-resize; border-left:1px solid rgba(255,255,255,0.35); background:linear-gradient(to left, rgba(255,255,255,0.35), rgba(255,255,255,0));"></div>
           </div>
         `;
+
+        const overlappingCount = employeeEntries.filter(other =>
+          other.id !== entry.id &&
+          overlaps(entry.start_date, entry.end_date, other.start_date, other.end_date)
+        ).length;
+
+        if (overlappingCount > 0) {
+          warnings.push(`${employee.name} har overlappende tildelinger rundt ${entry.start_date}–${entry.end_date}.`);
+        }
       }
 
       html += `</div></div>`;
@@ -3520,7 +3496,7 @@
 
         html += `
           <div
-            class="entry-bar ${getEntryBarClasses(project, entry.role)} ${overlapState.overlapMap.has(entry.id) ? "overlap-conflict" : ""}"
+            class="entry-bar ${getEntryBarClasses(project, entry.role, entry)}"
             style="left:${left}px; width:${width}px;"
             data-entry-id="${escapeHtml(entry.id)}"
             draggable="true"
@@ -3712,7 +3688,7 @@
 
     els.warningBox.classList.remove("hidden");
     els.warningBox.innerHTML = `
-      <div class="font-semibold mb-2">Mulige konflikter</div><div class="text-sm text-red-700 mb-2">Overlapp markeres også direkte i kalenderen med egen konfliktstil.</div>
+      <div class="font-semibold mb-2">Mulige konflikter</div>
       <ul class="list-disc pl-5 space-y-1">
         ${warnings.map(w => `<li>${escapeHtml(w)}</li>`).join("")}
       </ul>
@@ -3970,32 +3946,32 @@
       return;
     }
 
-    if (resizeState.type === 'entry' && snapshot.entry) {
-      const entry = snapshot.entry;
-      const originalEndDate = entry.end_date;
-      entry.end_date = nextEndDate;
+if (resizeState.type === 'entry' && snapshot.entry) {
+  const entry = snapshot.entry;
+  const originalEndDate = entry.end_date;
+  entry.end_date = nextEndDate;
 
-      const allocationCheck = validateEmployeeAllocation(entry.employee_name, entry.start_date, entry.end_date, { excludeEntryId: entry.id });
-      if (!allocationCheck.ok) {
-        entry.end_date = originalEndDate;
-        alert(allocationCheck.message || 'Ansatt har allerede en overlappende tildeling i perioden.');
-        renderCalendar();
-        return;
-      }
+  const conflicts = getEntryOverlapConflicts(entry, entry.id);
+  if (conflicts.length) {
+    entry.end_date = originalEndDate;
+    renderAll();
+    alert(getEntryConflictSummary(entry, conflicts));
+    return;
+  }
 
-      rebuildDerivedState();
-      renderAll();
-      const result = await saveRow('planner_entries', entry);
-      if (!result.ok) {
-        entry.end_date = originalEndDate;
-        rebuildDerivedState();
-        renderAll();
-        return;
-      }
-      const project = getProjectById(entry.project_id);
-      void addAudit(`Endret sluttdato: ${displayProjectName(project) || 'Ukjent prosjekt'} for ${entry.employee_name} til ${nextEndDate}`);
-      return;
-    }
+  rebuildDerivedState();
+  renderAll();
+  const result = await saveRow('planner_entries', entry);
+  if (!result.ok) {
+    entry.end_date = originalEndDate;
+    rebuildDerivedState();
+    renderAll();
+    return;
+  }
+  const project = getProjectById(entry.project_id);
+  void addAudit(`Endret sluttdato: ${displayProjectName(project) || 'Ukjent prosjekt'} for ${entry.employee_name} til ${nextEndDate}`);
+  return;
+}
 
     if (resizeState.type === 'project' && snapshot.project) {
       const project = snapshot.project;
@@ -4016,102 +3992,106 @@
     flushPendingRemoteRefresh();
   }
 
-  async function moveEntryByDrop(entryId, targetEmployeeName, dropMeta = null) {
-    if (!canEditApp()) return;
-    const entry = state.entries.find(e => e.id === entryId);
-    if (!entry) return;
 
-    const previous = {
-      employee_name: entry.employee_name,
-      start_date: entry.start_date,
-      end_date: entry.end_date
-    };
+async function moveEntryByDrop(entryId, targetEmployeeName, dropMeta = null) {
+  if (!canEditApp()) return;
+  const entry = state.entries.find(e => e.id === entryId);
+  if (!entry) return;
 
-    let changed = false;
+  const previous = {
+    employee_name: entry.employee_name,
+    start_date: entry.start_date,
+    end_date: entry.end_date
+  };
 
-    if (targetEmployeeName && entry.employee_name !== targetEmployeeName) {
-      entry.employee_name = targetEmployeeName;
+  let changed = false;
+
+  if (targetEmployeeName && entry.employee_name !== targetEmployeeName) {
+    entry.employee_name = targetEmployeeName;
+    changed = true;
+  }
+
+  if (dropMeta?.timeUnit === "day" && dropMeta.rangeStart && Number.isFinite(dropMeta.colIndex)) {
+    const durationDays = Math.max(0, diffDays(asLocalDate(entry.start_date), asLocalDate(entry.end_date)));
+    const adjustedIndex = getAdjustedDropColIndex(dropMeta);
+    const pointerBaseDate = dropMeta.dropDate
+      ? parseIsoDateLocal(dropMeta.dropDate)
+      : addDays(parseIsoDateLocal(dropMeta.rangeStart), dropMeta.colIndex);
+    const pointerDate = pointerBaseDate;
+    const anchorOffset = Math.max(0, Number(state.dragAnchor?.slotOffset || 0));
+    const newStart = addDays(pointerDate, -anchorOffset);
+    const fallbackStart = addDays(parseIsoDateLocal(dropMeta.rangeStart), adjustedIndex);
+    const resolvedStart = Number.isFinite(newStart?.getTime?.()) ? newStart : fallbackStart;
+    const newEnd = addDays(resolvedStart, durationDays);
+    const newStartIso = toIsoDate(resolvedStart);
+    const newEndIso = toIsoDate(newEnd);
+    if (entry.start_date !== newStartIso || entry.end_date !== newEndIso) {
+      entry.start_date = newStartIso;
+      entry.end_date = newEndIso;
       changed = true;
     }
+  }
 
-    if (dropMeta?.timeUnit === "day" && dropMeta.rangeStart && Number.isFinite(dropMeta.colIndex)) {
-      const durationDays = Math.max(0, diffDays(asLocalDate(entry.start_date), asLocalDate(entry.end_date)));
-      const adjustedIndex = getAdjustedDropColIndex(dropMeta);
-      const pointerBaseDate = dropMeta.dropDate
-        ? parseIsoDateLocal(dropMeta.dropDate)
-        : addDays(parseIsoDateLocal(dropMeta.rangeStart), dropMeta.colIndex);
-      const pointerDate = pointerBaseDate;
-      const anchorOffset = Math.max(0, Number(state.dragAnchor?.slotOffset || 0));
-      const newStart = addDays(pointerDate, -anchorOffset);
-      const fallbackStart = addDays(parseIsoDateLocal(dropMeta.rangeStart), adjustedIndex);
-      const resolvedStart = Number.isFinite(newStart?.getTime?.()) ? newStart : fallbackStart;
-      const newEnd = addDays(resolvedStart, durationDays);
-      const newStartIso = toIsoDate(resolvedStart);
-      const newEndIso = toIsoDate(newEnd);
-      if (entry.start_date !== newStartIso || entry.end_date !== newEndIso) {
-        entry.start_date = newStartIso;
-        entry.end_date = newEndIso;
-        changed = true;
-      }
+  if (dropMeta?.timeUnit === "month" && dropMeta.rangeStart && Number.isFinite(dropMeta.colIndex)) {
+    const durationDays = Math.max(0, diffDays(asLocalDate(entry.start_date), asLocalDate(entry.end_date)));
+    const originalStart = asLocalDate(entry.start_date);
+    const targetMonthBase = parseIsoDateLocal(dropMeta.rangeStart);
+    const adjustedIndex = getAdjustedDropColIndex(dropMeta);
+    const shiftedStart = new Date(targetMonthBase.getFullYear(), targetMonthBase.getMonth() + adjustedIndex, 1);
+    const clampedDay = Math.min(originalStart.getDate(), daysInMonth(shiftedStart.getFullYear(), shiftedStart.getMonth()));
+    shiftedStart.setDate(clampedDay);
+    const shiftedEnd = addDays(shiftedStart, durationDays);
+    const newStartIso = toIsoDate(shiftedStart);
+    const newEndIso = toIsoDate(shiftedEnd);
+    if (entry.start_date !== newStartIso || entry.end_date !== newEndIso) {
+      entry.start_date = newStartIso;
+      entry.end_date = newEndIso;
+      changed = true;
     }
+  }
 
-    if (dropMeta?.timeUnit === "month" && dropMeta.rangeStart && Number.isFinite(dropMeta.colIndex)) {
-      const durationDays = Math.max(0, diffDays(asLocalDate(entry.start_date), asLocalDate(entry.end_date)));
-      const originalStart = asLocalDate(entry.start_date);
-      const targetMonthBase = parseIsoDateLocal(dropMeta.rangeStart);
-      const adjustedIndex = getAdjustedDropColIndex(dropMeta);
-      const shiftedStart = new Date(targetMonthBase.getFullYear(), targetMonthBase.getMonth() + adjustedIndex, 1);
-      const clampedDay = Math.min(originalStart.getDate(), daysInMonth(shiftedStart.getFullYear(), shiftedStart.getMonth()));
-      shiftedStart.setDate(clampedDay);
-      const shiftedEnd = addDays(shiftedStart, durationDays);
-      const newStartIso = toIsoDate(shiftedStart);
-      const newEndIso = toIsoDate(shiftedEnd);
-      if (entry.start_date !== newStartIso || entry.end_date !== newEndIso) {
-        entry.start_date = newStartIso;
-        entry.end_date = newEndIso;
-        changed = true;
-      }
-    }
+  if (!changed) return;
 
-    if (!changed) return;
-
-    const allocationCheck = validateEmployeeAllocation(entry.employee_name, entry.start_date, entry.end_date, { excludeEntryId: entry.id });
-    if (!allocationCheck.ok) {
-      entry.employee_name = previous.employee_name;
-      entry.start_date = previous.start_date;
-      entry.end_date = previous.end_date;
-      alert(allocationCheck.message || "Ansatt har allerede en overlappende tildeling i perioden.");
-      return;
-    }
-
+  const conflicts = getEntryOverlapConflicts(entry, entry.id);
+  if (conflicts.length) {
+    entry.employee_name = previous.employee_name;
+    entry.start_date = previous.start_date;
+    entry.end_date = previous.end_date;
     rebuildDerivedState();
     renderStats();
     renderCalendar();
-
-    const result = await saveRow("planner_entries", entry);
-    if (!result.ok) {
-      entry.employee_name = previous.employee_name;
-      entry.start_date = previous.start_date;
-      entry.end_date = previous.end_date;
-      rebuildDerivedState();
-      renderStats();
-      renderCalendar();
-      return;
-    }
-
-    state.justDraggedEntryId = entryId;
-    setTimeout(() => {
-      if (state.justDraggedEntryId === entryId) state.justDraggedEntryId = null;
-    }, 250);
-
-    const project = getProjectById(entry.project_id);
-    renderProjects();
-    renderEmployees();
-    renderSystemStatus();
-    void addAudit(`Flyttet tildeling: ${displayProjectName(project) || "Ukjent prosjekt"} fra ${previous.employee_name} (${previous.start_date}–${previous.end_date}) til ${entry.employee_name} (${entry.start_date}–${entry.end_date})`);
+    alert(getEntryConflictSummary(entry, conflicts));
+    return;
   }
 
-  function getFilteredEmployees() {
+  rebuildDerivedState();
+  renderStats();
+  renderCalendar();
+
+  const result = await saveRow("planner_entries", entry);
+  if (!result.ok) {
+    entry.employee_name = previous.employee_name;
+    entry.start_date = previous.start_date;
+    entry.end_date = previous.end_date;
+    rebuildDerivedState();
+    renderStats();
+    renderCalendar();
+    return;
+  }
+
+  state.justDraggedEntryId = entryId;
+  setTimeout(() => {
+    if (state.justDraggedEntryId === entryId) state.justDraggedEntryId = null;
+  }, 250);
+
+  const project = getProjectById(entry.project_id);
+  renderProjects();
+  renderEmployees();
+  renderSystemStatus();
+  void addAudit(`Flyttet tildeling: ${displayProjectName(project) || "Ukjent prosjekt"} fra ${previous.employee_name} (${previous.start_date}–${previous.end_date}) til ${entry.employee_name} (${entry.start_date}–${entry.end_date})`);
+}
+
+function getFilteredEmployees() {
     const selectedGroups = state.selectedEmployeeGroups || [];
     const useGroupFilterControl = !!els.groupFilterControl;
 
@@ -4504,11 +4484,13 @@
     return isSystemPersonalProject(project) ? project.category : project.name;
   }
 
-  function getEntryBarClasses(project, role) {
+  
+function getEntryBarClasses(project, role, entry = null) {
     const categoryClasses = CATEGORY_COLORS[project.category] || "bg-slate-500 border-slate-600 text-white";
     const roleClasses = ROLE_CLASSES[role] || "";
     const endedClasses = project.status === "Avsluttet" ? " opacity-70 grayscale" : "";
-    return `${categoryClasses} ${roleClasses}${endedClasses}`;
+    const conflictClasses = entry && entryHasVisibleConflict(entry) ? " overlap-conflict border-2 border-red-700 ring-2 ring-red-300" : "";
+    return `${categoryClasses} ${roleClasses}${endedClasses}${conflictClasses}`;
   }
 
   function getProjectBarClasses(project) {
