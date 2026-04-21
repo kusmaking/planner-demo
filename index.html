@@ -10,9 +10,15 @@
     .scrollbar-thin::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 9999px; }
     .scrollbar-thin::-webkit-scrollbar-track { background: #f8fafc; }
 
-    .calendar-shell { width: 100%; min-width: 100%; }
+    .calendar-shell { width: max-content; min-width: 100%; }
+    .timeline-grid { display:grid; gap:0; align-items:stretch; width:max-content; min-width:100%; }
     .day-grid, .month-summary-grid { display: grid; gap: 0; align-items: stretch; width: 100%; }
-    .sticky-col { position: sticky; left: 0; z-index: 30; background: inherit; box-shadow: 8px 0 12px -12px rgba(15, 23, 42, 0.18); }
+    .sticky-col { position: sticky; left: 0; z-index: 40; background: white; box-shadow: 10px 0 18px -14px rgba(15, 23, 42, 0.28); }
+    .sticky-head { z-index: 50; }
+    .timeline-month-head { background: #eaf1f9; }
+    .timeline-week-head { background: #f7fafe; }
+    .timeline-date-head { background: #ffffff; }
+    .timeline-week-cell { min-height: 56px; border-bottom: 1px solid #e2e8f0; background: white; }
     .row-overlay { position: relative; min-height: 56px; }
 
     .entry-bar {
@@ -43,7 +49,7 @@
   </style>
 </head>
 <body class="bg-slate-100 text-slate-900">
-  <div class="max-w-[1900px] mx-auto p-6 space-y-6">
+  <div class="max-w-none mx-auto p-6 space-y-6">
     <header class="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4">
       <div>
         <h1 class="text-3xl font-bold tracking-tight">Personal planlegging</h1>
@@ -77,10 +83,8 @@
               <option value="personal">Personalplan</option>
               <option value="project">Prosjektplan</option>
             </select>
-            <select id="viewMode" class="rounded-2xl border border-slate-300 px-3 py-2">
-              <option value="Uke">Uke</option>
-              <option value="Måned">Måned</option>
-              <option value="År">År</option>
+            <select id="viewMode" class="hidden rounded-2xl border border-slate-300 px-3 py-2">
+              <option value="Tidslinje">Tidslinje</option>
             </select>
           </div>
 
