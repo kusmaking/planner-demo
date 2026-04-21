@@ -3159,15 +3159,16 @@
 
     for (const day of days) {
       const isTodayFlag = sameDate(day, new Date());
-      const weekLabel = state.viewMode === "Uke" ? `<div>Uke ${getIsoWeek(day)}</div>` : "";
       const tone = getCalendarDayTone(day, isTodayFlag);
+      const headerMeta = getTimelineHeaderMeta(day);
 
       html += `
         <div class="border-b border-r border-slate-200 px-2 py-2 text-center text-xs ${tone.textClass}" style="background:${tone.background}; ${tone.borderStyle}" title="${escapeHtml(tone.title)}">
+          ${headerMeta.weekBadge}
           <div class="font-semibold">${weekdayShort(day)}</div>
-          ${weekLabel}
           <div class="font-semibold">${day.getDate()}</div>
           <div>${monthShort(day)}</div>
+          ${headerMeta.monthBadge}
         </div>
       `;
     }
@@ -3256,7 +3257,11 @@
     html += `<div class="sticky-col z-30 border-b border-r border-slate-200 bg-slate-50 px-3 py-3 font-semibold">Ansatt</div>`;
 
     for (const month of months) {
-      html += `<div class="border-b border-r border-slate-200 px-2 py-3 text-center text-sm bg-white text-slate-700 font-medium">${escapeHtml(capitalize(monthLong(month)))}</div>`;
+      const quarterStart = month.getMonth() % 3 === 0;
+      html += `<div class="border-b border-r border-slate-200 px-2 py-3 text-center text-sm bg-white text-slate-700 font-medium" style="${quarterStart ? 'border-left:3px solid #64748b;' : ''}">
+        <div>${escapeHtml(capitalize(monthLong(month)))}</div>
+        <div class="text-[10px] uppercase tracking-wide text-slate-500 mt-1">Q${Math.floor(month.getMonth() / 3) + 1}</div>
+      </div>`;
     }
 
     const warnings = [];
@@ -3345,15 +3350,16 @@
 
     for (const day of days) {
       const isTodayFlag = sameDate(day, new Date());
-      const weekLabel = state.viewMode === "Uke" ? `<div>Uke ${getIsoWeek(day)}</div>` : "";
       const tone = getCalendarDayTone(day, isTodayFlag);
+      const headerMeta = getTimelineHeaderMeta(day);
 
       html += `
         <div class="border-b border-r border-slate-200 px-2 py-2 text-center text-xs ${tone.textClass}" style="background:${tone.background}; ${tone.borderStyle}" title="${escapeHtml(tone.title)}">
+          ${headerMeta.weekBadge}
           <div class="font-semibold">${weekdayShort(day)}</div>
-          ${weekLabel}
           <div class="font-semibold">${day.getDate()}</div>
           <div>${monthShort(day)}</div>
+          ${headerMeta.monthBadge}
         </div>
       `;
     }
@@ -3433,7 +3439,11 @@
     html += `<div class="sticky-col z-30 border-b border-r border-slate-200 bg-slate-50 px-3 py-3 font-semibold">Prosjekt</div>`;
 
     for (const month of months) {
-      html += `<div class="border-b border-r border-slate-200 px-2 py-3 text-center text-sm bg-white text-slate-700 font-medium">${escapeHtml(capitalize(monthLong(month)))}</div>`;
+      const quarterStart = month.getMonth() % 3 === 0;
+      html += `<div class="border-b border-r border-slate-200 px-2 py-3 text-center text-sm bg-white text-slate-700 font-medium" style="${quarterStart ? 'border-left:3px solid #64748b;' : ''}">
+        <div>${escapeHtml(capitalize(monthLong(month)))}</div>
+        <div class="text-[10px] uppercase tracking-wide text-slate-500 mt-1">Q${Math.floor(month.getMonth() / 3) + 1}</div>
+      </div>`;
     }
 
     for (const project of projects) {
@@ -4081,7 +4091,7 @@
     else if (saturday) background = "#f8fafc";
     if (isTodayFlag) background = holidayName || sunday ? "#ffe4e6" : "#eff6ff";
     const textClass = holidayName || sunday ? "text-rose-700" : (isTodayFlag ? "text-blue-700 font-semibold" : "text-slate-600");
-    const borderStyle = date.getDate() === 1 ? 'border-left:2px solid #cbd5e1;' : '';
+    const borderStyle = getTimelineDividerStyle(date);
     const title = holidayName || (sunday ? 'Søndag' : '');
     return {
       background,
@@ -4089,6 +4099,26 @@
       borderStyle,
       title
     };
+  }
+
+  function getTimelineDividerStyle(date) {
+    const isMonthStart = date.getDate() === 1;
+    const isMonday = date.getDay() === 1;
+    if (isMonthStart) return 'border-left:3px solid #64748b;';
+    if (isMonday) return 'border-left:2px solid #cbd5e1;';
+    return '';
+  }
+
+  function getTimelineHeaderMeta(date) {
+    const isMonthStart = date.getDate() === 1;
+    const isMonday = date.getDay() === 1;
+    const monthBadge = isMonthStart
+      ? `<div class="mt-1 inline-flex rounded-full bg-slate-900 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">${escapeHtml(capitalize(monthShort(date)))}</div>`
+      : `<div class="mt-1 h-[18px]"></div>`;
+    const weekBadge = (state.viewMode === "6 mnd" || state.viewMode === "Måned" || state.viewMode === "Uke") && isMonday
+      ? `<div class="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Uke ${getIsoWeek(date)}</div>`
+      : `<div class="text-[10px] text-transparent">Uke</div>`;
+    return { monthBadge, weekBadge };
   }
 
   function getNorwegianHolidayMap(year) {
