@@ -159,7 +159,7 @@
   function cacheElements() {
     const ids = [
       "statsRow", "searchInput", "employeeFilter", "viewMode", "calendarMode", "prevBtn", "nextBtn", "todayBtn",
-      "calendarWrap", "warningBox", "legendList", "projectList", "projectWorkspaceCard", "projectWorkspaceEmpty", "projectWorkspaceContent", "projectWorkspaceTitle", "projectWorkspaceMeta", "projectWorkspaceNotes", "projectWorkspaceAssignments", "projectWorkspaceActions", "assignProject", "assignEmployeesWrap", "assignSummary", "assignRole",
+      "calendarWrap", "holidayInfo", "warningBox", "legendList", "projectList", "projectWorkspaceCard", "projectWorkspaceEmpty", "projectWorkspaceContent", "projectWorkspaceTitle", "projectWorkspaceMeta", "projectWorkspaceNotes", "projectWorkspaceAssignments", "projectWorkspaceActions", "assignProject", "assignEmployeesWrap", "assignSummary", "assignRole",
       "assignStart", "assignEnd", "assignNotes", "assignBtn", "bulkEmployees", "bulkAddBtn",
       "employeeList", "kanbanBoard", "notificationList", "auditList", "editModal", "closeModalBtn",
       "editProject", "editEmployee", "editRole", "editStart", "editEnd", "editNotes",
@@ -175,6 +175,7 @@
 
     ids.forEach(id => els[id] = document.getElementById(id));
   }
+
 
 
 
@@ -204,11 +205,8 @@
       const key = `${day.getFullYear()}-${day.getMonth()}`;
       const label = `${capitalize(monthLong(day))} ${day.getFullYear()}`;
       const current = groups[groups.length - 1];
-      if (current && current.key === key) {
-        current.count += 1;
-      } else {
-        groups.push({ key, label, count: 1 });
-      }
+      if (current && current.key === key) current.count += 1;
+      else groups.push({ key, label, count: 1 });
     }
     return groups;
   }
@@ -220,11 +218,8 @@
       const key = toIsoDate(weekStart);
       const label = `Uke ${getIsoWeek(day)}`;
       const current = groups[groups.length - 1];
-      if (current && current.key === key) {
-        current.count += 1;
-      } else {
-        groups.push({ key, label, count: 1 });
-      }
+      if (current && current.key === key) current.count += 1;
+      else groups.push({ key, label, count: 1 });
     }
     return groups;
   }
@@ -275,12 +270,45 @@
     return !!date && (date.getDay() === 0 || isNorwegianHoliday(date));
   }
 
-  function renderTimelineHeaderRows(days) {
+  function getHolidayNamesForYear(year) {
+    const easter = getEasterSunday(year);
+    return [
+      { date: new Date(year, 0, 1), label: "1. nyttårsdag" },
+      { date: addDays(easter, -3), label: "Skjærtorsdag" },
+      { date: addDays(easter, -2), label: "Langfredag" },
+      { date: easter, label: "1. påskedag" },
+      { date: addDays(easter, 1), label: "2. påskedag" },
+      { date: new Date(year, 4, 1), label: "1. mai" },
+      { date: new Date(year, 4, 17), label: "17. mai" },
+      { date: addDays(easter, 39), label: "Kristi himmelfartsdag" },
+      { date: addDays(easter, 49), label: "1. pinsedag" },
+      { date: addDays(easter, 50), label: "2. pinsedag" },
+      { date: new Date(year, 11, 25), label: "1. juledag" },
+      { date: new Date(year, 11, 26), label: "2. juledag" }
+    ];
+  }
+
+  function renderHolidayInfo(range) {
+    if (!els.holidayInfo) return;
+    const names = [];
+    for (let year = range.start.getFullYear(); year <= range.end.getFullYear(); year++) {
+      for (const holiday of getHolidayNamesForYear(year)) {
+        if (holiday.date >= range.start && holiday.date <= range.end) {
+          names.push(`${holiday.label} (${formatDate(holiday.date)})`);
+        }
+      }
+    }
+    els.holidayInfo.textContent = names.length
+      ? `Helligdager i perioden: ${names.join(" • ")}`
+      : "Ingen helligdager i valgt periode.";
+  }
+
+  function renderTimelineHeaderRows(days, leftLabel = "Ansatt") {
     const monthGroups = getMonthHeaderGroups(days);
     const weekGroups = getWeekHeaderGroups(days);
     let html = '';
 
-    html += `<div class="sticky-col z-40 border-b border-r border-slate-200 bg-slate-50 px-3 py-3 font-semibold">Ansatt</div>`;
+    html += `<div class="sticky-col z-40 border-b border-r border-slate-200 bg-slate-50 px-3 py-3 font-semibold">${escapeHtml(leftLabel)}</div>`;
     for (const group of monthGroups) {
       html += `<div class="border-b border-r border-slate-200 bg-slate-50 px-2 py-3 text-center text-sm font-semibold" style="grid-column: span ${group.count};">${escapeHtml(group.label)}</div>`;
     }
@@ -1171,7 +1199,7 @@
   }
 
   function getEmployeeNameTabHtml(employee) {
-    return `<div class="text-[15px] font-bold leading-tight">${escapeHtml(employee?.name || "")}</div>`;
+    return `<div class="text-sm font-semibold leading-tight">${escapeHtml(employee?.name || "")}</div>`;
   }
 
   function bindEvents() {
@@ -3253,7 +3281,9 @@
 
   function renderCalendar() {
     if (!els.calendarWrap) return;
+    const range = getCurrentRange();
     els.rangeTitle.innerHTML = getRangeTitle();
+    renderHolidayInfo(range);
 
     if (state.calendarMode === "project") {
       renderProjectCalendar();
@@ -3274,12 +3304,12 @@
     const employees = getFilteredEmployees();
 
     const stickyWidth = 238;
-    const colWidth = Math.max(28, state.viewMode === "Uke" ? 38 : 30);
+    const colWidth = Math.max(28, state.viewMode === "Uke" ? 38 : 32);
     const totalWidth = colWidth * days.length;
 
     let html = `<div class="calendar-shell" style="width:${stickyWidth + totalWidth}px; min-width:${stickyWidth + totalWidth}px;">`;
     html += `<div class="day-grid border border-slate-200 rounded-2xl overflow-visible" style="grid-template-columns:${stickyWidth}px repeat(${days.length}, ${colWidth}px);">`;
-    html += renderTimelineHeaderRows(days);
+    html += renderTimelineHeaderRows(days, "Ansatt");
 
     const warnings = [];
 
@@ -3444,32 +3474,12 @@
     const projects = getVisibleProjects().filter(project => projectOverlapsRange(project, range.start, range.end));
 
     const stickyWidth = 300;
-    const colWidth = Math.max(28, state.viewMode === "Uke" ? 38 : 30);
+    const colWidth = Math.max(28, state.viewMode === "Uke" ? 38 : 32);
     const totalWidth = colWidth * days.length;
 
     let html = `<div class="calendar-shell" style="width:${stickyWidth + totalWidth}px; min-width:${stickyWidth + totalWidth}px;">`;
     html += `<div class="day-grid border border-slate-200 rounded-2xl overflow-visible" style="grid-template-columns:${stickyWidth}px repeat(${days.length}, ${colWidth}px);">`;
-
-    html += `<div class="sticky-col z-40 border-b border-r border-slate-200 bg-slate-50 px-3 py-3 font-semibold">Prosjekt</div>`;
-    const monthGroups = getMonthHeaderGroups(days);
-    for (const group of monthGroups) {
-      html += `<div class="border-b border-r border-slate-200 bg-slate-50 px-2 py-3 text-center text-sm font-semibold" style="grid-column: span ${group.count};">${escapeHtml(group.label)}</div>`;
-    }
-
-    html += `<div class="sticky-col z-40 border-b border-r border-slate-200 bg-slate-50 px-3 py-2"></div>`;
-    const weekGroups = getWeekHeaderGroups(days);
-    for (const group of weekGroups) {
-      html += `<div class="border-b border-r border-slate-200 bg-white px-1 py-2 text-center text-[11px] text-slate-600" style="grid-column: span ${group.count};">${escapeHtml(group.label)}</div>`;
-    }
-
-    html += `<div class="sticky-col z-40 border-b border-r border-slate-200 bg-slate-50 px-3 py-2"></div>`;
-    for (let i = 0; i < days.length; i++) {
-      const day = days[i];
-      const nextDay = days[i + 1] || null;
-      const monthBoundary = !nextDay || nextDay.getMonth() !== day.getMonth();
-      const redDay = isRedDay(day);
-      html += `<div class="border-b ${monthBoundary ? 'border-r-2 border-r-slate-400' : 'border-r border-slate-200'} px-1 py-2 text-center text-[10px] ${redDay ? 'bg-red-50 text-red-700' : 'bg-white text-slate-500'}"><div class="font-medium">${escapeHtml(weekdayShort(day))}</div><div>${day.getDate()}</div><div>${escapeHtml(monthShort(day))}</div></div>`;
-    }
+    html += renderTimelineHeaderRows(days, "Prosjekt");
 
     for (const project of projects) {
       const assigned = getProjectAssignedCount(project.id);
@@ -4025,10 +4035,9 @@
     }
 
     if (state.viewMode === "Måned") {
-      return {
-        start: new Date(state.startDate.getFullYear(), state.startDate.getMonth(), 1),
-        end: new Date(state.startDate.getFullYear(), state.startDate.getMonth() + 1, 0)
-      };
+      const start = new Date(state.startDate.getFullYear(), state.startDate.getMonth(), 1);
+      const end = new Date(state.startDate.getFullYear(), state.startDate.getMonth() + 6, 0);
+      return { start, end };
     }
 
     return {
@@ -4046,7 +4055,7 @@
     }
 
     if (state.viewMode === "Måned") {
-      return `${viewLabel} • ${capitalize(monthLong(range.start))} ${range.start.getFullYear()}`;
+      return `${viewLabel} • Tidslinje • ${formatDate(range.start)} – ${formatDate(range.end)}`;
     }
 
     return `${viewLabel} • ${range.start.getFullYear()}`;
