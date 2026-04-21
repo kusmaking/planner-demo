@@ -16,8 +16,7 @@
     groupFilterSearch: "",
     employeeGroupFilterOpen: false,
     search: "",
-    viewMode: "Måned",
-    timelineZoom: load("planner_timeline_zoom_v152", "Normal"),
+    viewMode: "6 mnd",
     calendarMode: load(STORAGE_KEYS.calendarMode, "personal"),
     startDate: startOfCurrentMonth(),
     selectedEntryId: null,
@@ -133,7 +132,7 @@
     setupStaticOptions();
     bindEvents();
 
-    state.viewMode = "Måned";
+    state.viewMode = "6 mnd";
     state.startDate = startOfCurrentMonth();
     persistUiState();
 
@@ -158,7 +157,7 @@
 
   function cacheElements() {
     const ids = [
-      "statsRow", "searchInput", "employeeFilter", "viewMode", "timelineZoom", "calendarMode", "prevBtn", "nextBtn", "todayBtn",
+      "statsRow", "searchInput", "employeeFilter", "viewMode", "calendarMode", "prevBtn", "nextBtn", "todayBtn",
       "calendarWrap", "warningBox", "legendList", "projectList", "projectWorkspaceCard", "projectWorkspaceEmpty", "projectWorkspaceContent", "projectWorkspaceTitle", "projectWorkspaceMeta", "projectWorkspaceNotes", "projectWorkspaceAssignments", "projectWorkspaceActions", "assignProject", "assignEmployeesWrap", "assignSummary", "assignRole",
       "assignStart", "assignEnd", "assignNotes", "assignBtn", "bulkEmployees", "bulkAddBtn",
       "employeeList", "kanbanBoard", "notificationList", "auditList", "editModal", "closeModalBtn",
@@ -1105,14 +1104,6 @@
       renderCalendar();
     });
 
-    if (els.timelineZoom) {
-      els.timelineZoom.addEventListener("change", e => {
-        state.timelineZoom = e.target.value;
-        persistUiState();
-        renderCalendar();
-      });
-    }
-
     els.calendarMode.addEventListener("change", e => {
       state.calendarMode = e.target.value;
       persistUiState();
@@ -1484,7 +1475,6 @@
     localStorage.setItem(STORAGE_KEYS.startDate, JSON.stringify(toIsoDate(state.startDate)));
     localStorage.setItem(STORAGE_KEYS.viewMode, JSON.stringify(state.viewMode));
     localStorage.setItem(STORAGE_KEYS.calendarMode, JSON.stringify(state.calendarMode));
-    localStorage.setItem("planner_timeline_zoom_v152", JSON.stringify(state.timelineZoom));
   }
 
   function setSaveStatus(text, variant = "neutral") {
@@ -2689,7 +2679,6 @@
     fillSelect(els.personalBlockType, PERSONAL_BLOCK_TYPES, els.personalBlockType?.value || PERSONAL_BLOCK_TYPES[0] || "");
     fillSelect(els.contextMenuType, PERSONAL_BLOCK_TYPES, els.contextMenuType?.value || "Ferie");
     fillSelect(els.viewMode, ["Uke", "Måned", "6 mnd", "År"], state.viewMode);
-    if (els.timelineZoom) fillSelect(els.timelineZoom, ["Kompakt", "Normal", "Detalj"], state.timelineZoom);
     fillSelect(els.calendarMode, [
       { id: "personal", name: "Personalplan" },
       { id: "project", name: "Prosjektplan" }
@@ -3144,6 +3133,102 @@
     renderPersonalDayCalendar();
   }
 
+
+  function buildTimelineHeaderGroups(days, mapper) {
+    const groups = [];
+    let current = null;
+    days.forEach((day, index) => {
+      const mapped = mapper(day, index);
+      const key = mapped.key;
+      if (!current || current.key !== key) {
+        current = { ...mapped, startIndex: index, span: 1 };
+        groups.push(current);
+      } else {
+        current.span += 1;
+      }
+    });
+    return groups;
+  }
+
+  function getTimelineYearGroups(days) {
+    return buildTimelineHeaderGroups(days, (day) => ({
+      key: String(day.getFullYear()),
+      label: String(day.getFullYear())
+    }));
+  }
+
+  function getTimelineMonthGroups(days) {
+    return buildTimelineHeaderGroups(days, (day) => ({
+      key: `${day.getFullYear()}-${day.getMonth()}`,
+      label: `${capitalize(monthLong(day))} ${day.getFullYear()}`
+    }));
+  }
+
+  function getTimelineWeekGroups(days) {
+    return buildTimelineHeaderGroups(days, (day) => ({
+      key: `${day.getFullYear()}-${getIsoWeek(day)}`,
+      label: `Uke ${getIsoWeek(day)}`
+    }));
+  }
+
+  function getDayHeaderCellHtml(day, colWidth) {
+    const isTodayFlag = sameDate(day, new Date());
+    const tone = getCalendarDayTone(day, isTodayFlag);
+    const weekStart = day.getDay() === 1;
+    const monthStart = day.getDate() === 1;
+    const borderRight = weekStart ? 'border-right:2px solid #c7d2e2;' : '';
+    const borderLeft = monthStart ? 'border-left:3px solid #94a3b8;' : '';
+    const title = tone.title ? `${weekdayShort(day)} • ${tone.title}` : weekdayShort(day);
+    return `
+      <div class="border-b border-r border-slate-200 px-1 py-2 text-center text-[11px] ${tone.textClass}" style="background:${tone.background}; width:${colWidth}px; min-width:${colWidth}px; ${borderRight} ${borderLeft}" title="${escapeHtml(title)}">
+        <div class="font-medium">${escapeHtml(weekdayShort(day))}</div>
+        <div class="font-semibold text-[12px]">${day.getDate()}</div>
+        <div class="text-[10px]">${escapeHtml(monthShort(day))}</div>
+      </div>
+    `;
+  }
+
+  function renderHierarchicalTimelineHeader(stickyLabel, stickyWidth, days, colWidth) {
+    const totalWidth = colWidth * days.length;
+    const yearGroups = getTimelineYearGroups(days);
+    const monthGroups = getTimelineMonthGroups(days);
+    const weekGroups = getTimelineWeekGroups(days);
+
+    const rowBase = (label, bgClass) => `<div class="sticky-col z-30 border-b border-r border-slate-200 ${bgClass} px-3 py-2 font-semibold">${label}</div>`;
+
+    let html = '';
+    html += rowBase(stickyLabel, 'bg-slate-50');
+    yearGroups.forEach(group => {
+      html += `<div class="border-b border-r border-slate-200 bg-blue-50 px-2 py-2 text-center text-sm font-semibold text-slate-800" style="grid-column: span ${group.span};">${escapeHtml(group.label)}</div>`;
+    });
+
+    html += rowBase('Måned', 'bg-slate-50');
+    monthGroups.forEach(group => {
+      html += `<div class="border-b border-r border-slate-200 bg-slate-100 px-2 py-2 text-center text-sm font-semibold text-slate-800" style="grid-column: span ${group.span}; border-right:3px solid #94a3b8;">${escapeHtml(group.label)}</div>`;
+    });
+
+    html += rowBase('Uke', 'bg-slate-50');
+    weekGroups.forEach(group => {
+      html += `<div class="border-b border-r border-slate-200 bg-slate-50 px-2 py-2 text-center text-xs font-semibold text-slate-700" style="grid-column: span ${group.span}; border-right:2px solid #c7d2e2;">${escapeHtml(group.label)}</div>`;
+    });
+
+    html += rowBase('Dato', 'bg-slate-50');
+    days.forEach(day => {
+      html += getDayHeaderCellHtml(day, colWidth);
+    });
+
+    return { html, totalWidth };
+  }
+
+  function getTimelineSlotStyles(day, colWidth, isTodayFlag = false) {
+    const tone = getCalendarDayTone(day, isTodayFlag);
+    const weekStart = day.getDay() === 1;
+    const monthStart = day.getDate() === 1;
+    const borderRight = weekStart ? 'border-right:2px solid #c7d2e2;' : '';
+    const borderLeft = monthStart ? 'border-left:3px solid #94a3b8;' : '';
+    return `width:${colWidth}px; background:${tone.background}; ${tone.borderStyle} ${borderRight} ${borderLeft}`;
+  }
+
   function renderPersonalDayCalendar() {
     const range = getCurrentRange();
     const days = getDaysBetween(range.start, range.end);
@@ -3155,23 +3240,7 @@
 
     let html = `<div class="calendar-shell" style="width:${stickyWidth + totalWidth}px;">`;
     html += `<div class="day-grid border border-slate-200 rounded-2xl overflow-hidden" style="grid-template-columns:${stickyWidth}px repeat(${days.length}, ${colWidth}px);">`;
-    html += `<div class="sticky-col z-30 border-b border-r border-slate-200 bg-slate-50 px-3 py-3 font-semibold">Ansatt</div>`;
-
-    for (const day of days) {
-      const isTodayFlag = sameDate(day, new Date());
-      const tone = getCalendarDayTone(day, isTodayFlag);
-      const headerMeta = getTimelineHeaderMeta(day);
-
-      html += `
-        <div class="border-b border-r border-slate-200 px-2 py-2 text-center text-xs ${tone.textClass}" style="background:${tone.background}; ${tone.borderStyle}" title="${escapeHtml(tone.title)}">
-          ${headerMeta.weekBadge}
-          <div class="font-semibold">${weekdayShort(day)}</div>
-          <div class="font-semibold">${day.getDate()}</div>
-          <div>${monthShort(day)}</div>
-          ${headerMeta.monthBadge}
-        </div>
-      `;
-    }
+    html += renderHierarchicalTimelineHeader('Ansatt', stickyWidth, days, colWidth).html;
 
     const warnings = [];
 
@@ -3192,7 +3261,7 @@
         const day = days[i];
         const isTodayFlag = sameDate(day, new Date());
         const tone = getCalendarDayTone(day, isTodayFlag);
-        html += `<div data-drop-slot-index="${i}" data-drop-date="${toIsoDate(day)}" class="day-cell" title="${escapeHtml(tone.title)}" style="position:absolute; left:${i * colWidth}px; width:${colWidth}px; background:${tone.background}; ${tone.borderStyle}"></div>`;
+        html += `<div data-drop-slot-index="${i}" data-drop-date="${toIsoDate(day)}" class="day-cell" title="${escapeHtml(tone.title)}" style="position:absolute; left:${i * colWidth}px; ${getTimelineSlotStyles(day, colWidth, isTodayFlag)}"></div>`;
       }
 
       html += `<div style="position:relative; width:${totalWidth}px; min-height:56px;">`;
@@ -3257,11 +3326,7 @@
     html += `<div class="sticky-col z-30 border-b border-r border-slate-200 bg-slate-50 px-3 py-3 font-semibold">Ansatt</div>`;
 
     for (const month of months) {
-      const quarterStart = month.getMonth() % 3 === 0;
-      html += `<div class="border-b border-r border-slate-200 px-2 py-3 text-center text-sm bg-white text-slate-700 font-medium" style="${quarterStart ? 'border-left:3px solid #64748b;' : ''}">
-        <div>${escapeHtml(capitalize(monthLong(month)))}</div>
-        <div class="text-[10px] uppercase tracking-wide text-slate-500 mt-1">Q${Math.floor(month.getMonth() / 3) + 1}</div>
-      </div>`;
+      html += `<div class="border-b border-r border-slate-200 px-2 py-3 text-center text-sm bg-white text-slate-700 font-medium">${escapeHtml(capitalize(monthLong(month)))}</div>`;
     }
 
     const warnings = [];
@@ -3346,23 +3411,7 @@
 
     let html = `<div class="calendar-shell" style="width:${stickyWidth + totalWidth}px;">`;
     html += `<div class="day-grid border border-slate-200 rounded-2xl overflow-hidden" style="grid-template-columns:${stickyWidth}px repeat(${days.length}, ${colWidth}px);">`;
-    html += `<div class="sticky-col z-30 border-b border-r border-slate-200 bg-slate-50 px-3 py-3 font-semibold">Prosjekt</div>`;
-
-    for (const day of days) {
-      const isTodayFlag = sameDate(day, new Date());
-      const tone = getCalendarDayTone(day, isTodayFlag);
-      const headerMeta = getTimelineHeaderMeta(day);
-
-      html += `
-        <div class="border-b border-r border-slate-200 px-2 py-2 text-center text-xs ${tone.textClass}" style="background:${tone.background}; ${tone.borderStyle}" title="${escapeHtml(tone.title)}">
-          ${headerMeta.weekBadge}
-          <div class="font-semibold">${weekdayShort(day)}</div>
-          <div class="font-semibold">${day.getDate()}</div>
-          <div>${monthShort(day)}</div>
-          ${headerMeta.monthBadge}
-        </div>
-      `;
-    }
+    html += renderHierarchicalTimelineHeader('Prosjekt', stickyWidth, days, colWidth).html;
 
     for (const project of projects) {
       const assigned = getProjectAssignedCount(project.id);
@@ -3383,7 +3432,7 @@
         const day = days[i];
         const isTodayFlag = sameDate(day, new Date());
         const tone = getCalendarDayTone(day, isTodayFlag);
-        html += `<div data-drop-slot-index="${i}" data-drop-date="${toIsoDate(day)}" class="day-cell" title="${escapeHtml(tone.title)}" style="position:absolute; left:${i * colWidth}px; width:${colWidth}px; background:${tone.background}; ${tone.borderStyle}"></div>`;
+        html += `<div data-drop-slot-index="${i}" data-drop-date="${toIsoDate(day)}" class="day-cell" title="${escapeHtml(tone.title)}" style="position:absolute; left:${i * colWidth}px; ${getTimelineSlotStyles(day, colWidth, isTodayFlag)}"></div>`;
       }
 
       html += `<div style="position:relative; width:${totalWidth}px; min-height:56px;">`;
@@ -3439,11 +3488,7 @@
     html += `<div class="sticky-col z-30 border-b border-r border-slate-200 bg-slate-50 px-3 py-3 font-semibold">Prosjekt</div>`;
 
     for (const month of months) {
-      const quarterStart = month.getMonth() % 3 === 0;
-      html += `<div class="border-b border-r border-slate-200 px-2 py-3 text-center text-sm bg-white text-slate-700 font-medium" style="${quarterStart ? 'border-left:3px solid #64748b;' : ''}">
-        <div>${escapeHtml(capitalize(monthLong(month)))}</div>
-        <div class="text-[10px] uppercase tracking-wide text-slate-500 mt-1">Q${Math.floor(month.getMonth() / 3) + 1}</div>
-      </div>`;
+      html += `<div class="border-b border-r border-slate-200 px-2 py-3 text-center text-sm bg-white text-slate-700 font-medium">${escapeHtml(capitalize(monthLong(month)))}</div>`;
     }
 
     for (const project of projects) {
@@ -4049,24 +4094,14 @@
   function formatYearBarLabel(start, end) {
     return `${capitalize(monthShort(asLocalDate(start)))}–${capitalize(monthShort(asLocalDate(end)))}`;
   }
-
-
-  function getTimelineZoomMultiplier() {
-    const zoom = state.timelineZoom || "Normal";
-    if (zoom === "Kompakt") return 0.8;
-    if (zoom === "Detalj") return 1.25;
-    return 1;
-  }
-
   function getDayColumnWidth(dayCount) {
-    const zoom = getTimelineZoomMultiplier();
     if (state.viewMode === "6 mnd") {
-      return Math.max(18, Math.round(22 * zoom));
+      return Math.max(30, 34);
     }
     if (state.viewMode === "Uke") {
-      return Math.max(110, Math.round(140 * zoom));
+      return Math.max(110, 140);
     }
-    return Math.max(30, Math.round(40 * zoom));
+    return Math.max(40, 48);
   }
 
   function isSunday(date) {
@@ -4091,7 +4126,7 @@
     else if (saturday) background = "#f8fafc";
     if (isTodayFlag) background = holidayName || sunday ? "#ffe4e6" : "#eff6ff";
     const textClass = holidayName || sunday ? "text-rose-700" : (isTodayFlag ? "text-blue-700 font-semibold" : "text-slate-600");
-    const borderStyle = getTimelineDividerStyle(date);
+    const borderStyle = date.getDate() === 1 ? 'border-left:2px solid #cbd5e1;' : '';
     const title = holidayName || (sunday ? 'Søndag' : '');
     return {
       background,
@@ -4099,26 +4134,6 @@
       borderStyle,
       title
     };
-  }
-
-  function getTimelineDividerStyle(date) {
-    const isMonthStart = date.getDate() === 1;
-    const isMonday = date.getDay() === 1;
-    if (isMonthStart) return 'border-left:3px solid #64748b;';
-    if (isMonday) return 'border-left:2px solid #cbd5e1;';
-    return '';
-  }
-
-  function getTimelineHeaderMeta(date) {
-    const isMonthStart = date.getDate() === 1;
-    const isMonday = date.getDay() === 1;
-    const monthBadge = isMonthStart
-      ? `<div class="mt-1 inline-flex rounded-full bg-slate-900 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">${escapeHtml(capitalize(monthShort(date)))}</div>`
-      : `<div class="mt-1 h-[18px]"></div>`;
-    const weekBadge = (state.viewMode === "6 mnd" || state.viewMode === "Måned" || state.viewMode === "Uke") && isMonday
-      ? `<div class="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Uke ${getIsoWeek(date)}</div>`
-      : `<div class="text-[10px] text-transparent">Uke</div>`;
-    return { monthBadge, weekBadge };
   }
 
   function getNorwegianHolidayMap(year) {
