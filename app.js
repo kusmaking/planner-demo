@@ -22,7 +22,6 @@
     selectedEntryId: null,
     selectedProjectId: null,
     selectedEmployeeId: null,
-    focusProjectId: "",
     storageMode: "local",
     supabaseReady: false,
     supabaseError: null,
@@ -67,11 +66,6 @@
       endDate: "",
       x: 0,
       y: 0
-    },
-    availability: {
-      available: [],
-      unavailable: [],
-      summary: null
     }
   };
 
@@ -128,7 +122,6 @@
     ensureAccountPanel();
     ensurePersonalBlockPanel();
     ensureCalendarContextMenu();
-    ensureAvailabilityPanel();
     setupStaticOptions();
     bindEvents();
 
@@ -158,7 +151,7 @@
   function cacheElements() {
     const ids = [
       "statsRow", "searchInput", "employeeFilter", "viewMode", "calendarMode", "prevBtn", "nextBtn", "todayBtn",
-      "calendarWrap", "warningBox", "legendList", "projectList", "projectWorkspaceCard", "projectWorkspaceEmpty", "projectWorkspaceContent", "projectWorkspaceTitle", "projectWorkspaceMeta", "projectWorkspaceNotes", "projectWorkspaceAssignments", "projectWorkspaceActions", "assignProject", "assignEmployeesWrap", "assignSummary", "assignRole",
+      "calendarWrap", "warningBox", "legendList", "projectList", "assignProject", "assignEmployeesWrap", "assignSummary", "assignRole",
       "assignStart", "assignEnd", "assignNotes", "assignBtn", "bulkEmployees", "bulkAddBtn",
       "employeeList", "kanbanBoard", "notificationList", "auditList", "editModal", "closeModalBtn",
       "editProject", "editEmployee", "editRole", "editStart", "editEnd", "editNotes",
@@ -377,62 +370,6 @@
     els.contextMenuNotes = document.getElementById("contextMenuNotes");
     els.contextMenuAddBtn = document.getElementById("contextMenuAddBtn");
     els.contextMenuCloseBtn = document.getElementById("contextMenuCloseBtn");
-  }
-
-  function ensureAvailabilityPanel() {
-    const projectsSection = els.tabProjectsSection;
-    if (!projectsSection) return;
-
-    if (document.getElementById("availabilityCard")) {
-      els.availabilityCard = document.getElementById("availabilityCard");
-      els.availabilitySummary = document.getElementById("availabilitySummary");
-      els.availabilityAvailableList = document.getElementById("availabilityAvailableList");
-      els.availabilityUnavailableList = document.getElementById("availabilityUnavailableList");
-      els.availabilityAvailableCount = document.getElementById("availabilityAvailableCount");
-      els.availabilityUnavailableCount = document.getElementById("availabilityUnavailableCount");
-      return;
-    }
-
-    const wrapper = document.createElement("div");
-    wrapper.className = "xl:col-span-5";
-    wrapper.innerHTML = `
-      <div id="availabilityCard" class="rounded-2xl bg-white border border-slate-200 shadow-sm">
-        <div class="p-4 border-b border-slate-200">
-          <h2 class="font-semibold">Tilgjengelige ansatte i valgt periode</h2>
-          <p class="text-sm text-slate-500 mt-1">Beslutningsstøtte for bemanning. Systemet sjekker andre prosjekter, kurs, ferie, syk og avspasering i valgt periode.</p>
-        </div>
-        <div class="p-4 space-y-4">
-          <div id="availabilitySummary" class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
-            Velg prosjekt og gyldig fra/til-dato for å analysere tilgjengelighet.
-          </div>
-          <div class="grid grid-cols-1 xl:grid-cols-2 gap-4">
-            <div>
-              <div class="mb-2 flex items-center justify-between gap-2">
-                <h3 class="font-medium text-green-700">Tilgjengelige</h3>
-                <span id="availabilityAvailableCount" class="text-xs text-slate-500"></span>
-              </div>
-              <div id="availabilityAvailableList" class="space-y-2"></div>
-            </div>
-            <div>
-              <div class="mb-2 flex items-center justify-between gap-2">
-                <h3 class="font-medium text-red-700">Ikke tilgjengelige</h3>
-                <span id="availabilityUnavailableCount" class="text-xs text-slate-500"></span>
-              </div>
-              <div id="availabilityUnavailableList" class="space-y-2"></div>
-            </div>
-          </div>
-        </div>
-      </div>
-    `;
-
-    projectsSection.appendChild(wrapper);
-
-    els.availabilityCard = document.getElementById("availabilityCard");
-    els.availabilitySummary = document.getElementById("availabilitySummary");
-    els.availabilityAvailableList = document.getElementById("availabilityAvailableList");
-    els.availabilityUnavailableList = document.getElementById("availabilityUnavailableList");
-    els.availabilityAvailableCount = document.getElementById("availabilityAvailableCount");
-    els.availabilityUnavailableCount = document.getElementById("availabilityUnavailableCount");
   }
 
   function ensureLoginModal() {
@@ -1134,17 +1071,7 @@
       renderCalendar();
     });
 
-    els.assignProject.addEventListener("change", () => {
-      const projectId = els.assignProject?.value || "";
-      if (projectId) state.focusProjectId = projectId;
-      syncAssignDatesFromProject();
-      updateAvailabilityAnalysis();
-      renderProjects();
-    });
-    els.assignStart.addEventListener("change", updateAvailabilityAnalysis);
-    els.assignEnd.addEventListener("change", updateAvailabilityAnalysis);
-    els.assignStart.addEventListener("change", updateAvailabilityAnalysis);
-    els.assignEnd.addEventListener("change", updateAvailabilityAnalysis);
+    els.assignProject.addEventListener("change", syncAssignDatesFromProject);
     els.assignBtn.addEventListener("click", createEntry);
     els.bulkAddBtn.addEventListener("click", bulkAddEmployees);
     if (els.personalBlockSaveBtn) {
@@ -1703,15 +1630,12 @@
       if (els.assignStart) els.assignStart.value = "";
       if (els.assignEnd) els.assignEnd.value = "";
       updateAssignSummary(null);
-      updateAvailabilityAnalysis();
       return;
     }
 
     if (els.assignStart) els.assignStart.value = project.planned_start_date || "";
     if (els.assignEnd) els.assignEnd.value = project.planned_end_date || "";
     updateAssignSummary(project);
-    updateAvailabilityAnalysis();
-    updateAvailabilityAnalysis();
   }
 
   function clearAssignForm() {
@@ -1721,7 +1645,6 @@
     if (els.assignNotes) els.assignNotes.value = "";
     updateAssignSummary(null);
     renderAssignEmployeeSelectors("", []);
-    updateAvailabilityAnalysis();
   }
 
 
@@ -1748,23 +1671,10 @@
       return;
     }
 
-    const required = Math.max(Number(project.headcount_required || 0), 0);
-    const assigned = getProjectAssignedCount(project.id);
-    const remaining = Math.max(required - assigned, 0);
+    const required = Math.max(Number(project.headcount_required || 0), 1);
     const startLabel = project.planned_start_date ? formatDate(project.planned_start_date) : "ingen start";
     const endLabel = project.planned_end_date ? formatDate(project.planned_end_date) : "ingen slutt";
-
-    if (required === 0) {
-      els.assignSummary.textContent = `${project.name} • Ingen bemanningsplasser definert • ${startLabel} – ${endLabel}`;
-      return;
-    }
-
-    if (assigned > required) {
-      els.assignSummary.textContent = `${project.name} • Behov: ${required} • Tildelt: ${assigned} • Overbemannet med ${assigned - required} • ${startLabel} – ${endLabel}`;
-      return;
-    }
-
-    els.assignSummary.textContent = `${project.name} • Behov: ${required} • Tildelt: ${assigned} • Gjenstår: ${remaining} • ${startLabel} – ${endLabel}`;
+    els.assignSummary.textContent = `${project.name} • Behov: ${required} person${required > 1 ? "er" : ""} • ${startLabel} – ${endLabel}`;
   }
 
   function renderAssignEmployeeSelectors(projectId = null, preservedRows = null) {
@@ -1773,31 +1683,7 @@
     const project = getProjectById(resolvedProjectId);
     const activeEmployees = state.employees.filter(e => e.active !== false);
     const currentRows = Array.isArray(preservedRows) ? preservedRows : getAssignRowsSnapshot();
-
-    if (!project) {
-      els.assignEmployeesWrap.innerHTML = "";
-      return;
-    }
-
-    const required = Math.max(Number(project?.headcount_required || 0), 0);
-    const assigned = getProjectAssignedCount(project.id);
-    const remaining = Math.max(required - assigned, 0);
-    const count = Math.max(remaining, currentRows.filter(item => item.employee_name || item.role).length, 0);
-
-    if (required === 0) {
-      els.assignEmployeesWrap.innerHTML = `<div class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-sm text-slate-500">Dette prosjektet har ingen bemanningsplasser definert.</div>`;
-      return;
-    }
-
-    if (assigned > required) {
-      els.assignEmployeesWrap.innerHTML = `<div class="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-4 text-sm text-amber-800">Prosjektet er allerede overbemannet. Behov: ${required} • Tildelt: ${assigned}</div>`;
-      return;
-    }
-
-    if (count === 0) {
-      els.assignEmployeesWrap.innerHTML = `<div class="rounded-2xl border border-green-200 bg-green-50 px-4 py-4 text-sm text-green-800">Prosjektet er fullbemannet. Ingen ledige plasser å fylle.</div>`;
-      return;
-    }
+    const count = Math.max(Number(project?.headcount_required || 0), currentRows.length || 0, 1);
 
     const blocks = [];
     for (let i = 0; i < count; i++) {
@@ -1831,142 +1717,6 @@
 
 
 
-
-  function analyzeAvailabilityForPeriod(projectId, startDate, endDate) {
-    const available = [];
-    const unavailable = [];
-
-    if (!startDate || !endDate || startDate > endDate) {
-      return {
-        available,
-        unavailable,
-        summary: {
-          valid: false,
-          projectName: projectId ? (getProjectById(projectId)?.name || "Valgt prosjekt") : "Ingen prosjekt valgt",
-          startDate,
-          endDate
-        }
-      };
-    }
-
-    const activeEmployees = state.employees
-      .filter(employee => employee.active !== false)
-      .slice()
-      .sort((a, b) => {
-        const groupDiff = getEmployeeGroupSortIndex(a.employee_group) - getEmployeeGroupSortIndex(b.employee_group);
-        if (groupDiff !== 0) return groupDiff;
-        return a.name.localeCompare(b.name, "no");
-      });
-
-    for (const employee of activeEmployees) {
-      const conflicts = (state.derived.entriesByEmployee.get(employee.name) || [])
-        .filter(entry => overlaps(entry.start_date, entry.end_date, startDate, endDate))
-        .filter(entry => !(projectId && entry.project_id === projectId))
-        .map(entry => buildAvailabilityConflict(entry));
-
-      const item = {
-        id: employee.id,
-        name: employee.name,
-        title: employee.title || "",
-        group: normalizeEmployeeGroup(employee.employee_group || ""),
-        conflicts
-      };
-
-      if (conflicts.length) {
-        unavailable.push(item);
-      } else {
-        available.push(item);
-      }
-    }
-
-    return {
-      available,
-      unavailable,
-      summary: {
-        valid: true,
-        projectName: projectId ? (getProjectById(projectId)?.name || "Valgt prosjekt") : "Ingen prosjekt valgt",
-        startDate,
-        endDate
-      }
-    };
-  }
-
-  function buildAvailabilityConflict(entry) {
-    const project = getProjectById(entry.project_id);
-    const category = String(project?.category || "").trim();
-    const isAbsenceBlock = PERSONAL_BLOCK_TYPES.includes(category);
-    const label = isAbsenceBlock ? category : (project?.name || "Ukjent prosjekt");
-
-    return {
-      label,
-      startDate: entry.start_date,
-      endDate: entry.end_date,
-      role: entry.role || "",
-      notes: entry.notes || "",
-      isAbsenceBlock
-    };
-  }
-
-  function updateAvailabilityAnalysis() {
-    if (!els.availabilitySummary || !els.availabilityAvailableList || !els.availabilityUnavailableList) return;
-
-    const projectId = els.assignProject?.value || "";
-    const startDate = els.assignStart?.value || "";
-    const endDate = els.assignEnd?.value || "";
-
-    const analysis = analyzeAvailabilityForPeriod(projectId, startDate, endDate);
-    state.availability.available = analysis.available;
-    state.availability.unavailable = analysis.unavailable;
-    state.availability.summary = analysis.summary;
-    renderAvailabilityPanel();
-  }
-
-  function renderAvailabilityPanel() {
-    if (!els.availabilitySummary || !els.availabilityAvailableList || !els.availabilityUnavailableList) return;
-
-    const summary = state.availability.summary;
-    if (!summary || !summary.valid) {
-      els.availabilitySummary.textContent = "Velg prosjekt og gyldig fra/til-dato for å analysere tilgjengelighet.";
-      els.availabilityAvailableList.innerHTML = `<div class="text-sm text-slate-500">Ingen analyse kjørt.</div>`;
-      els.availabilityUnavailableList.innerHTML = `<div class="text-sm text-slate-500">Ingen analyse kjørt.</div>`;
-      if (els.availabilityAvailableCount) els.availabilityAvailableCount.textContent = "";
-      if (els.availabilityUnavailableCount) els.availabilityUnavailableCount.textContent = "";
-      return;
-    }
-
-    els.availabilitySummary.textContent = `${summary.projectName} • ${formatDate(summary.startDate)} – ${formatDate(summary.endDate)} • ${state.availability.available.length} tilgjengelige / ${state.availability.unavailable.length} ikke tilgjengelige`;
-    if (els.availabilityAvailableCount) els.availabilityAvailableCount.textContent = `${state.availability.available.length} stk`;
-    if (els.availabilityUnavailableCount) els.availabilityUnavailableCount.textContent = `${state.availability.unavailable.length} stk`;
-
-    els.availabilityAvailableList.innerHTML = state.availability.available.length
-      ? state.availability.available.map(employee => `
-        <div class="rounded-xl border border-green-200 bg-green-50 p-3">
-          <div class="font-medium text-slate-900">${escapeHtml(employee.name)}</div>
-          <div class="text-xs text-slate-500 mt-1">${escapeHtml(employee.group || "Ingen gruppe valgt")}${employee.title ? ` • ${escapeHtml(employee.title)}` : ""}</div>
-          <div class="text-xs text-green-700 mt-2">Tilgjengelig i valgt periode</div>
-        </div>
-      `).join("")
-      : `<div class="text-sm text-slate-500">Ingen tilgjengelige ansatte i valgt periode.</div>`;
-
-    els.availabilityUnavailableList.innerHTML = state.availability.unavailable.length
-      ? state.availability.unavailable.map(employee => `
-        <div class="rounded-xl border border-red-200 bg-red-50 p-3">
-          <div class="font-medium text-slate-900">${escapeHtml(employee.name)}</div>
-          <div class="text-xs text-slate-500 mt-1">${escapeHtml(employee.group || "Ingen gruppe valgt")}${employee.title ? ` • ${escapeHtml(employee.title)}` : ""}</div>
-          <div class="mt-2 space-y-2">
-            ${employee.conflicts.map(conflict => `
-              <div class="rounded-lg border border-red-200 bg-white px-3 py-2">
-                <div class="text-xs font-medium text-red-700">${escapeHtml(conflict.isAbsenceBlock ? conflict.label : `Opptatt: ${conflict.label}`)}</div>
-                <div class="text-xs text-slate-600 mt-1">${escapeHtml(formatDate(conflict.startDate))} – ${escapeHtml(formatDate(conflict.endDate))}</div>
-                ${conflict.role && !conflict.isAbsenceBlock ? `<div class="text-xs text-slate-500 mt-1">Rolle: ${escapeHtml(conflict.role)}</div>` : ""}
-                ${conflict.notes ? `<div class="text-xs text-slate-500 mt-1">${escapeHtml(conflict.notes)}</div>` : ""}
-              </div>
-            `).join("")}
-          </div>
-        </div>
-      `).join("")
-      : `<div class="text-sm text-slate-500">Ingen konflikter i valgt periode.</div>`;
-  }
 
   function canSeePersonalBlockType(type) {
     if (type !== "Syk") return true;
@@ -2425,7 +2175,6 @@
     if (!confirm("Vil du slette dette prosjektet?")) return;
 
     state.projects = state.projects.filter(p => p.id !== project.id);
-    if (state.focusProjectId === project.id) state.focusProjectId = "";
     rebuildDerivedState();
     const result = await deleteRow("planner_projects", project.id);
     if (!result.ok) {
@@ -2652,9 +2401,7 @@
     renderAudit();
     renderSystemStatus();
     updateBadge();
-    updateAvailabilityAnalysis();
     applyRoleChrome();
-    updateAvailabilityAnalysis();
   }
 
   function populateDynamicSelects() {
@@ -2700,7 +2447,7 @@
 
   function renderStats() {
     const visibleProjects = getVisibleProjects();
-    const unstaffedProjects = visibleProjects.filter(project => projectNeedsStaffing(project));
+    const unstaffedProjects = visibleProjects.filter(project => getProjectAssignedCount(project.id) === 0);
 
     const cards = [
       {
@@ -2800,212 +2547,115 @@
     }
   }
 
-  function getRelevantProjectStatuses() {
-    return ["Planlagt", "Pågår", "Avventer"];
-  }
-
-  function getActiveProjectsForWorkspace() {
-    const relevant = new Set(getRelevantProjectStatuses());
-    return getVisibleProjects()
-      .filter(project => relevant.has(project.status))
-      .slice()
-      .sort((a, b) => compareProjectDates(a, b));
-  }
-
-  function getArchivedProjectsForWorkspace() {
-    return getVisibleProjects()
-      .filter(project => project.status === "Avsluttet")
-      .slice()
-      .sort((a, b) => compareProjectDates(a, b));
-  }
-
-  function setFocusProject(projectId) {
-    state.focusProjectId = projectId || "";
-    if (projectId && els.assignProject) {
-      els.assignProject.value = projectId;
-      syncAssignDatesFromProject({ projectId, rows: [] });
-      updateAvailabilityAnalysis();
-    }
-    renderProjects();
-  }
-
-  function ensureFocusProject(activeProjects, archivedProjects) {
-    const allProjects = [...activeProjects, ...archivedProjects];
-    if (!allProjects.length) {
-      state.focusProjectId = "";
-      return null;
-    }
-
-    let focused = allProjects.find(project => project.id === state.focusProjectId) || null;
-    if (!focused) {
-      focused = activeProjects[0] || archivedProjects[0] || null;
-      state.focusProjectId = focused?.id || "";
-    }
-
-    return focused;
-  }
-
-  function renderProjectWorkspace(project) {
-    if (!els.projectWorkspaceCard || !els.projectWorkspaceEmpty || !els.projectWorkspaceContent) return;
-
-    if (!project) {
-      els.projectWorkspaceEmpty.classList.remove("hidden");
-      els.projectWorkspaceContent.classList.add("hidden");
-      if (els.projectWorkspaceTitle) els.projectWorkspaceTitle.textContent = "Ingen prosjekt valgt";
-      if (els.projectWorkspaceMeta) els.projectWorkspaceMeta.innerHTML = "";
-      if (els.projectWorkspaceNotes) els.projectWorkspaceNotes.textContent = "";
-      if (els.projectWorkspaceAssignments) els.projectWorkspaceAssignments.innerHTML = `<div class="text-sm text-slate-500">Velg et prosjekt fra listen for å se detaljer.</div>`;
-      if (els.projectWorkspaceActions) els.projectWorkspaceActions.innerHTML = "";
-      return;
-    }
-
-    const assigned = getProjectAssignedCount(project.id);
-    const required = Number(project.headcount_required || 0);
-    const staffing = getProjectStaffingLabel(project.id, required);
-    const projectEntries = state.entries
-      .filter(entry => entry.project_id === project.id)
-      .slice()
-      .sort((a, b) => a.start_date.localeCompare(b.start_date) || a.employee_name.localeCompare(b.employee_name, "no"));
-
-    els.projectWorkspaceEmpty.classList.add("hidden");
-    els.projectWorkspaceContent.classList.remove("hidden");
-    if (els.projectWorkspaceTitle) els.projectWorkspaceTitle.textContent = project.name;
-    if (els.projectWorkspaceMeta) {
-      els.projectWorkspaceMeta.innerHTML = `
-        <div class="flex flex-wrap items-center gap-2">
-          <span class="rounded-full border px-2 py-0.5 text-xs ${STATUS_COLORS[project.status] || "bg-slate-100 border-slate-200 text-slate-700"}">${escapeHtml(project.status)}</span>
-          <span class="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs text-slate-700">${escapeHtml(project.category)}</span>
-          ${project.location ? `<span class="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs text-slate-700">${escapeHtml(project.location)}</span>` : ""}
-        </div>
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm text-slate-600">
-          <div><span class="font-medium text-slate-700">Periode:</span><br>${escapeHtml(formatProjectDateRange(project))}</div>
-          <div><span class="font-medium text-slate-700">Bemanning:</span><br><span class="${staffing.variant}">${escapeHtml(staffing.text)}</span>${required ? ` (${assigned}/${required})` : ""}</div>
-          <div><span class="font-medium text-slate-700">Status:</span><br>${escapeHtml(project.status)}</div>
-        </div>
-      `;
-    }
-    if (els.projectWorkspaceNotes) {
-      els.projectWorkspaceNotes.textContent = project.notes || "Ingen prosjektnotater.";
-    }
-    if (els.projectWorkspaceAssignments) {
-      els.projectWorkspaceAssignments.innerHTML = projectEntries.length
-        ? projectEntries.map(entry => `
-          <div class="flex items-start justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-3">
-            <div class="min-w-0">
-              <div class="text-sm font-medium text-slate-800">${escapeHtml(entry.employee_name)}</div>
-              <div class="text-xs text-slate-500 mt-1">${escapeHtml(entry.role || "")}</div>
-              <div class="text-xs text-slate-500">${escapeHtml(formatDate(entry.start_date))} – ${escapeHtml(formatDate(entry.end_date))}</div>
-            </div>
-            <button data-project-entry-delete-id="${escapeHtml(entry.id)}" class="shrink-0 rounded-lg border border-red-200 bg-white px-2 py-1 text-xs text-red-700 hover:bg-red-50">Fjern</button>
-          </div>
-        `).join("")
-        : `<div class="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-3 py-4 text-sm text-slate-500">Ingen tildelte ressurser på prosjektet ennå.</div>`;
-    }
-    if (els.projectWorkspaceActions) {
-      els.projectWorkspaceActions.innerHTML = `
-        <button data-project-workspace-staff-id="${escapeHtml(project.id)}" class="rounded-xl bg-slate-900 text-white px-3 py-2 text-sm">Bemann prosjekt</button>
-        <button data-project-workspace-edit-id="${escapeHtml(project.id)}" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm">Rediger prosjekt</button>
-      `;
-      const staffBtn = els.projectWorkspaceActions.querySelector('[data-project-workspace-staff-id]');
-      const editBtn = els.projectWorkspaceActions.querySelector('[data-project-workspace-edit-id]');
-      if (staffBtn) staffBtn.addEventListener('click', () => startProjectStaffing(project.id));
-      if (editBtn) editBtn.addEventListener('click', () => openProjectModal(project.id));
-    }
-    els.projectWorkspaceAssignments.querySelectorAll('[data-project-entry-delete-id]').forEach(btn => {
-      btn.addEventListener('click', () => deleteEntryFromProjectCard(btn.dataset.projectEntryDeleteId));
-    });
-  }
-
   function renderProjects() {
-    const allActiveProjects = getActiveProjectsForWorkspace();
-    const activeProjects = state.projectListFilter === "unstaffed"
-      ? allActiveProjects.filter(project => projectNeedsStaffing(project))
-      : allActiveProjects;
-    const archivedProjects = getArchivedProjectsForWorkspace();
-    const focusedProject = ensureFocusProject(activeProjects, archivedProjects);
-    const activeDescription = state.projectListFilter === "unstaffed"
-      ? "Viser aktive prosjekter som mangler hele eller deler av bemanningen."
-      : "Viser kun planlagt, pågår og avventer.";
-
-    const renderProjectRow = (project, archived = false) => {
-      const assigned = getProjectAssignedCount(project.id);
-      const required = Number(project.headcount_required || 0);
-      const staffing = getProjectStaffingLabel(project.id, required);
-      const isFocused = project.id === state.focusProjectId;
-      const baseClasses = archived
-        ? "border-slate-200 bg-slate-50 hover:bg-slate-100"
-        : isFocused
-          ? "border-slate-900 bg-slate-900 text-white"
-          : "border-slate-200 bg-white hover:bg-slate-50";
-      const secondaryTextClass = isFocused ? "text-slate-200" : "text-slate-500";
-      const staffingClass = isFocused ? "text-slate-100" : staffing.variant;
-
-      return `
-        <button type="button" data-project-focus-id="${escapeHtml(project.id)}" class="w-full rounded-2xl border p-4 text-left transition ${baseClasses}">
-          <div class="flex items-start justify-between gap-3">
-            <div class="min-w-0">
-              <div class="font-semibold truncate">${escapeHtml(project.name)}</div>
-              <div class="mt-1 text-xs ${secondaryTextClass}">${escapeHtml(project.category)}${project.location ? ` • ${escapeHtml(project.location)}` : ""}</div>
-              <div class="mt-1 text-xs ${secondaryTextClass}">${escapeHtml(formatProjectDateRange(project))}</div>
-            </div>
-            <span class="rounded-full border px-2 py-0.5 text-xs ${isFocused ? "border-white/30 bg-white/10 text-white" : (STATUS_COLORS[project.status] || "bg-slate-100 border-slate-200 text-slate-700")}">${escapeHtml(project.status)}</span>
-          </div>
-          <div class="mt-3 flex flex-wrap items-center gap-3 text-xs">
-            <span class="${staffingClass}">${escapeHtml(staffing.text)}${required ? ` (${assigned}/${required})` : ""}</span>
-            ${project.notes ? `<span class="${secondaryTextClass} truncate">${escapeHtml(project.notes)}</span>` : ""}
-          </div>
-        </button>
-      `;
-    };
+    const filteredProjects = getProjectsForCurrentListFilter();
+    const filterLabel = state.projectListFilter === "unstaffed" ? "Viser kun prosjekter uten bemanning." : "Viser alle prosjekter i stigende rekkefølge etter planlagt startdato.";
+    const emptyText = state.projectListFilter === "unstaffed" ? "Ingen prosjekter mangler bemanning." : "Ingen prosjekter.";
 
     els.projectList.innerHTML = `
-      <div class="space-y-6">
-        <div>
-          <div class="mb-3 flex items-center justify-between gap-3">
-            <div>
-              <div class="font-semibold text-slate-900">Aktive prosjekter</div>
-              <div class="text-sm text-slate-500">${escapeHtml(activeDescription)}</div>
-            </div>
-            <span class="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs text-slate-700">${activeProjects.length} aktive</span>
-          </div>
-          <div class="space-y-3">
-            ${activeProjects.length ? activeProjects.map(project => renderProjectRow(project, false)).join("") : `<div class="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-sm text-slate-500">Ingen aktive prosjekter.</div>`}
-          </div>
-        </div>
-        <div class="border-t border-slate-200 pt-4">
-          <div class="mb-3 flex items-center justify-between gap-3">
-            <div>
-              <div class="font-semibold text-slate-900">Arkiv</div>
-              <div class="text-sm text-slate-500">Avsluttede prosjekter holdes utenfor hovedbildet.</div>
-            </div>
-            <span class="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs text-slate-700">${archivedProjects.length} avsluttet</span>
-          </div>
-          <div class="space-y-3">
-            ${archivedProjects.length ? archivedProjects.map(project => renderProjectRow(project, true)).join("") : `<div class="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-sm text-slate-500">Ingen arkiverte prosjekter.</div>`}
-          </div>
-        </div>
+      <div class="mb-4 flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          data-project-list-filter="all"
+          class="rounded-xl px-3 py-2 text-sm border ${state.projectListFilter === "all" ? "border-slate-900 bg-slate-900 text-white" : "border-slate-300 bg-white text-slate-700"}"
+        >
+          Alle prosjekter
+        </button>
+        <button
+          type="button"
+          data-project-list-filter="unstaffed"
+          class="rounded-xl px-3 py-2 text-sm border ${state.projectListFilter === "unstaffed" ? "border-slate-900 bg-slate-900 text-white" : "border-slate-300 bg-white text-slate-700"}"
+        >
+          Uten bemanning
+        </button>
+        <div class="text-sm text-slate-500">${escapeHtml(filterLabel)}</div>
       </div>
+      ${filteredProjects.map(project => {
+        const assigned = getProjectAssignedCount(project.id);
+        const required = Number(project.headcount_required || 0);
+        const staffing = getProjectStaffingLabel(project.id, required);
+        const projectEntries = state.entries
+          .filter(entry => entry.project_id === project.id)
+          .slice()
+          .sort((a, b) => a.start_date.localeCompare(b.start_date) || a.employee_name.localeCompare(b.employee_name, "no"));
+        const projectCardClasses = project.status === "Avsluttet"
+          ? "rounded-xl border border-slate-300 p-3 bg-slate-100"
+          : "rounded-xl border border-slate-200 p-3 bg-slate-50";
+
+        const assignmentsHtml = projectEntries.length
+          ? `
+            <div class="mt-3 rounded-xl border border-slate-200 bg-white p-3">
+              <div class="text-xs font-semibold uppercase tracking-wide text-slate-500">Tildelte ressurser</div>
+              <div class="mt-2 space-y-2">
+                ${projectEntries.map(entry => `
+                  <div class="flex items-start justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                    <div class="min-w-0">
+                      <div class="text-sm font-medium text-slate-800">${escapeHtml(entry.employee_name || "Ukjent ansatt")}</div>
+                      <div class="text-xs text-slate-500">${escapeHtml(entry.role || "")}</div>
+                      <div class="text-xs text-slate-500">${escapeHtml(formatDate(entry.start_date))} – ${escapeHtml(formatDate(entry.end_date))}</div>
+                    </div>
+                    <button data-project-entry-delete-id="${escapeHtml(entry.id)}" class="shrink-0 rounded-lg border border-red-200 bg-white px-2 py-1 text-xs text-red-700 hover:bg-red-50">Fjern</button>
+                  </div>
+                `).join("")}
+              </div>
+            </div>
+          `
+          : `
+            <div class="mt-3 rounded-xl border border-dashed border-slate-300 bg-white px-3 py-3 text-xs text-slate-500">
+              Ingen tildelte ressurser på prosjektet.
+            </div>
+          `;
+
+        return `
+          <div class="${projectCardClasses}">
+            <div class="flex items-start justify-between gap-3">
+              <div>
+                <div class="font-medium">${escapeHtml(project.name)}</div>
+                <div class="text-xs text-slate-500 mt-1">${escapeHtml(project.category)}${project.location ? ` • ${escapeHtml(project.location)}` : ""}</div>
+                <div class="text-xs text-slate-600 mt-1">${escapeHtml(formatProjectDateRange(project))}</div>
+                <div class="text-xs mt-1 ${staffing.variant}">${escapeHtml(staffing.text)}${required ? ` (${assigned}/${required})` : ""}</div>
+              </div>
+              <span class="rounded-full border px-2 py-0.5 text-xs ${STATUS_COLORS[project.status] || "bg-slate-100 border-slate-200 text-slate-700"}">${escapeHtml(project.status)}</span>
+            </div>
+            <div class="text-xs text-slate-600 mt-2">${escapeHtml(project.notes || "")}</div>
+            ${assignmentsHtml}
+            <div class="mt-3 flex flex-wrap gap-2">
+              <button data-project-staff-id="${escapeHtml(project.id)}" class="rounded-xl bg-slate-900 text-white px-3 py-2 text-sm">Bemann</button>
+              <button data-project-id="${escapeHtml(project.id)}" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm">Rediger</button>
+            </div>
+          </div>
+        `;
+      }).join("") || `<div class="text-sm text-slate-500">${escapeHtml(emptyText)}</div>`}
     `;
 
-    els.projectList.querySelectorAll('[data-project-focus-id]').forEach(btn => {
-      btn.addEventListener('click', () => setFocusProject(btn.dataset.projectFocusId));
+    els.projectList.querySelectorAll("[data-project-list-filter]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        state.projectListFilter = btn.dataset.projectListFilter === "unstaffed" ? "unstaffed" : "all";
+        renderProjects();
+      });
     });
 
-    renderProjectWorkspace(focusedProject);
+    els.projectList.querySelectorAll("[data-project-id]").forEach(btn => {
+      btn.addEventListener("click", () => openProjectModal(btn.dataset.projectId));
+    });
+
+    els.projectList.querySelectorAll("[data-project-staff-id]").forEach(btn => {
+      btn.addEventListener("click", () => startProjectStaffing(btn.dataset.projectStaffId));
+    });
+
+    els.projectList.querySelectorAll("[data-project-entry-delete-id]").forEach(btn => {
+      btn.addEventListener("click", () => deleteEntryFromProjectCard(btn.dataset.projectEntryDeleteId));
+    });
   }
 
   function startProjectStaffing(projectId) {
     if (!els.assignProject) return;
-    state.focusProjectId = projectId || "";
     setActiveTab("projects");
     els.assignProject.value = projectId;
     if (els.assignNotes) els.assignNotes.value = "";
     syncAssignDatesFromProject({ projectId, rows: [] });
-    updateAvailabilityAnalysis();
     els.assignProject.scrollIntoView({ behavior: "smooth", block: "center" });
-    renderProjects();
   }
-
 
   async function deleteEntryFromProjectCard(entryId) {
     if (!canEditApp()) return;
@@ -3949,20 +3599,6 @@
 
   function getProjectAssignedCount(projectId) {
     return state.derived.entryCountByProject.get(projectId) || 0;
-  }
-
-  function getProjectRemainingSlots(projectId, required = null) {
-    const project = required === null ? getProjectById(projectId) : null;
-    const requiredBase = required !== null ? required : (project?.headcount_required ?? 0);
-    const requiredCount = Math.max(Number(requiredBase), 0);
-    const assignedCount = getProjectAssignedCount(projectId);
-    return Math.max(requiredCount - assignedCount, 0);
-  }
-
-  function projectNeedsStaffing(project) {
-    const requiredCount = Math.max(Number(project?.headcount_required || 0), 0);
-    if (!requiredCount) return false;
-    return getProjectAssignedCount(project.id) < requiredCount;
   }
 
   function getProjectStaffingLabel(projectId, required) {
