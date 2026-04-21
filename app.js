@@ -16,7 +16,7 @@
     groupFilterSearch: "",
     employeeGroupFilterOpen: false,
     search: "",
-    viewMode: "6 mnd",
+    viewMode: "24 mnd",
     calendarMode: load(STORAGE_KEYS.calendarMode, "personal"),
     startDate: startOfCurrentMonth(),
     selectedEntryId: null,
@@ -132,7 +132,7 @@
     setupStaticOptions();
     bindEvents();
 
-    state.viewMode = "6 mnd";
+    state.viewMode = "24 mnd";
     state.startDate = startOfCurrentMonth();
     persistUiState();
 
@@ -1124,11 +1124,13 @@
     });
 
     els.todayBtn.addEventListener("click", () => {
-      state.startDate = state.viewMode === "År"
-        ? new Date(new Date().getFullYear(), 0, 1)
-        : state.viewMode === "Måned"
-          ? startOfCurrentMonth()
-          : startOfWeek(new Date());
+      state.startDate = state.viewMode === "24 mnd"
+        ? startOfCurrentMonth()
+        : state.viewMode === "År"
+          ? new Date(new Date().getFullYear(), 0, 1)
+          : state.viewMode === "Måned"
+            ? startOfCurrentMonth()
+            : startOfWeek(new Date());
       persistUiState();
       renderStats();
       renderCalendar();
@@ -1653,7 +1655,7 @@
     state.auditLog = structuredClone(DEFAULT_AUDIT_LOG);
     state.notificationLog = structuredClone(DEFAULT_NOTIFICATION_LOG);
     state.startDate = new Date("2026-01-05");
-    state.viewMode = "Uke";
+    state.viewMode = "24 mnd";
     state.calendarMode = "personal";
     rebuildDerivedState();
     persistUiState();
@@ -2678,7 +2680,7 @@
     fillSelect(els.personalBlockEmployee, [{ id: "", name: "Velg ansatt" }, ...state.employees.filter(e => e.active !== false).map(e => ({ id: e.name, name: e.name }))], els.personalBlockEmployee?.value || "", "name", "id");
     fillSelect(els.personalBlockType, PERSONAL_BLOCK_TYPES, els.personalBlockType?.value || PERSONAL_BLOCK_TYPES[0] || "");
     fillSelect(els.contextMenuType, PERSONAL_BLOCK_TYPES, els.contextMenuType?.value || "Ferie");
-    fillSelect(els.viewMode, ["Uke", "Måned", "6 mnd", "År"], state.viewMode);
+    fillSelect(els.viewMode, ["24 mnd"], state.viewMode);
     fillSelect(els.calendarMode, [
       { id: "personal", name: "Personalplan" },
       { id: "project", name: "Prosjektplan" }
@@ -3190,29 +3192,21 @@
 
   function renderHierarchicalTimelineHeader(stickyLabel, stickyWidth, days, colWidth) {
     const totalWidth = colWidth * days.length;
-    const yearGroups = getTimelineYearGroups(days);
     const monthGroups = getTimelineMonthGroups(days);
     const weekGroups = getTimelineWeekGroups(days);
 
-    const rowBase = (label, bgClass) => `<div class="sticky-col z-30 border-b border-r border-slate-200 ${bgClass} px-3 py-2 font-semibold">${label}</div>`;
+    const stickyHeader = `<div class="sticky-col z-40 border-b border-r border-slate-200 bg-slate-50 px-3 py-2 font-semibold flex items-center" style="grid-row: span 3; min-height:100%; box-shadow: 8px 0 12px -12px rgba(15,23,42,0.35);">${stickyLabel}</div>`;
 
     let html = '';
-    html += rowBase(stickyLabel, 'bg-slate-50');
-    yearGroups.forEach(group => {
-      html += `<div class="border-b border-r border-slate-200 bg-blue-50 px-2 py-2 text-center text-sm font-semibold text-slate-800" style="grid-column: span ${group.span};">${escapeHtml(group.label)}</div>`;
-    });
-
-    html += rowBase('Måned', 'bg-slate-50');
+    html += stickyHeader;
     monthGroups.forEach(group => {
       html += `<div class="border-b border-r border-slate-200 bg-slate-100 px-2 py-2 text-center text-sm font-semibold text-slate-800" style="grid-column: span ${group.span}; border-right:3px solid #94a3b8;">${escapeHtml(group.label)}</div>`;
     });
 
-    html += rowBase('Uke', 'bg-slate-50');
     weekGroups.forEach(group => {
       html += `<div class="border-b border-r border-slate-200 bg-slate-50 px-2 py-2 text-center text-xs font-semibold text-slate-700" style="grid-column: span ${group.span}; border-right:2px solid #c7d2e2;">${escapeHtml(group.label)}</div>`;
     });
 
-    html += rowBase('Dato', 'bg-slate-50');
     days.forEach(day => {
       html += getDayHeaderCellHtml(day, colWidth);
     });
@@ -3248,7 +3242,7 @@
       const employeeEntries = getVisibleEntriesForEmployee(employee.name, range.start, range.end);
 
       html += `
-        <div class="sticky-col border-r border-b border-slate-200 px-3 py-3">
+        <div class="sticky-col z-30 border-r border-b border-slate-200 px-3 py-3" style="box-shadow: 8px 0 12px -12px rgba(15,23,42,0.35);">
           <div>${getEmployeeNameTabHtml(employee)}</div>
           <div class="text-xs text-slate-500 mt-2">${escapeHtml(employee.email || "")}</div>
           <div class="text-xs text-slate-500">${escapeHtml(employee.title || "")}</div>
@@ -3337,7 +3331,7 @@
       const employeeEntries = getVisibleEntriesForEmployee(employee.name, yearStart, yearEnd);
 
       html += `
-        <div class="sticky-col border-r border-b border-slate-200 px-3 py-3">
+        <div class="sticky-col z-30 border-r border-b border-slate-200 px-3 py-3" style="box-shadow: 8px 0 12px -12px rgba(15,23,42,0.35);">
           <div>${getEmployeeNameTabHtml(employee)}</div>
           <div class="text-xs text-slate-500 mt-2">${escapeHtml(employee.email || "")}</div>
           <div class="text-xs text-slate-500">${escapeHtml(employee.title || "")}</div>
@@ -3419,7 +3413,7 @@
       const staffing = getProjectStaffingLabel(project.id, required);
 
       html += `
-        <div class="sticky-col border-r border-b border-slate-200 px-3 py-3 ${project.status === "Avsluttet" ? "bg-slate-100" : ""}">
+        <div class="sticky-col z-30 border-r border-b border-slate-200 px-3 py-3 ${project.status === "Avsluttet" ? "bg-slate-100" : ""}" style="box-shadow: 8px 0 12px -12px rgba(15,23,42,0.35);">
           <div class="font-medium">${escapeHtml(project.name)}</div>
           <div class="text-xs text-slate-500">${escapeHtml(project.location || "")}</div>
           <div class="text-xs ${staffing.variant} mt-1">${escapeHtml(staffing.text)}${required ? ` (${assigned}/${required})` : ""}</div>
@@ -3497,7 +3491,7 @@
       const staffing = getProjectStaffingLabel(project.id, required);
 
       html += `
-        <div class="sticky-col border-r border-b border-slate-200 px-3 py-3 ${project.status === "Avsluttet" ? "bg-slate-100" : ""}">
+        <div class="sticky-col z-30 border-r border-b border-slate-200 px-3 py-3 ${project.status === "Avsluttet" ? "bg-slate-100" : ""}" style="box-shadow: 8px 0 12px -12px rgba(15,23,42,0.35);">
           <div class="font-medium">${escapeHtml(project.name)}</div>
           <div class="text-xs text-slate-500">${escapeHtml(project.location || "")}</div>
           <div class="text-xs ${staffing.variant} mt-1">${escapeHtml(staffing.text)}${required ? ` (${assigned}/${required})` : ""}</div>
@@ -3961,6 +3955,13 @@
   }
 
   function getCurrentRange() {
+    if (state.viewMode === "24 mnd") {
+      const anchor = new Date(state.startDate.getFullYear(), state.startDate.getMonth(), 1);
+      const start = new Date(anchor.getFullYear(), anchor.getMonth() - 12, 1);
+      const end = new Date(anchor.getFullYear(), anchor.getMonth() + 13, 0);
+      return { start, end };
+    }
+
     if (state.viewMode === "Uke") {
       const start = startOfWeek(state.startDate);
       return { start, end: addDays(start, 6) };
@@ -3973,13 +3974,6 @@
       };
     }
 
-    if (state.viewMode === "6 mnd") {
-      const anchor = new Date(state.startDate.getFullYear(), state.startDate.getMonth(), 1);
-      const start = new Date(anchor.getFullYear(), anchor.getMonth() - 3, 1);
-      const end = new Date(anchor.getFullYear(), anchor.getMonth() + 4, 0);
-      return { start, end };
-    }
-
     return {
       start: new Date(state.startDate.getFullYear(), 0, 1),
       end: new Date(state.startDate.getFullYear(), 11, 31)
@@ -3990,6 +3984,10 @@
     const range = getCurrentRange();
     const viewLabel = state.calendarMode === "project" ? "Prosjektplan" : "Personalplan";
 
+    if (state.viewMode === "24 mnd") {
+      return `${viewLabel} • Utvidet tidslinje • ${formatDate(range.start)} – ${formatDate(range.end)}`;
+    }
+
     if (state.viewMode === "Uke") {
       return `${viewLabel} • Uke ${getIsoWeek(range.start)} • ${formatDate(range.start)} – ${formatDate(range.end)}`;
     }
@@ -3998,19 +3996,15 @@
       return `${viewLabel} • ${capitalize(monthLong(range.start))} ${range.start.getFullYear()}`;
     }
 
-    if (state.viewMode === "6 mnd") {
-      return `${viewLabel} • Utvidet tidslinje • ${formatDate(range.start)} – ${formatDate(range.end)}`;
-    }
-
     return `${viewLabel} • ${range.start.getFullYear()}`;
   }
 
   function shiftPeriod(direction) {
-    if (state.viewMode === "Uke") {
+    if (state.viewMode === "24 mnd") {
+      state.startDate = new Date(state.startDate.getFullYear(), state.startDate.getMonth() + direction, 1);
+    } else if (state.viewMode === "Uke") {
       state.startDate = addDays(startOfWeek(state.startDate), direction * 7);
     } else if (state.viewMode === "Måned") {
-      state.startDate = new Date(state.startDate.getFullYear(), state.startDate.getMonth() + direction, 1);
-    } else if (state.viewMode === "6 mnd") {
       state.startDate = new Date(state.startDate.getFullYear(), state.startDate.getMonth() + direction, 1);
     } else {
       state.startDate = new Date(state.startDate.getFullYear() + direction, 0, 1);
@@ -4095,7 +4089,7 @@
     return `${capitalize(monthShort(asLocalDate(start)))}–${capitalize(monthShort(asLocalDate(end)))}`;
   }
   function getDayColumnWidth(dayCount) {
-    if (state.viewMode === "6 mnd") {
+    if (state.viewMode === "24 mnd") {
       return Math.max(30, 34);
     }
     if (state.viewMode === "Uke") {
