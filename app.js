@@ -1741,15 +1741,6 @@
     return getAssignRowsSnapshot().filter(item => item.employee_name);
   }
 
-  function getProjectStaffingMetrics(projectId) {
-    const project = getProjectById(projectId);
-    const required = Math.max(Number(project?.headcount_required || 0), 0);
-    const assigned = projectId ? getProjectAssignedCount(projectId) : 0;
-    const remaining = Math.max(required - assigned, 0);
-    const overbooked = assigned > required ? assigned - required : 0;
-    return { required, assigned, remaining, overbooked };
-  }
-
   function updateAssignSummary(project) {
     if (!els.assignSummary) return;
     if (!project) {
@@ -1757,16 +1748,24 @@
       return;
     }
 
-    const { required, assigned, remaining, overbooked } = getProjectStaffingMetrics(project.id);
+    const required = Math.max(Number(project.headcount_required || 0), 0);
+    const assigned = getProjectAssignedCount(project.id);
+    const remaining = Math.max(required - assigned, 0);
     const startLabel = project.planned_start_date ? formatDate(project.planned_start_date) : "ingen start";
     const endLabel = project.planned_end_date ? formatDate(project.planned_end_date) : "ingen slutt";
 
-    let staffingText = `${project.name} • Behov: ${required} • Tildelt: ${assigned} • Gjenstår: ${remaining} • ${startLabel} – ${endLabel}`;
-    if (overbooked > 0) {
-      staffingText += ` • Overbemannet med ${overbooked}`;
+    if (required <= 0) {
+      els.assignSummary.textContent = `${project.name} • Ingen bemanningskvote satt • ${startLabel} – ${endLabel}`;
+      return;
     }
 
-    els.assignSummary.textContent = staffingText;
+    const statusText = remaining === 0
+      ? assigned > required
+        ? `Overbemannet med ${assigned - required}`
+        : "Fullbemannet"
+      : `Gjenstår: ${remaining}`;
+
+    els.assignSummary.textContent = `${project.name} • Behov: ${required} • Tildelt: ${assigned} • ${statusText} • ${startLabel} – ${endLabel}`;
   }
 
   function renderAssignEmployeeSelectors(projectId = null, preservedRows = null) {
@@ -1774,16 +1773,23 @@
     const resolvedProjectId = projectId ?? (els.assignProject?.value || "");
     const project = getProjectById(resolvedProjectId);
     const activeEmployees = state.employees.filter(e => e.active !== false);
-    const currentRows = Array.isArray(preservedRows) ? preservedRows : getAssignRowsSnapshot();
-    const { remaining, overbooked } = getProjectStaffingMetrics(resolvedProjectId);
-    const baseCount = project ? remaining : 0;
-    const count = Math.max(baseCount, currentRows.length || 0);
+    const currentRows = Array.isArray(preservedRows) ? preservedRows.filter(row => row?.employee_name || row?.role) : getAssignRowsSnapshot();
+    const remainingSlots = getProjectRemainingSlots(project);
+    const count = project
+      ? Math.max(remainingSlots, currentRows.length || 0)
+      : Math.max(currentRows.length || 0, 1);
 
     if (project && count === 0) {
-      const statusMessage = overbooked > 0
-        ? `Prosjektet er allerede overbemannet med ${overbooked}. Fjern eller juster eksisterende tildelinger for å legge til nye.`
-        : "Prosjektet er fullbemannet. Ingen ledige bemanningsplasser igjen.";
-      els.assignEmployeesWrap.innerHTML = `<div class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-sm text-slate-600">${escapeHtml(statusMessage)}</div>`;
+      const required = Math.max(Number(project.headcount_required || 0), 0);
+      const assigned = getProjectAssignedCount(project.id);
+      const message = assigned > required
+        ? `Prosjektet er overbemannet (${assigned}/${required}). Fjern eller juster eksisterende tildelinger før du legger til flere.`
+        : `Prosjektet er fullbemannet (${assigned}/${required}). Ingen ledige bemanningsplasser igjen.`;
+      els.assignEmployeesWrap.innerHTML = `
+        <div class="rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          ${escapeHtml(message)}
+        </div>
+      `;
       return;
     }
 
@@ -1798,7 +1804,7 @@
 
       blocks.push(`
         <div data-assign-row class="rounded-2xl border border-slate-200 bg-slate-50 p-3 space-y-3">
-          <div class="text-sm font-medium text-slate-700">Bemanning ${i + 1}</div>
+          <div class="text-sm font-medium text-slate-700">Ledig plass ${i + 1}</div>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div class="space-y-1">
               <label class="text-sm text-slate-600">Ansatt</label>
@@ -2057,7 +2063,7 @@
   function getProjectsForCurrentListFilter() {
     const visibleProjects = getVisibleProjects().slice().sort((a, b) => compareProjectDates(a, b));
     if (state.projectListFilter === "unstaffed") {
-      return visibleProjects.filter(project => getProjectAssignedCount(project.id) === 0);
+      return visibleProjects.filter(project => projectNeedsStaffing(project));
     }
     return visibleProjects;
   }
@@ -2688,7 +2694,7 @@
 
   function renderStats() {
     const visibleProjects = getVisibleProjects();
-    const unstaffedProjects = visibleProjects.filter(project => getProjectAssignedCount(project.id) === 0);
+    const unstaffedProjects = visibleProjects.filter(project => projectNeedsStaffing(project));
 
     const cards = [
       {
@@ -2698,10 +2704,10 @@
         helper: "Vis alle prosjekter"
       },
       {
-        label: "Prosjekter uten bemanning",
+        label: "Prosjekter som mangler bemanning",
         value: unstaffedProjects.length,
         filter: "unstaffed",
-        helper: "Vis prosjekter som må bemannes"
+        helper: "Vis prosjekter uten eller med delvis bemanning"
       }
     ];
 
@@ -3932,6 +3938,22 @@
 
   function getProjectAssignedCount(projectId) {
     return state.derived.entryCountByProject.get(projectId) || 0;
+  }
+
+  function getProjectRemainingSlots(project) {
+    if (!project) return 1;
+    const required = Math.max(Number(project.headcount_required || 0), 0);
+    if (required <= 0) return 1;
+    const assigned = getProjectAssignedCount(project.id);
+    return Math.max(required - assigned, 0);
+  }
+
+  function projectNeedsStaffing(project) {
+    if (!project) return false;
+    const required = Math.max(Number(project.headcount_required || 0), 0);
+    if (required <= 0) return false;
+    const assigned = getProjectAssignedCount(project.id);
+    return assigned < required;
   }
 
   function getProjectStaffingLabel(projectId, required) {
