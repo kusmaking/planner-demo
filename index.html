@@ -10,10 +10,10 @@
     .scrollbar-thin::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 9999px; }
     .scrollbar-thin::-webkit-scrollbar-track { background: #f8fafc; }
 
-    .calendar-shell { width: 100%; min-width: 100%; }
-    .day-grid, .month-summary-grid { display: grid; gap: 0; align-items: stretch; width: 100%; }
+    .calendar-shell { width: max-content; min-width: 100%; }
+    .day-grid, .month-summary-grid { display: grid; gap: 0; align-items: stretch; width: max-content; }
     .sticky-col { position: sticky; left: 0; z-index: 40; background: white; box-shadow: 10px 0 18px -14px rgba(15, 23, 42, 0.28); }
-    .row-overlay { position: relative; min-height: 56px; }
+    .row-overlay { position: relative; min-height: 52px; }
 
     .entry-bar {
       position: absolute;
@@ -32,7 +32,7 @@
     }
 
     .month-cell, .day-cell {
-      min-height: 56px;
+      min-height: 52px;
       border-right: 1px solid #e2e8f0;
       border-bottom: 1px solid #e2e8f0;
       background: white;
@@ -41,7 +41,6 @@
     .day-cell.weekend { background: #f8fafc; }
     .day-cell.today { background: #eff6ff; }
     .day-cell.red-day { background: #fef2f2; }
-    .row-overlay { position: relative; min-height: 52px; }
   </style>
 </head>
 <body class="bg-slate-100 text-slate-900">
@@ -94,6 +93,7 @@
         </div>
 
         <div id="rangeTitle" class="px-4 py-3 border-b border-slate-200 text-sm text-slate-600"></div>
+        <div id="holidayInfo" class="px-4 py-2 border-b border-slate-200 text-sm text-red-700 bg-red-50/60"></div>
 
         <div class="p-4 border-b border-slate-200 text-sm text-slate-500">
           Personalplan viser tildelte ressurser. Prosjektplan viser alle prosjekter, også de som ennå ikke er bemannet.
