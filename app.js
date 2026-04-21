@@ -16,7 +16,7 @@
     groupFilterSearch: "",
     employeeGroupFilterOpen: false,
     search: "",
-    viewMode: "Tidslinje",
+    viewMode: "Måned",
     calendarMode: load(STORAGE_KEYS.calendarMode, "personal"),
     startDate: startOfCurrentMonth(),
     selectedEntryId: null,
@@ -124,6 +124,7 @@
 
   async function init() {
     cacheElements();
+    hardenSearchInput();
     ensureEmployeeGroupFilterControl();
     ensureAccountPanel();
     ensurePersonalBlockPanel();
@@ -132,7 +133,7 @@
     setupStaticOptions();
     bindEvents();
 
-    state.viewMode = "Tidslinje";
+    state.viewMode = "Måned";
     state.startDate = startOfCurrentMonth();
     persistUiState();
 
@@ -176,6 +177,130 @@
   }
 
 
+
+  function hardenSearchInput() {
+    if (!els.searchInput) return;
+    els.searchInput.value = "";
+    els.searchInput.setAttribute("autocomplete", "off");
+    els.searchInput.setAttribute("autocorrect", "off");
+    els.searchInput.setAttribute("autocapitalize", "none");
+    els.searchInput.setAttribute("spellcheck", "false");
+    els.searchInput.setAttribute("name", "planner_search_filter");
+    els.searchInput.setAttribute("data-lpignore", "true");
+  }
+
+  function startOfWeekMonday(date) {
+    const d = new Date(date);
+    const day = d.getDay();
+    const diff = day === 0 ? -6 : 1 - day;
+    d.setDate(d.getDate() + diff);
+    d.setHours(0, 0, 0, 0);
+    return d;
+  }
+
+  function getMonthHeaderGroups(days) {
+    const groups = [];
+    for (const day of days) {
+      const key = `${day.getFullYear()}-${day.getMonth()}`;
+      const label = `${capitalize(monthLong(day))} ${day.getFullYear()}`;
+      const current = groups[groups.length - 1];
+      if (current && current.key === key) {
+        current.count += 1;
+      } else {
+        groups.push({ key, label, count: 1 });
+      }
+    }
+    return groups;
+  }
+
+  function getWeekHeaderGroups(days) {
+    const groups = [];
+    for (const day of days) {
+      const weekStart = startOfWeekMonday(day);
+      const key = toIsoDate(weekStart);
+      const label = `Uke ${getIsoWeek(day)}`;
+      const current = groups[groups.length - 1];
+      if (current && current.key === key) {
+        current.count += 1;
+      } else {
+        groups.push({ key, label, count: 1 });
+      }
+    }
+    return groups;
+  }
+
+  function getEasterSunday(year) {
+    const a = year % 19;
+    const b = Math.floor(year / 100);
+    const c = year % 100;
+    const d = Math.floor(b / 4);
+    const e = b % 4;
+    const f = Math.floor((b + 8) / 25);
+    const g = Math.floor((b - f + 1) / 3);
+    const h = (19 * a + b - d - g + 15) % 30;
+    const i = Math.floor(c / 4);
+    const k = c % 4;
+    const l = (32 + 2 * e + 2 * i - h - k) % 7;
+    const m = Math.floor((a + 11 * h + 22 * l) / 451);
+    const month = Math.floor((h + l - 7 * m + 114) / 31);
+    const day = ((h + l - 7 * m + 114) % 31) + 1;
+    return new Date(year, month - 1, day);
+  }
+
+  function isNorwegianHoliday(date) {
+    if (!date) return false;
+    const year = date.getFullYear();
+    const easter = getEasterSunday(year);
+    const fixed = new Set([
+      `${year}-01-01`,
+      `${year}-05-01`,
+      `${year}-05-17`,
+      `${year}-12-25`,
+      `${year}-12-26`
+    ]);
+    const movable = [
+      addDays(easter, -3),
+      addDays(easter, -2),
+      easter,
+      addDays(easter, 1),
+      addDays(easter, 39),
+      addDays(easter, 49),
+      addDays(easter, 50)
+    ].map(toIsoDate);
+    const iso = toIsoDate(date);
+    return fixed.has(iso) || movable.includes(iso);
+  }
+
+  function isRedDay(date) {
+    return !!date && (date.getDay() === 0 || isNorwegianHoliday(date));
+  }
+
+  function renderTimelineHeaderRows(days) {
+    const monthGroups = getMonthHeaderGroups(days);
+    const weekGroups = getWeekHeaderGroups(days);
+    let html = '';
+
+    html += `<div class="sticky-col z-40 border-b border-r border-slate-200 bg-slate-50 px-3 py-3 font-semibold">Ansatt</div>`;
+    for (const group of monthGroups) {
+      html += `<div class="border-b border-r border-slate-200 bg-slate-50 px-2 py-3 text-center text-sm font-semibold" style="grid-column: span ${group.count};">${escapeHtml(group.label)}</div>`;
+    }
+
+    html += `<div class="sticky-col z-40 border-b border-r border-slate-200 bg-slate-50 px-3 py-2"></div>`;
+    for (const group of weekGroups) {
+      html += `<div class="border-b border-r border-slate-200 bg-white px-1 py-2 text-center text-[11px] text-slate-600" style="grid-column: span ${group.count};">${escapeHtml(group.label)}</div>`;
+    }
+
+    html += `<div class="sticky-col z-40 border-b border-r border-slate-200 bg-slate-50 px-3 py-2"></div>`;
+    for (let i = 0; i < days.length; i++) {
+      const day = days[i];
+      const nextDay = days[i + 1] || null;
+      const monthBoundary = !nextDay || nextDay.getMonth() !== day.getMonth();
+      const redDay = isRedDay(day);
+      html += `<div class="border-b ${monthBoundary ? 'border-r-2 border-r-slate-400' : 'border-r border-slate-200'} px-1 py-2 text-center text-[10px] ${redDay ? 'bg-red-50 text-red-700' : 'bg-white text-slate-500'}"><div class="font-medium">${escapeHtml(weekdayShort(day))}</div><div>${day.getDate()}</div><div>${escapeHtml(monthShort(day))}</div></div>`;
+    }
+
+    return html;
+  }
 
   function ensureEmployeeGroupFilterControl() {
     if (!els.employeeFilter) return;
@@ -1046,7 +1171,7 @@
   }
 
   function getEmployeeNameTabHtml(employee) {
-    return `<div class="text-sm font-semibold leading-tight">${escapeHtml(employee?.name || "")}</div>`;
+    return `<div class="text-[15px] font-bold leading-tight">${escapeHtml(employee?.name || "")}</div>`;
   }
 
   function bindEvents() {
@@ -1134,7 +1259,11 @@
     });
 
     els.todayBtn.addEventListener("click", () => {
-      state.startDate = startOfCurrentMonth();
+      state.startDate = state.viewMode === "År"
+        ? new Date(new Date().getFullYear(), 0, 1)
+        : state.viewMode === "Måned"
+          ? startOfCurrentMonth()
+          : startOfWeek(new Date());
       persistUiState();
       renderStats();
       renderCalendar();
@@ -1659,7 +1788,7 @@
     state.auditLog = structuredClone(DEFAULT_AUDIT_LOG);
     state.notificationLog = structuredClone(DEFAULT_NOTIFICATION_LOG);
     state.startDate = new Date("2026-01-05");
-    state.viewMode = "Tidslinje";
+    state.viewMode = "Uke";
     state.calendarMode = "personal";
     rebuildDerivedState();
     persistUiState();
@@ -2684,7 +2813,7 @@
     fillSelect(els.personalBlockEmployee, [{ id: "", name: "Velg ansatt" }, ...state.employees.filter(e => e.active !== false).map(e => ({ id: e.name, name: e.name }))], els.personalBlockEmployee?.value || "", "name", "id");
     fillSelect(els.personalBlockType, PERSONAL_BLOCK_TYPES, els.personalBlockType?.value || PERSONAL_BLOCK_TYPES[0] || "");
     fillSelect(els.contextMenuType, PERSONAL_BLOCK_TYPES, els.contextMenuType?.value || "Ferie");
-    fillSelect(els.viewMode, ["Tidslinje"], state.viewMode);
+    fillSelect(els.viewMode, ["Uke", "Måned", "År"], state.viewMode);
     fillSelect(els.calendarMode, [
       { id: "personal", name: "Personalplan" },
       { id: "project", name: "Prosjektplan" }
@@ -3122,206 +3251,21 @@
     els.systemStatus.innerHTML = lines.join("");
   }
 
-
-  function startOfWeekMonday(date) {
-    return startOfWeek(date);
-  }
-
-  function addWeeks(date, weeks) {
-    return addDays(date, weeks * 7);
-  }
-
-  function getTimelineRange() {
-    const monthStart = new Date(state.startDate.getFullYear(), state.startDate.getMonth(), 1);
-    const start = startOfWeekMonday(monthStart);
-    const rawEnd = new Date(monthStart.getFullYear(), monthStart.getMonth() + 12, 0);
-    const end = addDays(startOfWeekMonday(rawEnd), 6);
-    return { start, end };
-  }
-
-  function getWeekStartsBetween(start, end) {
-    const starts = [];
-    let current = startOfWeekMonday(start);
-    while (current <= end) {
-      starts.push(new Date(current));
-      current = addWeeks(current, 1);
-    }
-    return starts;
-  }
-
-  function chunkWeeksByMonth(weekStarts) {
-    const groups = [];
-    for (const weekStart of weekStarts) {
-      const monthDate = new Date(weekStart.getFullYear(), weekStart.getMonth(), 1);
-      const key = `${monthDate.getFullYear()}-${monthDate.getMonth()}`;
-      const label = `${capitalize(monthLong(monthDate))} ${monthDate.getFullYear()}`;
-      const last = groups[groups.length - 1];
-      if (last && last.key === key) {
-        last.count += 1;
-      } else {
-        groups.push({ key, label, count: 1 });
-      }
-    }
-    return groups;
-  }
-
-  function getTimelineColumnMeta(weekStart) {
-    const isoDate = toIsoDate(weekStart);
-    return {
-      isoDate,
-      weekNumber: getIsoWeek(weekStart),
-      dateLabel: formatShortDateNoYear(weekStart)
-    };
-  }
-
-  function formatShortDateNoYear(value) {
-    const d = asLocalDate(value);
-    return new Intl.DateTimeFormat("no-NO", { day: "2-digit", month: "2-digit" }).format(d);
-  }
-
-  function getWeekDiff(start, end) {
-    return Math.floor(diffDays(start, end) / 7);
-  }
-
-  function getTimelineEmployeeCellHtml(employee) {
-    return `
-      <div class="text-base font-bold leading-tight">${escapeHtml(employee?.name || "")}</div>
-      ${employee.title ? `<div class="text-[11px] opacity-80 leading-tight mt-1">${escapeHtml(employee.title)}</div>` : ""}
-    `;
-  }
-
-  function renderPersonalTimelineCalendar() {
-    const range = getTimelineRange();
-    const weekStarts = getWeekStartsBetween(range.start, range.end);
-    const monthGroups = chunkWeeksByMonth(weekStarts);
-    const employees = getFilteredEmployees();
-    const stickyWidth = 280;
-    const colWidth = 92;
-    const totalWidth = colWidth * weekStarts.length;
-    let html = `<div class="calendar-shell" style="width:${stickyWidth + totalWidth}px; min-width:${stickyWidth + totalWidth}px;">`;
-    html += `<div class="timeline-grid border border-slate-200 rounded-2xl overflow-visible" style="grid-template-columns:${stickyWidth}px repeat(${weekStarts.length}, ${colWidth}px);">`;
-    html += `<div class="sticky-col sticky-head border-b border-r border-slate-200 bg-slate-50 px-3 py-3 font-semibold">Ansatt</div>`;
-    for (const group of monthGroups) {
-      html += `<div class="timeline-month-head border-b border-r border-slate-200 px-2 py-3 text-center text-sm font-semibold" style="grid-column: span ${group.count};">${escapeHtml(group.label)}</div>`;
-    }
-    html += `<div class="sticky-col sticky-head border-b border-r border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium">Ansatt</div>`;
-    for (let i = 0; i < weekStarts.length; i++) {
-      const meta = getTimelineColumnMeta(weekStarts[i]);
-      const monthBoundary = i === weekStarts.length - 1 || weekStarts[i + 1].getMonth() !== weekStarts[i].getMonth();
-      html += `<div class="timeline-week-head border-b ${monthBoundary ? 'border-r-2 border-r-slate-400' : 'border-r border-slate-200'} px-2 py-2 text-center text-xs text-slate-600">Uke ${meta.weekNumber}</div>`;
-    }
-    html += `<div class="sticky-col sticky-head border-b border-r border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium">Ansatt</div>`;
-    for (let i = 0; i < weekStarts.length; i++) {
-      const meta = getTimelineColumnMeta(weekStarts[i]);
-      const monthBoundary = i === weekStarts.length - 1 || weekStarts[i + 1].getMonth() !== weekStarts[i].getMonth();
-      html += `<div class="timeline-date-head border-b ${monthBoundary ? 'border-r-2 border-r-slate-400' : 'border-r border-slate-200'} px-2 py-2 text-center text-xs text-slate-500">${meta.dateLabel}</div>`;
-    }
-    const warnings = [];
-    for (const employee of employees) {
-      const employeeEntries = getVisibleEntriesForEmployee(employee.name, range.start, range.end);
-      html += `<div class="sticky-col border-r border-b border-slate-200 px-3 py-2 ${getEmployeeCalendarCellClass(employee)}">${getTimelineEmployeeCellHtml(employee)}</div>`;
-      html += `<div class="row-overlay border-b border-slate-200 drop-row" data-employee-name="${escapeHtml(employee.name)}" data-range-start="${toIsoDate(range.start)}" data-col-width="${colWidth}" data-total-cols="${weekStarts.length}" data-time-unit="week" style="grid-column: span ${weekStarts.length}; width:${totalWidth}px;">`;
-      for (let i = 0; i < weekStarts.length; i++) {
-        const weekStart = weekStarts[i];
-        const monthBoundary = i === weekStarts.length - 1 || weekStarts[i + 1].getMonth() !== weekStart.getMonth();
-        html += `<div data-drop-slot-index="${i}" data-drop-date="${toIsoDate(weekStart)}" class="timeline-week-cell" style="position:absolute; left:${i * colWidth}px; width:${colWidth}px; border-right:${monthBoundary ? '2px solid #94a3b8' : '1px solid #e2e8f0'};"></div>`;
-      }
-      html += `<div style="position:relative; width:${totalWidth}px; min-height:56px;">`;
-      for (const entry of employeeEntries) {
-        const project = getProjectById(entry.project_id);
-        if (!project) continue;
-        const clipped = clipRange(asLocalDate(entry.start_date), asLocalDate(entry.end_date), range.start, range.end);
-        const startIndex = getWeekDiff(range.start, clipped.start);
-        const endIndex = getWeekDiff(range.start, clipped.end);
-        const spanWeeks = Math.max(1, endIndex - startIndex + 1);
-        const left = startIndex * colWidth + 2;
-        const width = Math.max(spanWeeks * colWidth - 4, 44);
-        html += `
-          <div class="entry-bar ${getEntryBarClasses(project, entry.role)}" style="left:${left}px; width:${width}px;" data-entry-id="${escapeHtml(entry.id)}" draggable="true" title="${escapeHtml(`${employee.name} | ${displayProjectName(project)} | ${entry.role} | ${entry.start_date} - ${entry.end_date}${entry.notes ? ` | ${entry.notes}` : ''}`)}">
-            <div class="font-semibold">${escapeHtml(displayProjectName(project))}</div>
-            ${isSystemPersonalProject(project) ? '' : `<div class="text-[11px] opacity-90">${escapeHtml(entry.role)}</div>`}
-            <div data-resize-handle data-resize-type="entry" data-target-id="${escapeHtml(entry.id)}" title="Dra for å endre sluttdato" style="position:absolute; top:0; right:0; bottom:0; width:12px; cursor:ew-resize; border-left:1px solid rgba(255,255,255,0.35); background:linear-gradient(to left, rgba(255,255,255,0.35), rgba(255,255,255,0));"></div>
-          </div>`;
-        const overlappingCount = employeeEntries.filter(other => other.id !== entry.id && overlaps(entry.start_date, entry.end_date, other.start_date, other.end_date)).length;
-        if (overlappingCount > 0) warnings.push(`${employee.name} har overlappende tildelinger rundt ${entry.start_date}–${entry.end_date}.`);
-      }
-      html += `</div></div>`;
-    }
-    html += `</div></div>`;
-    els.calendarWrap.innerHTML = html;
-    bindEntryClicks();
-    bindResizeHandles();
-    renderWarnings(uniqueArray(warnings));
-  }
-
-  function renderProjectTimelineCalendar() {
-    const range = getTimelineRange();
-    const weekStarts = getWeekStartsBetween(range.start, range.end);
-    const monthGroups = chunkWeeksByMonth(weekStarts);
-    const projects = getVisibleProjects().filter(project => projectOverlapsRange(project, range.start, range.end));
-    const stickyWidth = 320;
-    const colWidth = 92;
-    const totalWidth = colWidth * weekStarts.length;
-    let html = `<div class="calendar-shell" style="width:${stickyWidth + totalWidth}px; min-width:${stickyWidth + totalWidth}px;">`;
-    html += `<div class="timeline-grid border border-slate-200 rounded-2xl overflow-visible" style="grid-template-columns:${stickyWidth}px repeat(${weekStarts.length}, ${colWidth}px);">`;
-    html += `<div class="sticky-col sticky-head border-b border-r border-slate-200 bg-slate-50 px-3 py-3 font-semibold">Prosjekt</div>`;
-    for (const group of monthGroups) {
-      html += `<div class="timeline-month-head border-b border-r border-slate-200 px-2 py-3 text-center text-sm font-semibold" style="grid-column: span ${group.count};">${escapeHtml(group.label)}</div>`;
-    }
-    html += `<div class="sticky-col sticky-head border-b border-r border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium">Prosjekt</div>`;
-    for (let i = 0; i < weekStarts.length; i++) {
-      const meta = getTimelineColumnMeta(weekStarts[i]);
-      const monthBoundary = i === weekStarts.length - 1 || weekStarts[i + 1].getMonth() !== weekStarts[i].getMonth();
-      html += `<div class="timeline-week-head border-b ${monthBoundary ? 'border-r-2 border-r-slate-400' : 'border-r border-slate-200'} px-2 py-2 text-center text-xs text-slate-600">Uke ${meta.weekNumber}</div>`;
-    }
-    html += `<div class="sticky-col sticky-head border-b border-r border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium">Prosjekt</div>`;
-    for (let i = 0; i < weekStarts.length; i++) {
-      const meta = getTimelineColumnMeta(weekStarts[i]);
-      const monthBoundary = i === weekStarts.length - 1 || weekStarts[i + 1].getMonth() !== weekStarts[i].getMonth();
-      html += `<div class="timeline-date-head border-b ${monthBoundary ? 'border-r-2 border-r-slate-400' : 'border-r border-slate-200'} px-2 py-2 text-center text-xs text-slate-500">${meta.dateLabel}</div>`;
-    }
-    const warnings = [];
-    for (const project of projects) {
-      const assigned = getProjectAssignedCount(project.id);
-      const required = Number(project.headcount_required || 0);
-      const staffing = getProjectStaffingLabel(project.id, required);
-      html += `<div class="sticky-col border-r border-b border-slate-200 px-3 py-3 ${project.status === 'Avsluttet' ? 'bg-slate-100' : 'bg-white'}"><div class="font-semibold">${escapeHtml(project.name)}</div><div class="text-xs text-slate-500">${escapeHtml(project.location || '')}</div><div class="text-xs ${staffing.variant} mt-1">${escapeHtml(staffing.text)}${required ? ` (${assigned}/${required})` : ''}</div></div>`;
-      html += `<div class="row-overlay border-b border-slate-200" data-range-start="${toIsoDate(range.start)}" data-col-width="${colWidth}" data-total-cols="${weekStarts.length}" data-time-unit="week" style="grid-column: span ${weekStarts.length}; width:${totalWidth}px;">`;
-      for (let i = 0; i < weekStarts.length; i++) {
-        const monthBoundary = i === weekStarts.length - 1 || weekStarts[i + 1].getMonth() !== weekStarts[i].getMonth();
-        html += `<div data-drop-slot-index="${i}" data-drop-date="${toIsoDate(weekStarts[i])}" class="timeline-week-cell" style="position:absolute; left:${i * colWidth}px; width:${colWidth}px; border-right:${monthBoundary ? '2px solid #94a3b8' : '1px solid #e2e8f0'};"></div>`;
-      }
-      html += `<div style="position:relative; width:${totalWidth}px; min-height:56px;">`;
-      if (project.planned_start_date && project.planned_end_date) {
-        const clipped = clipRange(asLocalDate(project.planned_start_date), asLocalDate(project.planned_end_date), range.start, range.end);
-        const startIndex = getWeekDiff(range.start, clipped.start);
-        const endIndex = getWeekDiff(range.start, clipped.end);
-        const spanWeeks = Math.max(1, endIndex - startIndex + 1);
-        const left = startIndex * colWidth + 2;
-        const width = Math.max(spanWeeks * colWidth - 4, 44);
-        html += `<div class="entry-bar ${getProjectBarClasses(project)}" style="left:${left}px; width:${width}px;" data-project-row-id="${escapeHtml(project.id)}" title="${escapeHtml(`${project.name} | ${formatProjectDateRange(project)} | ${staffing.text}`)}"><div class="font-semibold">${escapeHtml(project.name)}</div><div class="text-[11px] opacity-90">${escapeHtml(staffing.text)}</div><div data-resize-handle data-resize-type="project" data-target-id="${escapeHtml(project.id)}" title="Dra for å endre sluttdato" style="position:absolute; top:0; right:0; bottom:0; width:12px; cursor:ew-resize; border-left:1px solid rgba(255,255,255,0.35); background:linear-gradient(to left, rgba(255,255,255,0.35), rgba(255,255,255,0));"></div></div>`;
-      }
-      html += `</div></div>`;
-    }
-    html += `</div></div>`;
-    els.calendarWrap.innerHTML = html;
-    els.calendarWrap.querySelectorAll('[data-project-row-id]').forEach(el => {
-      el.addEventListener('click', () => openProjectModal(el.dataset.projectRowId));
-    });
-    bindResizeHandles();
-    renderWarnings(uniqueArray(warnings));
-  }
-
   function renderCalendar() {
     if (!els.calendarWrap) return;
     els.rangeTitle.innerHTML = getRangeTitle();
 
     if (state.calendarMode === "project") {
-      renderProjectTimelineCalendar();
+      renderProjectCalendar();
       return;
     }
 
-    renderPersonalTimelineCalendar();
+    if (state.viewMode === "År") {
+      renderPersonalYearCalendar();
+      return;
+    }
+
+    renderPersonalDayCalendar();
   }
 
   function renderPersonalDayCalendar() {
@@ -3329,30 +3273,13 @@
     const days = getDaysBetween(range.start, range.end);
     const employees = getFilteredEmployees();
 
-    const calendarWrapWidth = Math.max(els.calendarWrap.clientWidth - 8, 900);
-    const stickyWidth = 280;
-    const usableWidth = Math.max(calendarWrapWidth - stickyWidth, state.viewMode === "Uke" ? 980 : 1100);
-    const colWidth = usableWidth / days.length;
+    const stickyWidth = 238;
+    const colWidth = Math.max(28, state.viewMode === "Uke" ? 38 : 30);
     const totalWidth = colWidth * days.length;
 
-    let html = `<div class="calendar-shell" style="width:${stickyWidth + totalWidth}px;">`;
-    html += `<div class="day-grid border border-slate-200 rounded-2xl overflow-hidden" style="grid-template-columns:${stickyWidth}px repeat(${days.length}, ${colWidth}px);">`;
-    html += `<div class="sticky-col z-30 border-b border-r border-slate-200 bg-slate-50 px-3 py-3 font-semibold">Ansatt</div>`;
-
-    for (const day of days) {
-      const weekend = isWeekend(day);
-      const isTodayFlag = sameDate(day, new Date());
-      const weekLabel = state.viewMode === "Uke" ? `<div>Uke ${getIsoWeek(day)}</div>` : "";
-
-      html += `
-        <div class="border-b border-r border-slate-200 px-2 py-2 text-center text-xs ${weekend ? "bg-slate-50" : "bg-white"} ${isTodayFlag ? "text-blue-700 font-semibold" : "text-slate-600"}">
-          <div class="font-semibold">${weekdayShort(day)}</div>
-          ${weekLabel}
-          <div class="font-semibold">${day.getDate()}</div>
-          <div>${monthShort(day)}</div>
-        </div>
-      `;
-    }
+    let html = `<div class="calendar-shell" style="width:${stickyWidth + totalWidth}px; min-width:${stickyWidth + totalWidth}px;">`;
+    html += `<div class="day-grid border border-slate-200 rounded-2xl overflow-visible" style="grid-template-columns:${stickyWidth}px repeat(${days.length}, ${colWidth}px);">`;
+    html += renderTimelineHeaderRows(days);
 
     const warnings = [];
 
@@ -3362,7 +3289,7 @@
       html += `
         <div class="sticky-col border-r border-b border-slate-200 px-3 py-2 ${getEmployeeCalendarCellClass(employee)}">
           <div>${getEmployeeNameTabHtml(employee)}</div>
-          ${employee.title ? `<div class="text-[11px] text-slate-600 leading-tight mt-1">${escapeHtml(employee.title)}</div>` : ""}
+          ${employee.title ? `<div class="text-[11px] opacity-80 leading-tight mt-1">${escapeHtml(employee.title)}</div>` : ""}
         </div>
       `;
 
@@ -3370,12 +3297,13 @@
 
       for (let i = 0; i < days.length; i++) {
         const day = days[i];
-        const weekend = isWeekend(day);
-        const isTodayFlag = sameDate(day, new Date());
-        html += `<div data-drop-slot-index="${i}" data-drop-date="${toIsoDate(day)}" class="day-cell ${weekend ? "weekend" : ""} ${isTodayFlag ? "today" : ""}" style="position:absolute; left:${i * colWidth}px; width:${colWidth}px;"></div>`;
+        const nextDay = days[i + 1] || null;
+        const monthBoundary = !nextDay || nextDay.getMonth() !== day.getMonth();
+        const redDay = isRedDay(day);
+        html += `<div data-drop-slot-index="${i}" data-drop-date="${toIsoDate(day)}" class="day-cell ${redDay ? "red-day" : ""}" style="position:absolute; left:${i * colWidth}px; width:${colWidth}px; border-right:${monthBoundary ? "2px solid #94a3b8" : "1px solid #e2e8f0"};"></div>`;
       }
 
-      html += `<div style="position:relative; width:${totalWidth}px; min-height:56px;">`;
+      html += `<div style="position:relative; width:${totalWidth}px; min-height:52px;">`;
 
       for (const entry of employeeEntries) {
         const project = getProjectById(entry.project_id);
@@ -3515,29 +3443,32 @@
     const days = getDaysBetween(range.start, range.end);
     const projects = getVisibleProjects().filter(project => projectOverlapsRange(project, range.start, range.end));
 
-    const calendarWrapWidth = Math.max(els.calendarWrap.clientWidth - 8, 900);
-    const stickyWidth = 320;
-    const usableWidth = Math.max(calendarWrapWidth - stickyWidth, state.viewMode === "Uke" ? 980 : 1100);
-    const colWidth = usableWidth / days.length;
+    const stickyWidth = 300;
+    const colWidth = Math.max(28, state.viewMode === "Uke" ? 38 : 30);
     const totalWidth = colWidth * days.length;
 
-    let html = `<div class="calendar-shell" style="width:${stickyWidth + totalWidth}px;">`;
-    html += `<div class="day-grid border border-slate-200 rounded-2xl overflow-hidden" style="grid-template-columns:${stickyWidth}px repeat(${days.length}, ${colWidth}px);">`;
-    html += `<div class="sticky-col z-30 border-b border-r border-slate-200 bg-slate-50 px-3 py-3 font-semibold">Prosjekt</div>`;
+    let html = `<div class="calendar-shell" style="width:${stickyWidth + totalWidth}px; min-width:${stickyWidth + totalWidth}px;">`;
+    html += `<div class="day-grid border border-slate-200 rounded-2xl overflow-visible" style="grid-template-columns:${stickyWidth}px repeat(${days.length}, ${colWidth}px);">`;
 
-    for (const day of days) {
-      const weekend = isWeekend(day);
-      const isTodayFlag = sameDate(day, new Date());
-      const weekLabel = state.viewMode === "Uke" ? `<div>Uke ${getIsoWeek(day)}</div>` : "";
+    html += `<div class="sticky-col z-40 border-b border-r border-slate-200 bg-slate-50 px-3 py-3 font-semibold">Prosjekt</div>`;
+    const monthGroups = getMonthHeaderGroups(days);
+    for (const group of monthGroups) {
+      html += `<div class="border-b border-r border-slate-200 bg-slate-50 px-2 py-3 text-center text-sm font-semibold" style="grid-column: span ${group.count};">${escapeHtml(group.label)}</div>`;
+    }
 
-      html += `
-        <div class="border-b border-r border-slate-200 px-2 py-2 text-center text-xs ${weekend ? "bg-slate-50" : "bg-white"} ${isTodayFlag ? "text-blue-700 font-semibold" : "text-slate-600"}">
-          <div class="font-semibold">${weekdayShort(day)}</div>
-          ${weekLabel}
-          <div class="font-semibold">${day.getDate()}</div>
-          <div>${monthShort(day)}</div>
-        </div>
-      `;
+    html += `<div class="sticky-col z-40 border-b border-r border-slate-200 bg-slate-50 px-3 py-2"></div>`;
+    const weekGroups = getWeekHeaderGroups(days);
+    for (const group of weekGroups) {
+      html += `<div class="border-b border-r border-slate-200 bg-white px-1 py-2 text-center text-[11px] text-slate-600" style="grid-column: span ${group.count};">${escapeHtml(group.label)}</div>`;
+    }
+
+    html += `<div class="sticky-col z-40 border-b border-r border-slate-200 bg-slate-50 px-3 py-2"></div>`;
+    for (let i = 0; i < days.length; i++) {
+      const day = days[i];
+      const nextDay = days[i + 1] || null;
+      const monthBoundary = !nextDay || nextDay.getMonth() !== day.getMonth();
+      const redDay = isRedDay(day);
+      html += `<div class="border-b ${monthBoundary ? 'border-r-2 border-r-slate-400' : 'border-r border-slate-200'} px-1 py-2 text-center text-[10px] ${redDay ? 'bg-red-50 text-red-700' : 'bg-white text-slate-500'}"><div class="font-medium">${escapeHtml(weekdayShort(day))}</div><div>${day.getDate()}</div><div>${escapeHtml(monthShort(day))}</div></div>`;
     }
 
     for (const project of projects) {
@@ -3546,7 +3477,7 @@
       const staffing = getProjectStaffingLabel(project.id, required);
 
       html += `
-        <div class="sticky-col border-r border-b border-slate-200 px-3 py-3 ${project.status === "Avsluttet" ? "bg-slate-100" : ""}">
+        <div class="sticky-col border-r border-b border-slate-200 px-3 py-2 ${project.status === "Avsluttet" ? "bg-slate-100" : "bg-white"}">
           <div class="font-medium">${escapeHtml(project.name)}</div>
           <div class="text-xs text-slate-500">${escapeHtml(project.location || "")}</div>
           <div class="text-xs ${staffing.variant} mt-1">${escapeHtml(staffing.text)}${required ? ` (${assigned}/${required})` : ""}</div>
@@ -3557,12 +3488,13 @@
 
       for (let i = 0; i < days.length; i++) {
         const day = days[i];
-        const weekend = isWeekend(day);
-        const isTodayFlag = sameDate(day, new Date());
-        html += `<div data-drop-slot-index="${i}" data-drop-date="${toIsoDate(day)}" class="day-cell ${weekend ? "weekend" : ""} ${isTodayFlag ? "today" : ""}" style="position:absolute; left:${i * colWidth}px; width:${colWidth}px;"></div>`;
+        const nextDay = days[i + 1] || null;
+        const monthBoundary = !nextDay || nextDay.getMonth() !== day.getMonth();
+        const redDay = isRedDay(day);
+        html += `<div data-drop-slot-index="${i}" data-drop-date="${toIsoDate(day)}" class="day-cell ${redDay ? "red-day" : ""}" style="position:absolute; left:${i * colWidth}px; width:${colWidth}px; border-right:${monthBoundary ? "2px solid #94a3b8" : "1px solid #e2e8f0"};"></div>`;
       }
 
-      html += `<div style="position:relative; width:${totalWidth}px; min-height:56px;">`;
+      html += `<div style="position:relative; width:${totalWidth}px; min-height:52px;">`;
 
       if (project.planned_start_date && project.planned_end_date) {
         const clipped = clipRange(asLocalDate(project.planned_start_date), asLocalDate(project.planned_end_date), range.start, range.end);
@@ -3595,7 +3527,6 @@
       el.addEventListener("click", () => openProjectModal(el.dataset.projectRowId));
     });
     bindResizeHandles();
-
     renderWarnings(uniqueArray(warnings));
   }
 
@@ -3866,20 +3797,6 @@
       };
     }
 
-    if (dropMeta.timeUnit === 'week') {
-      const weekIndex = Number.isFinite(dropMeta.colIndex) ? Number(dropMeta.colIndex) : 0;
-      const startDate = parseIsoDateLocal(snapshot.originalStartDate);
-      const rangeStart = parseIsoDateLocal(dropMeta.rangeStart);
-      if (!startDate || !rangeStart) return null;
-      const targetWeek = addWeeks(rangeStart, weekIndex);
-      const resolvedEnd = targetWeek < startDate ? startDate : targetWeek;
-      return {
-        endDate: toIsoDate(resolvedEnd),
-        colIndex: weekIndex,
-        timeUnit: 'week'
-      };
-    }
-
     if (dropMeta.timeUnit === 'month') {
       const monthIndex = Number.isFinite(dropMeta.dropMonthIndex) ? dropMeta.dropMonthIndex : Number(dropMeta.colIndex || 0);
       const startDate = parseIsoDateLocal(snapshot.originalStartDate);
@@ -3920,13 +3837,6 @@
       if (!rangeStart || !startDate || !endDate) return;
       startIndex = clampSlotIndex(diffDays(rangeStart, startDate), totalCols);
       endIndex = clampSlotIndex(diffDays(rangeStart, endDate), totalCols);
-    } else if (timeUnit === 'week') {
-      const rangeStart = parseIsoDateLocal(row.dataset.rangeStart);
-      const startDate = parseIsoDateLocal(snapshot.originalStartDate);
-      const endDate = parseIsoDateLocal(preview.endDate);
-      if (!rangeStart || !startDate || !endDate) return;
-      startIndex = clampSlotIndex(getWeekDiff(rangeStart, startDate), totalCols);
-      endIndex = clampSlotIndex(getWeekDiff(rangeStart, endDate), totalCols);
     } else {
       const rangeStart = parseIsoDateLocal(row.dataset.rangeStart);
       const startDate = parseIsoDateLocal(snapshot.originalStartDate);
@@ -4040,24 +3950,6 @@
       }
     }
 
-    if (dropMeta?.timeUnit === "week" && dropMeta.rangeStart && Number.isFinite(dropMeta.colIndex)) {
-      const durationDays = Math.max(0, diffDays(asLocalDate(entry.start_date), asLocalDate(entry.end_date)));
-      const pointerDate = dropMeta.dropDate
-        ? parseIsoDateLocal(dropMeta.dropDate)
-        : addWeeks(parseIsoDateLocal(dropMeta.rangeStart), dropMeta.colIndex);
-      const anchorOffset = Math.max(0, Number(state.dragAnchor?.slotOffset || 0));
-      const newStart = addWeeks(pointerDate, -anchorOffset);
-      const resolvedStart = Number.isFinite(newStart?.getTime?.()) ? newStart : addWeeks(parseIsoDateLocal(dropMeta.rangeStart), getAdjustedDropColIndex(dropMeta));
-      const newEnd = addDays(resolvedStart, durationDays);
-      const newStartIso = toIsoDate(resolvedStart);
-      const newEndIso = toIsoDate(newEnd);
-      if (entry.start_date !== newStartIso || entry.end_date !== newEndIso) {
-        entry.start_date = newStartIso;
-        entry.end_date = newEndIso;
-        changed = true;
-      }
-    }
-
     if (dropMeta?.timeUnit === "month" && dropMeta.rangeStart && Number.isFinite(dropMeta.colIndex)) {
       const durationDays = Math.max(0, diffDays(asLocalDate(entry.start_date), asLocalDate(entry.end_date)));
       const originalStart = asLocalDate(entry.start_date);
@@ -4127,17 +4019,47 @@
   }
 
   function getCurrentRange() {
-    return getTimelineRange();
+    if (state.viewMode === "Uke") {
+      const start = startOfWeek(state.startDate);
+      return { start, end: addDays(start, 6) };
+    }
+
+    if (state.viewMode === "Måned") {
+      return {
+        start: new Date(state.startDate.getFullYear(), state.startDate.getMonth(), 1),
+        end: new Date(state.startDate.getFullYear(), state.startDate.getMonth() + 1, 0)
+      };
+    }
+
+    return {
+      start: new Date(state.startDate.getFullYear(), 0, 1),
+      end: new Date(state.startDate.getFullYear(), 11, 31)
+    };
   }
 
   function getRangeTitle() {
-    const range = getTimelineRange();
+    const range = getCurrentRange();
     const viewLabel = state.calendarMode === "project" ? "Prosjektplan" : "Personalplan";
-    return `${viewLabel} • Tidslinje • ${formatDate(range.start)} – ${formatDate(range.end)}`;
+
+    if (state.viewMode === "Uke") {
+      return `${viewLabel} • Uke ${getIsoWeek(range.start)} • ${formatDate(range.start)} – ${formatDate(range.end)}`;
+    }
+
+    if (state.viewMode === "Måned") {
+      return `${viewLabel} • ${capitalize(monthLong(range.start))} ${range.start.getFullYear()}`;
+    }
+
+    return `${viewLabel} • ${range.start.getFullYear()}`;
   }
 
   function shiftPeriod(direction) {
-    state.startDate = new Date(state.startDate.getFullYear(), state.startDate.getMonth() + (direction * 3), 1);
+    if (state.viewMode === "Uke") {
+      state.startDate = addDays(startOfWeek(state.startDate), direction * 7);
+    } else if (state.viewMode === "Måned") {
+      state.startDate = new Date(state.startDate.getFullYear(), state.startDate.getMonth() + direction, 1);
+    } else {
+      state.startDate = new Date(state.startDate.getFullYear() + direction, 0, 1);
+    }
     persistUiState();
   }
 
@@ -4404,7 +4326,7 @@
     const rect = row.getBoundingClientRect();
     const x = Math.max(0, Math.min(rect.width - 1, event.clientX - rect.left));
     const colIndex = Math.max(0, Math.min(totalCols - 1, Math.floor(x / colWidth)));
-    const fallbackDate = timeUnit === "day" ? toIsoDate(addDays(parseIsoDateLocal(rangeStart), colIndex)) : timeUnit === "week" ? toIsoDate(addWeeks(parseIsoDateLocal(rangeStart), colIndex)) : null;
+    const fallbackDate = timeUnit === "day" ? toIsoDate(addDays(parseIsoDateLocal(rangeStart), colIndex)) : null;
     return { timeUnit, rangeStart, totalCols, colIndex, dropDate: fallbackDate, dropMonthIndex: timeUnit === "month" ? colIndex : null };
   }
 
