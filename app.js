@@ -1033,8 +1033,20 @@
     renderCalendar();
   }
 
+  function getEmployeeCalendarCellClass(employee) {
+    const group = normalizeEmployeeGroup(employee?.employee_group || "");
+    const map = {
+      "Offshore arbeider": "bg-emerald-50 text-emerald-950",
+      "Onshore arbeider": "bg-blue-50 text-blue-950",
+      "Lager og logistikk": "bg-amber-50 text-amber-950",
+      "Engineer": "bg-violet-50 text-violet-950",
+      "3 parts innleie": "bg-rose-50 text-rose-950"
+    };
+    return map[group] || "bg-white text-slate-900";
+  }
+
   function getEmployeeNameTabHtml(employee) {
-    return `<div class="text-[15px] font-semibold leading-tight text-slate-900">${escapeHtml(employee?.name || "")}</div>`;
+    return `<div class="text-sm font-semibold leading-tight">${escapeHtml(employee?.name || "")}</div>`;
   }
 
   function bindEvents() {
@@ -3167,8 +3179,9 @@
       const employeeEntries = getVisibleEntriesForEmployee(employee.name, range.start, range.end);
 
       html += `
-        <div class="sticky-col border-r border-b border-slate-200 px-3 py-3">
+        <div class="sticky-col border-r border-b border-slate-200 px-3 py-2 ${getEmployeeCalendarCellClass(employee)}">
           <div>${getEmployeeNameTabHtml(employee)}</div>
+          ${employee.title ? `<div class="text-[11px] text-slate-600 leading-tight mt-1">${escapeHtml(employee.title)}</div>` : ""}
         </div>
       `;
 
@@ -3254,8 +3267,9 @@
       const employeeEntries = getVisibleEntriesForEmployee(employee.name, yearStart, yearEnd);
 
       html += `
-        <div class="sticky-col border-r border-b border-slate-200 px-3 py-3">
+        <div class="sticky-col border-r border-b border-slate-200 px-3 py-2 ${getEmployeeCalendarCellClass(employee)}">
           <div>${getEmployeeNameTabHtml(employee)}</div>
+          ${employee.title ? `<div class="text-[11px] text-slate-600 leading-tight mt-1">${escapeHtml(employee.title)}</div>` : ""}
         </div>
       `;
 
