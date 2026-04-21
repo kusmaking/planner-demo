@@ -43,7 +43,7 @@
   </style>
 </head>
 <body class="bg-slate-100 text-slate-900">
-  <div class="max-w-[1900px] mx-auto p-6 space-y-6">
+  <div class="w-full max-w-none mx-auto px-4 py-6 space-y-6">
     <header class="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4">
       <div>
         <h1 class="text-3xl font-bold tracking-tight">Personal planlegging</h1>
@@ -80,7 +80,13 @@
             <select id="viewMode" class="rounded-2xl border border-slate-300 px-3 py-2">
               <option value="Uke">Uke</option>
               <option value="Måned">Måned</option>
+              <option value="6 mnd">6 mnd</option>
               <option value="År">År</option>
+            </select>
+            <select id="timelineZoom" class="rounded-2xl border border-slate-300 px-3 py-2">
+              <option value="Kompakt">Kompakt</option>
+              <option value="Normal">Normal</option>
+              <option value="Detalj">Detalj</option>
             </select>
           </div>
 
@@ -98,7 +104,7 @@
         </div>
 
         <div id="warningBox" class="hidden mx-4 mt-4 rounded-2xl border border-red-300 bg-red-50 p-4 text-red-700 text-sm"></div>
-        <div id="calendarWrap" class="overflow-auto p-4 scrollbar-thin"></div>
+        <div id="calendarWrap" class="overflow-auto p-2 scrollbar-thin w-full"></div>
       </div>
 
       <aside id="calendarPanelCol" class="w-full xl:w-12 shrink-0 rounded-2xl bg-white border border-slate-200 shadow-sm overflow-hidden transition-all duration-300">
