@@ -24,6 +24,7 @@
     selectedEmployeeId: null,
     focusProjectId: "",
     projectModalPeriods: [],
+    selectedAssignPeriodId: "",
     storageMode: "local",
     supabaseReady: false,
     supabaseError: null,
@@ -160,7 +161,7 @@
   function cacheElements() {
     const ids = [
       "statsRow", "searchInput", "employeeFilter", "viewMode", "calendarMode", "prevBtn", "nextBtn", "todayBtn",
-      "calendarWrap", "holidayInfo", "warningBox", "legendList", "projectList", "projectWorkspaceCard", "projectWorkspaceEmpty", "projectWorkspaceContent", "projectWorkspaceTitle", "projectWorkspaceMeta", "projectWorkspaceNotes", "projectWorkspaceAssignments", "projectWorkspaceActions", "assignProject", "assignEmployeesWrap", "assignSummary", "assignRole",
+      "calendarWrap", "holidayInfo", "warningBox", "legendList", "projectList", "projectWorkspaceCard", "projectWorkspaceEmpty", "projectWorkspaceContent", "projectWorkspaceTitle", "projectWorkspaceMeta", "projectWorkspaceNotes", "projectWorkspaceAssignments", "projectWorkspaceActions", "assignProject", "assignPeriodWrap", "assignPeriod", "assignEmployeesWrap", "assignSummary", "assignRole",
       "assignStart", "assignEnd", "assignNotes", "assignBtn", "bulkEmployees", "bulkAddBtn",
       "employeeList", "kanbanBoard", "notificationList", "auditList", "editModal", "closeModalBtn",
       "editProject", "editEmployee", "editRole", "editStart", "editEnd", "editNotes",
@@ -1300,11 +1301,19 @@
 
     els.assignProject.addEventListener("change", () => {
       const projectId = els.assignProject?.value || "";
+      state.selectedAssignPeriodId = "";
       if (projectId) state.focusProjectId = projectId;
-      syncAssignDatesFromProject();
+      syncAssignDatesFromProject({ projectId, periodId: "" });
       updateAvailabilityAnalysis();
       renderProjects();
     });
+    if (els.assignPeriod) {
+      els.assignPeriod.addEventListener("change", () => {
+        state.selectedAssignPeriodId = els.assignPeriod?.value || "";
+        syncAssignDatesFromProject({ periodId: state.selectedAssignPeriodId });
+        updateAvailabilityAnalysis();
+      });
+    }
     els.assignStart.addEventListener("change", updateAvailabilityAnalysis);
     els.assignEnd.addEventListener("change", updateAvailabilityAnalysis);
     els.assignStart.addEventListener("change", updateAvailabilityAnalysis);
@@ -1879,15 +1888,98 @@
     }
   }
 
+
+  function getProjectAssignablePeriods(project) {
+    if (!project || !project.has_multiple_periods) return [];
+    return normalizeProjectPeriods(project.project_periods_json || []);
+  }
+
+  function formatProjectPeriodOptionLabel(period, index) {
+    const startLabel = period?.start ? formatDate(period.start) : "ingen start";
+    const endLabel = period?.end ? formatDate(period.end) : "ingen slutt";
+    return `Periode ${index + 1} • ${startLabel} – ${endLabel}`;
+  }
+
+  function populateAssignPeriodSelect(project, preferredPeriodId = "") {
+    if (!els.assignPeriodWrap || !els.assignPeriod) return null;
+    const periods = getProjectAssignablePeriods(project);
+
+    if (!project || !periods.length) {
+      state.selectedAssignPeriodId = "";
+      els.assignPeriod.innerHTML = "";
+      els.assignPeriodWrap.classList.add("hidden");
+      return null;
+    }
+
+    const selectedPeriod = periods.find(period => period.id === preferredPeriodId)
+      || periods.find(period => period.id === state.selectedAssignPeriodId)
+      || periods[0];
+
+    const options = periods.map((period, index) => ({
+      id: period.id,
+      name: formatProjectPeriodOptionLabel(period, index)
+    }));
+    fillSelect(els.assignPeriod, options, selectedPeriod?.id || "", "name", "id");
+    els.assignPeriodWrap.classList.remove("hidden");
+    state.selectedAssignPeriodId = selectedPeriod?.id || "";
+    return selectedPeriod || null;
+  }
+
+  function getSelectedAssignPeriod(project, preferredPeriodId = "") {
+    const periods = getProjectAssignablePeriods(project);
+    if (!periods.length) return null;
+    return periods.find(period => period.id === preferredPeriodId)
+      || periods.find(period => period.id === state.selectedAssignPeriodId)
+      || periods[0]
+      || null;
+  }
+
+  function getAssignRangeForProject(project, preferredPeriodId = "") {
+    if (!project) {
+      return { start: "", end: "", period: null, usesMultiplePeriods: false };
+    }
+    const period = getSelectedAssignPeriod(project, preferredPeriodId);
+    if (period) {
+      return {
+        start: period.start || "",
+        end: period.end || "",
+        period,
+        usesMultiplePeriods: true
+      };
+    }
+    return {
+      start: project.planned_start_date || "",
+      end: project.planned_end_date || "",
+      period: null,
+      usesMultiplePeriods: false
+    };
+  }
+
+  function getAssignedCountForProjectRange(projectId, startDate, endDate) {
+    if (!projectId || !startDate || !endDate) return 0;
+    return state.entries.filter(entry =>
+      entry.project_id === projectId &&
+      overlaps(entry.start_date, entry.end_date, startDate, endDate)
+    ).length;
+  }
+
   function syncAssignDatesFromProject(options = {}) {
     const projectId = options.projectId ?? (els.assignProject?.value || "");
     const project = getProjectById(projectId);
     const preservedRows = Array.isArray(options.rows)
       ? options.rows
       : getAssignRowsSnapshot();
+    const requestedPeriodId = options.periodId ?? state.selectedAssignPeriodId ?? "";
 
     if (els.assignProject && els.assignProject.value !== projectId) {
       els.assignProject.value = projectId;
+    }
+
+    const selectedPeriod = populateAssignPeriodSelect(project, requestedPeriodId);
+    if (selectedPeriod) {
+      state.selectedAssignPeriodId = selectedPeriod.id;
+    } else {
+      state.selectedAssignPeriodId = "";
     }
 
     renderAssignEmployeeSelectors(projectId, preservedRows);
@@ -1900,15 +1992,18 @@
       return;
     }
 
-    if (els.assignStart) els.assignStart.value = project.planned_start_date || "";
-    if (els.assignEnd) els.assignEnd.value = project.planned_end_date || "";
+    const range = getAssignRangeForProject(project, state.selectedAssignPeriodId);
+    if (els.assignStart) els.assignStart.value = range.start || "";
+    if (els.assignEnd) els.assignEnd.value = range.end || "";
     updateAssignSummary(project);
-    updateAvailabilityAnalysis();
     updateAvailabilityAnalysis();
   }
 
   function clearAssignForm() {
     if (els.assignProject) els.assignProject.value = "";
+    if (els.assignPeriod) els.assignPeriod.innerHTML = "";
+    if (els.assignPeriodWrap) els.assignPeriodWrap.classList.add("hidden");
+    state.selectedAssignPeriodId = "";
     if (els.assignStart) els.assignStart.value = "";
     if (els.assignEnd) els.assignEnd.value = "";
     if (els.assignNotes) els.assignNotes.value = "";
@@ -1942,22 +2037,29 @@
     }
 
     const required = Math.max(Number(project.headcount_required || 0), 0);
-    const assigned = getProjectAssignedCount(project.id);
+    const range = getAssignRangeForProject(project, state.selectedAssignPeriodId);
+    const assigned = getAssignedCountForProjectRange(project.id, range.start, range.end);
     const remaining = Math.max(required - assigned, 0);
-    const startLabel = project.planned_start_date ? formatDate(project.planned_start_date) : "ingen start";
-    const endLabel = project.planned_end_date ? formatDate(project.planned_end_date) : "ingen slutt";
+    const startLabel = range.start ? formatDate(range.start) : "ingen start";
+    const endLabel = range.end ? formatDate(range.end) : "ingen slutt";
+    const periodIndex = range.usesMultiplePeriods
+      ? Math.max(0, getProjectAssignablePeriods(project).findIndex(item => item.id === range.period?.id))
+      : -1;
+    const periodLabel = range.usesMultiplePeriods
+      ? ` • ${formatProjectPeriodOptionLabel(range.period, periodIndex)}`
+      : "";
 
     if (required === 0) {
-      els.assignSummary.textContent = `${project.name} • Ingen bemanningsplasser definert • ${startLabel} – ${endLabel}`;
+      els.assignSummary.textContent = `${project.name}${periodLabel} • Ingen bemanningsplasser definert • ${startLabel} – ${endLabel}`;
       return;
     }
 
     if (assigned > required) {
-      els.assignSummary.textContent = `${project.name} • Behov: ${required} • Tildelt: ${assigned} • Overbemannet med ${assigned - required} • ${startLabel} – ${endLabel}`;
+      els.assignSummary.textContent = `${project.name}${periodLabel} • Behov: ${required} • Tildelt: ${assigned} • Overbemannet med ${assigned - required} • ${startLabel} – ${endLabel}`;
       return;
     }
 
-    els.assignSummary.textContent = `${project.name} • Behov: ${required} • Tildelt: ${assigned} • Gjenstår: ${remaining} • ${startLabel} – ${endLabel}`;
+    els.assignSummary.textContent = `${project.name}${periodLabel} • Behov: ${required} • Tildelt: ${assigned} • Gjenstår: ${remaining} • ${startLabel} – ${endLabel}`;
   }
 
   function renderAssignEmployeeSelectors(projectId = null, preservedRows = null) {
@@ -1973,7 +2075,8 @@
     }
 
     const required = Math.max(Number(project?.headcount_required || 0), 0);
-    const assigned = getProjectAssignedCount(project.id);
+    const range = getAssignRangeForProject(project, state.selectedAssignPeriodId);
+    const assigned = getAssignedCountForProjectRange(project.id, range.start, range.end);
     const remaining = Math.max(required - assigned, 0);
     const count = Math.max(remaining, currentRows.filter(item => item.employee_name || item.role).length, 0);
 
@@ -1983,12 +2086,12 @@
     }
 
     if (assigned > required) {
-      els.assignEmployeesWrap.innerHTML = `<div class="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-4 text-sm text-amber-800">Prosjektet er allerede overbemannet. Behov: ${required} • Tildelt: ${assigned}</div>`;
+      els.assignEmployeesWrap.innerHTML = `<div class="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-4 text-sm text-amber-800">Prosjektet er allerede overbemannet i valgt periode. Behov: ${required} • Tildelt: ${assigned}</div>`;
       return;
     }
 
     if (count === 0) {
-      els.assignEmployeesWrap.innerHTML = `<div class="rounded-2xl border border-green-200 bg-green-50 px-4 py-4 text-sm text-green-800">Prosjektet er fullbemannet. Ingen ledige plasser å fylle.</div>`;
+      els.assignEmployeesWrap.innerHTML = `<div class="rounded-2xl border border-green-200 bg-green-50 px-4 py-4 text-sm text-green-800">Prosjektet er fullbemannet i valgt periode. Ingen ledige plasser å fylle.</div>`;
       return;
     }
 
@@ -2020,10 +2123,6 @@
 
     els.assignEmployeesWrap.innerHTML = blocks.join("");
   }
-
-
-
-
 
   function analyzeAvailabilityForPeriod(projectId, startDate, endDate) {
     const available = [];
@@ -3045,6 +3144,7 @@ async function deleteEditedEntry() {
     const visibleProjects = getVisibleProjects();
     const assignFormState = {
       projectId: els.assignProject?.value || "",
+      periodId: els.assignPeriod?.value || state.selectedAssignPeriodId || "",
       rows: getAssignRowsSnapshot(),
       notes: els.assignNotes?.value || ""
     };
@@ -3069,7 +3169,7 @@ async function deleteEditedEntry() {
       if (els.assignEnd) els.assignEnd.value = "";
       updateAssignSummary(null);
     } else {
-      syncAssignDatesFromProject({ projectId: assignFormState.projectId, rows: assignFormState.rows });
+      syncAssignDatesFromProject({ projectId: assignFormState.projectId, periodId: assignFormState.periodId, rows: assignFormState.rows });
     }
 
     if (els.assignNotes) {
