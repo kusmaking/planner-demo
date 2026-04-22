@@ -2501,8 +2501,6 @@ async function createEntry() {
   const assignments = getAssignAssignments();
   const employeeNames = assignments.map(item => item.employee_name);
   const uniqueEmployeeNames = [...new Set(employeeNames)];
-  let startDate = els.assignStart.value;
-  let endDate = els.assignEnd.value;
   const notes = els.assignNotes.value.trim();
 
   if (!projectId || !uniqueEmployeeNames.length) {
@@ -2521,8 +2519,10 @@ async function createEntry() {
     return;
   }
 
-  if (!startDate) startDate = project.planned_start_date || "";
-  if (!endDate) endDate = project.planned_end_date || "";
+  const selectedPeriodId = els.assignPeriod?.value || state.selectedAssignPeriodId || "";
+  const resolvedRange = getAssignRangeForProject(project, selectedPeriodId);
+  let startDate = resolvedRange.start || els.assignStart.value || project.planned_start_date || "";
+  let endDate = resolvedRange.end || els.assignEnd.value || project.planned_end_date || "";
 
   if (!startDate || !endDate) {
     alert("Prosjekt eller tildeling mangler start/slutt.");
