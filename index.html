@@ -43,32 +43,132 @@
     .day-cell.weekend { background: #f8fafc; }
     .day-cell.today { background: #eff6ff; }
     .day-cell.red-day { background: #fef2f2; }
+
+
+    .app-shell-bg { background: linear-gradient(180deg, #0b232c 0%, #102e3a 100%); }
+    .app-shell-frame { background: #102934; box-shadow: 0 18px 40px rgba(3, 15, 20, 0.24); }
+    .app-topbar { background: linear-gradient(180deg, #0b232c 0%, #0f2f3a 100%); }
+    .app-sidebar { background: linear-gradient(180deg, #08202a 0%, #0b2934 100%); }
+    .app-sidebar-btn { color: rgba(255,255,255,0.82); border: 1px solid transparent; }
+    .app-sidebar-btn:hover { background: rgba(255,255,255,0.06); color: #ffffff; }
+    .app-sidebar-btn.active { background: rgba(81,255,204,0.12); color: #ffffff; border-color: rgba(81,255,204,0.22); box-shadow: inset 3px 0 0 #51ffcc; }
+    .app-sidebar-btn svg { opacity: 0.95; }
+    .app-surface { background: #f4f7f8; }
+    .overview-card { border-radius: 24px; border: 1px solid #dbe4e8; background: rgba(255,255,255,0.96); box-shadow: 0 2px 8px rgba(15,23,42,0.04); }
+    .overview-kpi-icon { width: 56px; height: 56px; border-radius: 9999px; display: inline-flex; align-items: center; justify-content: center; }
+    .overview-muted { color: #637587; }
+    .status-pill-soft { border-radius: 9999px; padding: 6px 12px; font-size: 12px; line-height: 1; font-weight: 500; }
+    .shell-search { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.14); color: white; }
+    .shell-search::placeholder { color: rgba(255,255,255,0.65); }
+    .shell-search svg { color: rgba(255,255,255,0.7); }
+
   </style>
 </head>
-<body class="bg-slate-100 text-slate-900">
-  <div class="max-w-[1900px] mx-auto p-6 space-y-6">
-    <header class="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4">
-      <div>
-        <h1 class="text-3xl font-bold tracking-tight">Personal planlegging</h1>
-        <p class="text-slate-600 mt-1">Izomax personal planlegging onshore offshore</p>
-      </div>
-
-      <div class="flex flex-wrap gap-2 items-center">
-        <span id="storageBadge" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm">Laster...</span>
-        <span id="saveStatus" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm">Klar</span>
+<body class="app-shell-bg text-slate-900 min-h-screen p-4 lg:p-5">
+  <div class="app-shell-frame min-h-[calc(100vh-2rem)] rounded-[28px] overflow-hidden">
+    <div class="grid grid-cols-[72px_minmax(0,1fr)] min-h-[calc(100vh-2rem)]">
+      <aside class="app-sidebar border-r border-white/10 flex flex-col items-center py-5 gap-4">
+        <button id="appNavToggle" type="button" class="h-11 w-11 rounded-2xl flex items-center justify-center text-white/85 hover:bg-white/10 transition" aria-label="Åpne meny">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="h-6 w-6"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" /></svg>
+        </button>
+        <nav class="mt-2 flex flex-col gap-3 w-full items-center px-3">
+          <button id="navOverviewBtn" type="button" class="app-sidebar-btn active h-14 w-14 rounded-2xl flex items-center justify-center transition" title="Oversikt">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="h-7 w-7"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12 11.204 3.046a1.5 1.5 0 0 1 2.121 0L22.278 12M4.5 9.75V19.5A1.5 1.5 0 0 0 6 21h4.5v-6a1.5 1.5 0 0 1 1.5-1.5h0A1.5 1.5 0 0 1 13.5 15v6H18a1.5 1.5 0 0 0 1.5-1.5V9.75" /></svg>
+          </button>
+          <button id="navCalendarBtn" type="button" class="app-sidebar-btn h-14 w-14 rounded-2xl flex items-center justify-center transition" title="Kalender">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="h-7 w-7"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3.75 8.25h16.5M4.5 5.25h15A1.5 1.5 0 0 1 21 6.75v12A1.5 1.5 0 0 1 19.5 20.25h-15A1.5 1.5 0 0 1 3 18.75v-12A1.5 1.5 0 0 1 4.5 5.25Z" /></svg>
+          </button>
+          <button id="navProjectsBtn" type="button" class="app-sidebar-btn h-14 w-14 rounded-2xl flex items-center justify-center transition" title="Prosjekter">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="h-7 w-7"><path stroke-linecap="round" stroke-linejoin="round" d="M3 7.5A1.5 1.5 0 0 1 4.5 6h4.879a1.5 1.5 0 0 1 1.06.44l.621.62a1.5 1.5 0 0 0 1.06.44H19.5A1.5 1.5 0 0 1 21 9v9A1.5 1.5 0 0 1 19.5 19.5h-15A1.5 1.5 0 0 1 3 18V7.5Z" /></svg>
+          </button>
+          <button id="navEmployeesBtn" type="button" class="app-sidebar-btn h-14 w-14 rounded-2xl flex items-center justify-center transition" title="Ansatte">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="h-7 w-7"><path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 0 0 3.742-.479 3 3 0 0 0-4.682-2.72m.94 3.198v-.75A3.75 3.75 0 0 0 14.25 14.25h-4.5A3.75 3.75 0 0 0 6 17.97v.75m12 0a17.96 17.96 0 0 1-6 1.03 17.96 17.96 0 0 1-6-1.03m12 0a3 3 0 0 0-4.5-2.59M6 18.72a3 3 0 0 1 4.5-2.59m0 0a3.75 3.75 0 1 0-4.5-6.48 3.75 3.75 0 0 0 4.5 6.48Zm6-5.25a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" /></svg>
+          </button>
+          <button id="navAdminBtn" type="button" class="app-sidebar-btn h-14 w-14 rounded-2xl flex items-center justify-center transition" title="Admin">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="h-7 w-7"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 6h3m-7.5 6h12m-9 6h6M4.5 4.5h15A1.5 1.5 0 0 1 21 6v12a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 18V6a1.5 1.5 0 0 1 1.5-1.5Z" /></svg>
+          </button>
+        </nav>
+        <div class="mt-auto text-white/45 text-xs pb-2" title="Sandbox låst">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="h-5 w-5 mx-auto"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 0h10.5A1.5 1.5 0 0 1 18.75 12v7.5A1.5 1.5 0 0 1 17.25 21h-10.5a1.5 1.5 0 0 1-1.5-1.5V12a1.5 1.5 0 0 1 1.5-1.5Z" /></svg>
+        </div>
+      </aside>
+      <div class="min-w-0 flex flex-col">
+        <header class="app-topbar border-b border-white/10 px-7 py-5 flex items-center justify-between gap-6">
+          <div class="flex items-center gap-7 min-w-0">
+            <img src="./izomax-logo.png" alt="Izomax" class="h-10 w-auto shrink-0" />
+            <div class="text-white text-[30px] font-semibold leading-none">Bemanningsplanlegging</div>
+          </div>
+          <div class="flex items-center gap-3 shrink-0">
+            <span id="storageBadge" class="hidden rounded-xl border border-white/15 bg-white/10 px-3 py-2 text-sm text-white/80">Laster...</span>
+            <span id="saveStatus" class="rounded-xl border border-white/15 bg-white/10 px-3 py-2 text-sm text-white/80">Klar</span>
+            <div class="relative">
+              <input id="appShellSearch" class="shell-search w-[280px] rounded-2xl border px-4 py-3 text-sm placeholder:text-white/60 focus:outline-none" placeholder="Søk" />
+              <div class="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-white/70">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="h-5 w-5"><path stroke-linecap="round" stroke-linejoin="round" d="m21 21-4.35-4.35m0 0A7.5 7.5 0 1 0 6.05 6.05a7.5 7.5 0 0 0 10.6 10.6Z" /></svg>
               </div>
-    </header>
+            </div>
+            <button class="h-11 w-11 rounded-2xl border border-white/15 bg-white/10 text-white/85 flex items-center justify-center">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="h-6 w-6"><path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a23.848 23.848 0 0 1-2.725.168 23.847 23.847 0 0 1-2.725-.168m5.45 0a2.25 2.25 0 0 0 2.244-2.077 55.977 55.977 0 0 0 .274-5.126 8.966 8.966 0 0 0-1.997-5.84 8.966 8.966 0 0 0-6.756 0 8.966 8.966 0 0 0-1.997 5.84c0 1.752.101 3.467.274 5.126a2.25 2.25 0 0 0 2.244 2.077m10.5 0a2.25 2.25 0 0 1-2.244 2.077 55.977 55.977 0 0 1-.274-5.126 8.966 8.966 0 0 1 1.997-5.84 8.966 8.966 0 0 1 6.756 0 8.966 8.966 0 0 1 1.997 5.84c0 1.752-.101 3.467-.274 5.126A2.25 2.25 0 0 1 19.5 17.082Z" /></svg>
+            </button>
+            <div class="flex items-center gap-3 rounded-2xl border border-white/15 bg-white/10 px-3 py-2 text-white/90">
+              <div class="h-10 w-10 rounded-full bg-[#00726c] text-white flex items-center justify-center font-semibold">AK</div>
+              <div class="text-sm font-medium">Aina Karlsen</div>
+            </div>
+          </div>
+        </header>
+        <main class="app-surface min-w-0 flex-1 p-7 overflow-auto">
+          <div id="statsRow" class="hidden"></div>
+          <div id="plannerTabs" class="hidden">
+            <button id="tabCalendarBtn"></button>
+            <button id="tabProjectsBtn"></button>
+            <button id="tabEmployeesBtn"></button>
+            <button id="tabAdminBtn"></button>
+          </div>
+          <section id="tabOverviewSection" class="space-y-6">
+            <div>
+              <h1 class="text-[44px] leading-none font-semibold text-slate-950">Oversikt</h1>
+              <p class="overview-muted mt-3 text-lg">Rask status for bemanning og tilgjengelighet</p>
+            </div>
+            <section class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5">
+              <div class="overview-card p-6 flex items-center gap-4"><div class="overview-kpi-icon bg-sky-50 text-[#0b232c]" id="overviewKpiProjectsIcon"></div><div><div class="text-sm overview-muted">Aktive prosjekter</div><div id="overviewProjectsCount" class="text-5xl font-semibold text-slate-950 mt-1">0</div></div></div>
+              <div class="overview-card p-6 flex items-center gap-4"><div class="overview-kpi-icon bg-orange-50 text-orange-600" id="overviewKpiStaffingIcon"></div><div><div class="text-sm overview-muted">Mangler bemanning</div><div id="overviewNeedsStaffingCount" class="text-5xl font-semibold text-slate-950 mt-1">0</div></div></div>
+              <div class="overview-card p-6 flex items-center gap-4"><div class="overview-kpi-icon bg-emerald-50 text-emerald-700" id="overviewKpiAvailableIcon"></div><div><div class="text-sm overview-muted">Tilgjengelige ansatte i dag</div><div id="overviewAvailableTodayCount" class="text-5xl font-semibold text-slate-950 mt-1">0</div></div></div>
+              <div class="overview-card p-6 flex items-center gap-4"><div class="overview-kpi-icon bg-rose-50 text-rose-600" id="overviewKpiConflictIcon"></div><div><div class="text-sm overview-muted">Perioder med konflikt</div><div id="overviewConflictCount" class="text-5xl font-semibold text-slate-950 mt-1">0</div></div></div>
+            </section>
+            <section class="grid grid-cols-1 xl:grid-cols-2 gap-5">
+              <div class="overview-card p-6">
+                <div class="flex items-center justify-between gap-3 mb-4"><h2 class="text-2xl font-semibold text-slate-950">Prosjekter som trenger oppfølging</h2><button id="overviewOpenProjectsBtn" class="text-[#00726c] text-sm font-medium">Se alle</button></div>
+                <div id="overviewNeedsAttentionList" class="divide-y divide-slate-200"></div>
+              </div>
+              <div class="overview-card p-6">
+                <h2 class="text-2xl font-semibold text-slate-950 mb-4">Tilgjengelighet neste 2 uker</h2>
+                <div class="space-y-6">
+                  <div class="space-y-2"><div class="flex items-center justify-between text-base"><span class="text-slate-800">Tilgjengelig</span><span id="overviewAvailAvailableLabel" class="overview-muted">0 (0 %)</span></div><div class="h-3 rounded-full bg-slate-100 overflow-hidden"><div id="overviewAvailAvailableBar" class="h-full w-0 bg-emerald-500 rounded-full"></div></div></div>
+                  <div class="space-y-2"><div class="flex items-center justify-between text-base"><span class="text-slate-800">Delvis tilgjengelig</span><span id="overviewAvailPartialLabel" class="overview-muted">0 (0 %)</span></div><div class="h-3 rounded-full bg-slate-100 overflow-hidden"><div id="overviewAvailPartialBar" class="h-full w-0 bg-amber-400 rounded-full"></div></div></div>
+                  <div class="space-y-2"><div class="flex items-center justify-between text-base"><span class="text-slate-800">Utilgjengelig</span><span id="overviewAvailUnavailableLabel" class="overview-muted">0 (0 %)</span></div><div class="h-3 rounded-full bg-slate-100 overflow-hidden"><div id="overviewAvailUnavailableBar" class="h-full w-0 bg-rose-400 rounded-full"></div></div></div>
+                  <div id="overviewAvailTotal" class="overview-muted text-sm">Totalt 0 ansatte</div>
+                </div>
+              </div>
+            </section>
+            <section class="grid grid-cols-1 xl:grid-cols-2 gap-5">
+              <div class="overview-card p-6">
+                <h2 class="text-2xl font-semibold text-slate-950 mb-4">Bemanningsstatus denne uken</h2>
+                <div class="grid grid-cols-[220px_minmax(0,1fr)] gap-6 items-center">
+                  <div class="flex justify-center"><div class="relative h-48 w-48 rounded-full flex items-center justify-center" id="overviewDonutWrap"><div class="absolute inset-0 rounded-full" id="overviewDonutChart"></div><div class="relative h-28 w-28 rounded-full bg-white flex flex-col items-center justify-center border border-slate-100"><div id="overviewDonutPercent" class="text-5xl font-semibold text-slate-950">0%</div><div class="overview-muted text-sm mt-1">bemannet</div></div></div></div>
+                  <div class="space-y-4">
+                    <div class="flex items-center justify-between gap-3"><div class="flex items-center gap-3 text-slate-800"><span class="h-3 w-3 rounded-full bg-[#0b4d5c]"></span>Bemannet</div><div id="overviewLegendStaffed" class="overview-muted">0 % (0)</div></div>
+                    <div class="flex items-center justify-between gap-3"><div class="flex items-center gap-3 text-slate-800"><span class="h-3 w-3 rounded-full bg-[#9cc0ca]"></span>Underbemannet</div><div id="overviewLegendUnder" class="overview-muted">0 % (0)</div></div>
+                    <div class="flex items-center justify-between gap-3"><div class="flex items-center gap-3 text-slate-800"><span class="h-3 w-3 rounded-full bg-[#d4d8de]"></span>Ikke bemannet</div><div id="overviewLegendUnstaffed" class="overview-muted">0 % (0)</div></div>
+                    <div id="overviewTotalPlanned" class="overview-muted pt-4 text-base">Totalt 0 planlagte stillinger</div>
+                  </div>
+                </div>
+              </div>
+              <div class="overview-card p-6">
+                <div class="flex items-center justify-between gap-3 mb-4"><h2 class="text-2xl font-semibold text-slate-950">Kommende perioder</h2><button id="overviewOpenCalendarBtn" class="text-[#00726c] text-sm font-medium">Se kalender</button></div>
+                <div id="overviewUpcomingPeriods" class="space-y-3"></div>
+              </div>
+            </section>
 
-    <section id="statsRow" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4"></section>
-
-    <section id="plannerTabs" class="rounded-2xl bg-white border border-slate-200 shadow-sm p-3">
-      <div class="flex flex-wrap gap-2">
-        <button id="tabCalendarBtn" class="rounded-2xl px-4 py-2 text-sm border border-slate-900 bg-slate-900 text-white">Kalender</button>
-        <button id="tabProjectsBtn" class="rounded-2xl px-4 py-2 text-sm border border-slate-300 bg-white text-slate-700">Prosjekter</button>
-        <button id="tabEmployeesBtn" class="rounded-2xl px-4 py-2 text-sm border border-slate-300 bg-white text-slate-700">Ansatte</button>
-        <button id="tabAdminBtn" class="rounded-2xl px-4 py-2 text-sm border border-slate-300 bg-white text-slate-700">Admin</button>
-      </div>
-    </section>
 
     <section id="tabCalendarSection" class="flex flex-col xl:flex-row gap-4 items-start">
       <div id="calendarMainCol" class="min-w-0 flex-1 rounded-2xl bg-white border border-slate-200 shadow-sm">
@@ -251,7 +351,11 @@
         <div id="auditList" class="p-4 space-y-3 max-h-[300px] overflow-auto scrollbar-thin"></div>
       </div>
     </section>
+        </main>
+      </div>
+    </div>
   </div>
+
 
   <div id="editModal" class="fixed inset-0 z-[200] bg-black/40 hidden items-center justify-center p-4">
     <div class="w-full max-w-lg rounded-2xl bg-white shadow-xl">
