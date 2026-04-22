@@ -43,136 +43,34 @@
     .day-cell.weekend { background: #f8fafc; }
     .day-cell.today { background: #eff6ff; }
     .day-cell.red-day { background: #fef2f2; }
-  
-    body { background: #0b232c; }
-    .app-shell-surface { background: linear-gradient(180deg, #324650 0%, #415761 100%); }
-    .app-topbar { background: rgba(11, 35, 44, 0.92); border: 1px solid rgba(95, 117, 129, 0.35); box-shadow: 0 20px 44px -28px rgba(2, 12, 18, 0.75); }
-    .app-topbar-search { background: rgba(245, 245, 245, 0.08); border: 1px solid rgba(95, 117, 129, 0.45); color: #f8fafc; }
-    .app-topbar-search::placeholder { color: rgba(226, 232, 240, 0.7); }
-    .shell-panel { background: rgba(11, 35, 44, 0.94); border: 1px solid rgba(95, 117, 129, 0.32); box-shadow: 0 18px 38px -26px rgba(2, 12, 18, 0.85); }
-    .shell-nav-btn { width: 52px; height: 52px; display: inline-flex; align-items: center; justify-content: center; border-radius: 18px; border: 1px solid transparent; color: #cbd5e1; transition: all 160ms ease; }
-    .shell-nav-btn:hover { background: rgba(81, 255, 204, 0.08); color: #f8fafc; }
-    .shell-nav-btn[data-active="true"] { background: rgba(81, 255, 204, 0.14); border-color: rgba(81, 255, 204, 0.26); color: #51ffcc; box-shadow: inset 0 0 0 1px rgba(81,255,204,0.08); }
-    .shell-nav-btn svg { width: 20px; height: 20px; }
-    .overview-placeholder-card { border: 1px dashed rgba(95, 117, 129, 0.45); background: rgba(248,250,252,0.78); }
-    .overview-placeholder-line { height: 10px; border-radius: 9999px; background: rgba(148, 163, 184, 0.18); }
-    #plannerTabs { position: sticky; top: 20px; align-self: flex-start; }
-    #accountPanel { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
-    #accountUserInfo { border-color: rgba(95,117,129,0.35) !important; background: rgba(245,245,245,0.08) !important; color: #f8fafc !important; }
-    #accountUserInfo .account-role { color: rgba(203, 213, 225, 0.72); }
-    #loginBtn, #changePasswordBtn, #resetPasswordBtn, #logoutBtn { border-color: rgba(95,117,129,0.4) !important; background: rgba(245,245,245,0.06) !important; color: #e2e8f0 !important; }
-    #loginBtn:hover, #changePasswordBtn:hover, #resetPasswordBtn:hover, #logoutBtn:hover { background: rgba(81,255,204,0.08) !important; }
-    #storageBadge, #saveStatus { border-color: rgba(95,117,129,0.35) !important; background: rgba(245,245,245,0.08) !important; color: #e2e8f0 !important; }
-
   </style>
 </head>
-<body class="bg-[#0b232c] text-slate-900">
-  <div class="min-h-screen app-shell-surface p-4 lg:p-5">
-    <div class="mx-auto flex max-w-[1940px] gap-4 lg:gap-5 items-start">
-      <aside id="plannerTabs" class="shell-panel w-[76px] rounded-[28px] p-3 overflow-hidden">
-        <div class="flex flex-col items-center gap-3">
-          <button id="sidebarToggleBtn" type="button" class="shell-nav-btn" title="Meny">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
-          </button>
-          <div class="h-px w-8 bg-white/10"></div>
-          <button id="tabOverviewBtn" type="button" class="shell-nav-btn" title="Oversikt">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11.5 12 4l9 7.5"/><path d="M5 10.5V20h14v-9.5"/></svg>
-          </button>
-          <button id="tabCalendarBtn" type="button" class="shell-nav-btn" title="Kalender">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></svg>
-          </button>
-          <button id="tabProjectsBtn" type="button" class="shell-nav-btn" title="Prosjekter">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7.5A2.5 2.5 0 0 1 5.5 5H10l2 2h6.5A2.5 2.5 0 0 1 21 9.5v9A2.5 2.5 0 0 1 18.5 21h-13A2.5 2.5 0 0 1 3 18.5z"/></svg>
-          </button>
-          <button id="tabEmployeesBtn" type="button" class="shell-nav-btn" title="Ansatte">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2"/><circle cx="9.5" cy="7" r="3.25"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a3.25 3.25 0 0 1 0 6.74"/></svg>
-          </button>
-          <button id="tabAdminBtn" type="button" class="shell-nav-btn" title="Admin">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.25"/><path d="M19.4 15a1 1 0 0 0 .2 1.1l.04.04a2 2 0 1 1-2.83 2.83l-.04-.04a1 1 0 0 0-1.1-.2 1 1 0 0 0-.6.92V20a2 2 0 1 1-4 0v-.07a1 1 0 0 0-.66-.93 1 1 0 0 0-1.1.2l-.04.04a2 2 0 1 1-2.83-2.83l.04-.04a1 1 0 0 0 .2-1.1 1 1 0 0 0-.92-.6H4a2 2 0 1 1 0-4h.07a1 1 0 0 0 .93-.66 1 1 0 0 0-.2-1.1l-.04-.04a2 2 0 1 1 2.83-2.83l.04.04a1 1 0 0 0 1.1.2H8.8a1 1 0 0 0 .6-.92V4a2 2 0 1 1 4 0v.07a1 1 0 0 0 .66.93 1 1 0 0 0 1.1-.2l.04-.04a2 2 0 1 1 2.83 2.83l-.04.04a1 1 0 0 0-.2 1.1v.07a1 1 0 0 0 .92.6H20a2 2 0 1 1 0 4h-.07a1 1 0 0 0-.93.66z"/></svg>
-          </button>
-          <div class="mt-auto w-full pt-4">
-            <div class="rounded-2xl border border-white/10 bg-white/5 px-2 py-3 text-center text-[11px] leading-4 text-slate-300">
-              <div class="font-medium text-slate-100">Sandbox</div>
-              <div>Locked v15.7</div>
-            </div>
-          </div>
-        </div>
-      </aside>
+<body class="bg-slate-100 text-slate-900">
+  <div class="max-w-[1900px] mx-auto p-6 space-y-6">
+    <header class="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4">
+      <div>
+        <h1 class="text-3xl font-bold tracking-tight">Personal planlegging</h1>
+        <p class="text-slate-600 mt-1">Izomax personal planlegging onshore offshore</p>
+      </div>
 
-      <main class="min-w-0 flex-1 space-y-4 lg:space-y-5">
-        <header class="app-topbar rounded-[30px] px-5 py-4 lg:px-6 lg:py-5">
-          <div class="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-            <div class="flex items-center gap-4 min-w-0">
-              <img src="./izomax-logo-green.png" alt="Izomax" class="h-9 w-auto object-contain" />
-              <div class="min-w-0">
-                <h1 class="text-xl lg:text-2xl font-semibold tracking-tight text-slate-50">Bemanningsplanlegging</h1>
-                <p class="text-sm text-slate-300 mt-1">Kalender, prosjekter og personell i ett arbeidsverktøy.</p>
+      <div class="flex flex-wrap gap-2 items-center">
+        <span id="storageBadge" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm">Laster...</span>
+        <span id="saveStatus" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm">Klar</span>
               </div>
-            </div>
-            <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-end min-w-0">
-              <div class="relative min-w-[220px] lg:min-w-[280px] xl:min-w-[340px]">
-                <input id="shellSearch" type="text" class="app-topbar-search w-full rounded-2xl px-4 py-2.5 text-sm outline-none" placeholder="Søk" />
-              </div>
-              <div class="flex flex-wrap gap-2 items-center" id="headerStatusGroup">
-                <span id="storageBadge" class="rounded-xl border px-3 py-2 text-sm">Laster...</span>
-                <span id="saveStatus" class="rounded-xl border px-3 py-2 text-sm">Klar</span>
-              </div>
-            </div>
-          </div>
-        </header>
+    </header>
 
-        <section id="tabOverviewSection" class="space-y-5">
-          <div class="rounded-[28px] bg-white/95 border border-slate-200 shadow-sm p-6">
-            <div class="flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
-              <div>
-                <h2 class="text-[30px] leading-tight font-semibold text-slate-950">Oversikt</h2>
-                <p class="text-sm text-slate-500 mt-1">Rask status for bemanning og tilgjengelighet.</p>
-              </div>
-            </div>
-          </div>
+    <section id="statsRow" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4"></section>
 
-          <section id="statsRow" class="grid grid-cols-1 md:grid-cols-2 gap-4"></section>
+    <section id="plannerTabs" class="rounded-2xl bg-white border border-slate-200 shadow-sm p-3">
+      <div class="flex flex-wrap gap-2">
+        <button id="tabCalendarBtn" class="rounded-2xl px-4 py-2 text-sm border border-slate-900 bg-slate-900 text-white">Kalender</button>
+        <button id="tabProjectsBtn" class="rounded-2xl px-4 py-2 text-sm border border-slate-300 bg-white text-slate-700">Prosjekter</button>
+        <button id="tabEmployeesBtn" class="rounded-2xl px-4 py-2 text-sm border border-slate-300 bg-white text-slate-700">Ansatte</button>
+        <button id="tabAdminBtn" class="rounded-2xl px-4 py-2 text-sm border border-slate-300 bg-white text-slate-700">Admin</button>
+      </div>
+    </section>
 
-          <div class="grid grid-cols-1 xl:grid-cols-2 gap-5">
-            <div class="overview-placeholder-card rounded-[28px] p-6">
-              <div class="flex items-center justify-between gap-3 mb-5">
-                <div>
-                  <div class="text-base font-semibold text-slate-900">Startskjerm under utvikling</div>
-                  <div class="text-sm text-slate-500 mt-1">Vi holder denne flaten enkel mens arbeidsflyten rundt kalenderen bygges videre.</div>
-                </div>
-              </div>
-              <div class="space-y-3">
-                <div class="overview-placeholder-line w-1/3"></div>
-                <div class="overview-placeholder-line w-full"></div>
-                <div class="overview-placeholder-line w-5/6"></div>
-                <div class="overview-placeholder-line w-2/3"></div>
-              </div>
-            </div>
-            <div class="overview-placeholder-card rounded-[28px] p-6">
-              <div class="text-base font-semibold text-slate-900">Neste steg</div>
-              <div class="text-sm text-slate-500 mt-1 mb-5">Her kan vi senere legge inn utnyttelse, kommende perioder eller varsler – uten å fylle skjermen for mye.</div>
-              <div class="grid grid-cols-2 gap-3">
-                <div class="rounded-2xl bg-white/80 border border-slate-200 p-4">
-                  <div class="overview-placeholder-line w-2/3 mb-3"></div>
-                  <div class="overview-placeholder-line w-full"></div>
-                </div>
-                <div class="rounded-2xl bg-white/80 border border-slate-200 p-4">
-                  <div class="overview-placeholder-line w-1/2 mb-3"></div>
-                  <div class="overview-placeholder-line w-5/6"></div>
-                </div>
-                <div class="rounded-2xl bg-white/80 border border-slate-200 p-4">
-                  <div class="overview-placeholder-line w-3/5 mb-3"></div>
-                  <div class="overview-placeholder-line w-full"></div>
-                </div>
-                <div class="rounded-2xl bg-white/80 border border-slate-200 p-4">
-                  <div class="overview-placeholder-line w-2/5 mb-3"></div>
-                  <div class="overview-placeholder-line w-4/5"></div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-<section id="tabCalendarSection" class="flex flex-col xl:flex-row gap-4 items-start">
+    <section id="tabCalendarSection" class="flex flex-col xl:flex-row gap-4 items-start">
       <div id="calendarMainCol" class="min-w-0 flex-1 rounded-2xl bg-white border border-slate-200 shadow-sm">
         <div class="p-4 border-b border-slate-200 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
           <div class="flex flex-wrap gap-2 items-center">
@@ -355,11 +253,7 @@
     </section>
   </div>
 
-  
-      </main>
-    </div>
-  </div>
-<div id="editModal" class="fixed inset-0 z-[200] bg-black/40 hidden items-center justify-center p-4">
+  <div id="editModal" class="fixed inset-0 z-[200] bg-black/40 hidden items-center justify-center p-4">
     <div class="w-full max-w-lg rounded-2xl bg-white shadow-xl">
       <div class="p-4 border-b border-slate-200 flex items-center justify-between">
         <h2 class="font-semibold">Rediger tildeling</h2>

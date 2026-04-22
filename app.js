@@ -59,7 +59,7 @@
       previewEndDate: "",
       originalValueSnapshot: null
     },
-    activeTab: "overview",
+    activeTab: "calendar",
     calendarPanelOpen: false,
     projectListFilter: "all",
     contextMenu: {
@@ -160,7 +160,7 @@
 
   function cacheElements() {
     const ids = [
-      "statsRow", "shellSearch", "sidebarToggleBtn", "tabOverviewBtn", "tabOverviewSection", "searchInput", "employeeFilter", "viewMode", "calendarMode", "prevBtn", "nextBtn", "todayBtn",
+      "statsRow", "searchInput", "employeeFilter", "viewMode", "calendarMode", "prevBtn", "nextBtn", "todayBtn",
       "calendarWrap", "holidayInfo", "warningBox", "legendList", "projectList", "projectWorkspaceCard", "projectWorkspaceEmpty", "projectWorkspaceContent", "projectWorkspaceTitle", "projectWorkspaceMeta", "projectWorkspaceNotes", "projectWorkspaceAssignments", "projectWorkspaceActions", "assignProject", "assignPeriodWrap", "assignPeriod", "assignPeriodHint", "assignPeriodNav", "assignPrevPeriodBtn", "assignNextPeriodBtn", "assignEmployeesWrap", "assignSummary", "assignRole",
       "assignStart", "assignEnd", "assignNotes", "assignBtn", "bulkEmployees", "bulkAddBtn",
       "employeeList", "kanbanBoard", "notificationList", "auditList", "editModal", "closeModalBtn",
@@ -394,14 +394,14 @@
     panel.id = "accountPanel";
     panel.className = "flex flex-wrap items-center justify-end gap-2";
     panel.innerHTML = `
-      <div id="accountUserInfo" class="rounded-2xl border px-3 py-2 text-sm leading-tight min-w-[170px]">Ikke innlogget</div>
-      <button id="loginBtn" class="rounded-2xl border px-3 py-2 text-sm">Logg inn</button>
-      <button id="changePasswordBtn" class="rounded-2xl border px-3 py-2 text-sm">Endre passord</button>
-      <button id="resetPasswordBtn" class="rounded-2xl border px-3 py-2 text-sm">Send reset-link</button>
-      <button id="logoutBtn" class="rounded-2xl border px-3 py-2 text-sm">Logg ut</button>
+      <div id="accountUserInfo" class="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700">Ikke innlogget</div>
+      <button id="loginBtn" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm hover:bg-slate-50">Logg inn</button>
+      <button id="changePasswordBtn" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm hover:bg-slate-50">Endre passord</button>
+      <button id="resetPasswordBtn" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm hover:bg-slate-50">Send reset-link</button>
+      <button id="logoutBtn" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm hover:bg-slate-50">Logg ut</button>
     `;
 
-    const anchor = document.getElementById("headerStatusGroup") || els.storageBadge?.parentElement || document.body.firstElementChild || document.body;
+    const anchor = els.storageBadge?.parentElement || document.body.firstElementChild || document.body;
     anchor.appendChild(panel);
 
     els.accountPanel = panel;
@@ -641,7 +641,7 @@
 
       const user = userData?.user || null;
       state.currentUserEmail = user?.email || "";
-      state.currentUser = user?.user_metadata?.full_name || user?.email || "General user";
+      state.currentUser = user?.user_metadata?.full_name || user?.email || "Ikke innlogget";
       state.currentRole = "";
 
       try {
@@ -697,37 +697,14 @@
     if (card) card.style.display = visible ? "" : "none";
   }
 
-  function formatRoleLabel(role) {
-    if (!role) return "";
-    const normalized = String(role).toLowerCase();
-    if (normalized === "superadmin") return "Superadmin";
-    if (normalized === "planner") return "Planlegger";
-    if (normalized === "reader") return "Leser";
-    return "General user";
-  }
-
-  function getDisplayUserName() {
-    if (state.currentUserEmail) {
-      if (state.currentUser && state.currentUser !== "Ikke innlogget" && state.currentUser !== state.currentUserEmail) {
-        return state.currentUser;
-      }
-      return "General user";
-    }
-    return "Ikke innlogget";
-  }
-
   function updateAccountPanel() {
     if (!els.accountUserInfo) return;
-    const nameText = getDisplayUserName();
-    const roleText = state.currentUserEmail ? (formatRoleLabel(state.currentRole) || "General user") : "Ikke innlogget";
-    els.accountUserInfo.innerHTML = `
-      <div class="font-medium text-sm">${escapeHtml(nameText)}</div>
-      <div class="account-role text-xs mt-0.5">${escapeHtml(roleText)}</div>
-    `;
+    const roleText = state.currentRole ? ` • ${state.currentRole}` : "";
+    const nameText = state.currentUser || state.currentUserEmail || "Ikke innlogget";
+    els.accountUserInfo.textContent = `${nameText}${roleText}`;
   }
 
   function bindTabEvents() {
-    if (els.tabOverviewBtn) els.tabOverviewBtn.addEventListener("click", () => setActiveTab("overview"));
     if (els.tabCalendarBtn) els.tabCalendarBtn.addEventListener("click", () => setActiveTab("calendar"));
     if (els.tabProjectsBtn) els.tabProjectsBtn.addEventListener("click", () => setActiveTab("projects"));
     if (els.tabEmployeesBtn) els.tabEmployeesBtn.addEventListener("click", () => setActiveTab("employees"));
@@ -741,14 +718,13 @@
 
   function renderLayoutTabs() {
     const canPlan = canPlanApp();
-    const allowedTabs = canPlan ? ["overview", "calendar", "projects", "employees", "admin"] : ["calendar"];
+    const allowedTabs = canPlan ? ["calendar", "projects", "employees", "admin"] : ["calendar"];
 
     if (!allowedTabs.includes(state.activeTab)) {
-      state.activeTab = canPlan ? "overview" : "calendar";
+      state.activeTab = "calendar";
     }
 
     const buttons = {
-      overview: els.tabOverviewBtn,
       calendar: els.tabCalendarBtn,
       projects: els.tabProjectsBtn,
       employees: els.tabEmployeesBtn,
@@ -756,7 +732,6 @@
     };
 
     const sections = {
-      overview: els.tabOverviewSection,
       calendar: els.tabCalendarSection,
       projects: els.tabProjectsSection,
       employees: els.tabEmployeesSection,
@@ -767,8 +742,12 @@
       if (!btn) return;
       const visible = allowedTabs.includes(name);
       btn.style.display = visible ? "" : "none";
-      btn.dataset.active = state.activeTab === name ? "true" : "false";
-      btn.setAttribute("aria-current", state.activeTab === name ? "page" : "false");
+      btn.className = [
+        "rounded-2xl px-4 py-2 text-sm border transition",
+        state.activeTab === name
+          ? "border-slate-900 bg-slate-900 text-white"
+          : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+      ].join(" ");
     });
 
     Object.entries(sections).forEach(([name, section]) => {
