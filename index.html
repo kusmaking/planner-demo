@@ -1,219 +1,459 @@
-const SUPABASE_URL = "https://glyftmrkjherfrapbnjx.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdseWZ0bXJramhlcmZyYXBibmp4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYwOTUwMzAsImV4cCI6MjA5MTY3MTAzMH0.6XEGISHw8D_HddO4iglkc9PdNRo-s3y_Ejxy80ALLfE";
+<!DOCTYPE html>
+<html lang="no">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Personal planlegging</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    .scrollbar-thin::-webkit-scrollbar { height: 10px; width: 10px; }
+    .scrollbar-thin::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 9999px; }
+    .scrollbar-thin::-webkit-scrollbar-track { background: #f8fafc; }
 
-const STORAGE_KEYS = {
-  employees: "planner_employees_v41",
-  projects: "planner_projects_v41",
-  entries: "planner_entries_v41",
-  auditLog: "planner_audit_v41",
-  notificationLog: "planner_notifications_v41",
-  startDate: "planner_start_v41",
-  viewMode: "planner_view_v41",
-  calendarMode: "planner_calendar_mode_v41"
-};
+    .calendar-shell { width: max-content; min-width: 100%; }
+    .day-grid, .month-summary-grid { display: grid; gap: 0; align-items: stretch; width: max-content; }
+    .sticky-col { position: sticky; left: 0; z-index: 40; background: white; box-shadow: 10px 0 18px -14px rgba(15, 23, 42, 0.28); }
+    .row-overlay { position: relative; min-height: 52px; }
 
-const LEGACY_STORAGE_KEYS = {
-  employees: ["planner_employees_v31"],
-  projects: ["planner_projects_v31"],
-  entries: ["planner_entries_v31"],
-  auditLog: ["planner_audit_v31"],
-  notificationLog: ["planner_notifications_v31"],
-  startDate: ["planner_start_v31"],
-  viewMode: ["planner_view_v31"],
-  calendarMode: ["planner_calendar_mode_v31"]
-};
+    .entry-bar {
+      position: absolute;
+      top: 5px;
+      bottom: 5px;
+      border-width: 1px;
+      border-radius: 14px;
+      padding: 6px 10px;
+      font-size: 12px;
+      line-height: 1.1;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+      cursor: pointer;
+      box-shadow: 0 1px 2px rgba(15, 23, 42, 0.12);
+    }
 
-const CATEGORY_COLORS = {
-  Offshore: "bg-green-500 border-green-600 text-white",
-  Travel: "bg-cyan-500 border-cyan-600 text-white",
-  Onshore: "bg-indigo-500 border-indigo-600 text-white",
-  Kurs: "bg-violet-500 border-violet-600 text-white",
-  Ferie: "bg-orange-400 border-orange-500 text-slate-900",
-  Syk: "bg-red-600 border-red-700 text-white",
-  Avspasering: "bg-amber-700 border-amber-800 text-white"
-};
+    .overlap-conflict { box-shadow: inset 0 0 0 1px rgba(127, 29, 29, 0.85), 0 0 0 2px rgba(248, 113, 113, 0.35); background-image: repeating-linear-gradient(135deg, rgba(127,29,29,0.16) 0 6px, rgba(255,255,255,0.0) 6px 12px); }
 
-const STATUS_COLORS = {
-  Planlagt: "bg-blue-100 text-blue-800 border-blue-200",
-  "Pågår": "bg-green-100 text-green-800 border-green-200",
-  Avventer: "bg-yellow-100 text-yellow-800 border-yellow-200",
-  Avsluttet: "bg-slate-200 text-slate-700 border-slate-300",
-  "Fullført": "bg-slate-200 text-slate-700 border-slate-300"
-};
+    .month-cell, .day-cell {
+      min-height: 52px;
+      border-right: 1px solid #e2e8f0;
+      border-bottom: 1px solid #e2e8f0;
+      background: white;
+    }
 
-const ROLE_CLASSES = {
-  "Supervisor": "ring-2 ring-yellow-400",
-  "Mekaniker 1": "ring-2 ring-blue-400",
-  "Mekaniker 2": "ring-2 ring-green-400",
-  "Mekaniker 3": "ring-2 ring-purple-400"
-};
+    .day-cell.weekend { background: #f8fafc; }
+    .day-cell.today { background: #eff6ff; }
+    .day-cell.red-day { background: #fef2f2; }
+  
+    body { background: #0b232c; }
+    .app-shell-surface { background: linear-gradient(180deg, #324650 0%, #415761 100%); }
+    .app-topbar { background: rgba(11, 35, 44, 0.92); border: 1px solid rgba(95, 117, 129, 0.35); box-shadow: 0 20px 44px -28px rgba(2, 12, 18, 0.75); }
+    .app-topbar-search { background: rgba(245, 245, 245, 0.08); border: 1px solid rgba(95, 117, 129, 0.45); color: #f8fafc; }
+    .app-topbar-search::placeholder { color: rgba(226, 232, 240, 0.7); }
+    .shell-panel { background: rgba(11, 35, 44, 0.94); border: 1px solid rgba(95, 117, 129, 0.32); box-shadow: 0 18px 38px -26px rgba(2, 12, 18, 0.85); }
+    .shell-nav-btn { width: 52px; height: 52px; display: inline-flex; align-items: center; justify-content: center; border-radius: 18px; border: 1px solid transparent; color: #cbd5e1; transition: all 160ms ease; }
+    .shell-nav-btn:hover { background: rgba(81, 255, 204, 0.08); color: #f8fafc; }
+    .shell-nav-btn[data-active="true"] { background: rgba(81, 255, 204, 0.14); border-color: rgba(81, 255, 204, 0.26); color: #51ffcc; box-shadow: inset 0 0 0 1px rgba(81,255,204,0.08); }
+    .shell-nav-btn svg { width: 20px; height: 20px; }
+    .overview-placeholder-card { border: 1px dashed rgba(95, 117, 129, 0.45); background: rgba(248,250,252,0.78); }
+    .overview-placeholder-line { height: 10px; border-radius: 9999px; background: rgba(148, 163, 184, 0.18); }
+    #plannerTabs { position: sticky; top: 20px; align-self: flex-start; }
+    #accountPanel { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+    #accountUserInfo { border-color: rgba(95,117,129,0.35) !important; background: rgba(245,245,245,0.08) !important; color: #f8fafc !important; }
+    #accountUserInfo .account-role { color: rgba(203, 213, 225, 0.72); }
+    #loginBtn, #changePasswordBtn, #resetPasswordBtn, #logoutBtn { border-color: rgba(95,117,129,0.4) !important; background: rgba(245,245,245,0.06) !important; color: #e2e8f0 !important; }
+    #loginBtn:hover, #changePasswordBtn:hover, #resetPasswordBtn:hover, #logoutBtn:hover { background: rgba(81,255,204,0.08) !important; }
+    #storageBadge, #saveStatus { border-color: rgba(95,117,129,0.35) !important; background: rgba(245,245,245,0.08) !important; color: #e2e8f0 !important; }
 
-const ROLE_OPTIONS = ["Supervisor", "Mekaniker 1", "Mekaniker 2", "Mekaniker 3"];
-const CATEGORY_OPTIONS = ["Offshore", "Travel", "Onshore"];
-const STATUS_OPTIONS = ["Planlagt", "Pågår", "Avventer", "Avsluttet"];
+  </style>
+</head>
+<body class="bg-[#0b232c] text-slate-900">
+  <div class="min-h-screen app-shell-surface p-4 lg:p-5">
+    <div class="mx-auto flex max-w-[1940px] gap-4 lg:gap-5 items-start">
+      <aside id="plannerTabs" class="shell-panel w-[76px] rounded-[28px] p-3 overflow-hidden">
+        <div class="flex flex-col items-center gap-3">
+          <button id="sidebarToggleBtn" type="button" class="shell-nav-btn" title="Meny">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+          </button>
+          <div class="h-px w-8 bg-white/10"></div>
+          <button id="tabOverviewBtn" type="button" class="shell-nav-btn" title="Oversikt">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11.5 12 4l9 7.5"/><path d="M5 10.5V20h14v-9.5"/></svg>
+          </button>
+          <button id="tabCalendarBtn" type="button" class="shell-nav-btn" title="Kalender">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></svg>
+          </button>
+          <button id="tabProjectsBtn" type="button" class="shell-nav-btn" title="Prosjekter">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7.5A2.5 2.5 0 0 1 5.5 5H10l2 2h6.5A2.5 2.5 0 0 1 21 9.5v9A2.5 2.5 0 0 1 18.5 21h-13A2.5 2.5 0 0 1 3 18.5z"/></svg>
+          </button>
+          <button id="tabEmployeesBtn" type="button" class="shell-nav-btn" title="Ansatte">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2"/><circle cx="9.5" cy="7" r="3.25"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a3.25 3.25 0 0 1 0 6.74"/></svg>
+          </button>
+          <button id="tabAdminBtn" type="button" class="shell-nav-btn" title="Admin">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.25"/><path d="M19.4 15a1 1 0 0 0 .2 1.1l.04.04a2 2 0 1 1-2.83 2.83l-.04-.04a1 1 0 0 0-1.1-.2 1 1 0 0 0-.6.92V20a2 2 0 1 1-4 0v-.07a1 1 0 0 0-.66-.93 1 1 0 0 0-1.1.2l-.04.04a2 2 0 1 1-2.83-2.83l.04-.04a1 1 0 0 0 .2-1.1 1 1 0 0 0-.92-.6H4a2 2 0 1 1 0-4h.07a1 1 0 0 0 .93-.66 1 1 0 0 0-.2-1.1l-.04-.04a2 2 0 1 1 2.83-2.83l.04.04a1 1 0 0 0 1.1.2H8.8a1 1 0 0 0 .6-.92V4a2 2 0 1 1 4 0v.07a1 1 0 0 0 .66.93 1 1 0 0 0 1.1-.2l.04-.04a2 2 0 1 1 2.83 2.83l-.04.04a1 1 0 0 0-.2 1.1v.07a1 1 0 0 0 .92.6H20a2 2 0 1 1 0 4h-.07a1 1 0 0 0-.93.66z"/></svg>
+          </button>
+          <div class="mt-auto w-full pt-4">
+            <div class="rounded-2xl border border-white/10 bg-white/5 px-2 py-3 text-center text-[11px] leading-4 text-slate-300">
+              <div class="font-medium text-slate-100">Sandbox</div>
+              <div>Locked v15.7</div>
+            </div>
+          </div>
+        </div>
+      </aside>
 
-const DEFAULT_EMPLOYEES = [
-  { id: crypto.randomUUID(), name: "Olis Hansen", email: "olis@firma.no", phone: "+47 90000001", title: "", active: true },
-  { id: crypto.randomUUID(), name: "Kenneth Vallestad", email: "kenneth@firma.no", phone: "+47 90000002", title: "", active: true },
-  { id: crypto.randomUUID(), name: "Paul Chilver", email: "paul@firma.no", phone: "+47 90000003", title: "", active: true },
-  { id: crypto.randomUUID(), name: "Aliaksandr Skliarenka", email: "aliaksandr@firma.no", phone: "+47 90000004", title: "", active: true },
-  { id: crypto.randomUUID(), name: "Stian Egelandsdal", email: "stian@firma.no", phone: "+47 90000005", title: "", active: true },
-  { id: crypto.randomUUID(), name: "Sean Sarkic", email: "sean@firma.no", phone: "+47 90000006", title: "", active: true },
-  { id: crypto.randomUUID(), name: "Henrik Ueland", email: "henrik@firma.no", phone: "+47 90000007", title: "", active: true },
-  { id: crypto.randomUUID(), name: "Erlend Skryten Johnsen", email: "erlend@firma.no", phone: "+47 90000008", title: "", active: true },
-  { id: crypto.randomUUID(), name: "Fredrik Johansen", email: "fredrik@firma.no", phone: "+47 90000009", title: "", active: true },
-  { id: crypto.randomUUID(), name: "Tor-Marius Sande", email: "tormarius@firma.no", phone: "+47 90000010", title: "", active: true },
-  { id: crypto.randomUUID(), name: "Bjørn Heidar Asmundsson", email: "bjorn.heidar@firma.no", phone: "+47 90000011", title: "", active: true },
-  { id: crypto.randomUUID(), name: "Erling Sekse Bilstad", email: "erling@firma.no", phone: "+47 90000012", title: "", active: true },
-  { id: crypto.randomUUID(), name: "Bjørn Erik Hansen", email: "bjorn.erik@firma.no", phone: "+47 90000013", title: "", active: true },
-  { id: crypto.randomUUID(), name: "Suzanne Sola Hestvik", email: "suzanne@firma.no", phone: "+47 90000014", title: "", active: true },
-  { id: crypto.randomUUID(), name: "Steinar Engtrø", email: "steinar@firma.no", phone: "+47 90000015", title: "", active: true },
-  { id: crypto.randomUUID(), name: "Joar Bergsholm", email: "joar@firma.no", phone: "+47 90000016", title: "", active: true },
-  { id: crypto.randomUUID(), name: "Joachim Fosse", email: "joachim@firma.no", phone: "+47 90000017", title: "", active: true },
-  { id: crypto.randomUUID(), name: "Karl Fredrik Tofte", email: "karl@firma.no", phone: "+47 90000018", title: "", active: true },
-  { id: crypto.randomUUID(), name: "Emil Skaue Nielse", email: "emil@firma.no", phone: "+47 90000019", title: "", active: true },
-  { id: crypto.randomUUID(), name: "Håkon Lea", email: "haakon@firma.no", phone: "+47 90000020", title: "", active: true },
-  { id: crypto.randomUUID(), name: "Bjørnar Rugland - verksted", email: "bjornar.rugland@firma.no", phone: "+47 90000021", title: "", active: true },
-  { id: crypto.randomUUID(), name: "Ihor Kaluhin - verksted", email: "ihor@firma.no", phone: "+47 90000022", title: "", active: true },
-  { id: crypto.randomUUID(), name: "Ivan Vrcic - Lager", email: "ivan@firma.no", phone: "+47 90000023", title: "", active: true },
-  { id: crypto.randomUUID(), name: "Andreas Lende", email: "andreas.lende@firma.no", phone: "+47 90000024", title: "", active: true },
-  { id: crypto.randomUUID(), name: "Aironas Larsen", email: "aironas@firma.no", phone: "+47 90000025", title: "", active: true }
-];
+      <main class="min-w-0 flex-1 space-y-4 lg:space-y-5">
+        <header class="app-topbar rounded-[30px] px-5 py-4 lg:px-6 lg:py-5">
+          <div class="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+            <div class="flex items-center gap-4 min-w-0">
+              <img src="./izomax-logo-green.png" alt="Izomax" class="h-9 w-auto object-contain" />
+              <div class="min-w-0">
+                <h1 class="text-xl lg:text-2xl font-semibold tracking-tight text-slate-50">Bemanningsplanlegging</h1>
+                <p class="text-sm text-slate-300 mt-1">Kalender, prosjekter og personell i ett arbeidsverktøy.</p>
+              </div>
+            </div>
+            <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-end min-w-0">
+              <div class="relative min-w-[220px] lg:min-w-[280px] xl:min-w-[340px]">
+                <input id="shellSearch" type="text" class="app-topbar-search w-full rounded-2xl px-4 py-2.5 text-sm outline-none" placeholder="Søk" />
+              </div>
+              <div class="flex flex-wrap gap-2 items-center" id="headerStatusGroup">
+                <span id="storageBadge" class="rounded-xl border px-3 py-2 text-sm">Laster...</span>
+                <span id="saveStatus" class="rounded-xl border px-3 py-2 text-sm">Klar</span>
+              </div>
+            </div>
+          </div>
+        </header>
 
-const DEFAULT_PROJECTS = [
-  {
-    id: crypto.randomUUID(),
-    name: "PBF California",
-    category: "Offshore",
-    status: "Pågår",
-    planned_start_date: "2026-01-10",
-    planned_end_date: "2026-01-25",
-    location: "Offshore",
-    headcount_required: 2,
-    notes: "Fra eksisterende plan"
-  },
-  {
-    id: crypto.randomUUID(),
-    name: "IZO-30220 Tyrkia",
-    category: "Offshore",
-    status: "Pågår",
-    planned_start_date: "2026-01-12",
-    planned_end_date: "2026-01-26",
-    location: "Offshore",
-    headcount_required: 2,
-    notes: "Fra eksisterende plan"
-  },
-  {
-    id: crypto.randomUUID(),
-    name: "Shell Bukom",
-    category: "Offshore",
-    status: "Pågår",
-    planned_start_date: "2026-01-12",
-    planned_end_date: "2026-01-23",
-    location: "Offshore",
-    headcount_required: 1,
-    notes: "Fra eksisterende plan"
-  },
-  {
-    id: crypto.randomUUID(),
-    name: "Kurs Kårstø",
-    category: "Kurs",
-    status: "Planlagt",
-    planned_start_date: "2026-01-12",
-    planned_end_date: "2026-01-16",
-    location: "Onshore",
-    headcount_required: 1,
-    notes: "Kurs"
-  },
-  {
-    id: crypto.randomUUID(),
-    name: "Ferie",
-    category: "Ferie",
-    status: "Planlagt",
-    planned_start_date: "2026-01-06",
-    planned_end_date: "2026-01-09",
-    location: "",
-    headcount_required: 0,
-    notes: "Fravær"
-  },
-  {
-    id: crypto.randomUUID(),
-    name: "Training",
-    category: "Kurs",
-    status: "Planlagt",
-    planned_start_date: "2026-01-06",
-    planned_end_date: "2026-01-07",
-    location: "Onshore",
-    headcount_required: 1,
-    notes: "Opplæring"
-  },
-  {
-    id: crypto.randomUUID(),
-    name: "Onshore",
-    category: "Onshore",
-    status: "Planlagt",
-    planned_start_date: "2026-01-01",
-    planned_end_date: "2026-03-31",
-    location: "Onshore",
-    headcount_required: 2,
-    notes: "Fast kapasitet"
-  },
-  {
-    id: crypto.randomUUID(),
-    name: "Travel",
-    category: "Travel",
-    status: "Planlagt",
-    planned_start_date: "2026-01-01",
-    planned_end_date: "2026-01-07",
-    location: "",
-    headcount_required: 2,
-    notes: "Reiseblokk"
-  },
-  {
-    id: crypto.randomUUID(),
-    name: "Åsgard A 18CL900",
-    category: "Offshore",
-    status: "Planlagt",
-    planned_start_date: "2026-03-02",
-    planned_end_date: "2026-03-13",
-    location: "Offshore",
-    headcount_required: 2,
-    notes: "Planlagt oppdrag"
-  },
-  {
-    id: crypto.randomUUID(),
-    name: "New Platform Upgrade",
-    category: "Offshore",
-    status: "Planlagt",
-    planned_start_date: "2026-04-06",
-    planned_end_date: "2026-04-22",
-    location: "Offshore",
-    headcount_required: 3,
-    notes: "Ikke bemannet ennå"
-  }
-];
+        <section id="tabOverviewSection" class="space-y-5">
+          <div class="rounded-[28px] bg-white/95 border border-slate-200 shadow-sm p-6">
+            <div class="flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
+              <div>
+                <h2 class="text-[30px] leading-tight font-semibold text-slate-950">Oversikt</h2>
+                <p class="text-sm text-slate-500 mt-1">Rask status for bemanning og tilgjengelighet.</p>
+              </div>
+            </div>
+          </div>
 
-function projectIdByName(name) {
-  return DEFAULT_PROJECTS.find(p => p.name === name)?.id || DEFAULT_PROJECTS[0].id;
-}
+          <section id="statsRow" class="grid grid-cols-1 md:grid-cols-2 gap-4"></section>
 
-const DEFAULT_ENTRIES = [
-  { id: crypto.randomUUID(), project_id: projectIdByName("Travel"), employee_name: "Paul Chilver", role: "Supervisor", start_date: "2026-01-01", end_date: "2026-01-07", notes: "Travel" },
-  { id: crypto.randomUUID(), project_id: projectIdByName("Training"), employee_name: "Aliaksandr Skliarenka", role: "Mekaniker 1", start_date: "2026-01-06", end_date: "2026-01-07", notes: "Training" },
-  { id: crypto.randomUUID(), project_id: projectIdByName("PBF California"), employee_name: "Aliaksandr Skliarenka", role: "Mekaniker 1", start_date: "2026-01-12", end_date: "2026-01-23", notes: "PBF California" },
-  { id: crypto.randomUUID(), project_id: projectIdByName("Travel"), employee_name: "Sean Sarkic", role: "Supervisor", start_date: "2026-01-01", end_date: "2026-01-07", notes: "Travel" },
-  { id: crypto.randomUUID(), project_id: projectIdByName("IZO-30220 Tyrkia"), employee_name: "Sean Sarkic", role: "Supervisor", start_date: "2026-01-13", end_date: "2026-01-24", notes: "IZO-30220 Tyrkia" },
-  { id: crypto.randomUUID(), project_id: projectIdByName("Shell Bukom"), employee_name: "Henrik Ueland", role: "Mekaniker 2", start_date: "2026-01-12", end_date: "2026-01-23", notes: "Shell Bukom" },
-  { id: crypto.randomUUID(), project_id: projectIdByName("Onshore"), employee_name: "Olis Hansen", role: "Supervisor", start_date: "2026-01-01", end_date: "2026-03-31", notes: "Admin / planlegging" },
-  { id: crypto.randomUUID(), project_id: projectIdByName("Onshore"), employee_name: "Kenneth Vallestad", role: "Supervisor", start_date: "2026-01-01", end_date: "2026-03-31", notes: "Koordinering" },
-  { id: crypto.randomUUID(), project_id: projectIdByName("Kurs Kårstø"), employee_name: "Bjørn Heidar Asmundsson", role: "Supervisor", start_date: "2026-01-12", end_date: "2026-01-16", notes: "Kurs Kårstø" },
-  { id: crypto.randomUUID(), project_id: projectIdByName("Ferie"), employee_name: "Erling Sekse Bilstad", role: "Supervisor", start_date: "2026-01-06", end_date: "2026-01-09", notes: "Ferie" },
-  { id: crypto.randomUUID(), project_id: projectIdByName("Åsgard A 18CL900"), employee_name: "Steinar Engtrø", role: "Supervisor", start_date: "2026-03-02", end_date: "2026-03-13", notes: "Åsgard A" },
-  { id: crypto.randomUUID(), project_id: projectIdByName("Åsgard A 18CL900"), employee_name: "Joar Bergsholm", role: "Mekaniker 1", start_date: "2026-03-02", end_date: "2026-03-13", notes: "Åsgard A" }
-];
+          <div class="grid grid-cols-1 xl:grid-cols-2 gap-5">
+            <div class="overview-placeholder-card rounded-[28px] p-6">
+              <div class="flex items-center justify-between gap-3 mb-5">
+                <div>
+                  <div class="text-base font-semibold text-slate-900">Startskjerm under utvikling</div>
+                  <div class="text-sm text-slate-500 mt-1">Vi holder denne flaten enkel mens arbeidsflyten rundt kalenderen bygges videre.</div>
+                </div>
+              </div>
+              <div class="space-y-3">
+                <div class="overview-placeholder-line w-1/3"></div>
+                <div class="overview-placeholder-line w-full"></div>
+                <div class="overview-placeholder-line w-5/6"></div>
+                <div class="overview-placeholder-line w-2/3"></div>
+              </div>
+            </div>
+            <div class="overview-placeholder-card rounded-[28px] p-6">
+              <div class="text-base font-semibold text-slate-900">Neste steg</div>
+              <div class="text-sm text-slate-500 mt-1 mb-5">Her kan vi senere legge inn utnyttelse, kommende perioder eller varsler – uten å fylle skjermen for mye.</div>
+              <div class="grid grid-cols-2 gap-3">
+                <div class="rounded-2xl bg-white/80 border border-slate-200 p-4">
+                  <div class="overview-placeholder-line w-2/3 mb-3"></div>
+                  <div class="overview-placeholder-line w-full"></div>
+                </div>
+                <div class="rounded-2xl bg-white/80 border border-slate-200 p-4">
+                  <div class="overview-placeholder-line w-1/2 mb-3"></div>
+                  <div class="overview-placeholder-line w-5/6"></div>
+                </div>
+                <div class="rounded-2xl bg-white/80 border border-slate-200 p-4">
+                  <div class="overview-placeholder-line w-3/5 mb-3"></div>
+                  <div class="overview-placeholder-line w-full"></div>
+                </div>
+                <div class="rounded-2xl bg-white/80 border border-slate-200 p-4">
+                  <div class="overview-placeholder-line w-2/5 mb-3"></div>
+                  <div class="overview-placeholder-line w-4/5"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+<section id="tabCalendarSection" class="flex flex-col xl:flex-row gap-4 items-start">
+      <div id="calendarMainCol" class="min-w-0 flex-1 rounded-2xl bg-white border border-slate-200 shadow-sm">
+        <div class="p-4 border-b border-slate-200 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+          <div class="flex flex-wrap gap-2 items-center">
+            <input id="searchInput" name="planner_search_filter" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false" class="w-[220px] rounded-2xl border border-slate-300 px-3 py-2" placeholder="Søk ansatt" />
+            <select id="employeeFilter" class="w-[220px] rounded-2xl border border-slate-300 px-3 py-2"></select>
+            <select id="calendarMode" class="rounded-2xl border border-slate-300 px-3 py-2">
+              <option value="personal">Personalplan</option>
+              <option value="project">Prosjektplan</option>
+            </select>
+            <select id="viewMode" class="rounded-2xl border border-slate-300 px-3 py-2">
+              <option value="Uke">Uke</option>
+              <option value="Måned">Måned</option>
+              <option value="År">År</option>
+            </select>
+          </div>
 
-const DEFAULT_AUDIT_LOG = [
-  { id: crypto.randomUUID(), user_name: "Olis Hansen", action_text: "Initialiserte planleggingsverktøy versjon 4.1", created_at: new Date().toISOString() }
-];
+          <div class="flex gap-2">
+            <button id="prevBtn" class="rounded-2xl border border-slate-300 bg-white px-4 py-2">Tilbake</button>
+            <button id="todayBtn" class="rounded-2xl border border-slate-300 bg-white px-4 py-2">I dag</button>
+            <button id="nextBtn" class="rounded-2xl border border-slate-300 bg-white px-4 py-2">Frem</button>
+          </div>
+        </div>
 
-const DEFAULT_NOTIFICATION_LOG = [];
+        <div id="rangeTitle" class="px-4 py-3 border-b border-slate-200 text-sm text-slate-600"></div>
+        <div id="holidayInfo" class="px-4 py-2 border-b border-slate-200 text-sm text-red-700 bg-red-50/60"></div>
+
+        <div class="p-4 border-b border-slate-200 text-sm text-slate-500">
+          Personalplan viser tildelte ressurser. Prosjektplan viser alle prosjekter, også de som ennå ikke er bemannet.
+        </div>
+
+        <div id="warningBox" class="hidden mx-4 mt-4 rounded-2xl border border-red-300 bg-red-50 p-4 text-red-700 text-sm"></div>
+        <div id="calendarWrap" class="overflow-auto scrollbar-thin"></div>
+      </div>
+
+      <aside id="calendarPanelCol" class="w-full xl:w-12 shrink-0 rounded-2xl bg-white border border-slate-200 shadow-sm overflow-hidden transition-all duration-300">
+        <div class="flex h-full min-h-[220px]">
+          <button id="calendarPanelHandleBtn" class="w-12 shrink-0 border-r border-slate-200 bg-slate-50 text-slate-700 text-xs font-semibold tracking-wide">
+            Panel
+          </button>
+          <div id="calendarPanelContent" class="hidden min-w-0 flex-1">
+            <div class="p-4 border-b border-slate-200 flex items-center justify-between gap-3">
+              <h2 class="font-semibold">Farger og status</h2>
+              <button id="calendarPanelCloseBtn" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm">Lukk</button>
+            </div>
+            <div id="legendList" class="p-4 space-y-2 text-sm"></div>
+          </div>
+        </div>
+      </aside>
+
+      <div id="systemStatus" class="hidden"></div>
+    </section>
+
+    <section id="tabProjectsSection" class="grid grid-cols-1 xl:grid-cols-12 gap-5" style="display:none;">
+      <div class="xl:col-span-3">
+        <div class="rounded-[28px] bg-white border border-slate-200 shadow-sm overflow-hidden">
+          <div class="p-5 border-b border-slate-200 bg-slate-50/80 flex items-start justify-between gap-3">
+            <div>
+              <h2 class="font-semibold text-lg text-slate-900">Prosjekter</h2>
+              <p class="text-sm text-slate-500 mt-1">Velg et prosjekt for å bemanne, følge perioder og åpne detaljer.</p>
+            </div>
+            <button id="newProjectBtn" class="rounded-2xl bg-slate-900 text-white px-4 py-2.5 text-sm font-medium shadow-sm">Nytt prosjekt</button>
+          </div>
+          <div class="p-4">
+            <div id="projectList" class="space-y-3 max-h-[780px] overflow-auto scrollbar-thin pr-1"></div>
+          </div>
+        </div>
+      </div>
+
+      <div id="projectsWorkspaceCol" class="xl:col-span-5 space-y-5">
+        <div id="projectWorkspaceCard" class="rounded-[28px] bg-white border border-slate-200 shadow-sm overflow-hidden">
+          <div class="p-5 border-b border-slate-200 bg-slate-50/80">
+            <h2 class="font-semibold text-lg text-slate-900">Valgt prosjekt</h2>
+            <p class="text-sm text-slate-500 mt-1">Prosjektkort med periode-status, nøkkelinformasjon og tildelte ressurser.</p>
+          </div>
+          <div class="p-5">
+            <div id="projectWorkspaceEmpty" class="rounded-[24px] border border-dashed border-slate-300 bg-slate-50 px-5 py-8 text-sm text-slate-500">Velg et prosjekt fra listen til venstre for å se detaljer, bemanning og arkivstatus.</div>
+            <div id="projectWorkspaceContent" class="hidden space-y-5">
+              <div>
+                <div id="projectWorkspaceTitle" class="text-[28px] leading-tight font-semibold text-slate-950"></div>
+                <div id="projectWorkspaceMeta" class="mt-4 space-y-4"></div>
+              </div>
+              <div>
+                <div class="text-sm font-medium text-slate-700 mb-2">Notater</div>
+                <div id="projectWorkspaceNotes" class="rounded-[22px] border border-slate-200 bg-slate-50 px-4 py-4 text-sm text-slate-600"></div>
+              </div>
+              <div>
+                <div class="flex items-center justify-between gap-3 mb-3">
+                  <div class="text-sm font-medium text-slate-700">Tildelte ressurser</div>
+                  <div id="projectWorkspaceActions" class="flex flex-wrap gap-2"></div>
+                </div>
+                <div id="projectWorkspaceAssignments" class="space-y-3"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="xl:col-span-4 space-y-5">
+        <div class="rounded-[28px] bg-white border border-slate-200 shadow-sm overflow-hidden">
+          <div class="p-5 border-b border-slate-200 bg-slate-50/80">
+            <h2 class="font-semibold text-lg text-slate-900">Bemann prosjekt</h2>
+            <p class="text-sm text-slate-500 mt-1">Flere navnevalg og rollevalg vises automatisk ut fra bemanningsbehovet på prosjektet.</p>
+          </div>
+          <div class="p-5 space-y-5">
+            <div class="space-y-2">
+              <label for="assignProject" class="text-sm font-medium text-slate-700">Velg prosjekt</label>
+              <select id="assignProject" class="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm shadow-sm"></select>
+            </div>
+
+            <div id="assignPeriodWrap" class="hidden space-y-2">
+              <div class="flex items-center justify-between gap-3">
+                <label for="assignPeriod" class="text-sm font-medium text-slate-700">Velg periode</label>
+                <span id="assignPeriodHint" class="text-xs font-medium text-blue-700"></span>
+              </div>
+              <select id="assignPeriod" class="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm shadow-sm"></select>
+            </div>
+
+            <div id="assignSummary" class="rounded-[24px] border border-blue-200 bg-gradient-to-br from-blue-50 to-white px-5 py-4 text-sm text-slate-700 shadow-sm">
+              Velg et prosjekt for å starte bemanning.
+            </div>
+
+            <div id="assignPeriodNav" class="hidden grid grid-cols-2 gap-3">
+              <button id="assignPrevPeriodBtn" type="button" class="rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-medium text-slate-700 shadow-sm disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400">← Forrige periode</button>
+              <button id="assignNextPeriodBtn" type="button" class="rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-medium text-slate-700 shadow-sm disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400">Neste periode →</button>
+            </div>
+
+            <div id="assignEmployeesWrap" class="space-y-3"></div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div class="space-y-2">
+                <label for="assignStart" class="text-sm font-medium text-slate-700">Startdato</label>
+                <input id="assignStart" type="date" class="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm shadow-sm" />
+              </div>
+              <div class="space-y-2">
+                <label for="assignEnd" class="text-sm font-medium text-slate-700">Sluttdato</label>
+                <input id="assignEnd" type="date" class="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm shadow-sm" />
+              </div>
+            </div>
+            <div class="space-y-2">
+              <label for="assignNotes" class="text-sm font-medium text-slate-700">Notater (valgfritt)</label>
+              <textarea id="assignNotes" class="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm shadow-sm" rows="4" placeholder="Legg til notater om bemanningen..."></textarea>
+            </div>
+            <button id="assignBtn" class="w-full rounded-2xl bg-slate-900 text-white px-4 py-3 text-sm font-medium shadow-sm">Legg i kalender</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="tabEmployeesSection" class="grid grid-cols-1 xl:grid-cols-4 gap-4" style="display:none;">
+      <div class="xl:col-span-4">
+        <div class="rounded-2xl bg-white border border-slate-200 shadow-sm">
+          <div class="p-4 border-b border-slate-200 flex items-center justify-between">
+            <h2 class="font-semibold">Ansatte</h2>
+            <button id="newEmployeeBtn" class="rounded-xl bg-slate-900 text-white px-3 py-2 text-sm">Ny ansatt</button>
+          </div>
+          <div class="p-4 space-y-3">
+            <textarea id="bulkEmployees" class="w-full rounded-2xl border border-slate-300 px-3 py-2" rows="4" placeholder="Lim inn flere navn, ett per linje"></textarea>
+            <button id="bulkAddBtn" class="w-full rounded-2xl border border-slate-300 bg-white px-4 py-2">Legg til mange ansatte</button>
+            <div id="employeeList" class="space-y-2 max-h-[680px] overflow-auto scrollbar-thin"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="tabAdminSection" class="grid grid-cols-1 xl:grid-cols-3 gap-4" style="display:none;">
+      <div class="rounded-2xl bg-white border border-slate-200 shadow-sm">
+        <div class="p-4 border-b border-slate-200"><h2 class="font-semibold">Kanban – prosjekter</h2></div>
+        <div id="kanbanBoard" class="p-4 grid grid-cols-1 gap-4"></div>
+      </div>
+
+      <div class="rounded-2xl bg-white border border-slate-200 shadow-sm">
+        <div class="p-4 border-b border-slate-200"><h2 class="font-semibold">Varsellogg</h2></div>
+        <div id="notificationList" class="p-4 space-y-3 max-h-[300px] overflow-auto scrollbar-thin"></div>
+      </div>
+
+      <div class="rounded-2xl bg-white border border-slate-200 shadow-sm">
+        <div class="p-4 border-b border-slate-200"><h2 class="font-semibold">Endringslogg</h2></div>
+        <div id="auditList" class="p-4 space-y-3 max-h-[300px] overflow-auto scrollbar-thin"></div>
+      </div>
+    </section>
+  </div>
+
+  
+      </main>
+    </div>
+  </div>
+<div id="editModal" class="fixed inset-0 z-[200] bg-black/40 hidden items-center justify-center p-4">
+    <div class="w-full max-w-lg rounded-2xl bg-white shadow-xl">
+      <div class="p-4 border-b border-slate-200 flex items-center justify-between">
+        <h2 class="font-semibold">Rediger tildeling</h2>
+        <button id="closeModalBtn" class="rounded-lg border border-slate-300 px-3 py-1 text-sm">Lukk</button>
+      </div>
+      <div class="p-4 space-y-4">
+        <select id="editProject" class="w-full rounded-2xl border border-slate-300 px-3 py-2"></select>
+        <select id="editEmployee" class="w-full rounded-2xl border border-slate-300 px-3 py-2"></select>
+        <select id="editRole" class="w-full rounded-2xl border border-slate-300 px-3 py-2"></select>
+        <div class="grid grid-cols-2 gap-2">
+          <input id="editStart" type="date" class="rounded-2xl border border-slate-300 px-3 py-2" />
+          <input id="editEnd" type="date" class="rounded-2xl border border-slate-300 px-3 py-2" />
+        </div>
+        <textarea id="editNotes" class="w-full rounded-2xl border border-slate-300 px-3 py-2" rows="3"></textarea>
+        <div class="flex gap-2">
+          <button id="saveEditBtn" class="rounded-2xl bg-slate-900 text-white px-4 py-2">Lagre</button>
+          <button id="deleteEditBtn" class="rounded-2xl border border-slate-300 bg-white px-4 py-2">Fjern</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="projectModal" class="fixed inset-0 z-[200] bg-black/40 hidden items-center justify-center p-4">
+    <div class="w-full max-w-lg rounded-2xl bg-white shadow-xl">
+      <div class="p-4 border-b border-slate-200 flex items-center justify-between">
+        <h2 id="projectModalTitle" class="font-semibold">Nytt prosjekt</h2>
+        <button id="closeProjectModalBtn" class="rounded-lg border border-slate-300 px-3 py-1 text-sm">Lukk</button>
+      </div>
+      <div class="p-4 space-y-4">
+        <input id="projectName" class="w-full rounded-2xl border border-slate-300 px-3 py-2" placeholder="Prosjektnavn" />
+        <select id="projectCategory" class="w-full rounded-2xl border border-slate-300 px-3 py-2"></select>
+        <select id="projectStatus" class="w-full rounded-2xl border border-slate-300 px-3 py-2"></select>
+        <div class="grid grid-cols-2 gap-2">
+          <input id="projectPlannedStart" type="date" class="rounded-2xl border border-slate-300 px-3 py-2" />
+          <input id="projectPlannedEnd" type="date" class="rounded-2xl border border-slate-300 px-3 py-2" />
+        </div>
+        <label class="flex items-center gap-2 text-sm">
+          <input id="projectHasMultiplePeriods" type="checkbox" />
+          Prosjektet går i flere perioder
+        </label>
+        <div id="projectPeriodsSection" class="hidden rounded-2xl border border-slate-200 bg-slate-50 p-3 space-y-3">
+          <div class="flex items-center justify-between gap-3">
+            <div>
+              <div class="font-medium text-sm text-slate-800">Prosjektperioder</div>
+              <div class="text-xs text-slate-500 mt-1">Legg inn én eller flere separate perioder for samme prosjekt.</div>
+            </div>
+            <button id="addProjectPeriodBtn" type="button" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm">Legg til periode</button>
+          </div>
+          <div id="projectPeriodsList" class="space-y-3"></div>
+        </div>
+        <input id="projectLocation" class="w-full rounded-2xl border border-slate-300 px-3 py-2" placeholder="Lokasjon / onshore / offshore" />
+        <input id="projectHeadcount" type="number" min="0" class="w-full rounded-2xl border border-slate-300 px-3 py-2" placeholder="Behov for antall personer" />
+        <textarea id="projectNotes" class="w-full rounded-2xl border border-slate-300 px-3 py-2" rows="3" placeholder="Notater"></textarea>
+        <div class="flex gap-2">
+          <button id="saveProjectBtn" class="rounded-2xl bg-slate-900 text-white px-4 py-2">Lagre</button>
+          <button id="deleteProjectBtn" class="rounded-2xl border border-slate-300 bg-white px-4 py-2">Slett</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="employeeModal" class="fixed inset-0 z-[200] bg-black/40 hidden items-center justify-center p-4">
+    <div class="w-full max-w-lg rounded-2xl bg-white shadow-xl">
+      <div class="p-4 border-b border-slate-200 flex items-center justify-between">
+        <h2 id="employeeModalTitle" class="font-semibold">Ny ansatt</h2>
+        <button id="closeEmployeeModalBtn" class="rounded-lg border border-slate-300 px-3 py-1 text-sm">Lukk</button>
+      </div>
+      <div class="p-4 space-y-4">
+        <input id="employeeName" class="w-full rounded-2xl border border-slate-300 px-3 py-2" placeholder="Navn" />
+        <input id="employeeEmail" class="w-full rounded-2xl border border-slate-300 px-3 py-2" placeholder="E-post" />
+        <input id="employeePhone" class="w-full rounded-2xl border border-slate-300 px-3 py-2" placeholder="Mobilnummer" />
+        <input id="employeeTitle" class="w-full rounded-2xl border border-slate-300 px-3 py-2" placeholder="Stillingstittel" />
+        <select id="employeeGroup" class="w-full rounded-2xl border border-slate-300 px-3 py-2">
+          <option value="">Ingen gruppe valgt</option>
+          <option value="Offshore arbeider">Offshore arbeider</option>
+          <option value="Onshore arbeider">Onshore arbeider</option>
+          <option value="Lager og logistikk">Lager og logistikk</option>
+          <option value="Engineer">Engineer</option>
+          <option value="3 parts innleie">3 parts innleie</option>
+        </select>
+        <label class="flex items-center gap-2 text-sm">
+          <input id="employeeActive" type="checkbox" checked />
+          Aktiv ansatt
+        </label>
+        <div class="flex gap-2">
+          <button id="saveEmployeeBtn" class="rounded-2xl bg-slate-900 text-white px-4 py-2">Lagre</button>
+          <button id="deleteEmployeeBtn" class="rounded-2xl border border-slate-300 bg-white px-4 py-2">Slett</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="./data.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="./app.js"></script>
+</body>
+</html>
