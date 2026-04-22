@@ -2692,6 +2692,28 @@ async function deleteEditedEntry() {
       .filter(period => period.start || period.end);
   }
 
+  function getProjectTimelinePeriods(project) {
+    if (!project) return [];
+    const periods = normalizeProjectPeriods(project?.project_periods_json || []);
+    if (project?.has_multiple_periods && periods.length) {
+      return periods
+        .filter(period => period.start && period.end)
+        .slice()
+        .sort((a, b) => a.start.localeCompare(b.start) || a.end.localeCompare(b.end));
+    }
+
+    if (project.planned_start_date && project.planned_end_date) {
+      return [{
+        id: project.id,
+        start: project.planned_start_date,
+        end: project.planned_end_date
+      }];
+    }
+
+    return [];
+  }
+
+
   function createEmptyProjectPeriod() {
     return {
       id: crypto.randomUUID(),
@@ -3801,12 +3823,14 @@ async function deleteEditedEntry() {
       const assigned = getProjectAssignedCount(project.id);
       const required = Number(project.headcount_required || 0);
       const staffing = getProjectStaffingLabel(project.id, required);
+      const projectPeriods = getProjectTimelinePeriods(project);
 
       html += `
         <div class="sticky-col border-r border-b border-slate-200 px-3 py-2 ${project.status === "Avsluttet" ? "bg-slate-100" : "bg-white"}">
           <div class="font-medium">${escapeHtml(project.name)}</div>
           <div class="text-xs text-slate-500">${escapeHtml(project.location || "")}</div>
           <div class="text-xs ${staffing.variant} mt-1">${escapeHtml(staffing.text)}${required ? ` (${assigned}/${required})` : ""}</div>
+          ${project.has_multiple_periods && projectPeriods.length ? `<div class="text-[11px] text-slate-400 mt-1">${projectPeriods.length} perioder</div>` : ""}
         </div>
       `;
 
@@ -3822,23 +3846,23 @@ async function deleteEditedEntry() {
 
       html += `<div style="position:relative; width:${totalWidth}px; min-height:52px;">`;
 
-      if (project.planned_start_date && project.planned_end_date) {
-        const clipped = clipRange(asLocalDate(project.planned_start_date), asLocalDate(project.planned_end_date), range.start, range.end);
+      for (const period of projectPeriods) {
+        const clipped = clipRange(asLocalDate(period.start), asLocalDate(period.end), range.start, range.end);
         const startIndex = diffDays(range.start, clipped.start);
         const spanDays = diffDays(clipped.start, clipped.end) + 1;
         const left = startIndex * colWidth + 2;
         const width = Math.max(spanDays * colWidth - 4, 40);
+        const periodLabel = project.has_multiple_periods && projectPeriods.length > 1 ? `${formatDate(period.start)} – ${formatDate(period.end)}` : staffing.text;
 
         html += `
           <div
             class="entry-bar ${getProjectBarClasses(project)}"
             style="left:${left}px; width:${width}px;"
             data-project-row-id="${escapeHtml(project.id)}"
-            title="${escapeHtml(`${project.name} | ${formatProjectDateRange(project)} | ${staffing.text}`)}"
+            title="${escapeHtml(`${project.name} | ${formatDate(period.start)} – ${formatDate(period.end)} | ${staffing.text}`)}"
           >
             <div class="font-semibold">${escapeHtml(project.name)}</div>
-            <div class="text-[11px] opacity-90">${escapeHtml(staffing.text)}</div>
-            <div data-resize-handle data-resize-type="project" data-target-id="${escapeHtml(project.id)}" title="Dra for å endre sluttdato" style="position:absolute; top:0; right:0; bottom:0; width:12px; cursor:ew-resize; border-left:1px solid rgba(255,255,255,0.35); background:linear-gradient(to left, rgba(255,255,255,0.35), rgba(255,255,255,0));"></div>
+            <div class="text-[11px] opacity-90">${escapeHtml(periodLabel)}</div>
           </div>
         `;
       }
@@ -3852,7 +3876,6 @@ async function deleteEditedEntry() {
     els.calendarWrap.querySelectorAll("[data-project-row-id]").forEach(el => {
       el.addEventListener("click", () => openProjectModal(el.dataset.projectRowId));
     });
-    bindResizeHandles();
     renderWarnings(uniqueArray(warnings));
   }
 
@@ -4447,8 +4470,9 @@ function getFilteredEmployees() {
   }
 
   function projectOverlapsRange(project, rangeStart, rangeEnd) {
-    if (!project.planned_start_date || !project.planned_end_date) return false;
-    return overlaps(project.planned_start_date, project.planned_end_date, rangeStart, rangeEnd);
+    const periods = getProjectTimelinePeriods(project);
+    if (!periods.length) return false;
+    return periods.some(period => overlaps(period.start, period.end, rangeStart, rangeEnd));
   }
 
   function compareProjectDates(a, b) {
