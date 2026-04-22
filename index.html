@@ -1,457 +1,219 @@
-<!DOCTYPE html>
-<html lang="no">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Personal planlegging</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <style>
-    .scrollbar-thin::-webkit-scrollbar { height: 10px; width: 10px; }
-    .scrollbar-thin::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 9999px; }
-    .scrollbar-thin::-webkit-scrollbar-track { background: #f8fafc; }
+const SUPABASE_URL = "https://glyftmrkjherfrapbnjx.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdseWZ0bXJramhlcmZyYXBibmp4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYwOTUwMzAsImV4cCI6MjA5MTY3MTAzMH0.6XEGISHw8D_HddO4iglkc9PdNRo-s3y_Ejxy80ALLfE";
 
-    .calendar-shell { width: max-content; min-width: 100%; }
-    .day-grid, .month-summary-grid { display: grid; gap: 0; align-items: stretch; width: max-content; }
-    .sticky-col { position: sticky; left: 0; z-index: 40; background: white; box-shadow: 10px 0 18px -14px rgba(15, 23, 42, 0.28); }
-    .row-overlay { position: relative; min-height: 52px; }
+const STORAGE_KEYS = {
+  employees: "planner_employees_v41",
+  projects: "planner_projects_v41",
+  entries: "planner_entries_v41",
+  auditLog: "planner_audit_v41",
+  notificationLog: "planner_notifications_v41",
+  startDate: "planner_start_v41",
+  viewMode: "planner_view_v41",
+  calendarMode: "planner_calendar_mode_v41"
+};
 
-    .entry-bar {
-      position: absolute;
-      top: 5px;
-      bottom: 5px;
-      border-width: 1px;
-      border-radius: 14px;
-      padding: 6px 10px;
-      font-size: 12px;
-      line-height: 1.1;
-      overflow: hidden;
-      white-space: nowrap;
-      text-overflow: ellipsis;
-      cursor: pointer;
-      box-shadow: 0 1px 2px rgba(15, 23, 42, 0.12);
-    }
+const LEGACY_STORAGE_KEYS = {
+  employees: ["planner_employees_v31"],
+  projects: ["planner_projects_v31"],
+  entries: ["planner_entries_v31"],
+  auditLog: ["planner_audit_v31"],
+  notificationLog: ["planner_notifications_v31"],
+  startDate: ["planner_start_v31"],
+  viewMode: ["planner_view_v31"],
+  calendarMode: ["planner_calendar_mode_v31"]
+};
 
-    .overlap-conflict { box-shadow: inset 0 0 0 1px rgba(127, 29, 29, 0.85), 0 0 0 2px rgba(248, 113, 113, 0.35); background-image: repeating-linear-gradient(135deg, rgba(127,29,29,0.16) 0 6px, rgba(255,255,255,0.0) 6px 12px); }
+const CATEGORY_COLORS = {
+  Offshore: "bg-green-500 border-green-600 text-white",
+  Travel: "bg-cyan-500 border-cyan-600 text-white",
+  Onshore: "bg-indigo-500 border-indigo-600 text-white",
+  Kurs: "bg-violet-500 border-violet-600 text-white",
+  Ferie: "bg-orange-400 border-orange-500 text-slate-900",
+  Syk: "bg-red-600 border-red-700 text-white",
+  Avspasering: "bg-amber-700 border-amber-800 text-white"
+};
 
-    .month-cell, .day-cell {
-      min-height: 52px;
-      border-right: 1px solid #e2e8f0;
-      border-bottom: 1px solid #e2e8f0;
-      background: white;
-    }
+const STATUS_COLORS = {
+  Planlagt: "bg-blue-100 text-blue-800 border-blue-200",
+  "Pågår": "bg-green-100 text-green-800 border-green-200",
+  Avventer: "bg-yellow-100 text-yellow-800 border-yellow-200",
+  Avsluttet: "bg-slate-200 text-slate-700 border-slate-300",
+  "Fullført": "bg-slate-200 text-slate-700 border-slate-300"
+};
 
-    .day-cell.weekend { background: #f8fafc; }
-    .day-cell.today { background: #eff6ff; }
-    .day-cell.red-day { background: #fef2f2; }
+const ROLE_CLASSES = {
+  "Supervisor": "ring-2 ring-yellow-400",
+  "Mekaniker 1": "ring-2 ring-blue-400",
+  "Mekaniker 2": "ring-2 ring-green-400",
+  "Mekaniker 3": "ring-2 ring-purple-400"
+};
 
+const ROLE_OPTIONS = ["Supervisor", "Mekaniker 1", "Mekaniker 2", "Mekaniker 3"];
+const CATEGORY_OPTIONS = ["Offshore", "Travel", "Onshore"];
+const STATUS_OPTIONS = ["Planlagt", "Pågår", "Avventer", "Avsluttet"];
 
-    .app-shell-bg { background: linear-gradient(180deg, #0b232c 0%, #102e3a 100%); }
-    .app-shell-frame { background: #102934; box-shadow: 0 18px 40px rgba(3, 15, 20, 0.24); }
-    .app-topbar { background: linear-gradient(180deg, #0b232c 0%, #0f2f3a 100%); }
-    .app-sidebar { background: linear-gradient(180deg, #08202a 0%, #0b2934 100%); }
-    .app-sidebar-btn { color: rgba(255,255,255,0.82); border: 1px solid transparent; }
-    .app-sidebar-btn:hover { background: rgba(255,255,255,0.06); color: #ffffff; }
-    .app-sidebar-btn.active { background: rgba(81,255,204,0.12); color: #ffffff; border-color: rgba(81,255,204,0.22); box-shadow: inset 3px 0 0 #51ffcc; }
-    .app-sidebar-btn svg { opacity: 0.95; }
-    .app-surface { background: #f4f7f8; }
-    .overview-card { border-radius: 24px; border: 1px solid #dbe4e8; background: rgba(255,255,255,0.96); box-shadow: 0 2px 8px rgba(15,23,42,0.04); }
-    .overview-kpi-icon { width: 56px; height: 56px; border-radius: 9999px; display: inline-flex; align-items: center; justify-content: center; }
-    .overview-muted { color: #637587; }
-    .status-pill-soft { border-radius: 9999px; padding: 6px 12px; font-size: 12px; line-height: 1; font-weight: 500; }
-    .shell-search { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.14); color: white; }
-    .shell-search::placeholder { color: rgba(255,255,255,0.65); }
-    .shell-search svg { color: rgba(255,255,255,0.7); }
+const DEFAULT_EMPLOYEES = [
+  { id: crypto.randomUUID(), name: "Olis Hansen", email: "olis@firma.no", phone: "+47 90000001", title: "", active: true },
+  { id: crypto.randomUUID(), name: "Kenneth Vallestad", email: "kenneth@firma.no", phone: "+47 90000002", title: "", active: true },
+  { id: crypto.randomUUID(), name: "Paul Chilver", email: "paul@firma.no", phone: "+47 90000003", title: "", active: true },
+  { id: crypto.randomUUID(), name: "Aliaksandr Skliarenka", email: "aliaksandr@firma.no", phone: "+47 90000004", title: "", active: true },
+  { id: crypto.randomUUID(), name: "Stian Egelandsdal", email: "stian@firma.no", phone: "+47 90000005", title: "", active: true },
+  { id: crypto.randomUUID(), name: "Sean Sarkic", email: "sean@firma.no", phone: "+47 90000006", title: "", active: true },
+  { id: crypto.randomUUID(), name: "Henrik Ueland", email: "henrik@firma.no", phone: "+47 90000007", title: "", active: true },
+  { id: crypto.randomUUID(), name: "Erlend Skryten Johnsen", email: "erlend@firma.no", phone: "+47 90000008", title: "", active: true },
+  { id: crypto.randomUUID(), name: "Fredrik Johansen", email: "fredrik@firma.no", phone: "+47 90000009", title: "", active: true },
+  { id: crypto.randomUUID(), name: "Tor-Marius Sande", email: "tormarius@firma.no", phone: "+47 90000010", title: "", active: true },
+  { id: crypto.randomUUID(), name: "Bjørn Heidar Asmundsson", email: "bjorn.heidar@firma.no", phone: "+47 90000011", title: "", active: true },
+  { id: crypto.randomUUID(), name: "Erling Sekse Bilstad", email: "erling@firma.no", phone: "+47 90000012", title: "", active: true },
+  { id: crypto.randomUUID(), name: "Bjørn Erik Hansen", email: "bjorn.erik@firma.no", phone: "+47 90000013", title: "", active: true },
+  { id: crypto.randomUUID(), name: "Suzanne Sola Hestvik", email: "suzanne@firma.no", phone: "+47 90000014", title: "", active: true },
+  { id: crypto.randomUUID(), name: "Steinar Engtrø", email: "steinar@firma.no", phone: "+47 90000015", title: "", active: true },
+  { id: crypto.randomUUID(), name: "Joar Bergsholm", email: "joar@firma.no", phone: "+47 90000016", title: "", active: true },
+  { id: crypto.randomUUID(), name: "Joachim Fosse", email: "joachim@firma.no", phone: "+47 90000017", title: "", active: true },
+  { id: crypto.randomUUID(), name: "Karl Fredrik Tofte", email: "karl@firma.no", phone: "+47 90000018", title: "", active: true },
+  { id: crypto.randomUUID(), name: "Emil Skaue Nielse", email: "emil@firma.no", phone: "+47 90000019", title: "", active: true },
+  { id: crypto.randomUUID(), name: "Håkon Lea", email: "haakon@firma.no", phone: "+47 90000020", title: "", active: true },
+  { id: crypto.randomUUID(), name: "Bjørnar Rugland - verksted", email: "bjornar.rugland@firma.no", phone: "+47 90000021", title: "", active: true },
+  { id: crypto.randomUUID(), name: "Ihor Kaluhin - verksted", email: "ihor@firma.no", phone: "+47 90000022", title: "", active: true },
+  { id: crypto.randomUUID(), name: "Ivan Vrcic - Lager", email: "ivan@firma.no", phone: "+47 90000023", title: "", active: true },
+  { id: crypto.randomUUID(), name: "Andreas Lende", email: "andreas.lende@firma.no", phone: "+47 90000024", title: "", active: true },
+  { id: crypto.randomUUID(), name: "Aironas Larsen", email: "aironas@firma.no", phone: "+47 90000025", title: "", active: true }
+];
 
-  </style>
-</head>
-<body class="app-shell-bg text-slate-900 min-h-screen p-4 lg:p-5">
-  <div class="app-shell-frame min-h-[calc(100vh-2rem)] rounded-[28px] overflow-hidden">
-    <div class="grid grid-cols-[72px_minmax(0,1fr)] min-h-[calc(100vh-2rem)]">
-      <aside class="app-sidebar border-r border-white/10 flex flex-col items-center py-5 gap-4">
-        <button id="appNavToggle" type="button" class="h-11 w-11 rounded-2xl flex items-center justify-center text-white/85 hover:bg-white/10 transition" aria-label="Åpne meny">
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="h-6 w-6"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" /></svg>
-        </button>
-        <nav class="mt-2 flex flex-col gap-3 w-full items-center px-3">
-          <button id="navOverviewBtn" type="button" class="app-sidebar-btn active h-14 w-14 rounded-2xl flex items-center justify-center transition" title="Oversikt">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="h-7 w-7"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12 11.204 3.046a1.5 1.5 0 0 1 2.121 0L22.278 12M4.5 9.75V19.5A1.5 1.5 0 0 0 6 21h4.5v-6a1.5 1.5 0 0 1 1.5-1.5h0A1.5 1.5 0 0 1 13.5 15v6H18a1.5 1.5 0 0 0 1.5-1.5V9.75" /></svg>
-          </button>
-          <button id="navCalendarBtn" type="button" class="app-sidebar-btn h-14 w-14 rounded-2xl flex items-center justify-center transition" title="Kalender">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="h-7 w-7"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3.75 8.25h16.5M4.5 5.25h15A1.5 1.5 0 0 1 21 6.75v12A1.5 1.5 0 0 1 19.5 20.25h-15A1.5 1.5 0 0 1 3 18.75v-12A1.5 1.5 0 0 1 4.5 5.25Z" /></svg>
-          </button>
-          <button id="navProjectsBtn" type="button" class="app-sidebar-btn h-14 w-14 rounded-2xl flex items-center justify-center transition" title="Prosjekter">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="h-7 w-7"><path stroke-linecap="round" stroke-linejoin="round" d="M3 7.5A1.5 1.5 0 0 1 4.5 6h4.879a1.5 1.5 0 0 1 1.06.44l.621.62a1.5 1.5 0 0 0 1.06.44H19.5A1.5 1.5 0 0 1 21 9v9A1.5 1.5 0 0 1 19.5 19.5h-15A1.5 1.5 0 0 1 3 18V7.5Z" /></svg>
-          </button>
-          <button id="navEmployeesBtn" type="button" class="app-sidebar-btn h-14 w-14 rounded-2xl flex items-center justify-center transition" title="Ansatte">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="h-7 w-7"><path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 0 0 3.742-.479 3 3 0 0 0-4.682-2.72m.94 3.198v-.75A3.75 3.75 0 0 0 14.25 14.25h-4.5A3.75 3.75 0 0 0 6 17.97v.75m12 0a17.96 17.96 0 0 1-6 1.03 17.96 17.96 0 0 1-6-1.03m12 0a3 3 0 0 0-4.5-2.59M6 18.72a3 3 0 0 1 4.5-2.59m0 0a3.75 3.75 0 1 0-4.5-6.48 3.75 3.75 0 0 0 4.5 6.48Zm6-5.25a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" /></svg>
-          </button>
-          <button id="navAdminBtn" type="button" class="app-sidebar-btn h-14 w-14 rounded-2xl flex items-center justify-center transition" title="Admin">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="h-7 w-7"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 6h3m-7.5 6h12m-9 6h6M4.5 4.5h15A1.5 1.5 0 0 1 21 6v12a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 18V6a1.5 1.5 0 0 1 1.5-1.5Z" /></svg>
-          </button>
-        </nav>
-        <div class="mt-auto text-white/45 text-xs pb-2" title="Sandbox låst">
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="h-5 w-5 mx-auto"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 0h10.5A1.5 1.5 0 0 1 18.75 12v7.5A1.5 1.5 0 0 1 17.25 21h-10.5a1.5 1.5 0 0 1-1.5-1.5V12a1.5 1.5 0 0 1 1.5-1.5Z" /></svg>
-        </div>
-      </aside>
-      <div class="min-w-0 flex flex-col">
-        <header class="app-topbar border-b border-white/10 px-7 py-5 flex items-center justify-between gap-6">
-          <div class="flex items-center gap-7 min-w-0">
-            <img src="./izomax-logo.png" alt="Izomax" class="h-10 w-auto shrink-0" />
-            <div class="text-white text-[30px] font-semibold leading-none">Bemanningsplanlegging</div>
-          </div>
-          <div class="flex items-center gap-3 shrink-0">
-            <span id="storageBadge" class="hidden rounded-xl border border-white/15 bg-white/10 px-3 py-2 text-sm text-white/80">Laster...</span>
-            <span id="saveStatus" class="rounded-xl border border-white/15 bg-white/10 px-3 py-2 text-sm text-white/80">Klar</span>
-            <div class="relative">
-              <input id="appShellSearch" class="shell-search w-[280px] rounded-2xl border px-4 py-3 text-sm placeholder:text-white/60 focus:outline-none" placeholder="Søk" />
-              <div class="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-white/70">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="h-5 w-5"><path stroke-linecap="round" stroke-linejoin="round" d="m21 21-4.35-4.35m0 0A7.5 7.5 0 1 0 6.05 6.05a7.5 7.5 0 0 0 10.6 10.6Z" /></svg>
-              </div>
-            </div>
-            <button class="h-11 w-11 rounded-2xl border border-white/15 bg-white/10 text-white/85 flex items-center justify-center">
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="h-6 w-6"><path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a23.848 23.848 0 0 1-2.725.168 23.847 23.847 0 0 1-2.725-.168m5.45 0a2.25 2.25 0 0 0 2.244-2.077 55.977 55.977 0 0 0 .274-5.126 8.966 8.966 0 0 0-1.997-5.84 8.966 8.966 0 0 0-6.756 0 8.966 8.966 0 0 0-1.997 5.84c0 1.752.101 3.467.274 5.126a2.25 2.25 0 0 0 2.244 2.077m10.5 0a2.25 2.25 0 0 1-2.244 2.077 55.977 55.977 0 0 1-.274-5.126 8.966 8.966 0 0 1 1.997-5.84 8.966 8.966 0 0 1 6.756 0 8.966 8.966 0 0 1 1.997 5.84c0 1.752-.101 3.467-.274 5.126A2.25 2.25 0 0 1 19.5 17.082Z" /></svg>
-            </button>
-            <div class="flex items-center gap-3 rounded-2xl border border-white/15 bg-white/10 px-3 py-2 text-white/90">
-              <div class="h-10 w-10 rounded-full bg-[#00726c] text-white flex items-center justify-center font-semibold">AK</div>
-              <div class="text-sm font-medium">Aina Karlsen</div>
-            </div>
-          </div>
-        </header>
-        <main class="app-surface min-w-0 flex-1 p-7 overflow-auto">
-          <div id="statsRow" class="hidden"></div>
-          <div id="plannerTabs" class="hidden">
-            <button id="tabCalendarBtn"></button>
-            <button id="tabProjectsBtn"></button>
-            <button id="tabEmployeesBtn"></button>
-            <button id="tabAdminBtn"></button>
-          </div>
-          <section id="tabOverviewSection" class="space-y-6">
-            <div>
-              <h1 class="text-[44px] leading-none font-semibold text-slate-950">Oversikt</h1>
-              <p class="overview-muted mt-3 text-lg">Rask status for bemanning og tilgjengelighet</p>
-            </div>
-            <section class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5">
-              <div class="overview-card p-6 flex items-center gap-4"><div class="overview-kpi-icon bg-sky-50 text-[#0b232c]" id="overviewKpiProjectsIcon"></div><div><div class="text-sm overview-muted">Aktive prosjekter</div><div id="overviewProjectsCount" class="text-5xl font-semibold text-slate-950 mt-1">0</div></div></div>
-              <div class="overview-card p-6 flex items-center gap-4"><div class="overview-kpi-icon bg-orange-50 text-orange-600" id="overviewKpiStaffingIcon"></div><div><div class="text-sm overview-muted">Mangler bemanning</div><div id="overviewNeedsStaffingCount" class="text-5xl font-semibold text-slate-950 mt-1">0</div></div></div>
-              <div class="overview-card p-6 flex items-center gap-4"><div class="overview-kpi-icon bg-emerald-50 text-emerald-700" id="overviewKpiAvailableIcon"></div><div><div class="text-sm overview-muted">Tilgjengelige ansatte i dag</div><div id="overviewAvailableTodayCount" class="text-5xl font-semibold text-slate-950 mt-1">0</div></div></div>
-              <div class="overview-card p-6 flex items-center gap-4"><div class="overview-kpi-icon bg-rose-50 text-rose-600" id="overviewKpiConflictIcon"></div><div><div class="text-sm overview-muted">Perioder med konflikt</div><div id="overviewConflictCount" class="text-5xl font-semibold text-slate-950 mt-1">0</div></div></div>
-            </section>
-            <section class="grid grid-cols-1 xl:grid-cols-2 gap-5">
-              <div class="overview-card p-6">
-                <div class="flex items-center justify-between gap-3 mb-4"><h2 class="text-2xl font-semibold text-slate-950">Prosjekter som trenger oppfølging</h2><button id="overviewOpenProjectsBtn" class="text-[#00726c] text-sm font-medium">Se alle</button></div>
-                <div id="overviewNeedsAttentionList" class="divide-y divide-slate-200"></div>
-              </div>
-              <div class="overview-card p-6">
-                <h2 class="text-2xl font-semibold text-slate-950 mb-4">Tilgjengelighet neste 2 uker</h2>
-                <div class="space-y-6">
-                  <div class="space-y-2"><div class="flex items-center justify-between text-base"><span class="text-slate-800">Tilgjengelig</span><span id="overviewAvailAvailableLabel" class="overview-muted">0 (0 %)</span></div><div class="h-3 rounded-full bg-slate-100 overflow-hidden"><div id="overviewAvailAvailableBar" class="h-full w-0 bg-emerald-500 rounded-full"></div></div></div>
-                  <div class="space-y-2"><div class="flex items-center justify-between text-base"><span class="text-slate-800">Delvis tilgjengelig</span><span id="overviewAvailPartialLabel" class="overview-muted">0 (0 %)</span></div><div class="h-3 rounded-full bg-slate-100 overflow-hidden"><div id="overviewAvailPartialBar" class="h-full w-0 bg-amber-400 rounded-full"></div></div></div>
-                  <div class="space-y-2"><div class="flex items-center justify-between text-base"><span class="text-slate-800">Utilgjengelig</span><span id="overviewAvailUnavailableLabel" class="overview-muted">0 (0 %)</span></div><div class="h-3 rounded-full bg-slate-100 overflow-hidden"><div id="overviewAvailUnavailableBar" class="h-full w-0 bg-rose-400 rounded-full"></div></div></div>
-                  <div id="overviewAvailTotal" class="overview-muted text-sm">Totalt 0 ansatte</div>
-                </div>
-              </div>
-            </section>
-            <section class="grid grid-cols-1 xl:grid-cols-2 gap-5">
-              <div class="overview-card p-6">
-                <h2 class="text-2xl font-semibold text-slate-950 mb-4">Bemanningsstatus denne uken</h2>
-                <div class="grid grid-cols-[220px_minmax(0,1fr)] gap-6 items-center">
-                  <div class="flex justify-center"><div class="relative h-48 w-48 rounded-full flex items-center justify-center" id="overviewDonutWrap"><div class="absolute inset-0 rounded-full" id="overviewDonutChart"></div><div class="relative h-28 w-28 rounded-full bg-white flex flex-col items-center justify-center border border-slate-100"><div id="overviewDonutPercent" class="text-5xl font-semibold text-slate-950">0%</div><div class="overview-muted text-sm mt-1">bemannet</div></div></div></div>
-                  <div class="space-y-4">
-                    <div class="flex items-center justify-between gap-3"><div class="flex items-center gap-3 text-slate-800"><span class="h-3 w-3 rounded-full bg-[#0b4d5c]"></span>Bemannet</div><div id="overviewLegendStaffed" class="overview-muted">0 % (0)</div></div>
-                    <div class="flex items-center justify-between gap-3"><div class="flex items-center gap-3 text-slate-800"><span class="h-3 w-3 rounded-full bg-[#9cc0ca]"></span>Underbemannet</div><div id="overviewLegendUnder" class="overview-muted">0 % (0)</div></div>
-                    <div class="flex items-center justify-between gap-3"><div class="flex items-center gap-3 text-slate-800"><span class="h-3 w-3 rounded-full bg-[#d4d8de]"></span>Ikke bemannet</div><div id="overviewLegendUnstaffed" class="overview-muted">0 % (0)</div></div>
-                    <div id="overviewTotalPlanned" class="overview-muted pt-4 text-base">Totalt 0 planlagte stillinger</div>
-                  </div>
-                </div>
-              </div>
-              <div class="overview-card p-6">
-                <div class="flex items-center justify-between gap-3 mb-4"><h2 class="text-2xl font-semibold text-slate-950">Kommende perioder</h2><button id="overviewOpenCalendarBtn" class="text-[#00726c] text-sm font-medium">Se kalender</button></div>
-                <div id="overviewUpcomingPeriods" class="space-y-3"></div>
-              </div>
-            </section>
+const DEFAULT_PROJECTS = [
+  {
+    id: crypto.randomUUID(),
+    name: "PBF California",
+    category: "Offshore",
+    status: "Pågår",
+    planned_start_date: "2026-01-10",
+    planned_end_date: "2026-01-25",
+    location: "Offshore",
+    headcount_required: 2,
+    notes: "Fra eksisterende plan"
+  },
+  {
+    id: crypto.randomUUID(),
+    name: "IZO-30220 Tyrkia",
+    category: "Offshore",
+    status: "Pågår",
+    planned_start_date: "2026-01-12",
+    planned_end_date: "2026-01-26",
+    location: "Offshore",
+    headcount_required: 2,
+    notes: "Fra eksisterende plan"
+  },
+  {
+    id: crypto.randomUUID(),
+    name: "Shell Bukom",
+    category: "Offshore",
+    status: "Pågår",
+    planned_start_date: "2026-01-12",
+    planned_end_date: "2026-01-23",
+    location: "Offshore",
+    headcount_required: 1,
+    notes: "Fra eksisterende plan"
+  },
+  {
+    id: crypto.randomUUID(),
+    name: "Kurs Kårstø",
+    category: "Kurs",
+    status: "Planlagt",
+    planned_start_date: "2026-01-12",
+    planned_end_date: "2026-01-16",
+    location: "Onshore",
+    headcount_required: 1,
+    notes: "Kurs"
+  },
+  {
+    id: crypto.randomUUID(),
+    name: "Ferie",
+    category: "Ferie",
+    status: "Planlagt",
+    planned_start_date: "2026-01-06",
+    planned_end_date: "2026-01-09",
+    location: "",
+    headcount_required: 0,
+    notes: "Fravær"
+  },
+  {
+    id: crypto.randomUUID(),
+    name: "Training",
+    category: "Kurs",
+    status: "Planlagt",
+    planned_start_date: "2026-01-06",
+    planned_end_date: "2026-01-07",
+    location: "Onshore",
+    headcount_required: 1,
+    notes: "Opplæring"
+  },
+  {
+    id: crypto.randomUUID(),
+    name: "Onshore",
+    category: "Onshore",
+    status: "Planlagt",
+    planned_start_date: "2026-01-01",
+    planned_end_date: "2026-03-31",
+    location: "Onshore",
+    headcount_required: 2,
+    notes: "Fast kapasitet"
+  },
+  {
+    id: crypto.randomUUID(),
+    name: "Travel",
+    category: "Travel",
+    status: "Planlagt",
+    planned_start_date: "2026-01-01",
+    planned_end_date: "2026-01-07",
+    location: "",
+    headcount_required: 2,
+    notes: "Reiseblokk"
+  },
+  {
+    id: crypto.randomUUID(),
+    name: "Åsgard A 18CL900",
+    category: "Offshore",
+    status: "Planlagt",
+    planned_start_date: "2026-03-02",
+    planned_end_date: "2026-03-13",
+    location: "Offshore",
+    headcount_required: 2,
+    notes: "Planlagt oppdrag"
+  },
+  {
+    id: crypto.randomUUID(),
+    name: "New Platform Upgrade",
+    category: "Offshore",
+    status: "Planlagt",
+    planned_start_date: "2026-04-06",
+    planned_end_date: "2026-04-22",
+    location: "Offshore",
+    headcount_required: 3,
+    notes: "Ikke bemannet ennå"
+  }
+];
 
+function projectIdByName(name) {
+  return DEFAULT_PROJECTS.find(p => p.name === name)?.id || DEFAULT_PROJECTS[0].id;
+}
 
-    <section id="tabCalendarSection" class="flex flex-col xl:flex-row gap-4 items-start">
-      <div id="calendarMainCol" class="min-w-0 flex-1 rounded-2xl bg-white border border-slate-200 shadow-sm">
-        <div class="p-4 border-b border-slate-200 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
-          <div class="flex flex-wrap gap-2 items-center">
-            <input id="searchInput" name="planner_search_filter" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false" class="w-[220px] rounded-2xl border border-slate-300 px-3 py-2" placeholder="Søk ansatt" />
-            <select id="employeeFilter" class="w-[220px] rounded-2xl border border-slate-300 px-3 py-2"></select>
-            <select id="calendarMode" class="rounded-2xl border border-slate-300 px-3 py-2">
-              <option value="personal">Personalplan</option>
-              <option value="project">Prosjektplan</option>
-            </select>
-            <select id="viewMode" class="rounded-2xl border border-slate-300 px-3 py-2">
-              <option value="Uke">Uke</option>
-              <option value="Måned">Måned</option>
-              <option value="År">År</option>
-            </select>
-          </div>
+const DEFAULT_ENTRIES = [
+  { id: crypto.randomUUID(), project_id: projectIdByName("Travel"), employee_name: "Paul Chilver", role: "Supervisor", start_date: "2026-01-01", end_date: "2026-01-07", notes: "Travel" },
+  { id: crypto.randomUUID(), project_id: projectIdByName("Training"), employee_name: "Aliaksandr Skliarenka", role: "Mekaniker 1", start_date: "2026-01-06", end_date: "2026-01-07", notes: "Training" },
+  { id: crypto.randomUUID(), project_id: projectIdByName("PBF California"), employee_name: "Aliaksandr Skliarenka", role: "Mekaniker 1", start_date: "2026-01-12", end_date: "2026-01-23", notes: "PBF California" },
+  { id: crypto.randomUUID(), project_id: projectIdByName("Travel"), employee_name: "Sean Sarkic", role: "Supervisor", start_date: "2026-01-01", end_date: "2026-01-07", notes: "Travel" },
+  { id: crypto.randomUUID(), project_id: projectIdByName("IZO-30220 Tyrkia"), employee_name: "Sean Sarkic", role: "Supervisor", start_date: "2026-01-13", end_date: "2026-01-24", notes: "IZO-30220 Tyrkia" },
+  { id: crypto.randomUUID(), project_id: projectIdByName("Shell Bukom"), employee_name: "Henrik Ueland", role: "Mekaniker 2", start_date: "2026-01-12", end_date: "2026-01-23", notes: "Shell Bukom" },
+  { id: crypto.randomUUID(), project_id: projectIdByName("Onshore"), employee_name: "Olis Hansen", role: "Supervisor", start_date: "2026-01-01", end_date: "2026-03-31", notes: "Admin / planlegging" },
+  { id: crypto.randomUUID(), project_id: projectIdByName("Onshore"), employee_name: "Kenneth Vallestad", role: "Supervisor", start_date: "2026-01-01", end_date: "2026-03-31", notes: "Koordinering" },
+  { id: crypto.randomUUID(), project_id: projectIdByName("Kurs Kårstø"), employee_name: "Bjørn Heidar Asmundsson", role: "Supervisor", start_date: "2026-01-12", end_date: "2026-01-16", notes: "Kurs Kårstø" },
+  { id: crypto.randomUUID(), project_id: projectIdByName("Ferie"), employee_name: "Erling Sekse Bilstad", role: "Supervisor", start_date: "2026-01-06", end_date: "2026-01-09", notes: "Ferie" },
+  { id: crypto.randomUUID(), project_id: projectIdByName("Åsgard A 18CL900"), employee_name: "Steinar Engtrø", role: "Supervisor", start_date: "2026-03-02", end_date: "2026-03-13", notes: "Åsgard A" },
+  { id: crypto.randomUUID(), project_id: projectIdByName("Åsgard A 18CL900"), employee_name: "Joar Bergsholm", role: "Mekaniker 1", start_date: "2026-03-02", end_date: "2026-03-13", notes: "Åsgard A" }
+];
 
-          <div class="flex gap-2">
-            <button id="prevBtn" class="rounded-2xl border border-slate-300 bg-white px-4 py-2">Tilbake</button>
-            <button id="todayBtn" class="rounded-2xl border border-slate-300 bg-white px-4 py-2">I dag</button>
-            <button id="nextBtn" class="rounded-2xl border border-slate-300 bg-white px-4 py-2">Frem</button>
-          </div>
-        </div>
+const DEFAULT_AUDIT_LOG = [
+  { id: crypto.randomUUID(), user_name: "Olis Hansen", action_text: "Initialiserte planleggingsverktøy versjon 4.1", created_at: new Date().toISOString() }
+];
 
-        <div id="rangeTitle" class="px-4 py-3 border-b border-slate-200 text-sm text-slate-600"></div>
-        <div id="holidayInfo" class="px-4 py-2 border-b border-slate-200 text-sm text-red-700 bg-red-50/60"></div>
-
-        <div class="p-4 border-b border-slate-200 text-sm text-slate-500">
-          Personalplan viser tildelte ressurser. Prosjektplan viser alle prosjekter, også de som ennå ikke er bemannet.
-        </div>
-
-        <div id="warningBox" class="hidden mx-4 mt-4 rounded-2xl border border-red-300 bg-red-50 p-4 text-red-700 text-sm"></div>
-        <div id="calendarWrap" class="overflow-auto scrollbar-thin"></div>
-      </div>
-
-      <aside id="calendarPanelCol" class="w-full xl:w-12 shrink-0 rounded-2xl bg-white border border-slate-200 shadow-sm overflow-hidden transition-all duration-300">
-        <div class="flex h-full min-h-[220px]">
-          <button id="calendarPanelHandleBtn" class="w-12 shrink-0 border-r border-slate-200 bg-slate-50 text-slate-700 text-xs font-semibold tracking-wide">
-            Panel
-          </button>
-          <div id="calendarPanelContent" class="hidden min-w-0 flex-1">
-            <div class="p-4 border-b border-slate-200 flex items-center justify-between gap-3">
-              <h2 class="font-semibold">Farger og status</h2>
-              <button id="calendarPanelCloseBtn" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm">Lukk</button>
-            </div>
-            <div id="legendList" class="p-4 space-y-2 text-sm"></div>
-          </div>
-        </div>
-      </aside>
-
-      <div id="systemStatus" class="hidden"></div>
-    </section>
-
-    <section id="tabProjectsSection" class="grid grid-cols-1 xl:grid-cols-12 gap-5" style="display:none;">
-      <div class="xl:col-span-3">
-        <div class="rounded-[28px] bg-white border border-slate-200 shadow-sm overflow-hidden">
-          <div class="p-5 border-b border-slate-200 bg-slate-50/80 flex items-start justify-between gap-3">
-            <div>
-              <h2 class="font-semibold text-lg text-slate-900">Prosjekter</h2>
-              <p class="text-sm text-slate-500 mt-1">Velg et prosjekt for å bemanne, følge perioder og åpne detaljer.</p>
-            </div>
-            <button id="newProjectBtn" class="rounded-2xl bg-slate-900 text-white px-4 py-2.5 text-sm font-medium shadow-sm">Nytt prosjekt</button>
-          </div>
-          <div class="p-4">
-            <div id="projectList" class="space-y-3 max-h-[780px] overflow-auto scrollbar-thin pr-1"></div>
-          </div>
-        </div>
-      </div>
-
-      <div id="projectsWorkspaceCol" class="xl:col-span-5 space-y-5">
-        <div id="projectWorkspaceCard" class="rounded-[28px] bg-white border border-slate-200 shadow-sm overflow-hidden">
-          <div class="p-5 border-b border-slate-200 bg-slate-50/80">
-            <h2 class="font-semibold text-lg text-slate-900">Valgt prosjekt</h2>
-            <p class="text-sm text-slate-500 mt-1">Prosjektkort med periode-status, nøkkelinformasjon og tildelte ressurser.</p>
-          </div>
-          <div class="p-5">
-            <div id="projectWorkspaceEmpty" class="rounded-[24px] border border-dashed border-slate-300 bg-slate-50 px-5 py-8 text-sm text-slate-500">Velg et prosjekt fra listen til venstre for å se detaljer, bemanning og arkivstatus.</div>
-            <div id="projectWorkspaceContent" class="hidden space-y-5">
-              <div>
-                <div id="projectWorkspaceTitle" class="text-[28px] leading-tight font-semibold text-slate-950"></div>
-                <div id="projectWorkspaceMeta" class="mt-4 space-y-4"></div>
-              </div>
-              <div>
-                <div class="text-sm font-medium text-slate-700 mb-2">Notater</div>
-                <div id="projectWorkspaceNotes" class="rounded-[22px] border border-slate-200 bg-slate-50 px-4 py-4 text-sm text-slate-600"></div>
-              </div>
-              <div>
-                <div class="flex items-center justify-between gap-3 mb-3">
-                  <div class="text-sm font-medium text-slate-700">Tildelte ressurser</div>
-                  <div id="projectWorkspaceActions" class="flex flex-wrap gap-2"></div>
-                </div>
-                <div id="projectWorkspaceAssignments" class="space-y-3"></div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div class="xl:col-span-4 space-y-5">
-        <div class="rounded-[28px] bg-white border border-slate-200 shadow-sm overflow-hidden">
-          <div class="p-5 border-b border-slate-200 bg-slate-50/80">
-            <h2 class="font-semibold text-lg text-slate-900">Bemann prosjekt</h2>
-            <p class="text-sm text-slate-500 mt-1">Flere navnevalg og rollevalg vises automatisk ut fra bemanningsbehovet på prosjektet.</p>
-          </div>
-          <div class="p-5 space-y-5">
-            <div class="space-y-2">
-              <label for="assignProject" class="text-sm font-medium text-slate-700">Velg prosjekt</label>
-              <select id="assignProject" class="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm shadow-sm"></select>
-            </div>
-
-            <div id="assignPeriodWrap" class="hidden space-y-2">
-              <div class="flex items-center justify-between gap-3">
-                <label for="assignPeriod" class="text-sm font-medium text-slate-700">Velg periode</label>
-                <span id="assignPeriodHint" class="text-xs font-medium text-blue-700"></span>
-              </div>
-              <select id="assignPeriod" class="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm shadow-sm"></select>
-            </div>
-
-            <div id="assignSummary" class="rounded-[24px] border border-blue-200 bg-gradient-to-br from-blue-50 to-white px-5 py-4 text-sm text-slate-700 shadow-sm">
-              Velg et prosjekt for å starte bemanning.
-            </div>
-
-            <div id="assignPeriodNav" class="hidden grid grid-cols-2 gap-3">
-              <button id="assignPrevPeriodBtn" type="button" class="rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-medium text-slate-700 shadow-sm disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400">← Forrige periode</button>
-              <button id="assignNextPeriodBtn" type="button" class="rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-medium text-slate-700 shadow-sm disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400">Neste periode →</button>
-            </div>
-
-            <div id="assignEmployeesWrap" class="space-y-3"></div>
-
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div class="space-y-2">
-                <label for="assignStart" class="text-sm font-medium text-slate-700">Startdato</label>
-                <input id="assignStart" type="date" class="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm shadow-sm" />
-              </div>
-              <div class="space-y-2">
-                <label for="assignEnd" class="text-sm font-medium text-slate-700">Sluttdato</label>
-                <input id="assignEnd" type="date" class="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm shadow-sm" />
-              </div>
-            </div>
-            <div class="space-y-2">
-              <label for="assignNotes" class="text-sm font-medium text-slate-700">Notater (valgfritt)</label>
-              <textarea id="assignNotes" class="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm shadow-sm" rows="4" placeholder="Legg til notater om bemanningen..."></textarea>
-            </div>
-            <button id="assignBtn" class="w-full rounded-2xl bg-slate-900 text-white px-4 py-3 text-sm font-medium shadow-sm">Legg i kalender</button>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <section id="tabEmployeesSection" class="grid grid-cols-1 xl:grid-cols-4 gap-4" style="display:none;">
-      <div class="xl:col-span-4">
-        <div class="rounded-2xl bg-white border border-slate-200 shadow-sm">
-          <div class="p-4 border-b border-slate-200 flex items-center justify-between">
-            <h2 class="font-semibold">Ansatte</h2>
-            <button id="newEmployeeBtn" class="rounded-xl bg-slate-900 text-white px-3 py-2 text-sm">Ny ansatt</button>
-          </div>
-          <div class="p-4 space-y-3">
-            <textarea id="bulkEmployees" class="w-full rounded-2xl border border-slate-300 px-3 py-2" rows="4" placeholder="Lim inn flere navn, ett per linje"></textarea>
-            <button id="bulkAddBtn" class="w-full rounded-2xl border border-slate-300 bg-white px-4 py-2">Legg til mange ansatte</button>
-            <div id="employeeList" class="space-y-2 max-h-[680px] overflow-auto scrollbar-thin"></div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <section id="tabAdminSection" class="grid grid-cols-1 xl:grid-cols-3 gap-4" style="display:none;">
-      <div class="rounded-2xl bg-white border border-slate-200 shadow-sm">
-        <div class="p-4 border-b border-slate-200"><h2 class="font-semibold">Kanban – prosjekter</h2></div>
-        <div id="kanbanBoard" class="p-4 grid grid-cols-1 gap-4"></div>
-      </div>
-
-      <div class="rounded-2xl bg-white border border-slate-200 shadow-sm">
-        <div class="p-4 border-b border-slate-200"><h2 class="font-semibold">Varsellogg</h2></div>
-        <div id="notificationList" class="p-4 space-y-3 max-h-[300px] overflow-auto scrollbar-thin"></div>
-      </div>
-
-      <div class="rounded-2xl bg-white border border-slate-200 shadow-sm">
-        <div class="p-4 border-b border-slate-200"><h2 class="font-semibold">Endringslogg</h2></div>
-        <div id="auditList" class="p-4 space-y-3 max-h-[300px] overflow-auto scrollbar-thin"></div>
-      </div>
-    </section>
-        </main>
-      </div>
-    </div>
-  </div>
-
-
-  <div id="editModal" class="fixed inset-0 z-[200] bg-black/40 hidden items-center justify-center p-4">
-    <div class="w-full max-w-lg rounded-2xl bg-white shadow-xl">
-      <div class="p-4 border-b border-slate-200 flex items-center justify-between">
-        <h2 class="font-semibold">Rediger tildeling</h2>
-        <button id="closeModalBtn" class="rounded-lg border border-slate-300 px-3 py-1 text-sm">Lukk</button>
-      </div>
-      <div class="p-4 space-y-4">
-        <select id="editProject" class="w-full rounded-2xl border border-slate-300 px-3 py-2"></select>
-        <select id="editEmployee" class="w-full rounded-2xl border border-slate-300 px-3 py-2"></select>
-        <select id="editRole" class="w-full rounded-2xl border border-slate-300 px-3 py-2"></select>
-        <div class="grid grid-cols-2 gap-2">
-          <input id="editStart" type="date" class="rounded-2xl border border-slate-300 px-3 py-2" />
-          <input id="editEnd" type="date" class="rounded-2xl border border-slate-300 px-3 py-2" />
-        </div>
-        <textarea id="editNotes" class="w-full rounded-2xl border border-slate-300 px-3 py-2" rows="3"></textarea>
-        <div class="flex gap-2">
-          <button id="saveEditBtn" class="rounded-2xl bg-slate-900 text-white px-4 py-2">Lagre</button>
-          <button id="deleteEditBtn" class="rounded-2xl border border-slate-300 bg-white px-4 py-2">Fjern</button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <div id="projectModal" class="fixed inset-0 z-[200] bg-black/40 hidden items-center justify-center p-4">
-    <div class="w-full max-w-lg rounded-2xl bg-white shadow-xl">
-      <div class="p-4 border-b border-slate-200 flex items-center justify-between">
-        <h2 id="projectModalTitle" class="font-semibold">Nytt prosjekt</h2>
-        <button id="closeProjectModalBtn" class="rounded-lg border border-slate-300 px-3 py-1 text-sm">Lukk</button>
-      </div>
-      <div class="p-4 space-y-4">
-        <input id="projectName" class="w-full rounded-2xl border border-slate-300 px-3 py-2" placeholder="Prosjektnavn" />
-        <select id="projectCategory" class="w-full rounded-2xl border border-slate-300 px-3 py-2"></select>
-        <select id="projectStatus" class="w-full rounded-2xl border border-slate-300 px-3 py-2"></select>
-        <div class="grid grid-cols-2 gap-2">
-          <input id="projectPlannedStart" type="date" class="rounded-2xl border border-slate-300 px-3 py-2" />
-          <input id="projectPlannedEnd" type="date" class="rounded-2xl border border-slate-300 px-3 py-2" />
-        </div>
-        <label class="flex items-center gap-2 text-sm">
-          <input id="projectHasMultiplePeriods" type="checkbox" />
-          Prosjektet går i flere perioder
-        </label>
-        <div id="projectPeriodsSection" class="hidden rounded-2xl border border-slate-200 bg-slate-50 p-3 space-y-3">
-          <div class="flex items-center justify-between gap-3">
-            <div>
-              <div class="font-medium text-sm text-slate-800">Prosjektperioder</div>
-              <div class="text-xs text-slate-500 mt-1">Legg inn én eller flere separate perioder for samme prosjekt.</div>
-            </div>
-            <button id="addProjectPeriodBtn" type="button" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm">Legg til periode</button>
-          </div>
-          <div id="projectPeriodsList" class="space-y-3"></div>
-        </div>
-        <input id="projectLocation" class="w-full rounded-2xl border border-slate-300 px-3 py-2" placeholder="Lokasjon / onshore / offshore" />
-        <input id="projectHeadcount" type="number" min="0" class="w-full rounded-2xl border border-slate-300 px-3 py-2" placeholder="Behov for antall personer" />
-        <textarea id="projectNotes" class="w-full rounded-2xl border border-slate-300 px-3 py-2" rows="3" placeholder="Notater"></textarea>
-        <div class="flex gap-2">
-          <button id="saveProjectBtn" class="rounded-2xl bg-slate-900 text-white px-4 py-2">Lagre</button>
-          <button id="deleteProjectBtn" class="rounded-2xl border border-slate-300 bg-white px-4 py-2">Slett</button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <div id="employeeModal" class="fixed inset-0 z-[200] bg-black/40 hidden items-center justify-center p-4">
-    <div class="w-full max-w-lg rounded-2xl bg-white shadow-xl">
-      <div class="p-4 border-b border-slate-200 flex items-center justify-between">
-        <h2 id="employeeModalTitle" class="font-semibold">Ny ansatt</h2>
-        <button id="closeEmployeeModalBtn" class="rounded-lg border border-slate-300 px-3 py-1 text-sm">Lukk</button>
-      </div>
-      <div class="p-4 space-y-4">
-        <input id="employeeName" class="w-full rounded-2xl border border-slate-300 px-3 py-2" placeholder="Navn" />
-        <input id="employeeEmail" class="w-full rounded-2xl border border-slate-300 px-3 py-2" placeholder="E-post" />
-        <input id="employeePhone" class="w-full rounded-2xl border border-slate-300 px-3 py-2" placeholder="Mobilnummer" />
-        <input id="employeeTitle" class="w-full rounded-2xl border border-slate-300 px-3 py-2" placeholder="Stillingstittel" />
-        <select id="employeeGroup" class="w-full rounded-2xl border border-slate-300 px-3 py-2">
-          <option value="">Ingen gruppe valgt</option>
-          <option value="Offshore arbeider">Offshore arbeider</option>
-          <option value="Onshore arbeider">Onshore arbeider</option>
-          <option value="Lager og logistikk">Lager og logistikk</option>
-          <option value="Engineer">Engineer</option>
-          <option value="3 parts innleie">3 parts innleie</option>
-        </select>
-        <label class="flex items-center gap-2 text-sm">
-          <input id="employeeActive" type="checkbox" checked />
-          Aktiv ansatt
-        </label>
-        <div class="flex gap-2">
-          <button id="saveEmployeeBtn" class="rounded-2xl bg-slate-900 text-white px-4 py-2">Lagre</button>
-          <button id="deleteEmployeeBtn" class="rounded-2xl border border-slate-300 bg-white px-4 py-2">Slett</button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <script src="./data.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="./app.js"></script>
-</body>
-</html>
+const DEFAULT_NOTIFICATION_LOG = [];
