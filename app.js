@@ -59,7 +59,7 @@
       previewEndDate: "",
       originalValueSnapshot: null
     },
-    activeTab: "calendar",
+    activeTab: "overview",
     calendarPanelOpen: false,
     projectListFilter: "all",
     contextMenu: {
@@ -166,7 +166,7 @@
       "employeeList", "kanbanBoard", "notificationList", "auditList", "editModal", "closeModalBtn",
       "editProject", "editEmployee", "editRole", "editStart", "editEnd", "editNotes",
       "saveEditBtn", "deleteEditBtn", "storageBadge", "resetDemoBtn", "systemStatus", "rangeTitle",
-      "saveStatus", "plannerTabs", "tabCalendarBtn", "tabProjectsBtn", "tabEmployeesBtn", "tabAdminBtn", "tabCalendarSection", "tabProjectsSection", "tabEmployeesSection", "tabAdminSection", "calendarMainCol", "calendarPanelCol", "calendarPanelHandleBtn", "calendarPanelCloseBtn", "calendarPanelContent", "newProjectBtn", "projectModal", "projectModalTitle", "closeProjectModalBtn",
+      "saveStatus", "appNavToggle", "navOverviewBtn", "navCalendarBtn", "navProjectsBtn", "navEmployeesBtn", "navAdminBtn", "tabOverviewSection", "overviewProjectsCount", "overviewNeedsStaffingCount", "overviewAvailableTodayCount", "overviewConflictCount", "overviewNeedsAttentionList", "overviewAvailAvailableBar", "overviewAvailPartialBar", "overviewAvailUnavailableBar", "overviewAvailAvailableLabel", "overviewAvailPartialLabel", "overviewAvailUnavailableLabel", "overviewAvailTotal", "overviewDonutChart", "overviewDonutPercent", "overviewLegendStaffed", "overviewLegendUnder", "overviewLegendUnstaffed", "overviewTotalPlanned", "overviewUpcomingPeriods", "overviewOpenProjectsBtn", "overviewOpenCalendarBtn", "plannerTabs", "tabCalendarBtn", "tabProjectsBtn", "tabEmployeesBtn", "tabAdminBtn", "tabCalendarSection", "tabProjectsSection", "tabEmployeesSection", "tabAdminSection", "calendarMainCol", "calendarPanelCol", "calendarPanelHandleBtn", "calendarPanelCloseBtn", "calendarPanelContent", "newProjectBtn", "projectModal", "projectModalTitle", "closeProjectModalBtn",
       "projectName", "projectCategory", "projectStatus", "projectPlannedStart", "projectPlannedEnd", "projectHasMultiplePeriods", "projectPeriodsSection", "projectPeriodsList", "addProjectPeriodBtn",
       "projectLocation", "projectHeadcount", "projectNotes", "saveProjectBtn", "deleteProjectBtn",
       "newEmployeeBtn", "employeeModal", "employeeModalTitle", "closeEmployeeModalBtn",
@@ -709,6 +709,13 @@
     if (els.tabProjectsBtn) els.tabProjectsBtn.addEventListener("click", () => setActiveTab("projects"));
     if (els.tabEmployeesBtn) els.tabEmployeesBtn.addEventListener("click", () => setActiveTab("employees"));
     if (els.tabAdminBtn) els.tabAdminBtn.addEventListener("click", () => setActiveTab("admin"));
+    if (els.navOverviewBtn) els.navOverviewBtn.addEventListener("click", () => setActiveTab("overview"));
+    if (els.navCalendarBtn) els.navCalendarBtn.addEventListener("click", () => setActiveTab("calendar"));
+    if (els.navProjectsBtn) els.navProjectsBtn.addEventListener("click", () => setActiveTab("projects"));
+    if (els.navEmployeesBtn) els.navEmployeesBtn.addEventListener("click", () => setActiveTab("employees"));
+    if (els.navAdminBtn) els.navAdminBtn.addEventListener("click", () => setActiveTab("admin"));
+    if (els.overviewOpenProjectsBtn) els.overviewOpenProjectsBtn.addEventListener("click", () => setActiveTab("projects"));
+    if (els.overviewOpenCalendarBtn) els.overviewOpenCalendarBtn.addEventListener("click", () => setActiveTab("calendar"));
   }
 
   function setActiveTab(tabName) {
@@ -718,36 +725,49 @@
 
   function renderLayoutTabs() {
     const canPlan = canPlanApp();
-    const allowedTabs = canPlan ? ["calendar", "projects", "employees", "admin"] : ["calendar"];
+    const allowedTabs = canPlan ? ["overview", "calendar", "projects", "employees", "admin"] : ["overview", "calendar"];
 
     if (!allowedTabs.includes(state.activeTab)) {
-      state.activeTab = "calendar";
+      state.activeTab = "overview";
     }
 
-    const buttons = {
+    const tabButtons = {
       calendar: els.tabCalendarBtn,
       projects: els.tabProjectsBtn,
       employees: els.tabEmployeesBtn,
       admin: els.tabAdminBtn
     };
 
+    const navButtons = {
+      overview: els.navOverviewBtn,
+      calendar: els.navCalendarBtn,
+      projects: els.navProjectsBtn,
+      employees: els.navEmployeesBtn,
+      admin: els.navAdminBtn
+    };
+
     const sections = {
+      overview: els.tabOverviewSection,
       calendar: els.tabCalendarSection,
       projects: els.tabProjectsSection,
       employees: els.tabEmployeesSection,
       admin: els.tabAdminSection
     };
 
-    Object.entries(buttons).forEach(([name, btn]) => {
+    Object.entries(tabButtons).forEach(([name, btn]) => {
+      if (!btn) return;
+      const visible = allowedTabs.includes(name);
+      btn.style.display = visible ? "" : "none";
+    });
+
+    Object.entries(navButtons).forEach(([name, btn]) => {
       if (!btn) return;
       const visible = allowedTabs.includes(name);
       btn.style.display = visible ? "" : "none";
       btn.className = [
-        "rounded-2xl px-4 py-2 text-sm border transition",
-        state.activeTab === name
-          ? "border-slate-900 bg-slate-900 text-white"
-          : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
-      ].join(" ");
+        "app-sidebar-btn h-14 w-14 rounded-2xl flex items-center justify-center transition",
+        state.activeTab === name ? "active" : ""
+      ].join(" ").trim();
     });
 
     Object.entries(sections).forEach(([name, section]) => {
@@ -3339,9 +3359,163 @@ async function deleteEditedEntry() {
     state.derived.entryCountByProject = entryCountByProject;
   }
 
+
+  function getOverviewProjectAttentionItems() {
+    const activeProjects = getActiveProjectsForWorkspace();
+    const withNeed = activeProjects
+      .filter(project => Math.max(Number(project.headcount_required || 0), 0) > 0)
+      .map(project => {
+        const required = Math.max(Number(project.headcount_required || 0), 0);
+        const assigned = getProjectAssignedCount(project.id);
+        const staffing = getProjectStaffingLabel(project.id, required);
+        return { project, required, assigned, staffing };
+      })
+      .filter(item => item.assigned < item.required)
+      .sort((a, b) => (a.assigned / Math.max(a.required,1)) - (b.assigned / Math.max(b.required,1)));
+    return (withNeed.length ? withNeed : activeProjects.slice(0, 4).map(project => {
+      const required = Math.max(Number(project.headcount_required || 0), 0);
+      const assigned = getProjectAssignedCount(project.id);
+      const staffing = getProjectStaffingLabel(project.id, required);
+      return { project, required, assigned, staffing };
+    })).slice(0,4);
+  }
+
+  function getOverviewUpcomingPeriods(limit = 3) {
+    const today = formatISODate(new Date());
+    const upcoming = [];
+    getActiveProjectsForWorkspace().forEach(project => {
+      getProjectTimelinePeriods(project).forEach(period => {
+        if (!period?.start || period.end < today) return;
+        const required = Math.max(Number(project.headcount_required || 0), 0);
+        const assigned = required ? getAssignedCountForProjectRange(project.id, period.start, period.end) : 0;
+        const tag = required > 0 && assigned < required ? 'Høy belastning' : (required > 0 ? 'Normal' : 'Lav belastning');
+        upcoming.push({ project, period, required, assigned, tag });
+      });
+    });
+    upcoming.sort((a,b) => a.period.start.localeCompare(b.period.start));
+    return upcoming.slice(0, limit);
+  }
+
+  function renderOverview() {
+    if (!els.tabOverviewSection) return;
+    const activeProjects = getActiveProjectsForWorkspace();
+    const needsStaffing = activeProjects.filter(projectNeedsStaffing);
+    const today = new Date();
+    const todayIso = formatISODate(today);
+    const inTwoWeeks = new Date(today);
+    inTwoWeeks.setDate(inTwoWeeks.getDate() + 13);
+    const inTwoWeeksIso = formatISODate(inTwoWeeks);
+    const activeEmployees = state.employees.filter(employee => employee.active !== false);
+    const todayAvailability = analyzeAvailabilityForPeriod('', todayIso, todayIso);
+    const rangeAvailability = analyzeAvailabilityForPeriod('', todayIso, inTwoWeeksIso);
+    const conflictCount = state.entries.filter(entryHasVisibleConflict).length;
+
+    if (els.overviewKpiProjectsIcon && !els.overviewKpiProjectsIcon.innerHTML) els.overviewKpiProjectsIcon.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="h-7 w-7"><path stroke-linecap="round" stroke-linejoin="round" d="M3 7.5A1.5 1.5 0 0 1 4.5 6h4.879a1.5 1.5 0 0 1 1.06.44l.621.62a1.5 1.5 0 0 0 1.06.44H19.5A1.5 1.5 0 0 1 21 9v9A1.5 1.5 0 0 1 19.5 19.5h-15A1.5 1.5 0 0 1 3 18V7.5Z" /></svg>';
+    if (els.overviewKpiStaffingIcon && !els.overviewKpiStaffingIcon.innerHTML) els.overviewKpiStaffingIcon.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="h-7 w-7"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 0 0 2.625.372A9.337 9.337 0 0 0 21 18.872m-6-7.5a4.125 4.125 0 1 1-7.5 0 4.125 4.125 0 0 1 7.5 0ZM3 19.128A9.337 9.337 0 0 1 6.375 18.5c1.08 0 2.116.183 3.08.521" /></svg>';
+    if (els.overviewKpiAvailableIcon && !els.overviewKpiAvailableIcon.innerHTML) els.overviewKpiAvailableIcon.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="h-7 w-7"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 0 0 2.625.372A9.337 9.337 0 0 0 21 18.872m-6-7.5a4.125 4.125 0 1 1-7.5 0 4.125 4.125 0 0 1 7.5 0ZM3 19.128A9.337 9.337 0 0 1 6.375 18.5c1.08 0 2.116.183 3.08.521" /></svg>';
+    if (els.overviewKpiConflictIcon && !els.overviewKpiConflictIcon.innerHTML) els.overviewKpiConflictIcon.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="h-7 w-7"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9.303 3.376c.866 1.5-.217 3.374-1.948 3.374H4.645c-1.73 0-2.813-1.874-1.948-3.374l7.355-12.748c.866-1.5 3.03-1.5 3.896 0l7.355 12.748ZM12 16.5h.008v.008H12V16.5Z" /></svg>';
+    if (els.overviewProjectsCount) els.overviewProjectsCount.textContent = String(activeProjects.length);
+    if (els.overviewNeedsStaffingCount) els.overviewNeedsStaffingCount.textContent = String(needsStaffing.length);
+    if (els.overviewAvailableTodayCount) els.overviewAvailableTodayCount.textContent = String(todayAvailability.available.length);
+    if (els.overviewConflictCount) els.overviewConflictCount.textContent = String(conflictCount);
+
+    const attentionItems = getOverviewProjectAttentionItems();
+    if (els.overviewNeedsAttentionList) {
+      els.overviewNeedsAttentionList.innerHTML = attentionItems.length ? attentionItems.map(item => {
+        const color = item.assigned === 0 ? 'bg-red-500' : item.assigned < item.required ? 'bg-amber-500' : 'bg-emerald-500';
+        const ratioClass = item.assigned === 0 ? 'text-red-600' : item.assigned < item.required ? 'text-amber-600' : 'text-emerald-600';
+        const ratio = item.required > 0 ? `${item.assigned} / ${item.required}` : `${item.assigned}`;
+        return `
+          <button type="button" data-overview-project-id="${escapeHtml(item.project.id)}" class="w-full flex items-center gap-4 px-2 py-4 text-left hover:bg-slate-50 rounded-2xl transition">
+            <span class="h-3 w-3 rounded-full ${color}"></span>
+            <div class="min-w-0 flex-1">
+              <div class="font-medium text-slate-900 truncate">${escapeHtml(item.project.name)}</div>
+              <div class="text-sm text-slate-500 truncate">${escapeHtml(item.project.location || item.project.category || 'Prosjekt')}</div>
+            </div>
+            <div class="${ratioClass} font-medium">${escapeHtml(ratio)}</div>
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="h-5 w-5 text-slate-400"><path stroke-linecap="round" stroke-linejoin="round" d="m9 18 6-6-6-6" /></svg>
+          </button>`;
+      }).join('') : `<div class="px-2 py-6 text-sm text-slate-500">Ingen prosjekter trenger oppfølging akkurat nå.</div>`;
+      els.overviewNeedsAttentionList.querySelectorAll('[data-overview-project-id]').forEach(btn => {
+        btn.addEventListener('click', () => { setFocusProject(btn.dataset.overviewProjectId || ''); setActiveTab('projects'); });
+      });
+    }
+
+    const totalEmployees = activeEmployees.length || 1;
+    const availableCount = rangeAvailability.available.length;
+    const unavailableCount = rangeAvailability.unavailable.length;
+    const partialCount = Math.min(Math.max(needsStaffing.length, 0), Math.max(totalEmployees - availableCount - unavailableCount, 0));
+    const partialSafe = Math.max(0, Math.min(partialCount, totalEmployees - unavailableCount));
+    const availableSafe = Math.max(0, totalEmployees - unavailableCount - partialSafe);
+    const toPct = value => Math.round((value / totalEmployees) * 100);
+    if (els.overviewAvailAvailableBar) els.overviewAvailAvailableBar.style.width = `${toPct(availableSafe)}%`;
+    if (els.overviewAvailPartialBar) els.overviewAvailPartialBar.style.width = `${toPct(partialSafe)}%`;
+    if (els.overviewAvailUnavailableBar) els.overviewAvailUnavailableBar.style.width = `${toPct(unavailableCount)}%`;
+    if (els.overviewAvailAvailableLabel) els.overviewAvailAvailableLabel.textContent = `${availableSafe} (${toPct(availableSafe)} %)`;
+    if (els.overviewAvailPartialLabel) els.overviewAvailPartialLabel.textContent = `${partialSafe} (${toPct(partialSafe)} %)`;
+    if (els.overviewAvailUnavailableLabel) els.overviewAvailUnavailableLabel.textContent = `${unavailableCount} (${toPct(unavailableCount)} %)`;
+    if (els.overviewAvailTotal) els.overviewAvailTotal.textContent = `Totalt ${activeEmployees.length} ansatte`;
+
+    let totalRequired = 0;
+    let staffed = 0;
+    let under = 0;
+    let unstaffed = 0;
+    activeProjects.forEach(project => {
+      const required = Math.max(Number(project.headcount_required || 0), 0);
+      if (!required) return;
+      const assigned = getProjectAssignedCount(project.id);
+      totalRequired += required;
+      if (assigned === 0) {
+        unstaffed += required;
+      } else if (assigned < required) {
+        staffed += assigned;
+        under += required - assigned;
+      } else {
+        staffed += required;
+      }
+    });
+    const totalPlanned = Math.max(totalRequired, 1);
+    const staffedPct = Math.round((staffed / totalPlanned) * 100);
+    const underPct = Math.round((under / totalPlanned) * 100);
+    const unstaffedPct = Math.max(0, 100 - staffedPct - underPct);
+    if (els.overviewDonutPercent) els.overviewDonutPercent.textContent = `${staffedPct}%`;
+    if (els.overviewDonutChart) {
+      els.overviewDonutChart.style.background = `conic-gradient(#0b4d5c 0 ${staffedPct}%, #9cc0ca ${staffedPct}% ${staffedPct + underPct}%, #d4d8de ${staffedPct + underPct}% 100%)`;
+    }
+    if (els.overviewLegendStaffed) els.overviewLegendStaffed.textContent = `${staffedPct} % (${staffed})`;
+    if (els.overviewLegendUnder) els.overviewLegendUnder.textContent = `${underPct} % (${under})`;
+    if (els.overviewLegendUnstaffed) els.overviewLegendUnstaffed.textContent = `${unstaffedPct} % (${unstaffed})`;
+    if (els.overviewTotalPlanned) els.overviewTotalPlanned.textContent = `Totalt ${totalRequired} planlagte stillinger`;
+
+    const upcoming = getOverviewUpcomingPeriods();
+    if (els.overviewUpcomingPeriods) {
+      els.overviewUpcomingPeriods.innerHTML = upcoming.length ? upcoming.map(item => {
+        const pillClass = item.tag === 'Høy belastning'
+          ? 'bg-rose-50 text-rose-600'
+          : item.tag === 'Normal'
+            ? 'bg-emerald-50 text-emerald-700'
+            : 'bg-sky-50 text-sky-700';
+        return `
+          <div class="rounded-2xl border border-slate-200 bg-white px-4 py-4 flex items-center justify-between gap-4">
+            <div class="flex items-center gap-4 min-w-0">
+              <div class="h-11 w-11 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-center text-slate-500 shrink-0">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="h-6 w-6"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3.75 8.25h16.5M4.5 5.25h15A1.5 1.5 0 0 1 21 6.75v12A1.5 1.5 0 0 1 19.5 20.25h-15A1.5 1.5 0 0 1 3 18.75v-12A1.5 1.5 0 0 1 4.5 5.25Z" /></svg>
+              </div>
+              <div class="min-w-0">
+                <div class="font-medium text-slate-900 truncate">${escapeHtml(item.project.name)} (${escapeHtml(formatDate(item.period.start))} – ${escapeHtml(formatDate(item.period.end))})</div>
+                <div class="text-sm text-slate-500 truncate">${item.required > 0 ? `${item.assigned} / ${item.required} bemannet` : 'Ingen bemanningsbehov definert'}</div>
+              </div>
+            </div>
+            <span class="status-pill-soft ${pillClass}">${escapeHtml(item.tag)}</span>
+          </div>`;
+      }).join('') : `<div class="px-2 py-6 text-sm text-slate-500">Ingen kommende perioder å vise ennå.</div>`;
+    }
+  }
+
   function renderAll() {
     populateDynamicSelects();
     renderStats();
+    renderOverview();
     renderLegend();
     renderCalendarPanel();
     renderProjects();
@@ -4774,6 +4948,10 @@ function getFilteredEmployees() {
     return `${capitalize(monthShort(asLocalDate(start)))}–${capitalize(monthShort(asLocalDate(end)))}`;
   }
 
+
+  function formatISODate(date) {
+    return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+  }
 
   function startOfCurrentMonth() {
     const now = new Date();
