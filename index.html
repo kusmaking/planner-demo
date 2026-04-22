@@ -43,6 +43,59 @@
     .day-cell.weekend { background: #f8fafc; }
     .day-cell.today { background: #eff6ff; }
     .day-cell.red-day { background: #fef2f2; }
+
+    .app-card {
+      border-radius: 1.25rem;
+      border: 1px solid #e2e8f0;
+      background: white;
+      box-shadow: 0 10px 30px -18px rgba(15, 23, 42, 0.22);
+    }
+
+    .app-card-header {
+      padding: 1rem 1.25rem;
+      border-bottom: 1px solid #e2e8f0;
+    }
+
+    .app-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: .35rem;
+      border-radius: 9999px;
+      border: 1px solid #e2e8f0;
+      padding: .35rem .65rem;
+      font-size: .75rem;
+      line-height: 1rem;
+      background: #f8fafc;
+      color: #334155;
+    }
+
+    .app-section-muted {
+      border: 1px solid #e2e8f0;
+      background: linear-gradient(180deg, #f8fbff 0%, #f8fafc 100%);
+      border-radius: 1rem;
+    }
+
+    .project-row-active {
+      border-color: #2563eb;
+      background: linear-gradient(180deg, #eff6ff 0%, #f8fbff 100%);
+      box-shadow: inset 0 0 0 1px rgba(37, 99, 235, 0.08);
+    }
+
+    .project-row-muted {
+      background: #f8fafc;
+    }
+
+    .availability-grid {
+      display: grid;
+      grid-template-columns: repeat(1, minmax(0, 1fr));
+      gap: 1rem;
+    }
+
+    @media (min-width: 1280px) {
+      .availability-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
   </style>
 </head>
 <body class="bg-slate-100 text-slate-900">
@@ -123,34 +176,34 @@
       <div id="systemStatus" class="hidden"></div>
     </section>
 
-    <section id="tabProjectsSection" class="grid grid-cols-1 xl:grid-cols-5 gap-4" style="display:none;">
-      <div class="xl:col-span-2">
-        <div class="rounded-2xl bg-white border border-slate-200 shadow-sm">
-          <div class="p-4 border-b border-slate-200 flex items-center justify-between gap-3">
+    <section id="tabProjectsSection" class="grid grid-cols-1 xl:grid-cols-12 gap-5" style="display:none;">
+      <div class="xl:col-span-3">
+        <div class="app-card overflow-hidden">
+          <div class="app-card-header flex items-center justify-between gap-3">
             <div>
-              <h2 class="font-semibold">Prosjekter</h2>
-              <p class="text-sm text-slate-500 mt-1">Velg et prosjekt for å bemanne eller redigere.</p>
+              <h2 class="font-semibold text-slate-900">Prosjekter</h2>
+              <p class="text-sm text-slate-500 mt-1">Velg et prosjekt for å se detaljer og bemanne perioder.</p>
             </div>
             <button id="newProjectBtn" class="rounded-xl bg-slate-900 text-white px-3 py-2 text-sm">Nytt prosjekt</button>
           </div>
           <div class="p-4">
-            <div id="projectList" class="space-y-2 max-h-[680px] overflow-auto scrollbar-thin"></div>
+            <div id="projectList" class="space-y-2 max-h-[760px] overflow-auto scrollbar-thin"></div>
           </div>
         </div>
       </div>
 
-      <div id="projectsWorkspaceCol" class="xl:col-span-3 space-y-4">
-        <div id="projectWorkspaceCard" class="rounded-2xl bg-white border border-slate-200 shadow-sm">
-          <div class="p-4 border-b border-slate-200">
-            <h2 class="font-semibold">Valgt prosjekt</h2>
+      <div id="projectsWorkspaceCol" class="xl:col-span-5 space-y-5">
+        <div id="projectWorkspaceCard" class="app-card overflow-hidden">
+          <div class="app-card-header">
+            <h2 class="font-semibold text-slate-900">Valgt prosjekt</h2>
             <p class="text-sm text-slate-500 mt-1">Arbeidsflate for prosjektet du har valgt i listen.</p>
           </div>
-          <div class="p-4">
-            <div id="projectWorkspaceEmpty" class="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-sm text-slate-500">Velg et prosjekt fra listen til venstre for å se detaljer, bemanning og arkivstatus.</div>
-            <div id="projectWorkspaceContent" class="hidden space-y-4">
+          <div class="p-5">
+            <div id="projectWorkspaceEmpty" class="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-7 text-sm text-slate-500">Velg et prosjekt fra listen til venstre for å se detaljer, bemanning og arkivstatus.</div>
+            <div id="projectWorkspaceContent" class="hidden space-y-5">
               <div>
-                <div id="projectWorkspaceTitle" class="text-xl font-semibold text-slate-900"></div>
-                <div id="projectWorkspaceMeta" class="mt-3 space-y-3"></div>
+                <div id="projectWorkspaceTitle" class="text-2xl font-semibold text-slate-900"></div>
+                <div id="projectWorkspaceMeta" class="mt-4 space-y-3"></div>
               </div>
               <div>
                 <div class="text-sm font-medium text-slate-700 mb-2">Notater</div>
@@ -158,46 +211,68 @@
               </div>
               <div>
                 <div class="flex items-center justify-between gap-3 mb-2">
-                  <div class="text-sm font-medium text-slate-700">Tildelte ressurser</div>
+                  <div class="text-sm font-medium text-slate-700">Periode-status</div>
                   <div id="projectWorkspaceActions" class="flex flex-wrap gap-2"></div>
                 </div>
+                <div id="projectWorkspacePeriodStatus" class="space-y-2"></div>
+              </div>
+              <div>
+                <div class="text-sm font-medium text-slate-700 mb-2">Tildelte ressurser</div>
                 <div id="projectWorkspaceAssignments" class="space-y-2"></div>
               </div>
             </div>
           </div>
         </div>
+      </div>
 
-        <div class="rounded-2xl bg-white border border-slate-200 shadow-sm">
-          <div class="p-4 border-b border-slate-200">
-            <h2 class="font-semibold">Bemann prosjekt</h2>
+      <div class="xl:col-span-4 space-y-5">
+        <div class="app-card overflow-hidden">
+          <div class="app-card-header">
+            <h2 class="font-semibold text-slate-900">Bemann prosjekt</h2>
             <p class="text-sm text-slate-500 mt-1">Flere navnevalg og rollevalg vises automatisk ut fra bemanningsbehovet på prosjektet.</p>
           </div>
-          <div class="p-4 space-y-4">
-            <select id="assignProject" class="w-full rounded-2xl border border-slate-300 px-3 py-2"></select>
-
-            <div id="assignPeriodWrap" class="hidden space-y-1">
-              <label for="assignPeriod" class="text-sm text-slate-600">Velg periode</label>
-              <select id="assignPeriod" class="w-full rounded-2xl border border-slate-300 px-3 py-2"></select>
+          <div class="p-5 space-y-4">
+            <div class="space-y-1">
+              <label for="assignProject" class="text-sm text-slate-600">Prosjekt</label>
+              <select id="assignProject" class="w-full rounded-2xl border border-slate-300 bg-white px-3 py-2"></select>
             </div>
 
-            <div id="assignSummary" class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+            <div id="assignPeriodWrap" class="hidden space-y-2">
+              <label for="assignPeriod" class="text-sm text-slate-600">Velg periode</label>
+              <select id="assignPeriod" class="w-full rounded-2xl border border-slate-300 bg-white px-3 py-2"></select>
+              <div id="assignPeriodNav" class="grid grid-cols-2 gap-2">
+                <button id="assignPrevPeriodBtn" type="button" class="rounded-2xl border border-slate-300 bg-white px-4 py-2 text-sm text-slate-700">Forrige periode</button>
+                <button id="assignNextPeriodBtn" type="button" class="rounded-2xl border border-slate-300 bg-white px-4 py-2 text-sm text-slate-700">Neste periode</button>
+              </div>
+            </div>
+
+            <div id="assignSummary" class="app-section-muted px-4 py-4 text-sm text-slate-700">
               Velg et prosjekt for å starte bemanning.
             </div>
 
             <div id="assignEmployeesWrap" class="space-y-3"></div>
 
-                        <div class="grid grid-cols-2 gap-2">
-              <input id="assignStart" type="date" class="rounded-2xl border border-slate-300 px-3 py-2" />
-              <input id="assignEnd" type="date" class="rounded-2xl border border-slate-300 px-3 py-2" />
+            <div class="grid grid-cols-2 gap-2">
+              <div class="space-y-1">
+                <label for="assignStart" class="text-sm text-slate-600">Startdato</label>
+                <input id="assignStart" type="date" class="w-full rounded-2xl border border-slate-300 bg-white px-3 py-2" />
+              </div>
+              <div class="space-y-1">
+                <label for="assignEnd" class="text-sm text-slate-600">Sluttdato</label>
+                <input id="assignEnd" type="date" class="w-full rounded-2xl border border-slate-300 bg-white px-3 py-2" />
+              </div>
             </div>
-            <textarea id="assignNotes" class="w-full rounded-2xl border border-slate-300 px-3 py-2" rows="3" placeholder="Notat til tildeling"></textarea>
-            <button id="assignBtn" class="w-full rounded-2xl bg-slate-900 text-white px-4 py-2">Legg i kalender</button>
+            <div class="space-y-1">
+              <label for="assignNotes" class="text-sm text-slate-600">Notater</label>
+              <textarea id="assignNotes" class="w-full rounded-2xl border border-slate-300 bg-white px-3 py-2" rows="3" placeholder="Notat til tildeling"></textarea>
+            </div>
+            <button id="assignBtn" class="w-full rounded-2xl bg-slate-900 text-white px-4 py-3">Legg i kalender</button>
           </div>
         </div>
       </div>
     </section>
 
-    <section id="tabEmployeesSection" class="grid grid-cols-1 xl:grid-cols-4 gap-4" style="display:none;">
+    <section id="tabEmployeesSection" class="grid grid-cols-1 xl:grid-cols-4 gap-4" style="display:none;"> class="grid grid-cols-1 xl:grid-cols-4 gap-4" style="display:none;">
       <div class="xl:col-span-4">
         <div class="rounded-2xl bg-white border border-slate-200 shadow-sm">
           <div class="p-4 border-b border-slate-200 flex items-center justify-between">
