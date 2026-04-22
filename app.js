@@ -161,7 +161,7 @@
   function cacheElements() {
     const ids = [
       "statsRow", "searchInput", "employeeFilter", "viewMode", "calendarMode", "prevBtn", "nextBtn", "todayBtn",
-      "calendarWrap", "holidayInfo", "warningBox", "legendList", "projectList", "projectWorkspaceCard", "projectWorkspaceEmpty", "projectWorkspaceContent", "projectWorkspaceTitle", "projectWorkspaceMeta", "projectWorkspaceNotes", "projectWorkspaceAssignments", "projectWorkspaceActions", "assignProject", "assignPeriodWrap", "assignPeriod", "assignEmployeesWrap", "assignSummary", "assignRole",
+      "calendarWrap", "holidayInfo", "warningBox", "legendList", "projectList", "projectWorkspaceCard", "projectWorkspaceEmpty", "projectWorkspaceContent", "projectWorkspaceTitle", "projectWorkspaceMeta", "projectWorkspaceNotes", "projectWorkspaceAssignments", "projectWorkspaceActions", "projectWorkspacePeriodStatus", "assignProject", "assignPeriodWrap", "assignPeriod", "assignPeriodNav", "assignPrevPeriodBtn", "assignNextPeriodBtn", "assignEmployeesWrap", "assignSummary", "assignRole",
       "assignStart", "assignEnd", "assignNotes", "assignBtn", "bulkEmployees", "bulkAddBtn",
       "employeeList", "kanbanBoard", "notificationList", "auditList", "editModal", "closeModalBtn",
       "editProject", "editEmployee", "editRole", "editStart", "editEnd", "editNotes",
@@ -549,29 +549,29 @@
     }
 
     const wrapper = document.createElement("div");
-    wrapper.className = "xl:col-span-5";
+    wrapper.className = "xl:col-span-12";
     wrapper.innerHTML = `
-      <div id="availabilityCard" class="rounded-2xl bg-white border border-slate-200 shadow-sm">
-        <div class="p-4 border-b border-slate-200">
-          <h2 class="font-semibold">Tilgjengelige ansatte i valgt periode</h2>
+      <div id="availabilityCard" class="app-card overflow-hidden">
+        <div class="app-card-header">
+          <h2 class="font-semibold text-slate-900">Tilgjengelighet i valgt periode</h2>
           <p class="text-sm text-slate-500 mt-1">Beslutningsstøtte for bemanning. Systemet sjekker andre prosjekter, kurs, ferie, syk og avspasering i valgt periode.</p>
         </div>
-        <div class="p-4 space-y-4">
-          <div id="availabilitySummary" class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+        <div class="p-5 space-y-4">
+          <div id="availabilitySummary" class="app-section-muted px-4 py-4 text-sm text-slate-700">
             Velg prosjekt og gyldig fra/til-dato for å analysere tilgjengelighet.
           </div>
-          <div class="grid grid-cols-1 xl:grid-cols-2 gap-4">
+          <div class="availability-grid">
             <div>
-              <div class="mb-2 flex items-center justify-between gap-2">
+              <div class="mb-3 flex items-center justify-between gap-2">
                 <h3 class="font-medium text-green-700">Tilgjengelige</h3>
-                <span id="availabilityAvailableCount" class="text-xs text-slate-500"></span>
+                <span id="availabilityAvailableCount" class="app-pill"></span>
               </div>
               <div id="availabilityAvailableList" class="space-y-2"></div>
             </div>
             <div>
-              <div class="mb-2 flex items-center justify-between gap-2">
+              <div class="mb-3 flex items-center justify-between gap-2">
                 <h3 class="font-medium text-red-700">Ikke tilgjengelige</h3>
-                <span id="availabilityUnavailableCount" class="text-xs text-slate-500"></span>
+                <span id="availabilityUnavailableCount" class="app-pill"></span>
               </div>
               <div id="availabilityUnavailableList" class="space-y-2"></div>
             </div>
@@ -1314,6 +1314,12 @@
         updateAvailabilityAnalysis();
       });
     }
+    if (els.assignPrevPeriodBtn) {
+      els.assignPrevPeriodBtn.addEventListener("click", () => shiftSelectedAssignPeriod(-1));
+    }
+    if (els.assignNextPeriodBtn) {
+      els.assignNextPeriodBtn.addEventListener("click", () => shiftSelectedAssignPeriod(1));
+    }
     els.assignStart.addEventListener("change", updateAvailabilityAnalysis);
     els.assignEnd.addEventListener("change", updateAvailabilityAnalysis);
     els.assignStart.addEventListener("change", updateAvailabilityAnalysis);
@@ -1900,6 +1906,46 @@
     return `Periode ${index + 1} • ${startLabel} – ${endLabel}`;
   }
 
+  function getProjectPeriodProgress(project, period) {
+    const required = Math.max(Number(project?.headcount_required || 0), 0);
+    const assigned = period ? getAssignedCountForProjectRange(project.id, period.start, period.end) : 0;
+    const remaining = Math.max(required - assigned, 0);
+    const isComplete = required > 0 && assigned >= required;
+    return { required, assigned, remaining, isComplete };
+  }
+
+  function renderAssignPeriodNavigation(project) {
+    if (!els.assignPrevPeriodBtn || !els.assignNextPeriodBtn || !els.assignPeriodWrap) return;
+    const periods = getProjectAssignablePeriods(project);
+    const activeIndex = periods.findIndex(period => period.id === state.selectedAssignPeriodId);
+    const hasMultiplePeriods = !!project && periods.length > 1;
+
+    els.assignPrevPeriodBtn.disabled = !hasMultiplePeriods || activeIndex <= 0;
+    els.assignNextPeriodBtn.disabled = !hasMultiplePeriods || activeIndex === -1 || activeIndex >= periods.length - 1;
+
+    const buttonBase = "rounded-2xl border px-4 py-2 text-sm";
+    els.assignPrevPeriodBtn.className = `${buttonBase} ${els.assignPrevPeriodBtn.disabled ? "border-slate-200 bg-slate-100 text-slate-400 cursor-not-allowed" : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"}`;
+    els.assignNextPeriodBtn.className = `${buttonBase} ${els.assignNextPeriodBtn.disabled ? "border-slate-200 bg-slate-100 text-slate-400 cursor-not-allowed" : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"}`;
+    if (els.assignPeriodNav) els.assignPeriodNav.style.display = hasMultiplePeriods ? "" : "none";
+  }
+
+  function shiftSelectedAssignPeriod(direction = 1) {
+    const projectId = els.assignProject?.value || "";
+    const project = getProjectById(projectId);
+    const periods = getProjectAssignablePeriods(project);
+    if (!project || periods.length < 2) return;
+
+    const activeIndex = periods.findIndex(period => period.id === state.selectedAssignPeriodId);
+    const nextIndex = Math.min(Math.max((activeIndex === -1 ? 0 : activeIndex) + direction, 0), periods.length - 1);
+    const nextPeriod = periods[nextIndex];
+    if (!nextPeriod) return;
+
+    state.selectedAssignPeriodId = nextPeriod.id;
+    if (els.assignPeriod) els.assignPeriod.value = nextPeriod.id;
+    syncAssignDatesFromProject({ projectId, periodId: nextPeriod.id });
+    updateAvailabilityAnalysis();
+  }
+
   function populateAssignPeriodSelect(project, preferredPeriodId = "") {
     if (!els.assignPeriodWrap || !els.assignPeriod) return null;
     const periods = getProjectAssignablePeriods(project);
@@ -1908,6 +1954,7 @@
       state.selectedAssignPeriodId = "";
       els.assignPeriod.innerHTML = "";
       els.assignPeriodWrap.classList.add("hidden");
+      renderAssignPeriodNavigation(null);
       return null;
     }
 
@@ -1917,11 +1964,12 @@
 
     const options = periods.map((period, index) => ({
       id: period.id,
-      name: formatProjectPeriodOptionLabel(period, index)
+      name: `Periode ${index + 1}: ${formatDate(period.start)} – ${formatDate(period.end)}`
     }));
     fillSelect(els.assignPeriod, options, selectedPeriod?.id || "", "name", "id");
     els.assignPeriodWrap.classList.remove("hidden");
     state.selectedAssignPeriodId = selectedPeriod?.id || "";
+    renderAssignPeriodNavigation(project);
     return selectedPeriod || null;
   }
 
@@ -2032,7 +2080,7 @@
   function updateAssignSummary(project) {
     if (!els.assignSummary) return;
     if (!project) {
-      els.assignSummary.textContent = "Velg et prosjekt for å starte bemanning.";
+      els.assignSummary.innerHTML = `<div class="text-sm text-slate-600">Velg et prosjekt for å starte bemanning.</div>`;
       return;
     }
 
@@ -2042,24 +2090,48 @@
     const remaining = Math.max(required - assigned, 0);
     const startLabel = range.start ? formatDate(range.start) : "ingen start";
     const endLabel = range.end ? formatDate(range.end) : "ingen slutt";
+    const periods = getProjectAssignablePeriods(project);
     const periodIndex = range.usesMultiplePeriods
-      ? Math.max(0, getProjectAssignablePeriods(project).findIndex(item => item.id === range.period?.id))
+      ? Math.max(0, periods.findIndex(item => item.id === range.period?.id))
       : -1;
-    const periodLabel = range.usesMultiplePeriods
-      ? ` • ${formatProjectPeriodOptionLabel(range.period, periodIndex)}`
-      : "";
+    const hasPeriod = range.usesMultiplePeriods && range.period;
+    const summaryLine = required === 0
+      ? "Ingen bemanningsplasser definert"
+      : assigned > required
+        ? `Overbemannet: ${assigned}/${required}`
+        : `Bemannet: ${assigned} / ${required}`;
+    const helperLine = required === 0
+      ? "Prosjektet må få definert bemanningsbehov før nye tildelinger."
+      : assigned > required
+        ? `Valgt periode er overbemannet med ${assigned - required}.`
+        : remaining === 0
+          ? "Valgt periode er fullbemannet."
+          : `Valgt periode har ${remaining} ledig ${remaining === 1 ? "plass" : "plasser"} igjen.`;
 
-    if (required === 0) {
-      els.assignSummary.textContent = `${project.name}${periodLabel} • Ingen bemanningsplasser definert • ${startLabel} – ${endLabel}`;
-      return;
-    }
-
-    if (assigned > required) {
-      els.assignSummary.textContent = `${project.name}${periodLabel} • Behov: ${required} • Tildelt: ${assigned} • Overbemannet med ${assigned - required} • ${startLabel} – ${endLabel}`;
-      return;
-    }
-
-    els.assignSummary.textContent = `${project.name}${periodLabel} • Behov: ${required} • Tildelt: ${assigned} • Gjenstår: ${remaining} • ${startLabel} – ${endLabel}`;
+    els.assignSummary.innerHTML = `
+      <div class="space-y-3">
+        <div>
+          <div class="text-xs uppercase tracking-wide text-slate-500">Prosjekt</div>
+          <div class="mt-1 text-base font-semibold text-slate-900">${escapeHtml(project.name)}</div>
+        </div>
+        ${hasPeriod ? `
+          <div>
+            <div class="text-xs uppercase tracking-wide text-slate-500">Valgt periode</div>
+            <div class="mt-1 font-medium text-slate-800">Periode ${periodIndex + 1} av ${periods.length}</div>
+            <div class="text-sm text-slate-600">${escapeHtml(startLabel)} – ${escapeHtml(endLabel)}</div>
+          </div>
+        ` : `
+          <div>
+            <div class="text-xs uppercase tracking-wide text-slate-500">Periode</div>
+            <div class="mt-1 text-sm text-slate-600">${escapeHtml(startLabel)} – ${escapeHtml(endLabel)}</div>
+          </div>
+        `}
+        <div class="rounded-2xl border border-slate-200 bg-white px-3 py-3">
+          <div class="font-medium text-slate-900">${escapeHtml(summaryLine)}</div>
+          <div class="text-sm text-slate-600 mt-1">${escapeHtml(helperLine)}</div>
+        </div>
+      </div>
+    `;
   }
 
   function renderAssignEmployeeSelectors(projectId = null, preservedRows = null) {
@@ -2105,9 +2177,12 @@
       const roleOptions = ROLE_OPTIONS.map(role => `<option value="${escapeHtml(role)}" ${role === selectedRole ? "selected" : ""}>${escapeHtml(role)}</option>`).join("");
 
       blocks.push(`
-        <div data-assign-row class="rounded-2xl border border-slate-200 bg-slate-50 p-3 space-y-3">
-          <div class="text-sm font-medium text-slate-700">Bemanning ${i + 1}</div>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div data-assign-row class="rounded-2xl border border-slate-200 bg-slate-50 p-4 space-y-3">
+          <div class="flex items-center justify-between gap-3">
+            <div class="text-sm font-medium text-slate-800">Bemanning ${i + 1}</div>
+            <span class="app-pill">${selectedRole}</span>
+          </div>
+          <div class="grid grid-cols-1 gap-3">
             <div class="space-y-1">
               <label class="text-sm text-slate-600">Ansatt</label>
               <select data-assign-employee-select class="w-full rounded-2xl border border-slate-300 px-3 py-2 bg-white">${employeeOptions}</select>
@@ -2219,8 +2294,8 @@
     const summary = state.availability.summary;
     if (!summary || !summary.valid) {
       els.availabilitySummary.textContent = "Velg prosjekt og gyldig fra/til-dato for å analysere tilgjengelighet.";
-      els.availabilityAvailableList.innerHTML = `<div class="text-sm text-slate-500">Ingen analyse kjørt.</div>`;
-      els.availabilityUnavailableList.innerHTML = `<div class="text-sm text-slate-500">Ingen analyse kjørt.</div>`;
+      els.availabilityAvailableList.innerHTML = `<div class="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-5 text-sm text-slate-500">Ingen analyse kjørt.</div>`;
+      els.availabilityUnavailableList.innerHTML = `<div class="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-5 text-sm text-slate-500">Ingen analyse kjørt.</div>`;
       if (els.availabilityAvailableCount) els.availabilityAvailableCount.textContent = "";
       if (els.availabilityUnavailableCount) els.availabilityUnavailableCount.textContent = "";
       return;
@@ -2232,22 +2307,22 @@
 
     els.availabilityAvailableList.innerHTML = state.availability.available.length
       ? state.availability.available.map(employee => `
-        <div class="rounded-xl border border-green-200 bg-green-50 p-3">
+        <div class="rounded-2xl border border-green-200 bg-green-50 px-4 py-3">
           <div class="font-medium text-slate-900">${escapeHtml(employee.name)}</div>
           <div class="text-xs text-slate-500 mt-1">${escapeHtml(employee.group || "Ingen gruppe valgt")}${employee.title ? ` • ${escapeHtml(employee.title)}` : ""}</div>
           <div class="text-xs text-green-700 mt-2">Tilgjengelig i valgt periode</div>
         </div>
       `).join("")
-      : `<div class="text-sm text-slate-500">Ingen tilgjengelige ansatte i valgt periode.</div>`;
+      : `<div class="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-5 text-sm text-slate-500">Ingen tilgjengelige ansatte i valgt periode.</div>`;
 
     els.availabilityUnavailableList.innerHTML = state.availability.unavailable.length
       ? state.availability.unavailable.map(employee => `
-        <div class="rounded-xl border border-red-200 bg-red-50 p-3">
+        <div class="rounded-2xl border border-red-200 bg-red-50 px-4 py-3">
           <div class="font-medium text-slate-900">${escapeHtml(employee.name)}</div>
           <div class="text-xs text-slate-500 mt-1">${escapeHtml(employee.group || "Ingen gruppe valgt")}${employee.title ? ` • ${escapeHtml(employee.title)}` : ""}</div>
           <div class="mt-2 space-y-2">
             ${employee.conflicts.map(conflict => `
-              <div class="rounded-lg border border-red-200 bg-white px-3 py-2">
+              <div class="rounded-xl border border-red-200 bg-white px-3 py-2">
                 <div class="text-xs font-medium text-red-700">${escapeHtml(conflict.isAbsenceBlock ? conflict.label : `Opptatt: ${conflict.label}`)}</div>
                 <div class="text-xs text-slate-600 mt-1">${escapeHtml(formatDate(conflict.startDate))} – ${escapeHtml(formatDate(conflict.endDate))}</div>
                 ${conflict.role && !conflict.isAbsenceBlock ? `<div class="text-xs text-slate-500 mt-1">Rolle: ${escapeHtml(conflict.role)}</div>` : ""}
@@ -2257,7 +2332,7 @@
           </div>
         </div>
       `).join("")
-      : `<div class="text-sm text-slate-500">Ingen konflikter i valgt periode.</div>`;
+      : `<div class="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-5 text-sm text-slate-500">Ingen konflikter i valgt periode.</div>`;
   }
 
   function canSeePersonalBlockType(type) {
@@ -3357,6 +3432,7 @@ async function deleteEditedEntry() {
       if (els.projectWorkspaceNotes) els.projectWorkspaceNotes.textContent = "";
       if (els.projectWorkspaceAssignments) els.projectWorkspaceAssignments.innerHTML = `<div class="text-sm text-slate-500">Velg et prosjekt fra listen for å se detaljer.</div>`;
       if (els.projectWorkspaceActions) els.projectWorkspaceActions.innerHTML = "";
+      if (els.projectWorkspacePeriodStatus) els.projectWorkspacePeriodStatus.innerHTML = "";
       return;
     }
 
@@ -3367,6 +3443,7 @@ async function deleteEditedEntry() {
       .filter(entry => entry.project_id === project.id)
       .slice()
       .sort((a, b) => a.start_date.localeCompare(b.start_date) || a.employee_name.localeCompare(b.employee_name, "no"));
+    const periods = getProjectAssignablePeriods(project);
 
     els.projectWorkspaceEmpty.classList.add("hidden");
     els.projectWorkspaceContent.classList.remove("hidden");
@@ -3374,24 +3451,53 @@ async function deleteEditedEntry() {
     if (els.projectWorkspaceMeta) {
       els.projectWorkspaceMeta.innerHTML = `
         <div class="flex flex-wrap items-center gap-2">
-          <span class="rounded-full border px-2 py-0.5 text-xs ${STATUS_COLORS[project.status] || "bg-slate-100 border-slate-200 text-slate-700"}">${escapeHtml(project.status)}</span>
-          <span class="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs text-slate-700">${escapeHtml(project.category)}</span>
-          ${project.location ? `<span class="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs text-slate-700">${escapeHtml(project.location)}</span>` : ""}
+          <span class="app-pill ${STATUS_COLORS[project.status] || "bg-slate-100 border-slate-200 text-slate-700"}">${escapeHtml(project.status)}</span>
+          <span class="app-pill">${escapeHtml(project.category || "Uten kategori")}</span>
+          ${project.location ? `<span class="app-pill">Lokasjon: ${escapeHtml(project.location)}</span>` : ""}
+          <span class="app-pill">Bemanningsbehov: ${required}</span>
+          ${project.has_multiple_periods ? `<span class="app-pill">Flere perioder: ${Math.max(periods.length, 1)}</span>` : ""}
         </div>
         <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm text-slate-600">
-          <div><span class="font-medium text-slate-700">Periode:</span><br>${escapeHtml(formatProjectDateRange(project))}</div>
-          <div><span class="font-medium text-slate-700">Bemanning:</span><br><span class="${staffing.variant}">${escapeHtml(staffing.text)}</span>${required ? ` (${assigned}/${required})` : ""}</div>
-          <div><span class="font-medium text-slate-700">Status:</span><br>${escapeHtml(project.status)}</div>
+          <div class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3"><span class="font-medium text-slate-700">Periode</span><div class="mt-1">${escapeHtml(formatProjectDateRange(project))}</div></div>
+          <div class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3"><span class="font-medium text-slate-700">Bemanning</span><div class="mt-1 ${staffing.variant}">${escapeHtml(staffing.text)}${required ? ` (${assigned}/${required})` : ""}</div></div>
+          <div class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3"><span class="font-medium text-slate-700">Status</span><div class="mt-1">${escapeHtml(project.status)}</div></div>
         </div>
       `;
     }
     if (els.projectWorkspaceNotes) {
       els.projectWorkspaceNotes.textContent = project.notes || "Ingen prosjektnotater.";
     }
+
+    if (els.projectWorkspacePeriodStatus) {
+      const periodCards = periods.length
+        ? periods.map((period, index) => {
+            const progress = getProjectPeriodProgress(project, period);
+            const badgeClass = progress.isComplete
+              ? "border-green-200 bg-green-50 text-green-700"
+              : progress.assigned > 0
+                ? "border-amber-200 bg-amber-50 text-amber-700"
+                : "border-slate-200 bg-slate-50 text-slate-600";
+            const badgeText = progress.isComplete ? "Komplett" : progress.assigned > 0 ? "Delvis" : "Ikke startet";
+            return `
+              <div class="rounded-2xl border border-slate-200 bg-white px-4 py-3">
+                <div class="flex items-start justify-between gap-3">
+                  <div>
+                    <div class="font-medium text-slate-800">Periode ${index + 1} — bemannet ${progress.assigned}/${progress.required}</div>
+                    <div class="text-sm text-slate-500 mt-1">${escapeHtml(formatDate(period.start))} – ${escapeHtml(formatDate(period.end))}</div>
+                  </div>
+                  <span class="rounded-full border px-2.5 py-1 text-xs ${badgeClass}">${badgeText}</span>
+                </div>
+              </div>
+            `;
+          }).join("")
+        : `<div class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">Prosjektet bruker én sammenhengende periode.</div>`;
+      els.projectWorkspacePeriodStatus.innerHTML = periodCards;
+    }
+
     if (els.projectWorkspaceAssignments) {
       els.projectWorkspaceAssignments.innerHTML = projectEntries.length
         ? projectEntries.map(entry => `
-          <div class="flex items-start justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-3">
+          <div class="flex items-start justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
             <div class="min-w-0">
               <div class="text-sm font-medium text-slate-800">${escapeHtml(entry.employee_name)}</div>
               <div class="text-xs text-slate-500 mt-1">${escapeHtml(entry.role || "")}</div>
@@ -3400,7 +3506,7 @@ async function deleteEditedEntry() {
             <button data-project-entry-delete-id="${escapeHtml(entry.id)}" class="shrink-0 rounded-lg border border-red-200 bg-white px-2 py-1 text-xs text-red-700 hover:bg-red-50">Fjern</button>
           </div>
         `).join("")
-        : `<div class="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-3 py-4 text-sm text-slate-500">Ingen tildelte ressurser på prosjektet ennå.</div>`;
+        : `<div class="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-3 py-4 text-sm text-slate-500">Ingen tildelte ressurser på prosjektet ennå.</div>`;
     }
     if (els.projectWorkspaceActions) {
       els.projectWorkspaceActions.innerHTML = `
@@ -3433,27 +3539,31 @@ async function deleteEditedEntry() {
       const required = Number(project.headcount_required || 0);
       const staffing = getProjectStaffingLabel(project.id, required);
       const isFocused = project.id === state.focusProjectId;
-      const baseClasses = archived
-        ? "border-slate-200 bg-slate-50 hover:bg-slate-100"
+      const periods = getProjectAssignablePeriods(project);
+      const periodCount = periods.length || (project.has_multiple_periods ? 1 : 0);
+      const rowClasses = archived
+        ? "project-row-muted border-slate-200 text-slate-700 hover:bg-slate-100"
         : isFocused
-          ? "border-slate-900 bg-slate-900 text-white"
-          : "border-slate-200 bg-white hover:bg-slate-50";
-      const secondaryTextClass = isFocused ? "text-slate-200" : "text-slate-500";
-      const staffingClass = isFocused ? "text-slate-100" : staffing.variant;
+          ? "project-row-active border-blue-500 text-slate-900"
+          : "border-slate-200 bg-white text-slate-900 hover:bg-slate-50";
 
       return `
-        <button type="button" data-project-focus-id="${escapeHtml(project.id)}" class="w-full rounded-2xl border p-4 text-left transition ${baseClasses}">
+        <button type="button" data-project-focus-id="${escapeHtml(project.id)}" class="w-full rounded-2xl border p-4 text-left transition ${rowClasses}">
           <div class="flex items-start justify-between gap-3">
             <div class="min-w-0">
               <div class="font-semibold truncate">${escapeHtml(project.name)}</div>
-              <div class="mt-1 text-xs ${secondaryTextClass}">${escapeHtml(project.category)}${project.location ? ` • ${escapeHtml(project.location)}` : ""}</div>
-              <div class="mt-1 text-xs ${secondaryTextClass}">${escapeHtml(formatProjectDateRange(project))}</div>
+              <div class="mt-2 flex flex-wrap items-center gap-2">
+                <span class="app-pill">${escapeHtml(project.category || "Uten kategori")}</span>
+                <span class="app-pill ${STATUS_COLORS[project.status] || "bg-slate-100 border-slate-200 text-slate-700"}">${escapeHtml(project.status)}</span>
+                ${project.location ? `<span class="app-pill">Lokasjon: ${escapeHtml(project.location)}</span>` : ""}
+              </div>
+              <div class="mt-3 text-xs text-slate-500">${escapeHtml(formatProjectDateRange(project))}</div>
             </div>
-            <span class="rounded-full border px-2 py-0.5 text-xs ${isFocused ? "border-white/30 bg-white/10 text-white" : (STATUS_COLORS[project.status] || "bg-slate-100 border-slate-200 text-slate-700")}">${escapeHtml(project.status)}</span>
           </div>
-          <div class="mt-3 flex flex-wrap items-center gap-3 text-xs">
-            <span class="${staffingClass}">${escapeHtml(staffing.text)}${required ? ` (${assigned}/${required})` : ""}</span>
-            ${project.notes ? `<span class="${secondaryTextClass} truncate">${escapeHtml(project.notes)}</span>` : ""}
+          <div class="mt-4 flex flex-wrap items-center gap-3 text-xs">
+            <span class="${staffing.variant} font-medium">${escapeHtml(staffing.text)}${required ? ` (${assigned}/${required})` : ""}</span>
+            ${periodCount > 0 ? `<span class="text-slate-500">${periodCount} perioder</span>` : ""}
+            ${project.notes ? `<span class="text-slate-400 truncate max-w-[240px]">${escapeHtml(project.notes)}</span>` : ""}
           </div>
         </button>
       `;
@@ -3467,7 +3577,7 @@ async function deleteEditedEntry() {
               <div class="font-semibold text-slate-900">Aktive prosjekter</div>
               <div class="text-sm text-slate-500">${escapeHtml(activeDescription)}</div>
             </div>
-            <span class="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs text-slate-700">${activeProjects.length} aktive</span>
+            <span class="app-pill">${activeProjects.length} aktive</span>
           </div>
           <div class="space-y-3">
             ${activeProjects.length ? activeProjects.map(project => renderProjectRow(project, false)).join("") : `<div class="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-sm text-slate-500">Ingen aktive prosjekter.</div>`}
@@ -3479,7 +3589,7 @@ async function deleteEditedEntry() {
               <div class="font-semibold text-slate-900">Arkiv</div>
               <div class="text-sm text-slate-500">Avsluttede prosjekter holdes utenfor hovedbildet.</div>
             </div>
-            <span class="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs text-slate-700">${archivedProjects.length} avsluttet</span>
+            <span class="app-pill">${archivedProjects.length} avsluttet</span>
           </div>
           <div class="space-y-3">
             ${archivedProjects.length ? archivedProjects.map(project => renderProjectRow(project, true)).join("") : `<div class="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-sm text-slate-500">Ingen arkiverte prosjekter.</div>`}
