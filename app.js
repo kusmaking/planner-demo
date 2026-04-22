@@ -23,6 +23,7 @@
     selectedProjectId: null,
     selectedEmployeeId: null,
     focusProjectId: "",
+    projectModalPeriods: [],
     storageMode: "local",
     supabaseReady: false,
     supabaseError: null,
@@ -165,7 +166,7 @@
       "editProject", "editEmployee", "editRole", "editStart", "editEnd", "editNotes",
       "saveEditBtn", "deleteEditBtn", "storageBadge", "resetDemoBtn", "systemStatus", "rangeTitle",
       "saveStatus", "plannerTabs", "tabCalendarBtn", "tabProjectsBtn", "tabEmployeesBtn", "tabAdminBtn", "tabCalendarSection", "tabProjectsSection", "tabEmployeesSection", "tabAdminSection", "calendarMainCol", "calendarPanelCol", "calendarPanelHandleBtn", "calendarPanelCloseBtn", "calendarPanelContent", "newProjectBtn", "projectModal", "projectModalTitle", "closeProjectModalBtn",
-      "projectName", "projectCategory", "projectStatus", "projectPlannedStart", "projectPlannedEnd",
+      "projectName", "projectCategory", "projectStatus", "projectPlannedStart", "projectPlannedEnd", "projectHasMultiplePeriods", "projectPeriodsSection", "projectPeriodsList", "addProjectPeriodBtn",
       "projectLocation", "projectHeadcount", "projectNotes", "saveProjectBtn", "deleteProjectBtn",
       "newEmployeeBtn", "employeeModal", "employeeModalTitle", "closeEmployeeModalBtn",
       "employeeName", "employeeEmail", "employeePhone", "employeeTitle", "employeeGroup", "employeeActive", "saveEmployeeBtn", "deleteEmployeeBtn",
@@ -1339,6 +1340,33 @@
     els.closeProjectModalBtn.addEventListener("click", closeProjectModal);
     els.saveProjectBtn.addEventListener("click", saveProjectFromModal);
     els.deleteProjectBtn.addEventListener("click", deleteProjectFromModal);
+    if (els.projectHasMultiplePeriods) {
+      els.projectHasMultiplePeriods.addEventListener("change", () => {
+        setProjectMultiplePeriodsUiState();
+        renderProjectPeriodsEditor();
+      });
+    }
+    if (els.addProjectPeriodBtn) {
+      els.addProjectPeriodBtn.addEventListener("click", addProjectPeriodDraft);
+    }
+    if (els.projectPeriodsList) {
+      els.projectPeriodsList.addEventListener("click", event => {
+        const removeBtn = event.target.closest("[data-remove-project-period]");
+        if (!removeBtn) return;
+        removeProjectPeriodDraft(removeBtn.dataset.periodId || "");
+      });
+      els.projectPeriodsList.addEventListener("input", event => {
+        const input = event.target;
+        if (!(input instanceof HTMLInputElement)) return;
+        const periodId = input.dataset.periodId || "";
+        if (input.hasAttribute("data-project-period-start")) {
+          updateProjectPeriodDraft(periodId, "start", input.value || "");
+        }
+        if (input.hasAttribute("data-project-period-end")) {
+          updateProjectPeriodDraft(periodId, "end", input.value || "");
+        }
+      });
+    }
 
     els.newEmployeeBtn.addEventListener("click", () => openEmployeeModal());
     els.closeEmployeeModalBtn.addEventListener("click", closeEmployeeModal);
@@ -1550,7 +1578,9 @@
     return (list || []).map(project => ({
       ...project,
       category: project?.category === "Project" ? "Offshore" : project?.category,
-      status: project?.status === "Fullført" ? "Avsluttet" : project?.status
+      status: project?.status === "Fullført" ? "Avsluttet" : project?.status,
+      has_multiple_periods: Boolean(project?.has_multiple_periods),
+      project_periods_json: normalizeProjectPeriods(project?.project_periods_json || [])
     }));
   }
 
@@ -2542,6 +2572,105 @@ async function deleteEditedEntry() {
     void addAudit(`Slettet tildeling: ${entry.employee_name} → ${displayProjectName(project) || "Ukjent prosjekt"}`);
   }
 
+  function normalizeProjectPeriods(value) {
+    let periods = value;
+    if (typeof periods === "string") {
+      try {
+        periods = JSON.parse(periods);
+      } catch (_) {
+        periods = [];
+      }
+    }
+
+    if (!Array.isArray(periods)) return [];
+
+    return periods
+      .map((period, index) => ({
+        id: period?.id || `period_${index + 1}`,
+        start: String(period?.start || period?.start_date || "").trim(),
+        end: String(period?.end || period?.end_date || "").trim()
+      }))
+      .filter(period => period.start || period.end);
+  }
+
+  function createEmptyProjectPeriod() {
+    return {
+      id: crypto.randomUUID(),
+      start: "",
+      end: ""
+    };
+  }
+
+  function setProjectMultiplePeriodsUiState() {
+    if (!els.projectHasMultiplePeriods || !els.projectPeriodsSection) return;
+    const enabled = !!els.projectHasMultiplePeriods.checked;
+    els.projectPeriodsSection.classList.toggle("hidden", !enabled);
+  }
+
+  function renderProjectPeriodsEditor() {
+    if (!els.projectPeriodsList) return;
+    const periods = state.projectModalPeriods || [];
+
+    if (!periods.length) {
+      els.projectPeriodsList.innerHTML = `<div class="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-3 py-4 text-sm text-slate-500">Ingen perioder lagt inn ennå.</div>`;
+      return;
+    }
+
+    els.projectPeriodsList.innerHTML = periods.map((period, index) => `
+      <div class="rounded-2xl border border-slate-200 bg-slate-50 p-3 space-y-3" data-project-period-row data-period-id="${escapeHtml(period.id)}">
+        <div class="flex items-center justify-between gap-3">
+          <div class="text-sm font-medium text-slate-700">Periode ${index + 1}</div>
+          <button type="button" data-remove-project-period data-period-id="${escapeHtml(period.id)}" class="rounded-xl border border-slate-300 bg-white px-3 py-1 text-sm">Fjern</button>
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <input type="date" data-project-period-start data-period-id="${escapeHtml(period.id)}" value="${escapeHtml(period.start || "")}" class="rounded-2xl border border-slate-300 px-3 py-2 bg-white" />
+          <input type="date" data-project-period-end data-period-id="${escapeHtml(period.id)}" value="${escapeHtml(period.end || "")}" class="rounded-2xl border border-slate-300 px-3 py-2 bg-white" />
+        </div>
+      </div>
+    `).join("");
+  }
+
+  function updateProjectPeriodDraft(periodId, field, value) {
+    state.projectModalPeriods = (state.projectModalPeriods || []).map(period =>
+      period.id === periodId ? { ...period, [field]: value } : period
+    );
+  }
+
+  function addProjectPeriodDraft() {
+    state.projectModalPeriods = [...(state.projectModalPeriods || []), createEmptyProjectPeriod()];
+    renderProjectPeriodsEditor();
+  }
+
+  function removeProjectPeriodDraft(periodId) {
+    state.projectModalPeriods = (state.projectModalPeriods || []).filter(period => period.id !== periodId);
+    renderProjectPeriodsEditor();
+  }
+
+  function validateProjectPeriods(periods) {
+    const normalized = normalizeProjectPeriods(periods);
+    if (!normalized.length) {
+      return { ok: false, message: "Legg inn minst én periode." };
+    }
+
+    for (const period of normalized) {
+      if (!period.start || !period.end) {
+        return { ok: false, message: "Alle perioder må ha start- og sluttdato." };
+      }
+      if (period.start > period.end) {
+        return { ok: false, message: "En periode har sluttdato før startdato." };
+      }
+    }
+
+    const sorted = normalized.slice().sort((a, b) => a.start.localeCompare(b.start) || a.end.localeCompare(b.end));
+    for (let i = 1; i < sorted.length; i++) {
+      if (sorted[i].start <= sorted[i - 1].end) {
+        return { ok: false, message: "Prosjektperioder kan ikke overlappe hverandre." };
+      }
+    }
+
+    return { ok: true, periods: sorted };
+  }
+
   function openProjectModal(projectId = null) {
     if (!canEditApp()) return;
     state.selectedProjectId = projectId;
@@ -2553,10 +2682,16 @@ async function deleteEditedEntry() {
     fillSelect(els.projectStatus, STATUS_OPTIONS, project?.status || "Planlagt");
     els.projectPlannedStart.value = project?.planned_start_date || "";
     els.projectPlannedEnd.value = project?.planned_end_date || "";
+    if (els.projectHasMultiplePeriods) {
+      els.projectHasMultiplePeriods.checked = Boolean(project?.has_multiple_periods);
+    }
+    state.projectModalPeriods = normalizeProjectPeriods(project?.project_periods_json || []);
     els.projectLocation.value = project?.location || "";
     els.projectHeadcount.value = project?.headcount_required ?? "";
     els.projectNotes.value = project?.notes || "";
     els.deleteProjectBtn.style.display = project ? "inline-flex" : "none";
+    setProjectMultiplePeriodsUiState();
+    renderProjectPeriodsEditor();
 
     els.projectModal.classList.remove("hidden");
     els.projectModal.classList.add("flex");
@@ -2564,6 +2699,7 @@ async function deleteEditedEntry() {
 
   function closeProjectModal() {
     state.selectedProjectId = null;
+    state.projectModalPeriods = [];
     els.projectModal.classList.add("hidden");
     els.projectModal.classList.remove("flex");
     flushPendingRemoteRefresh();
@@ -2574,8 +2710,9 @@ async function deleteEditedEntry() {
     const name = els.projectName.value.trim();
     const category = els.projectCategory.value;
     const status = els.projectStatus.value;
-    const plannedStart = els.projectPlannedStart.value;
-    const plannedEnd = els.projectPlannedEnd.value;
+    const singlePlannedStart = els.projectPlannedStart.value;
+    const singlePlannedEnd = els.projectPlannedEnd.value;
+    const hasMultiplePeriods = Boolean(els.projectHasMultiplePeriods?.checked);
     const location = els.projectLocation.value.trim();
     const headcountRequired = Number(els.projectHeadcount.value || 0);
     const notes = els.projectNotes.value.trim();
@@ -2585,7 +2722,20 @@ async function deleteEditedEntry() {
       return;
     }
 
-    if (plannedStart && plannedEnd && plannedStart > plannedEnd) {
+    let plannedStart = singlePlannedStart;
+    let plannedEnd = singlePlannedEnd;
+    let projectPeriods = [];
+
+    if (hasMultiplePeriods) {
+      const validation = validateProjectPeriods(state.projectModalPeriods || []);
+      if (!validation.ok) {
+        alert(validation.message);
+        return;
+      }
+      projectPeriods = validation.periods;
+      plannedStart = projectPeriods[0]?.start || "";
+      plannedEnd = projectPeriods[projectPeriods.length - 1]?.end || "";
+    } else if (plannedStart && plannedEnd && plannedStart > plannedEnd) {
       alert("Planlagt start kan ikke være etter planlagt slutt.");
       return;
     }
@@ -2606,6 +2756,8 @@ async function deleteEditedEntry() {
       project.status = status;
       project.planned_start_date = plannedStart || null;
       project.planned_end_date = plannedEnd || null;
+      project.has_multiple_periods = hasMultiplePeriods;
+      project.project_periods_json = hasMultiplePeriods ? projectPeriods : [];
       project.location = location;
       project.headcount_required = headcountRequired;
       project.notes = notes;
@@ -2617,6 +2769,8 @@ async function deleteEditedEntry() {
         status,
         planned_start_date: plannedStart || null,
         planned_end_date: plannedEnd || null,
+        has_multiple_periods: hasMultiplePeriods,
+        project_periods_json: hasMultiplePeriods ? projectPeriods : [],
         location,
         headcount_required: headcountRequired,
         notes
@@ -4205,6 +4359,10 @@ function getFilteredEmployees() {
   }
 
   function formatProjectDateRange(project) {
+    const periods = normalizeProjectPeriods(project?.project_periods_json || []);
+    if (project?.has_multiple_periods && periods.length) {
+      return periods.map(period => `${formatDate(period.start)} – ${formatDate(period.end)}`).join(", ");
+    }
     if (!project.planned_start_date && !project.planned_end_date) return "Ingen planlagt periode";
     if (project.planned_start_date && project.planned_end_date) {
       return `${formatDate(project.planned_start_date)} – ${formatDate(project.planned_end_date)}`;
