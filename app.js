@@ -161,7 +161,7 @@
   function cacheElements() {
     const ids = [
       "statsRow", "searchInput", "employeeFilter", "viewMode", "calendarMode", "prevBtn", "nextBtn", "todayBtn",
-      "calendarWrap", "holidayInfo", "warningBox", "legendList", "projectList", "projectWorkspaceCard", "projectWorkspaceEmpty", "projectWorkspaceContent", "projectWorkspaceTitle", "projectWorkspaceMeta", "projectWorkspaceNotes", "projectWorkspaceAssignments", "projectWorkspaceActions", "assignProject", "assignPeriodWrap", "assignPeriod", "assignEmployeesWrap", "assignSummary", "assignRole",
+      "calendarWrap", "holidayInfo", "warningBox", "legendList", "projectList", "projectWorkspaceCard", "projectWorkspaceEmpty", "projectWorkspaceContent", "projectWorkspaceTitle", "projectWorkspaceMeta", "projectWorkspaceNotes", "projectWorkspaceAssignments", "projectWorkspaceActions", "assignProject", "assignPeriodWrap", "assignPeriod", "assignPeriodHint", "assignPeriodNav", "assignPrevPeriodBtn", "assignNextPeriodBtn", "assignEmployeesWrap", "assignSummary", "assignRole",
       "assignStart", "assignEnd", "assignNotes", "assignBtn", "bulkEmployees", "bulkAddBtn",
       "employeeList", "kanbanBoard", "notificationList", "auditList", "editModal", "closeModalBtn",
       "editProject", "editEmployee", "editRole", "editStart", "editEnd", "editNotes",
@@ -549,31 +549,31 @@
     }
 
     const wrapper = document.createElement("div");
-    wrapper.className = "xl:col-span-5";
+    wrapper.className = "xl:col-span-12";
     wrapper.innerHTML = `
-      <div id="availabilityCard" class="rounded-2xl bg-white border border-slate-200 shadow-sm">
-        <div class="p-4 border-b border-slate-200">
-          <h2 class="font-semibold">Tilgjengelige ansatte i valgt periode</h2>
+      <div id="availabilityCard" class="rounded-[28px] bg-white border border-slate-200 shadow-sm overflow-hidden">
+        <div class="p-5 border-b border-slate-200 bg-slate-50/80">
+          <h2 class="font-semibold text-lg text-slate-900">Tilgjengelighet i valgt periode</h2>
           <p class="text-sm text-slate-500 mt-1">Beslutningsstøtte for bemanning. Systemet sjekker andre prosjekter, kurs, ferie, syk og avspasering i valgt periode.</p>
         </div>
-        <div class="p-4 space-y-4">
-          <div id="availabilitySummary" class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+        <div class="p-5 space-y-5">
+          <div id="availabilitySummary" class="rounded-[24px] border border-slate-200 bg-slate-50 px-5 py-4 text-sm text-slate-600 shadow-sm">
             Velg prosjekt og gyldig fra/til-dato for å analysere tilgjengelighet.
           </div>
-          <div class="grid grid-cols-1 xl:grid-cols-2 gap-4">
-            <div>
-              <div class="mb-2 flex items-center justify-between gap-2">
-                <h3 class="font-medium text-green-700">Tilgjengelige</h3>
-                <span id="availabilityAvailableCount" class="text-xs text-slate-500"></span>
+          <div class="grid grid-cols-1 xl:grid-cols-2 gap-5">
+            <div class="rounded-[24px] border border-green-200 bg-green-50/50 p-4">
+              <div class="mb-3 flex items-center justify-between gap-2">
+                <h3 class="font-medium text-green-800">Tilgjengelige</h3>
+                <span id="availabilityAvailableCount" class="rounded-full border border-green-200 bg-white px-2.5 py-1 text-xs font-medium text-green-700"></span>
               </div>
-              <div id="availabilityAvailableList" class="space-y-2"></div>
+              <div id="availabilityAvailableList" class="space-y-3"></div>
             </div>
-            <div>
-              <div class="mb-2 flex items-center justify-between gap-2">
-                <h3 class="font-medium text-red-700">Ikke tilgjengelige</h3>
-                <span id="availabilityUnavailableCount" class="text-xs text-slate-500"></span>
+            <div class="rounded-[24px] border border-rose-200 bg-rose-50/50 p-4">
+              <div class="mb-3 flex items-center justify-between gap-2">
+                <h3 class="font-medium text-rose-800">Ikke tilgjengelige</h3>
+                <span id="availabilityUnavailableCount" class="rounded-full border border-rose-200 bg-white px-2.5 py-1 text-xs font-medium text-rose-700"></span>
               </div>
-              <div id="availabilityUnavailableList" class="space-y-2"></div>
+              <div id="availabilityUnavailableList" class="space-y-3"></div>
             </div>
           </div>
         </div>
@@ -589,6 +589,7 @@
     els.availabilityAvailableCount = document.getElementById("availabilityAvailableCount");
     els.availabilityUnavailableCount = document.getElementById("availabilityUnavailableCount");
   }
+
 
   function ensureLoginModal() {
     if (document.getElementById("loginModal")) {
@@ -1314,6 +1315,28 @@
         updateAvailabilityAnalysis();
       });
     }
+    if (els.assignPrevPeriodBtn) {
+      els.assignPrevPeriodBtn.addEventListener("click", () => {
+        const project = getProjectById(els.assignProject?.value || "");
+        const periods = getProjectAssignablePeriods(project);
+        if (!periods.length) return;
+        const currentIndex = Math.max(0, periods.findIndex(period => period.id === state.selectedAssignPeriodId));
+        const nextIndex = Math.max(0, currentIndex - 1);
+        state.selectedAssignPeriodId = periods[nextIndex]?.id || state.selectedAssignPeriodId;
+        syncAssignDatesFromProject({ projectId: els.assignProject?.value || "", periodId: state.selectedAssignPeriodId });
+      });
+    }
+    if (els.assignNextPeriodBtn) {
+      els.assignNextPeriodBtn.addEventListener("click", () => {
+        const project = getProjectById(els.assignProject?.value || "");
+        const periods = getProjectAssignablePeriods(project);
+        if (!periods.length) return;
+        const currentIndex = Math.max(0, periods.findIndex(period => period.id === state.selectedAssignPeriodId));
+        const nextIndex = Math.min(periods.length - 1, currentIndex + 1);
+        state.selectedAssignPeriodId = periods[nextIndex]?.id || state.selectedAssignPeriodId;
+        syncAssignDatesFromProject({ projectId: els.assignProject?.value || "", periodId: state.selectedAssignPeriodId });
+      });
+    }
     els.assignStart.addEventListener("change", updateAvailabilityAnalysis);
     els.assignEnd.addEventListener("change", updateAvailabilityAnalysis);
     els.assignStart.addEventListener("change", updateAvailabilityAnalysis);
@@ -1894,11 +1917,55 @@
     return normalizeProjectPeriods(project.project_periods_json || []);
   }
 
+  function getInitials(name = "") {
+    return String(name || "")
+      .trim()
+      .split(/\s+/)
+      .slice(0, 2)
+      .map(part => part.charAt(0).toUpperCase())
+      .join("") || "?";
+  }
+
+  function getProjectPeriodStatusItems(project) {
+    const periods = getProjectAssignablePeriods(project);
+    if (!project || !periods.length) return [];
+
+    return periods.map((period, index) => {
+      const assigned = getAssignedCountForProjectRange(project.id, period.start || "", period.end || "");
+      const required = Math.max(Number(project.headcount_required || 0), 0);
+      let tone = "slate";
+      let label = required === 0 ? "Ingen plasser" : "Ikke bemannet";
+
+      if (required > 0 && assigned >= required) {
+        tone = "green";
+        label = `Komplett ${assigned}/${required}`;
+      } else if (assigned > 0) {
+        tone = "amber";
+        label = `Delvis ${assigned}/${required}`;
+      } else if (required > 0) {
+        tone = "rose";
+        label = `Manglende ${assigned}/${required}`;
+      }
+
+      return {
+        id: period.id,
+        index,
+        period,
+        assigned,
+        required,
+        tone,
+        label,
+        optionLabel: formatProjectPeriodOptionLabel(period, index)
+      };
+    });
+  }
+
   function formatProjectPeriodOptionLabel(period, index) {
     const startLabel = period?.start ? formatDate(period.start) : "ingen start";
     const endLabel = period?.end ? formatDate(period.end) : "ingen slutt";
-    return `Periode ${index + 1} • ${startLabel} – ${endLabel}`;
+    return `Periode ${index + 1}: ${startLabel} – ${endLabel}`;
   }
+
 
   function populateAssignPeriodSelect(project, preferredPeriodId = "") {
     if (!els.assignPeriodWrap || !els.assignPeriod) return null;
@@ -1908,6 +1975,10 @@
       state.selectedAssignPeriodId = "";
       els.assignPeriod.innerHTML = "";
       els.assignPeriodWrap.classList.add("hidden");
+      if (els.assignPeriodHint) els.assignPeriodHint.textContent = "";
+      if (els.assignPeriodNav) els.assignPeriodNav.classList.add("hidden");
+      if (els.assignPrevPeriodBtn) els.assignPrevPeriodBtn.disabled = true;
+      if (els.assignNextPeriodBtn) els.assignNextPeriodBtn.disabled = true;
       return null;
     }
 
@@ -1915,15 +1986,21 @@
       || periods.find(period => period.id === state.selectedAssignPeriodId)
       || periods[0];
 
+    const selectedIndex = Math.max(0, periods.findIndex(period => period.id === selectedPeriod?.id));
     const options = periods.map((period, index) => ({
       id: period.id,
       name: formatProjectPeriodOptionLabel(period, index)
     }));
     fillSelect(els.assignPeriod, options, selectedPeriod?.id || "", "name", "id");
     els.assignPeriodWrap.classList.remove("hidden");
+    if (els.assignPeriodHint) els.assignPeriodHint.textContent = `Periode ${selectedIndex + 1} av ${periods.length}`;
+    if (els.assignPeriodNav) els.assignPeriodNav.classList.remove("hidden");
+    if (els.assignPrevPeriodBtn) els.assignPrevPeriodBtn.disabled = selectedIndex <= 0;
+    if (els.assignNextPeriodBtn) els.assignNextPeriodBtn.disabled = selectedIndex >= periods.length - 1;
     state.selectedAssignPeriodId = selectedPeriod?.id || "";
     return selectedPeriod || null;
   }
+
 
   function getSelectedAssignPeriod(project, preferredPeriodId = "") {
     const periods = getProjectAssignablePeriods(project);
@@ -2032,7 +2109,13 @@
   function updateAssignSummary(project) {
     if (!els.assignSummary) return;
     if (!project) {
-      els.assignSummary.textContent = "Velg et prosjekt for å starte bemanning.";
+      els.assignSummary.className = "rounded-[24px] border border-blue-200 bg-gradient-to-br from-blue-50 to-white px-5 py-4 text-sm text-slate-700 shadow-sm";
+      els.assignSummary.innerHTML = `
+        <div class="space-y-1">
+          <div class="text-sm font-semibold text-slate-900">Velg et prosjekt</div>
+          <div class="text-sm text-slate-600">Velg prosjekt og periode for å starte bemanning.</div>
+        </div>
+      `;
       return;
     }
 
@@ -2042,25 +2125,71 @@
     const remaining = Math.max(required - assigned, 0);
     const startLabel = range.start ? formatDate(range.start) : "ingen start";
     const endLabel = range.end ? formatDate(range.end) : "ingen slutt";
+    const periods = getProjectAssignablePeriods(project);
     const periodIndex = range.usesMultiplePeriods
-      ? Math.max(0, getProjectAssignablePeriods(project).findIndex(item => item.id === range.period?.id))
+      ? Math.max(0, periods.findIndex(item => item.id === range.period?.id))
       : -1;
-    const periodLabel = range.usesMultiplePeriods
-      ? ` • ${formatProjectPeriodOptionLabel(range.period, periodIndex)}`
-      : "";
+    const leadTone = required === 0
+      ? "border-slate-200 from-slate-50 to-white"
+      : assigned > required
+        ? "border-amber-200 from-amber-50 to-white"
+        : remaining === 0
+          ? "border-green-200 from-green-50 to-white"
+          : "border-blue-200 from-blue-50 to-white";
 
-    if (required === 0) {
-      els.assignSummary.textContent = `${project.name}${periodLabel} • Ingen bemanningsplasser definert • ${startLabel} – ${endLabel}`;
-      return;
-    }
+    let headline = `Bemannet: ${assigned} / ${required}`;
+    let helper = required === 0
+      ? "Dette prosjektet har ingen bemanningsplasser definert."
+      : remaining === 0
+        ? "Valgt periode er fullbemannet."
+        : `Valgt periode har ${remaining} ledig${remaining === 1 ? " plass" : "e plasser"} igjen.`;
 
     if (assigned > required) {
-      els.assignSummary.textContent = `${project.name}${periodLabel} • Behov: ${required} • Tildelt: ${assigned} • Overbemannet med ${assigned - required} • ${startLabel} – ${endLabel}`;
-      return;
+      headline = `Overbemannet: ${assigned} / ${required}`;
+      helper = `Valgt periode er overbemannet med ${assigned - required}.`;
     }
 
-    els.assignSummary.textContent = `${project.name}${periodLabel} • Behov: ${required} • Tildelt: ${assigned} • Gjenstår: ${remaining} • ${startLabel} – ${endLabel}`;
+    const periodText = range.usesMultiplePeriods
+      ? `Periode ${periodIndex + 1} av ${periods.length}`
+      : "Hovedperiode";
+
+    els.assignSummary.className = `rounded-[24px] border bg-gradient-to-br px-5 py-4 text-sm text-slate-700 shadow-sm ${leadTone}`;
+    els.assignSummary.innerHTML = `
+      <div class="space-y-4">
+        <div>
+          <div class="text-base font-semibold text-slate-950">${escapeHtml(project.name)}</div>
+          <div class="mt-1 flex flex-wrap gap-2 text-xs">
+            <span class="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-slate-600">${escapeHtml(project.category || "Uten kategori")}</span>
+            ${project.location ? `<span class="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-slate-600">${escapeHtml(project.location)}</span>` : ""}
+            <span class="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-slate-600">${escapeHtml(project.status || "Uten status")}</span>
+          </div>
+        </div>
+        <div class="rounded-2xl border border-white/70 bg-white/80 px-4 py-3">
+          <div class="text-xs font-semibold uppercase tracking-wide text-slate-500">Valgt periode</div>
+          <div class="mt-1 text-sm font-semibold text-slate-900">${escapeHtml(periodText)}</div>
+          <div class="mt-1 text-sm text-slate-600">${escapeHtml(startLabel)} – ${escapeHtml(endLabel)}</div>
+        </div>
+        <div class="flex items-end justify-between gap-4">
+          <div>
+            <div class="text-xs font-semibold uppercase tracking-wide text-slate-500">Status</div>
+            <div class="mt-1 text-2xl font-semibold text-slate-950">${escapeHtml(headline)}</div>
+            <div class="mt-1 text-sm text-slate-600">${escapeHtml(helper)}</div>
+          </div>
+          <div class="grid shrink-0 grid-cols-2 gap-2 text-center">
+            <div class="rounded-2xl border border-slate-200 bg-white px-3 py-2">
+              <div class="text-[11px] uppercase tracking-wide text-slate-500">Behov</div>
+              <div class="text-lg font-semibold text-slate-900">${required}</div>
+            </div>
+            <div class="rounded-2xl border border-slate-200 bg-white px-3 py-2">
+              <div class="text-[11px] uppercase tracking-wide text-slate-500">Tildelt</div>
+              <div class="text-lg font-semibold text-slate-900">${assigned}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
   }
+
 
   function renderAssignEmployeeSelectors(projectId = null, preservedRows = null) {
     if (!els.assignEmployeesWrap) return;
@@ -2081,17 +2210,17 @@
     const count = Math.max(remaining, currentRows.filter(item => item.employee_name || item.role).length, 0);
 
     if (required === 0) {
-      els.assignEmployeesWrap.innerHTML = `<div class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-sm text-slate-500">Dette prosjektet har ingen bemanningsplasser definert.</div>`;
+      els.assignEmployeesWrap.innerHTML = `<div class="rounded-[24px] border border-slate-200 bg-slate-50 px-5 py-5 text-sm text-slate-500">Dette prosjektet har ingen bemanningsplasser definert.</div>`;
       return;
     }
 
     if (assigned > required) {
-      els.assignEmployeesWrap.innerHTML = `<div class="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-4 text-sm text-amber-800">Prosjektet er allerede overbemannet i valgt periode. Behov: ${required} • Tildelt: ${assigned}</div>`;
+      els.assignEmployeesWrap.innerHTML = `<div class="rounded-[24px] border border-amber-200 bg-amber-50 px-5 py-5 text-sm text-amber-800">Prosjektet er allerede overbemannet i valgt periode. Behov: ${required} • Tildelt: ${assigned}</div>`;
       return;
     }
 
     if (count === 0) {
-      els.assignEmployeesWrap.innerHTML = `<div class="rounded-2xl border border-green-200 bg-green-50 px-4 py-4 text-sm text-green-800">Prosjektet er fullbemannet i valgt periode. Ingen ledige plasser å fylle.</div>`;
+      els.assignEmployeesWrap.innerHTML = `<div class="rounded-[24px] border border-green-200 bg-green-50 px-5 py-5 text-sm text-green-800">Prosjektet er fullbemannet i valgt periode. Ingen ledige plasser å fylle.</div>`;
       return;
     }
 
@@ -2099,22 +2228,39 @@
     for (let i = 0; i < count; i++) {
       const selectedEmployee = currentRows[i]?.employee_name || "";
       const selectedRole = currentRows[i]?.role || getDefaultRoleForIndex(i);
+      const employee = activeEmployees.find(emp => emp.name === selectedEmployee);
       const employeeOptions = ['<option value="">Velg ansatt</option>']
         .concat(activeEmployees.map(emp => `<option value="${escapeHtml(emp.name)}" ${emp.name === selectedEmployee ? "selected" : ""}>${escapeHtml(emp.name)}</option>`))
         .join("");
       const roleOptions = ROLE_OPTIONS.map(role => `<option value="${escapeHtml(role)}" ${role === selectedRole ? "selected" : ""}>${escapeHtml(role)}</option>`).join("");
+      const groupLabel = employee ? normalizeEmployeeGroup(employee.employee_group || "") : "";
 
       blocks.push(`
-        <div data-assign-row class="rounded-2xl border border-slate-200 bg-slate-50 p-3 space-y-3">
-          <div class="text-sm font-medium text-slate-700">Bemanning ${i + 1}</div>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <div class="space-y-1">
-              <label class="text-sm text-slate-600">Ansatt</label>
-              <select data-assign-employee-select class="w-full rounded-2xl border border-slate-300 px-3 py-2 bg-white">${employeeOptions}</select>
+        <div data-assign-row class="rounded-[24px] border border-slate-200 bg-slate-50/90 p-4 shadow-sm space-y-4">
+          <div class="flex items-start justify-between gap-3">
+            <div>
+              <div class="text-sm font-semibold text-slate-900">Bemanning ${i + 1}</div>
+              <div class="mt-1 text-xs text-slate-500">Fyll inn rolle og ressurs for valgt periode.</div>
             </div>
-            <div class="space-y-1">
-              <label class="text-sm text-slate-600">Rolle</label>
-              <select data-assign-role-select class="w-full rounded-2xl border border-slate-300 px-3 py-2 bg-white">${roleOptions}</select>
+            <span class="rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700">Plass ${i + 1}</span>
+          </div>
+          ${selectedEmployee ? `
+            <div class="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-3">
+              <div class="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100 text-sm font-semibold text-blue-700">${escapeHtml(getInitials(selectedEmployee))}</div>
+              <div class="min-w-0">
+                <div class="text-sm font-medium text-slate-900 truncate">${escapeHtml(selectedEmployee)}</div>
+                <div class="mt-0.5 text-xs text-slate-500">${escapeHtml(groupLabel || "Ingen gruppe valgt")}${employee?.title ? ` • ${escapeHtml(employee.title)}` : ""}</div>
+              </div>
+            </div>
+          ` : ""}
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div class="space-y-2">
+              <label class="text-sm font-medium text-slate-700">Ansatt</label>
+              <select data-assign-employee-select class="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm shadow-sm">${employeeOptions}</select>
+            </div>
+            <div class="space-y-2">
+              <label class="text-sm font-medium text-slate-700">Rolle</label>
+              <select data-assign-role-select class="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm shadow-sm">${roleOptions}</select>
             </div>
           </div>
         </div>
@@ -2123,6 +2269,7 @@
 
     els.assignEmployeesWrap.innerHTML = blocks.join("");
   }
+
 
   function analyzeAvailabilityForPeriod(projectId, startDate, endDate) {
     const available = [];
@@ -2218,47 +2365,100 @@
 
     const summary = state.availability.summary;
     if (!summary || !summary.valid) {
-      els.availabilitySummary.textContent = "Velg prosjekt og gyldig fra/til-dato for å analysere tilgjengelighet.";
-      els.availabilityAvailableList.innerHTML = `<div class="text-sm text-slate-500">Ingen analyse kjørt.</div>`;
-      els.availabilityUnavailableList.innerHTML = `<div class="text-sm text-slate-500">Ingen analyse kjørt.</div>`;
+      if (els.availabilitySummary) {
+        els.availabilitySummary.className = "rounded-[24px] border border-slate-200 bg-slate-50 px-5 py-4 text-sm text-slate-600 shadow-sm";
+        els.availabilitySummary.innerHTML = `
+          <div class="space-y-1">
+            <div class="text-sm font-semibold text-slate-900">Ingen analyse kjørt</div>
+            <div class="text-sm text-slate-600">Velg prosjekt og gyldig fra/til-dato for å analysere tilgjengelighet.</div>
+          </div>
+        `;
+      }
+      els.availabilityAvailableList.innerHTML = `<div class="rounded-2xl border border-dashed border-green-200 bg-white/80 px-4 py-5 text-sm text-slate-500">Ingen analyse kjørt.</div>`;
+      els.availabilityUnavailableList.innerHTML = `<div class="rounded-2xl border border-dashed border-rose-200 bg-white/80 px-4 py-5 text-sm text-slate-500">Ingen analyse kjørt.</div>`;
       if (els.availabilityAvailableCount) els.availabilityAvailableCount.textContent = "";
       if (els.availabilityUnavailableCount) els.availabilityUnavailableCount.textContent = "";
       return;
     }
 
-    els.availabilitySummary.textContent = `${summary.projectName} • ${formatDate(summary.startDate)} – ${formatDate(summary.endDate)} • ${state.availability.available.length} tilgjengelige / ${state.availability.unavailable.length} ikke tilgjengelige`;
+    if (els.availabilitySummary) {
+      els.availabilitySummary.className = "rounded-[24px] border border-blue-200 bg-gradient-to-br from-blue-50 to-white px-5 py-4 text-sm text-slate-700 shadow-sm";
+      els.availabilitySummary.innerHTML = `
+        <div class="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <div class="text-base font-semibold text-slate-950">${escapeHtml(summary.projectName)}</div>
+            <div class="mt-1 text-sm text-slate-600">${escapeHtml(formatDate(summary.startDate))} – ${escapeHtml(formatDate(summary.endDate))}</div>
+          </div>
+          <div class="grid grid-cols-2 gap-2 text-center">
+            <div class="rounded-2xl border border-green-200 bg-white px-3 py-2">
+              <div class="text-[11px] uppercase tracking-wide text-slate-500">Tilgjengelige</div>
+              <div class="text-lg font-semibold text-green-700">${state.availability.available.length}</div>
+            </div>
+            <div class="rounded-2xl border border-rose-200 bg-white px-3 py-2">
+              <div class="text-[11px] uppercase tracking-wide text-slate-500">Ikke tilgjengelige</div>
+              <div class="text-lg font-semibold text-rose-700">${state.availability.unavailable.length}</div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
     if (els.availabilityAvailableCount) els.availabilityAvailableCount.textContent = `${state.availability.available.length} stk`;
     if (els.availabilityUnavailableCount) els.availabilityUnavailableCount.textContent = `${state.availability.unavailable.length} stk`;
 
     els.availabilityAvailableList.innerHTML = state.availability.available.length
       ? state.availability.available.map(employee => `
-        <div class="rounded-xl border border-green-200 bg-green-50 p-3">
-          <div class="font-medium text-slate-900">${escapeHtml(employee.name)}</div>
-          <div class="text-xs text-slate-500 mt-1">${escapeHtml(employee.group || "Ingen gruppe valgt")}${employee.title ? ` • ${escapeHtml(employee.title)}` : ""}</div>
-          <div class="text-xs text-green-700 mt-2">Tilgjengelig i valgt periode</div>
+        <div class="rounded-2xl border border-green-200 bg-white px-4 py-4 shadow-sm">
+          <div class="flex items-center gap-3">
+            <div class="flex h-10 w-10 items-center justify-center rounded-full bg-green-100 text-sm font-semibold text-green-700">${escapeHtml(getInitials(employee.name))}</div>
+            <div class="min-w-0">
+              <div class="font-medium text-slate-900 truncate">${escapeHtml(employee.name)}</div>
+              <div class="text-xs text-slate-500 mt-0.5">${escapeHtml(employee.group || "Ingen gruppe valgt")}${employee.title ? ` • ${escapeHtml(employee.title)}` : ""}</div>
+            </div>
+          </div>
+          <div class="mt-3 inline-flex rounded-full border border-green-200 bg-green-50 px-2.5 py-1 text-xs font-medium text-green-700">Tilgjengelig i valgt periode</div>
         </div>
       `).join("")
-      : `<div class="text-sm text-slate-500">Ingen tilgjengelige ansatte i valgt periode.</div>`;
+      : `<div class="rounded-2xl border border-dashed border-green-200 bg-white/80 px-4 py-5 text-sm text-slate-500">Ingen tilgjengelige ansatte i valgt periode.</div>`;
+
+    const conflictTone = (conflict) => {
+      if (conflict.isAbsenceBlock) {
+        if (conflict.label === "Ferie") return 'border-orange-200 bg-orange-50 text-orange-700';
+        if (conflict.label === "Syk") return 'border-red-200 bg-red-50 text-red-700';
+        if (conflict.label === "Kurs") return 'border-violet-200 bg-violet-50 text-violet-700';
+        if (conflict.label === "Avspasering") return 'border-amber-200 bg-amber-50 text-amber-700';
+      }
+      return 'border-rose-200 bg-rose-50 text-rose-700';
+    };
 
     els.availabilityUnavailableList.innerHTML = state.availability.unavailable.length
       ? state.availability.unavailable.map(employee => `
-        <div class="rounded-xl border border-red-200 bg-red-50 p-3">
-          <div class="font-medium text-slate-900">${escapeHtml(employee.name)}</div>
-          <div class="text-xs text-slate-500 mt-1">${escapeHtml(employee.group || "Ingen gruppe valgt")}${employee.title ? ` • ${escapeHtml(employee.title)}` : ""}</div>
-          <div class="mt-2 space-y-2">
+        <div class="rounded-2xl border border-rose-200 bg-white px-4 py-4 shadow-sm">
+          <div class="flex items-center gap-3">
+            <div class="flex h-10 w-10 items-center justify-center rounded-full bg-rose-100 text-sm font-semibold text-rose-700">${escapeHtml(getInitials(employee.name))}</div>
+            <div class="min-w-0">
+              <div class="font-medium text-slate-900 truncate">${escapeHtml(employee.name)}</div>
+              <div class="text-xs text-slate-500 mt-0.5">${escapeHtml(employee.group || "Ingen gruppe valgt")}${employee.title ? ` • ${escapeHtml(employee.title)}` : ""}</div>
+            </div>
+          </div>
+          <div class="mt-3 space-y-2">
             ${employee.conflicts.map(conflict => `
-              <div class="rounded-lg border border-red-200 bg-white px-3 py-2">
-                <div class="text-xs font-medium text-red-700">${escapeHtml(conflict.isAbsenceBlock ? conflict.label : `Opptatt: ${conflict.label}`)}</div>
-                <div class="text-xs text-slate-600 mt-1">${escapeHtml(formatDate(conflict.startDate))} – ${escapeHtml(formatDate(conflict.endDate))}</div>
-                ${conflict.role && !conflict.isAbsenceBlock ? `<div class="text-xs text-slate-500 mt-1">Rolle: ${escapeHtml(conflict.role)}</div>` : ""}
-                ${conflict.notes ? `<div class="text-xs text-slate-500 mt-1">${escapeHtml(conflict.notes)}</div>` : ""}
+              <div class="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3">
+                <div class="flex flex-wrap items-center gap-2">
+                  <span class="rounded-full border px-2.5 py-1 text-xs font-medium ${conflictTone(conflict)}">${escapeHtml(conflict.isAbsenceBlock ? conflict.label : 'Opptatt i prosjekt')}</span>
+                  <span class="text-xs text-slate-500">${escapeHtml(formatDate(conflict.startDate))} – ${escapeHtml(formatDate(conflict.endDate))}</span>
+                </div>
+                <div class="mt-2 text-sm font-medium text-slate-800">${escapeHtml(conflict.label)}</div>
+                ${conflict.role && !conflict.isAbsenceBlock ? `<div class="mt-1 text-xs text-slate-500">Rolle: ${escapeHtml(conflict.role)}</div>` : ""}
+                ${conflict.notes ? `<div class="mt-1 text-xs text-slate-500">${escapeHtml(conflict.notes)}</div>` : ""}
               </div>
             `).join("")}
           </div>
         </div>
       `).join("")
-      : `<div class="text-sm text-slate-500">Ingen konflikter i valgt periode.</div>`;
+      : `<div class="rounded-2xl border border-dashed border-rose-200 bg-white/80 px-4 py-5 text-sm text-slate-500">Ingen konflikter i valgt periode.</div>`;
   }
+
 
   function canSeePersonalBlockType(type) {
     if (type !== "Syk") return true;
@@ -3355,7 +3555,7 @@ async function deleteEditedEntry() {
       if (els.projectWorkspaceTitle) els.projectWorkspaceTitle.textContent = "Ingen prosjekt valgt";
       if (els.projectWorkspaceMeta) els.projectWorkspaceMeta.innerHTML = "";
       if (els.projectWorkspaceNotes) els.projectWorkspaceNotes.textContent = "";
-      if (els.projectWorkspaceAssignments) els.projectWorkspaceAssignments.innerHTML = `<div class="text-sm text-slate-500">Velg et prosjekt fra listen for å se detaljer.</div>`;
+      if (els.projectWorkspaceAssignments) els.projectWorkspaceAssignments.innerHTML = `<div class="rounded-[24px] border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-sm text-slate-500">Velg et prosjekt fra listen for å se detaljer.</div>`;
       if (els.projectWorkspaceActions) els.projectWorkspaceActions.innerHTML = "";
       return;
     }
@@ -3363,26 +3563,70 @@ async function deleteEditedEntry() {
     const assigned = getProjectAssignedCount(project.id);
     const required = Number(project.headcount_required || 0);
     const staffing = getProjectStaffingLabel(project.id, required);
+    const staffingTone = staffing.variant.includes('green')
+      ? 'border-green-200 bg-green-50 text-green-800'
+      : staffing.variant.includes('amber')
+        ? 'border-amber-200 bg-amber-50 text-amber-800'
+        : 'border-rose-200 bg-rose-50 text-rose-800';
     const projectEntries = state.entries
       .filter(entry => entry.project_id === project.id)
       .slice()
       .sort((a, b) => a.start_date.localeCompare(b.start_date) || a.employee_name.localeCompare(b.employee_name, "no"));
+    const periodStatuses = getProjectPeriodStatusItems(project);
 
     els.projectWorkspaceEmpty.classList.add("hidden");
     els.projectWorkspaceContent.classList.remove("hidden");
     if (els.projectWorkspaceTitle) els.projectWorkspaceTitle.textContent = project.name;
     if (els.projectWorkspaceMeta) {
       els.projectWorkspaceMeta.innerHTML = `
-        <div class="flex flex-wrap items-center gap-2">
-          <span class="rounded-full border px-2 py-0.5 text-xs ${STATUS_COLORS[project.status] || "bg-slate-100 border-slate-200 text-slate-700"}">${escapeHtml(project.status)}</span>
-          <span class="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs text-slate-700">${escapeHtml(project.category)}</span>
-          ${project.location ? `<span class="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs text-slate-700">${escapeHtml(project.location)}</span>` : ""}
+        <div class="flex flex-wrap gap-2">
+          <span class="rounded-full border px-3 py-1 text-xs font-medium ${STATUS_COLORS[project.status] || "bg-slate-100 border-slate-200 text-slate-700"}">${escapeHtml(project.status)}</span>
+          <span class="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-700">${escapeHtml(project.category || "Uten kategori")}</span>
+          ${project.location ? `<span class="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-700">Lokasjon: ${escapeHtml(project.location)}</span>` : ""}
+          <span class="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-700">Bemanningsbehov: ${required}</span>
+          ${periodStatuses.length ? `<span class="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-700">Flere perioder: ${periodStatuses.length}</span>` : ''}
         </div>
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm text-slate-600">
-          <div><span class="font-medium text-slate-700">Periode:</span><br>${escapeHtml(formatProjectDateRange(project))}</div>
-          <div><span class="font-medium text-slate-700">Bemanning:</span><br><span class="${staffing.variant}">${escapeHtml(staffing.text)}</span>${required ? ` (${assigned}/${required})` : ""}</div>
-          <div><span class="font-medium text-slate-700">Status:</span><br>${escapeHtml(project.status)}</div>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div class="rounded-[22px] border border-slate-200 bg-slate-50 px-4 py-4">
+            <div class="text-xs font-semibold uppercase tracking-wide text-slate-500">Planlagt periode</div>
+            <div class="mt-2 text-sm text-slate-700 leading-6">${escapeHtml(formatProjectDateRange(project))}</div>
+          </div>
+          <div class="rounded-[22px] border ${staffingTone} px-4 py-4">
+            <div class="text-xs font-semibold uppercase tracking-wide opacity-80">Bemanningsstatus</div>
+            <div class="mt-2 text-base font-semibold">${escapeHtml(staffing.text)}</div>
+            <div class="mt-1 text-sm opacity-90">${required ? `${assigned}/${required} tildelt` : 'Ingen plasser definert'}</div>
+          </div>
+          <div class="rounded-[22px] border border-slate-200 bg-slate-50 px-4 py-4">
+            <div class="text-xs font-semibold uppercase tracking-wide text-slate-500">Status</div>
+            <div class="mt-2 text-base font-semibold text-slate-900">${escapeHtml(project.status)}</div>
+            <div class="mt-1 text-sm text-slate-500">${escapeHtml(project.location || 'Lokasjon ikke satt')}</div>
+          </div>
         </div>
+        ${periodStatuses.length ? `
+          <div>
+            <div class="mb-3 text-sm font-medium text-slate-700">Periode-status</div>
+            <div class="space-y-3">
+              ${periodStatuses.map(item => {
+                const badgeClass = item.tone === 'green'
+                  ? 'border-green-200 bg-green-50 text-green-700'
+                  : item.tone === 'amber'
+                    ? 'border-amber-200 bg-amber-50 text-amber-700'
+                    : 'border-rose-200 bg-rose-50 text-rose-700';
+                return `
+                  <div class="rounded-[22px] border border-slate-200 bg-slate-50 px-4 py-4">
+                    <div class="flex items-start justify-between gap-3">
+                      <div>
+                        <div class="text-sm font-semibold text-slate-900">Periode ${item.index + 1} — bemannet ${item.assigned}/${item.required}</div>
+                        <div class="mt-1 text-sm text-slate-500">${escapeHtml(formatDate(item.period.start))} – ${escapeHtml(formatDate(item.period.end))}</div>
+                      </div>
+                      <span class="rounded-full border px-2.5 py-1 text-xs font-medium ${badgeClass}">${escapeHtml(item.label)}</span>
+                    </div>
+                  </div>
+                `;
+              }).join('')}
+            </div>
+          </div>
+        ` : ''}
       `;
     }
     if (els.projectWorkspaceNotes) {
@@ -3391,21 +3635,27 @@ async function deleteEditedEntry() {
     if (els.projectWorkspaceAssignments) {
       els.projectWorkspaceAssignments.innerHTML = projectEntries.length
         ? projectEntries.map(entry => `
-          <div class="flex items-start justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-3">
-            <div class="min-w-0">
-              <div class="text-sm font-medium text-slate-800">${escapeHtml(entry.employee_name)}</div>
-              <div class="text-xs text-slate-500 mt-1">${escapeHtml(entry.role || "")}</div>
-              <div class="text-xs text-slate-500">${escapeHtml(formatDate(entry.start_date))} – ${escapeHtml(formatDate(entry.end_date))}</div>
+          <div class="flex items-start justify-between gap-3 rounded-[24px] border border-slate-200 bg-slate-50 px-4 py-4 shadow-sm">
+            <div class="flex items-start gap-3 min-w-0">
+              <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-100 text-sm font-semibold text-blue-700">${escapeHtml(getInitials(entry.employee_name))}</div>
+              <div class="min-w-0">
+                <div class="text-sm font-medium text-slate-900 truncate">${escapeHtml(entry.employee_name)}</div>
+                <div class="mt-1 flex flex-wrap items-center gap-2 text-xs">
+                  ${entry.role ? `<span class="rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 font-medium text-blue-700">${escapeHtml(entry.role)}</span>` : ''}
+                  <span class="text-slate-500">${escapeHtml(formatDate(entry.start_date))} – ${escapeHtml(formatDate(entry.end_date))}</span>
+                </div>
+                ${entry.notes ? `<div class="mt-2 text-xs text-slate-500">${escapeHtml(entry.notes)}</div>` : ''}
+              </div>
             </div>
-            <button data-project-entry-delete-id="${escapeHtml(entry.id)}" class="shrink-0 rounded-lg border border-red-200 bg-white px-2 py-1 text-xs text-red-700 hover:bg-red-50">Fjern</button>
+            <button data-project-entry-delete-id="${escapeHtml(entry.id)}" class="shrink-0 rounded-xl border border-red-200 bg-white px-3 py-2 text-xs font-medium text-red-700 hover:bg-red-50">Fjern</button>
           </div>
         `).join("")
-        : `<div class="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-3 py-4 text-sm text-slate-500">Ingen tildelte ressurser på prosjektet ennå.</div>`;
+        : `<div class="rounded-[24px] border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-sm text-slate-500">Ingen tildelte ressurser på prosjektet ennå.</div>`;
     }
     if (els.projectWorkspaceActions) {
       els.projectWorkspaceActions.innerHTML = `
-        <button data-project-workspace-staff-id="${escapeHtml(project.id)}" class="rounded-xl bg-slate-900 text-white px-3 py-2 text-sm">Bemann prosjekt</button>
-        <button data-project-workspace-edit-id="${escapeHtml(project.id)}" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm">Rediger prosjekt</button>
+        <button data-project-workspace-staff-id="${escapeHtml(project.id)}" class="rounded-2xl bg-slate-900 text-white px-4 py-2.5 text-sm font-medium shadow-sm">Bemann prosjekt</button>
+        <button data-project-workspace-edit-id="${escapeHtml(project.id)}" class="rounded-2xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700">Rediger prosjekt</button>
       `;
       const staffBtn = els.projectWorkspaceActions.querySelector('[data-project-workspace-staff-id]');
       const editBtn = els.projectWorkspaceActions.querySelector('[data-project-workspace-edit-id]');
@@ -3416,6 +3666,7 @@ async function deleteEditedEntry() {
       btn.addEventListener('click', () => deleteEntryFromProjectCard(btn.dataset.projectEntryDeleteId));
     });
   }
+
 
   function renderProjects() {
     const allActiveProjects = getActiveProjectsForWorkspace();
@@ -3433,27 +3684,34 @@ async function deleteEditedEntry() {
       const required = Number(project.headcount_required || 0);
       const staffing = getProjectStaffingLabel(project.id, required);
       const isFocused = project.id === state.focusProjectId;
-      const baseClasses = archived
+      const statusClass = STATUS_COLORS[project.status] || "bg-slate-100 border-slate-200 text-slate-700";
+      const toneClass = archived
         ? "border-slate-200 bg-slate-50 hover:bg-slate-100"
         : isFocused
-          ? "border-slate-900 bg-slate-900 text-white"
-          : "border-slate-200 bg-white hover:bg-slate-50";
-      const secondaryTextClass = isFocused ? "text-slate-200" : "text-slate-500";
-      const staffingClass = isFocused ? "text-slate-100" : staffing.variant;
+          ? "border-blue-300 bg-gradient-to-br from-blue-50 to-white ring-2 ring-blue-200/70 shadow-sm"
+          : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/80";
+      const staffingBadgeClass = staffing.variant.includes('green')
+        ? 'border-green-200 bg-green-50 text-green-700'
+        : staffing.variant.includes('amber')
+          ? 'border-amber-200 bg-amber-50 text-amber-700'
+          : 'border-rose-200 bg-rose-50 text-rose-700';
 
       return `
-        <button type="button" data-project-focus-id="${escapeHtml(project.id)}" class="w-full rounded-2xl border p-4 text-left transition ${baseClasses}">
+        <button type="button" data-project-focus-id="${escapeHtml(project.id)}" class="w-full rounded-[24px] border px-4 py-4 text-left transition ${toneClass}">
           <div class="flex items-start justify-between gap-3">
             <div class="min-w-0">
-              <div class="font-semibold truncate">${escapeHtml(project.name)}</div>
-              <div class="mt-1 text-xs ${secondaryTextClass}">${escapeHtml(project.category)}${project.location ? ` • ${escapeHtml(project.location)}` : ""}</div>
-              <div class="mt-1 text-xs ${secondaryTextClass}">${escapeHtml(formatProjectDateRange(project))}</div>
+              <div class="text-base font-semibold text-slate-900 truncate">${escapeHtml(project.name)}</div>
+              <div class="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                <span class="rounded-full border border-slate-200 bg-white px-2.5 py-1">${escapeHtml(project.category || 'Uten kategori')}</span>
+                ${project.location ? `<span class="rounded-full border border-slate-200 bg-white px-2.5 py-1">${escapeHtml(project.location)}</span>` : ''}
+              </div>
+              <div class="mt-3 text-xs text-slate-500">${escapeHtml(formatProjectDateRange(project))}</div>
             </div>
-            <span class="rounded-full border px-2 py-0.5 text-xs ${isFocused ? "border-white/30 bg-white/10 text-white" : (STATUS_COLORS[project.status] || "bg-slate-100 border-slate-200 text-slate-700")}">${escapeHtml(project.status)}</span>
+            <span class="shrink-0 rounded-full border px-2.5 py-1 text-xs font-medium ${statusClass}">${escapeHtml(project.status)}</span>
           </div>
-          <div class="mt-3 flex flex-wrap items-center gap-3 text-xs">
-            <span class="${staffingClass}">${escapeHtml(staffing.text)}${required ? ` (${assigned}/${required})` : ""}</span>
-            ${project.notes ? `<span class="${secondaryTextClass} truncate">${escapeHtml(project.notes)}</span>` : ""}
+          <div class="mt-4 flex flex-wrap items-center gap-2 text-xs">
+            <span class="rounded-full border px-2.5 py-1 font-medium ${staffingBadgeClass}">${escapeHtml(staffing.text)}${required ? ` ${assigned}/${required}` : ''}</span>
+            ${project.notes ? `<span class="max-w-[220px] truncate text-slate-500">${escapeHtml(project.notes)}</span>` : ''}
           </div>
         </button>
       `;
@@ -3462,27 +3720,27 @@ async function deleteEditedEntry() {
     els.projectList.innerHTML = `
       <div class="space-y-6">
         <div>
-          <div class="mb-3 flex items-center justify-between gap-3">
+          <div class="mb-3 flex items-center justify-between gap-3 px-1">
             <div>
               <div class="font-semibold text-slate-900">Aktive prosjekter</div>
               <div class="text-sm text-slate-500">${escapeHtml(activeDescription)}</div>
             </div>
-            <span class="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs text-slate-700">${activeProjects.length} aktive</span>
+            <span class="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-700">${activeProjects.length} aktive</span>
           </div>
           <div class="space-y-3">
-            ${activeProjects.length ? activeProjects.map(project => renderProjectRow(project, false)).join("") : `<div class="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-sm text-slate-500">Ingen aktive prosjekter.</div>`}
+            ${activeProjects.length ? activeProjects.map(project => renderProjectRow(project, false)).join("") : `<div class="rounded-[24px] border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-sm text-slate-500">Ingen aktive prosjekter.</div>`}
           </div>
         </div>
-        <div class="border-t border-slate-200 pt-4">
-          <div class="mb-3 flex items-center justify-between gap-3">
+        <div class="border-t border-slate-200 pt-5">
+          <div class="mb-3 flex items-center justify-between gap-3 px-1">
             <div>
               <div class="font-semibold text-slate-900">Arkiv</div>
               <div class="text-sm text-slate-500">Avsluttede prosjekter holdes utenfor hovedbildet.</div>
             </div>
-            <span class="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs text-slate-700">${archivedProjects.length} avsluttet</span>
+            <span class="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-700">${archivedProjects.length} avsluttet</span>
           </div>
           <div class="space-y-3">
-            ${archivedProjects.length ? archivedProjects.map(project => renderProjectRow(project, true)).join("") : `<div class="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-sm text-slate-500">Ingen arkiverte prosjekter.</div>`}
+            ${archivedProjects.length ? archivedProjects.map(project => renderProjectRow(project, true)).join("") : `<div class="rounded-[24px] border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-sm text-slate-500">Ingen arkiverte prosjekter.</div>`}
           </div>
         </div>
       </div>
@@ -3494,6 +3752,7 @@ async function deleteEditedEntry() {
 
     renderProjectWorkspace(focusedProject);
   }
+
 
   function startProjectStaffing(projectId) {
     if (!els.assignProject) return;
