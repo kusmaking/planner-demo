@@ -259,20 +259,23 @@
         <input id="projectName" class="w-full rounded-2xl border border-slate-300 px-3 py-2" placeholder="Prosjektnavn" />
         <select id="projectCategory" class="w-full rounded-2xl border border-slate-300 px-3 py-2"></select>
         <select id="projectStatus" class="w-full rounded-2xl border border-slate-300 px-3 py-2"></select>
-        <div id="projectSinglePeriodRow" class="grid grid-cols-2 gap-2">
+        <div class="grid grid-cols-2 gap-2">
           <input id="projectPlannedStart" type="date" class="rounded-2xl border border-slate-300 px-3 py-2" />
           <input id="projectPlannedEnd" type="date" class="rounded-2xl border border-slate-300 px-3 py-2" />
         </div>
-        <label class="flex items-center gap-2 text-sm text-slate-700">
-          <input id="projectMultiPeriod" type="checkbox" />
+        <label class="flex items-center gap-2 text-sm">
+          <input id="projectHasMultiplePeriods" type="checkbox" />
           Prosjektet går i flere perioder
         </label>
-        <div class="space-y-3" style="display:none;">
+        <div id="projectPeriodsSection" class="hidden rounded-2xl border border-slate-200 bg-slate-50 p-3 space-y-3">
           <div class="flex items-center justify-between gap-3">
-            <div class="text-sm font-medium text-slate-700">Perioder</div>
+            <div>
+              <div class="font-medium text-sm text-slate-800">Prosjektperioder</div>
+              <div class="text-xs text-slate-500 mt-1">Legg inn én eller flere separate perioder for samme prosjekt.</div>
+            </div>
             <button id="addProjectPeriodBtn" type="button" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm">Legg til periode</button>
           </div>
-          <div id="projectPeriodsWrap" class="space-y-3"></div>
+          <div id="projectPeriodsList" class="space-y-3"></div>
         </div>
         <input id="projectLocation" class="w-full rounded-2xl border border-slate-300 px-3 py-2" placeholder="Lokasjon / onshore / offshore" />
         <input id="projectHeadcount" type="number" min="0" class="w-full rounded-2xl border border-slate-300 px-3 py-2" placeholder="Behov for antall personer" />
