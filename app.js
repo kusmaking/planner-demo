@@ -394,11 +394,10 @@
     panel.id = "accountPanel";
     panel.className = "flex flex-wrap items-center justify-end gap-2";
     panel.innerHTML = `
-      <div id="accountUserInfo" class="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700">Ikke innlogget</div>
-      <button id="loginBtn" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm hover:bg-slate-50">Logg inn</button>
-      <button id="changePasswordBtn" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm hover:bg-slate-50">Endre passord</button>
-      <button id="resetPasswordBtn" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm hover:bg-slate-50">Send reset-link</button>
-      <button id="logoutBtn" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm hover:bg-slate-50">Logg ut</button>
+      <div id="accountUserInfo" class="border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700">Ikke innlogget</div>
+      <button id="loginBtn" class="border border-slate-300 bg-white px-3 py-2 text-sm hover:bg-slate-50">Logg inn</button>
+      <button id="changePasswordBtn" class="border border-slate-300 bg-white px-3 py-2 text-sm hover:bg-slate-50">Endre passord</button>
+      <button id="logoutBtn" class="border border-slate-300 bg-white px-3 py-2 text-sm hover:bg-slate-50">Logg ut</button>
     `;
 
     const anchor = els.storageBadge?.parentElement || document.body.firstElementChild || document.body;
@@ -699,9 +698,12 @@
 
   function updateAccountPanel() {
     if (!els.accountUserInfo) return;
-    const roleText = state.currentRole ? ` • ${state.currentRole}` : "";
     const nameText = state.currentUser || state.currentUserEmail || "Ikke innlogget";
-    els.accountUserInfo.textContent = `${nameText}${roleText}`;
+    const roleText = state.currentRole || (state.currentUserEmail ? "Bruker" : "Ikke innlogget");
+    els.accountUserInfo.innerHTML = `
+      <div class="font-medium text-slate-800 truncate max-w-[220px]">${escapeHtml(nameText)}</div>
+      <div class="text-[11px] text-slate-500 mt-0.5">${escapeHtml(roleText)}</div>
+    `;
   }
 
   function bindTabEvents() {
