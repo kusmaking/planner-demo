@@ -382,6 +382,7 @@
     if (document.getElementById("accountPanel")) {
       els.accountPanel = document.getElementById("accountPanel");
       els.accountUserInfo = document.getElementById("accountUserInfo");
+      els.accountUserRole = document.getElementById("accountUserRole");
       els.changePasswordBtn = document.getElementById("changePasswordBtn");
       els.resetPasswordBtn = document.getElementById("resetPasswordBtn");
       els.logoutBtn = document.getElementById("logoutBtn");
@@ -394,18 +395,24 @@
     panel.id = "accountPanel";
     panel.className = "flex flex-wrap items-center justify-end gap-2";
     panel.innerHTML = `
-      <div id="accountUserInfo" class="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700">Ikke innlogget</div>
+      <div class="account-chip flex items-center gap-3 rounded-2xl px-3 py-2 shadow-sm">
+        <div class="h-9 w-9 rounded-xl bg-slate-900 text-white text-sm font-semibold flex items-center justify-center">${getUserInitials()}</div>
+        <div class="min-w-[140px]">
+          <div id="accountUserInfo" class="text-sm font-medium text-slate-800 leading-tight">Ikke innlogget</div>
+          <div id="accountUserRole" class="text-xs text-slate-500 mt-0.5">Bruker</div>
+        </div>
+      </div>
       <button id="loginBtn" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm hover:bg-slate-50">Logg inn</button>
       <button id="changePasswordBtn" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm hover:bg-slate-50">Endre passord</button>
-      <button id="resetPasswordBtn" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm hover:bg-slate-50">Send reset-link</button>
       <button id="logoutBtn" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm hover:bg-slate-50">Logg ut</button>
     `;
 
-    const anchor = els.storageBadge?.parentElement || document.body.firstElementChild || document.body;
+    const anchor = document.getElementById("shellAccountMount") || els.storageBadge?.parentElement || document.body.firstElementChild || document.body;
     anchor.appendChild(panel);
 
     els.accountPanel = panel;
     els.accountUserInfo = document.getElementById("accountUserInfo");
+    els.accountUserRole = document.getElementById("accountUserRole");
     els.changePasswordBtn = document.getElementById("changePasswordBtn");
     els.resetPasswordBtn = document.getElementById("resetPasswordBtn");
     els.logoutBtn = document.getElementById("logoutBtn");
@@ -697,11 +704,24 @@
     if (card) card.style.display = visible ? "" : "none";
   }
 
+  function getUserInitials() {
+    const source = String(state.currentUser || state.currentUserEmail || "General user").trim();
+    if (!source) return "GU";
+    const parts = source.split(/\s+/).filter(Boolean);
+    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+    return `${parts[0][0] || ""}${parts[1][0] || ""}`.toUpperCase();
+  }
+
   function updateAccountPanel() {
     if (!els.accountUserInfo) return;
-    const roleText = state.currentRole ? ` • ${state.currentRole}` : "";
-    const nameText = state.currentUser || state.currentUserEmail || "Ikke innlogget";
-    els.accountUserInfo.textContent = `${nameText}${roleText}`;
+    const nameText = state.currentUser || state.currentUserEmail || "General user";
+    const roleText = state.currentRole || (isLoggedInUser() ? "Bruker" : "Ikke innlogget");
+    els.accountUserInfo.textContent = nameText;
+    if (els.accountUserRole) {
+      els.accountUserRole.textContent = roleText;
+    }
+    const avatar = els.accountPanel?.querySelector('.account-chip .h-9');
+    if (avatar) avatar.textContent = getUserInitials();
   }
 
   function bindTabEvents() {
@@ -709,6 +729,16 @@
     if (els.tabProjectsBtn) els.tabProjectsBtn.addEventListener("click", () => setActiveTab("projects"));
     if (els.tabEmployeesBtn) els.tabEmployeesBtn.addEventListener("click", () => setActiveTab("employees"));
     if (els.tabAdminBtn) els.tabAdminBtn.addEventListener("click", () => setActiveTab("admin"));
+    const sidebarMap = {
+      sideCalendarBtn: "calendar",
+      sideProjectsBtn: "projects",
+      sideEmployeesBtn: "employees",
+      sideAdminBtn: "admin"
+    };
+    Object.entries(sidebarMap).forEach(([id, tabName]) => {
+      const btn = document.getElementById(id);
+      if (btn) btn.addEventListener("click", () => setActiveTab(tabName));
+    });
   }
 
   function setActiveTab(tabName) {
@@ -754,6 +784,19 @@
       if (!section) return;
       section.style.display = state.activeTab === name ? "" : "none";
     });
+
+    const sideMap = {
+      calendar: document.getElementById("sideCalendarBtn"),
+      projects: document.getElementById("sideProjectsBtn"),
+      employees: document.getElementById("sideEmployeesBtn"),
+      admin: document.getElementById("sideAdminBtn")
+    };
+    Object.entries(sideMap).forEach(([name, btn]) => {
+      if (!btn) return;
+      const visible = allowedTabs.includes(name);
+      btn.style.display = visible ? "inline-flex" : "none";
+      btn.classList.toggle("active", state.activeTab === name);
+    });
   }
 
 
@@ -785,7 +828,7 @@
     }
 
     if (els.resetPasswordBtn) {
-      els.resetPasswordBtn.style.display = isLoggedIn ? "" : "none";
+      els.resetPasswordBtn.style.display = "none";
     }
 
     if (els.logoutBtn) {
