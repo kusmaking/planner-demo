@@ -43,253 +43,25 @@
     .day-cell.weekend { background: #f8fafc; }
     .day-cell.today { background: #eff6ff; }
     .day-cell.red-day { background: #fef2f2; }
-  
-
-    :root {
-      --shell-bg: #07131a;
-      --shell-bg-2: #0a1e27;
-      --shell-accent: #51ffcc;
-      --surface: #ffffff;
-      --surface-2: #f8fafc;
-      --border: #dbe3ea;
-      --text-dark: #0f172a;
-    }
-
-    body {
-      background: linear-gradient(180deg, var(--shell-bg) 0, var(--shell-bg-2) 220px, #eef2f6 220px, #eef2f6 100%);
-    }
-
-    .app-shell {
-      display: grid;
-      grid-template-columns: 88px minmax(0, 1fr);
-      gap: 12px;
-      max-width: none;
-      padding: 12px;
-      min-height: 100vh;
-    }
-
-    .app-sidebar {
-      background: linear-gradient(180deg, #051018 0%, #081821 100%);
-      border: 1px solid rgba(81,255,204,0.18);
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-      min-height: calc(100vh - 24px);
-    }
-
-    .app-sidebar-brand {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      min-height: 64px;
-      padding: 10px 8px;
-      border-bottom: 1px solid rgba(255,255,255,0.08);
-    }
-
-    .app-sidebar-brand img {
-      max-width: 68px;
-      height: auto;
-      display: block;
-    }
-
-    #plannerTabs {
-      background: transparent !important;
-      border: 0 !important;
-      box-shadow: none !important;
-      padding: 8px 6px !important;
-      border-radius: 0 !important;
-      flex: 1;
-    }
-
-    #plannerTabs > div {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-    }
-
-    .sidebar-tab-btn {
-      width: 100%;
-      min-height: 44px;
-      border-radius: 0 !important;
-      border: 1px solid transparent !important;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 8px 6px !important;
-      font-size: 12px !important;
-      font-weight: 600;
-      letter-spacing: .01em;
-    }
-
-    .sidebar-tab-btn.sidebar-tab-active {
-      background: rgba(81,255,204,0.18) !important;
-      color: #ffffff !important;
-      border-color: rgba(81,255,204,0.22) !important;
-    }
-
-    .sidebar-tab-btn.sidebar-tab-inactive {
-      background: transparent !important;
-      color: #d7e0e7 !important;
-      border-color: rgba(255,255,255,0.08) !important;
-    }
-
-    .app-main {
-      min-width: 0;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-    }
-
-    .app-header {
-      min-height: 48px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 0 14px;
-      background: linear-gradient(90deg, #07131a 0%, #0a1a22 100%);
-      border: 1px solid rgba(81,255,204,0.18);
-      color: white;
-    }
-
-    .app-header-title {
-      font-size: 14px;
-      font-weight: 700;
-      letter-spacing: .01em;
-    }
-
-    .app-header-meta {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    #storageBadge, #saveStatus {
-      border-radius: 0 !important;
-      padding: 4px 8px !important;
-      font-size: 11px !important;
-      min-height: 28px;
-    }
-
-    #accountPanel {
-      display: flex;
-      flex-direction: column;
-      gap: 0;
-      margin-top: auto;
-      border-top: 1px solid rgba(255,255,255,0.08);
-      padding: 8px 6px;
-      width: 100%;
-      align-items: stretch !important;
-    }
-
-    #accountUserInfo {
-      border-radius: 0 !important;
-      background: rgba(255,255,255,0.03) !important;
-      color: #e8eef3 !important;
-      border: 1px solid rgba(255,255,255,0.08) !important;
-      padding: 8px 6px !important;
-      font-size: 11px !important;
-      line-height: 1.35;
-      text-align: center;
-      word-break: break-word;
-    }
-
-    #accountPanel button {
-      border-radius: 0 !important;
-      background: transparent !important;
-      border: 0 !important;
-      border-top: 1px solid rgba(255,255,255,0.08) !important;
-      color: #d7e0e7 !important;
-      font-size: 11px !important;
-      padding: 8px 6px !important;
-      text-align: center;
-    }
-
-    #accountPanel button:hover {
-      background: rgba(255,255,255,0.04) !important;
-    }
-
-    .app-content > section:not(#plannerTabs) {
-      background: transparent;
-    }
-
-    #tabCalendarSection, #tabProjectsSection, #tabEmployeesSection, #tabAdminSection {
-      margin: 0;
-    }
-
-    #calendarMainCol, #calendarPanelCol,
-    #tabProjectsSection > div > div,
-    #tabEmployeesSection > div > div,
-    #tabAdminSection > div,
-    #projectWorkspaceCard,
-    #availabilityCard,
-    #personalBlockCard {
-      border-radius: 0 !important;
-      box-shadow: none !important;
-    }
-
-    #calendarMainCol {
-      overflow: hidden;
-    }
-
-    #calendarMainCol > div:first-child,
-    #calendarMainCol > #rangeTitle,
-    #calendarMainCol > #holidayInfo,
-    #calendarMainCol > .p-4.border-b,
-    #calendarPanelContent > div:first-child,
-    #projectWorkspaceCard > div:first-child,
-    #availabilityCard > div:first-child,
-    #personalBlockCard > div:first-child {
-      padding-top: 10px !important;
-      padding-bottom: 10px !important;
-    }
-
-    button, select, input, textarea {
-      border-radius: 0 !important;
-    }
-
-    .entry-bar {
-      border-radius: 0 !important;
-      top: 4px;
-      bottom: 4px;
-      box-shadow: none;
-    }
-
-    #legendList, #calendarWrap {
-      font-size: 12px;
-    }
-
-    #calendarPanelHandleBtn {
-      border-radius: 0 !important;
-      font-size: 10px !important;
-      letter-spacing: .08em;
-    }
-
-    @media (max-width: 1279px) {
-      .app-shell {
-        grid-template-columns: 1fr;
-      }
-      .app-sidebar {
-        min-height: auto;
-      }
-      #plannerTabs > div {
-        flex-direction: row;
-        flex-wrap: wrap;
-      }
-      #accountPanel {
-        flex-direction: row;
-        flex-wrap: wrap;
-      }
-    }
-
   </style>
 </head>
-<body class="text-slate-900">
-  <div class="app-shell">
-    <aside class="app-sidebar">
-      <div class="app-sidebar-brand">
-        <img src="izomax-logo-green.png" alt="Izomax" />
+<body class="bg-slate-100 text-slate-900">
+  <div class="max-w-[1900px] mx-auto p-6 space-y-6">
+    <header class="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4">
+      <div>
+        <h1 class="text-3xl font-bold tracking-tight">Personal planlegging</h1>
+        <p class="text-slate-600 mt-1">Izomax personal planlegging onshore offshore</p>
       </div>
-      <section id="plannerTabs" class="rounded-2xl bg-white border border-slate-200 shadow-sm p-3">
+
+      <div class="flex flex-wrap gap-2 items-center">
+        <span id="storageBadge" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm">Laster...</span>
+        <span id="saveStatus" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm">Klar</span>
+              </div>
+    </header>
+
+    <section id="statsRow" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4"></section>
+
+    <section id="plannerTabs" class="rounded-2xl bg-white border border-slate-200 shadow-sm p-3">
       <div class="flex flex-wrap gap-2">
         <button id="tabCalendarBtn" class="rounded-2xl px-4 py-2 text-sm border border-slate-900 bg-slate-900 text-white">Kalender</button>
         <button id="tabProjectsBtn" class="rounded-2xl px-4 py-2 text-sm border border-slate-300 bg-white text-slate-700">Prosjekter</button>
@@ -297,21 +69,8 @@
         <button id="tabAdminBtn" class="rounded-2xl px-4 py-2 text-sm border border-slate-300 bg-white text-slate-700">Admin</button>
       </div>
     </section>
-    </aside>
 
-    <main class="app-main">
-      <header class="app-header">
-        <div class="app-header-title">Kalender</div>
-        <div class="app-header-meta">
-          <span id="storageBadge" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm">Laster...</span>
-          <span id="saveStatus" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm">Klar</span>
-        </div>
-      </header>
-
-      <section id="statsRow" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-3"></section>
-
-      <div class="app-content">
-      <section id="tabCalendarSection" class="flex flex-col xl:flex-row gap-3 items-start">
+    <section id="tabCalendarSection" class="flex flex-col xl:flex-row gap-4 items-start">
       <div id="calendarMainCol" class="min-w-0 flex-1 rounded-2xl bg-white border border-slate-200 shadow-sm">
         <div class="p-4 border-b border-slate-200 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
           <div class="flex flex-wrap gap-2 items-center">
@@ -590,8 +349,5 @@
   <script src="./data.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="./app.js"></script>
-      </div>
-    </main>
-  </div>
 </body>
 </html>

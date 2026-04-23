@@ -397,11 +397,11 @@
       <div id="accountUserInfo" class="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700">Ikke innlogget</div>
       <button id="loginBtn" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm hover:bg-slate-50">Logg inn</button>
       <button id="changePasswordBtn" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm hover:bg-slate-50">Endre passord</button>
-      <button id="resetPasswordBtn" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm hover:bg-slate-50">Reset-link</button>
+      <button id="resetPasswordBtn" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm hover:bg-slate-50">Send reset-link</button>
       <button id="logoutBtn" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm hover:bg-slate-50">Logg ut</button>
     `;
 
-    const anchor = document.getElementById("plannerTabs") || els.storageBadge?.parentElement || document.body.firstElementChild || document.body;
+    const anchor = els.storageBadge?.parentElement || document.body.firstElementChild || document.body;
     anchor.appendChild(panel);
 
     els.accountPanel = panel;
@@ -699,9 +699,9 @@
 
   function updateAccountPanel() {
     if (!els.accountUserInfo) return;
-    const roleText = state.currentRole || (state.currentUserEmail ? "Bruker" : "Ikke innlogget");
-    const nameText = state.currentUser || state.currentUserEmail || "General user";
-    els.accountUserInfo.innerHTML = `<div class="font-semibold">${escapeHtml(nameText)}</div><div class="text-[10px] uppercase tracking-[0.08em] text-slate-400 mt-1">${escapeHtml(roleText)}</div>`;
+    const roleText = state.currentRole ? ` • ${state.currentRole}` : "";
+    const nameText = state.currentUser || state.currentUserEmail || "Ikke innlogget";
+    els.accountUserInfo.textContent = `${nameText}${roleText}`;
   }
 
   function bindTabEvents() {
@@ -743,10 +743,10 @@
       const visible = allowedTabs.includes(name);
       btn.style.display = visible ? "" : "none";
       btn.className = [
-        "sidebar-tab-btn transition",
+        "rounded-2xl px-4 py-2 text-sm border transition",
         state.activeTab === name
-          ? "sidebar-tab-active"
-          : "sidebar-tab-inactive"
+          ? "border-slate-900 bg-slate-900 text-white"
+          : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
       ].join(" ");
     });
 
@@ -3481,7 +3481,7 @@ async function deleteEditedEntry() {
     const isDesktop = window.innerWidth >= 1280;
 
     if (!isDesktop) {
-      els.calendarPanelCol.className = "w-full shrink-0 bg-white border border-slate-200 overflow-hidden transition-all duration-300";
+      els.calendarPanelCol.className = "w-full shrink-0 rounded-2xl bg-white border border-slate-200 shadow-sm overflow-hidden transition-all duration-300";
       els.calendarPanelContent.classList.remove("hidden");
       els.calendarPanelHandleBtn.className = "w-12 shrink-0 border-r border-slate-200 bg-slate-50 text-slate-700 text-xs font-semibold tracking-wide";
       els.calendarPanelHandleBtn.textContent = "Panel";
@@ -3489,12 +3489,12 @@ async function deleteEditedEntry() {
     }
 
     if (state.calendarPanelOpen) {
-      els.calendarPanelCol.className = "xl:w-72 w-full shrink-0 bg-white border border-slate-200 overflow-hidden transition-all duration-300";
+      els.calendarPanelCol.className = "xl:w-80 w-full shrink-0 rounded-2xl bg-white border border-slate-200 shadow-sm overflow-hidden transition-all duration-300";
       els.calendarPanelContent.classList.remove("hidden");
       els.calendarPanelHandleBtn.className = "w-12 shrink-0 border-r border-slate-200 bg-slate-50 text-slate-700 text-xs font-semibold tracking-wide [writing-mode:vertical-rl] rotate-180";
       els.calendarPanelHandleBtn.textContent = "Panel";
     } else {
-      els.calendarPanelCol.className = "xl:w-10 w-full shrink-0 bg-white border border-slate-200 overflow-hidden transition-all duration-300";
+      els.calendarPanelCol.className = "xl:w-12 w-full shrink-0 rounded-2xl bg-white border border-slate-200 shadow-sm overflow-hidden transition-all duration-300";
       els.calendarPanelContent.classList.add("hidden");
       els.calendarPanelHandleBtn.className = "w-12 shrink-0 border-r-0 bg-slate-50 text-slate-700 text-xs font-semibold tracking-wide [writing-mode:vertical-rl] rotate-180";
       els.calendarPanelHandleBtn.textContent = "Panel";
