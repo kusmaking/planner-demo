@@ -382,6 +382,11 @@
     if (document.getElementById("accountPanel")) {
       els.accountPanel = document.getElementById("accountPanel");
       els.accountUserInfo = document.getElementById("accountUserInfo");
+      els.accountMenuWrap = document.getElementById("accountMenuWrap");
+      els.accountMenuButton = document.getElementById("accountMenuButton");
+      els.accountMenuLabel = document.getElementById("accountMenuLabel");
+      els.accountMenuSub = document.getElementById("accountMenuSub");
+      els.accountMenu = document.getElementById("accountMenu");
       els.changePasswordBtn = document.getElementById("changePasswordBtn");
       els.resetPasswordBtn = document.getElementById("resetPasswordBtn");
       els.logoutBtn = document.getElementById("logoutBtn");
@@ -394,10 +399,17 @@
     panel.id = "accountPanel";
     panel.className = "flex flex-wrap items-center justify-end gap-2";
     panel.innerHTML = `
-      <div id="accountUserInfo" class="border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700">Ikke innlogget</div>
       <button id="loginBtn" class="border border-slate-300 bg-white px-3 py-2 text-sm hover:bg-slate-50">Logg inn</button>
-      <button id="changePasswordBtn" class="border border-slate-300 bg-white px-3 py-2 text-sm hover:bg-slate-50">Endre passord</button>
-      <button id="logoutBtn" class="border border-slate-300 bg-white px-3 py-2 text-sm hover:bg-slate-50">Logg ut</button>
+      <div id="accountMenuWrap" class="relative hidden">
+        <button id="accountMenuButton" type="button" class="min-w-[220px] border border-slate-300 bg-white px-3 py-2 text-left hover:bg-slate-50">
+          <div id="accountMenuLabel" class="text-sm font-semibold text-slate-900">Ikke innlogget</div>
+          <div id="accountMenuSub" class="text-xs text-slate-500">Trykk for valg</div>
+        </button>
+        <div id="accountMenu" class="hidden absolute right-0 z-50 mt-1 w-48 border border-slate-300 bg-white shadow-lg">
+          <button id="changePasswordBtn" class="block w-full border-b border-slate-200 px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50">Endre passord</button>
+          <button id="logoutBtn" class="block w-full px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50">Logg ut</button>
+        </div>
+      </div>
     `;
 
     const anchor = els.storageBadge?.parentElement || document.body.firstElementChild || document.body;
@@ -405,6 +417,11 @@
 
     els.accountPanel = panel;
     els.accountUserInfo = document.getElementById("accountUserInfo");
+    els.accountMenuWrap = document.getElementById("accountMenuWrap");
+    els.accountMenuButton = document.getElementById("accountMenuButton");
+    els.accountMenuLabel = document.getElementById("accountMenuLabel");
+    els.accountMenuSub = document.getElementById("accountMenuSub");
+    els.accountMenu = document.getElementById("accountMenu");
     els.changePasswordBtn = document.getElementById("changePasswordBtn");
     els.resetPasswordBtn = document.getElementById("resetPasswordBtn");
     els.logoutBtn = document.getElementById("logoutBtn");
@@ -696,14 +713,33 @@
     if (card) card.style.display = visible ? "" : "none";
   }
 
+  function setAccountMenuOpen(open) {
+    if (!els.accountMenu) return;
+    const shouldOpen = !!open;
+    els.accountMenu.classList.toggle("hidden", !shouldOpen);
+    if (els.accountMenuButton) {
+      els.accountMenuButton.setAttribute("aria-expanded", shouldOpen ? "true" : "false");
+    }
+  }
+
   function updateAccountPanel() {
-    if (!els.accountUserInfo) return;
+    const isLoggedIn = isLoggedInUser();
     const nameText = state.currentUser || state.currentUserEmail || "Ikke innlogget";
-    const roleText = state.currentRole || (state.currentUserEmail ? "Bruker" : "Ikke innlogget");
-    els.accountUserInfo.innerHTML = `
-      <div class="font-medium text-slate-800 truncate max-w-[220px]">${escapeHtml(nameText)}</div>
-      <div class="text-[11px] text-slate-500 mt-0.5">${escapeHtml(roleText)}</div>
-    `;
+    const subText = state.currentRole || "";
+
+    if (els.accountMenuLabel) {
+      els.accountMenuLabel.textContent = nameText;
+    }
+    if (els.accountMenuSub) {
+      els.accountMenuSub.textContent = subText || "Pålogget";
+    }
+    if (els.accountUserInfo) {
+      const roleText = subText ? ` • ${subText}` : "";
+      els.accountUserInfo.textContent = `${nameText}${roleText}`;
+    }
+    if (els.accountMenuWrap) {
+      els.accountMenuWrap.style.display = isLoggedIn ? "" : "none";
+    }
   }
 
   function bindTabEvents() {
@@ -782,12 +818,17 @@
       els.loginBtn.style.display = isLoggedIn ? "none" : "";
     }
 
+    if (els.accountMenuWrap) {
+      els.accountMenuWrap.style.display = isLoggedIn ? "" : "none";
+      if (!isLoggedIn) setAccountMenuOpen(false);
+    }
+
     if (els.changePasswordBtn) {
       els.changePasswordBtn.style.display = isLoggedIn ? "" : "none";
     }
 
     if (els.resetPasswordBtn) {
-      els.resetPasswordBtn.style.display = isLoggedIn ? "" : "none";
+      els.resetPasswordBtn.style.display = "none";
     }
 
     if (els.logoutBtn) {
@@ -1240,6 +1281,23 @@
     }
 
     document.addEventListener("click", handleEmployeeGroupFilterOutsideClick);
+    if (els.accountMenuButton) {
+      els.accountMenuButton.addEventListener("click", event => {
+        event.preventDefault();
+        event.stopPropagation();
+        const isOpen = els.accountMenu && !els.accountMenu.classList.contains("hidden");
+        setAccountMenuOpen(!isOpen);
+      });
+    }
+
+    if (els.accountMenu) {
+      els.accountMenu.addEventListener("click", event => {
+        event.stopPropagation();
+      });
+    }
+
+    document.addEventListener("click", () => setAccountMenuOpen(false));
+
 
     bindTabEvents();
     if (els.calendarPanelHandleBtn) {
@@ -1420,7 +1478,10 @@
     });
 
     if (els.changePasswordBtn) {
-      els.changePasswordBtn.addEventListener("click", handleChangePassword);
+      els.changePasswordBtn.addEventListener("click", () => {
+        setAccountMenuOpen(false);
+        handleChangePassword();
+      });
     }
 
     if (els.resetPasswordBtn) {
@@ -1428,7 +1489,10 @@
     }
 
     if (els.logoutBtn) {
-      els.logoutBtn.addEventListener("click", handleLogout);
+      els.logoutBtn.addEventListener("click", () => {
+        setAccountMenuOpen(false);
+        handleLogout();
+      });
     }
 
     if (els.loginBtn) {
