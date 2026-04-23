@@ -29,7 +29,7 @@
     supabaseReady: false,
     supabaseError: null,
     remoteCapabilities: {
-      employeeGroupColumn: false
+      employeeGroupColumn: true
     },
     sync: {
       channel: null,
@@ -1552,8 +1552,8 @@
 
       return true;
     } catch (err) {
-      console.warn("Kunne ikke verifisere employee_group-kolonne i Supabase:", err);
-      return false;
+      console.warn("Kunne ikke verifisere employee_group-kolonne i Supabase. Bruker fail-open for å unngå tap av gruppefelt:", err);
+      return true;
     }
   }
 
@@ -1680,7 +1680,7 @@
       active: employee.active
     };
 
-    if (state.remoteCapabilities.employeeGroupColumn) {
+    if (state.remoteCapabilities.employeeGroupColumn !== false) {
       row.employee_group = normalizeEmployeeGroup(employee.employee_group || "");
     }
 
@@ -1734,7 +1734,24 @@
     }
   }
 
+  function shouldBlockEmployeeGroupSave(table, payload) {
+    if (table !== "planner_employees") return false;
+    if (state.remoteCapabilities.employeeGroupColumn !== false) return false;
+    const rows = Array.isArray(payload) ? payload : [payload];
+    return rows.some(row => row && Object.prototype.hasOwnProperty.call(row, "employee_group"));
+  }
+
   async function saveRow(table, row) {
+    if (shouldBlockEmployeeGroupSave(table, row)) {
+      state.supabaseError = "employee_group kunne ikke verifiseres mot databasen. Lagring er stoppet for å beskytte gruppeoppsettet.";
+      state.storageMode = "local";
+      updateBadge();
+      setSaveStatus("Gruppefelt ikke verifisert", "error");
+      renderSystemStatus();
+      alert("Ansattgrupper kunne ikke verifiseres mot databasen. Lagring er stoppet for å unngå tap av gruppeoppsett.");
+      return { ok: false, error: new Error(state.supabaseError) };
+    }
+
     saveAllLocal();
     if (!state.supabaseReady) {
       setSaveStatus("Lagret lokalt", "warn");
@@ -1760,6 +1777,16 @@
   }
 
   async function saveRows(table, rows) {
+    if (shouldBlockEmployeeGroupSave(table, rows)) {
+      state.supabaseError = "employee_group kunne ikke verifiseres mot databasen. Lagring er stoppet for å beskytte gruppeoppsettet.";
+      state.storageMode = "local";
+      updateBadge();
+      setSaveStatus("Gruppefelt ikke verifisert", "error");
+      renderSystemStatus();
+      alert("Ansattgrupper kunne ikke verifiseres mot databasen. Lagring er stoppet for å unngå tap av gruppeoppsett.");
+      return { ok: false, error: new Error(state.supabaseError) };
+    }
+
     saveAllLocal();
     if (!state.supabaseReady) {
       setSaveStatus("Lagret lokalt", "warn");
