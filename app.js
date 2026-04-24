@@ -172,7 +172,8 @@
       "newEmployeeBtn", "employeeModal", "employeeModalTitle", "closeEmployeeModalBtn",
       "employeeName", "employeeEmail", "employeePhone", "employeeTitle", "employeeGroup", "employeeActive", "saveEmployeeBtn", "deleteEmployeeBtn",
       "calendarContextMenu", "contextMenuEmployee", "contextMenuStart", "contextMenuEnd", "contextMenuType", "contextMenuNotes", "contextMenuAddBtn", "contextMenuCloseBtn",
-      "accountPanel", "accountUserInfo", "changePasswordBtn", "resetPasswordBtn", "logoutBtn", "loginBtn", "loginModal", "closeLoginModalBtn", "loginEmail", "loginPassword", "loginSubmitBtn", "forgotPasswordBtn"
+      "accountPanel", "accountUserInfo", "changePasswordBtn", "resetPasswordBtn", "logoutBtn", "loginBtn", "loginModal", "closeLoginModalBtn", "loginEmail", "loginPassword", "loginSubmitBtn", "forgotPasswordBtn",
+      "sideNavCalendar", "sideNavProjects", "sideNavEmployees", "sideNavAdmin"
     ];
 
     ids.forEach(id => els[id] = document.getElementById(id));
@@ -754,6 +755,17 @@
     if (els.tabProjectsBtn) els.tabProjectsBtn.addEventListener("click", () => setActiveTab("projects"));
     if (els.tabEmployeesBtn) els.tabEmployeesBtn.addEventListener("click", () => setActiveTab("employees"));
     if (els.tabAdminBtn) els.tabAdminBtn.addEventListener("click", () => setActiveTab("admin"));
+
+    const sideButtons = [
+      [els.sideNavCalendar, "calendar"],
+      [els.sideNavProjects, "projects"],
+      [els.sideNavEmployees, "employees"],
+      [els.sideNavAdmin, "admin"]
+    ];
+    sideButtons.forEach(([btn, tab]) => {
+      if (!btn) return;
+      btn.addEventListener("click", () => setActiveTab(tab));
+    });
   }
 
   function setActiveTab(tabName) {
@@ -798,6 +810,20 @@
     Object.entries(sections).forEach(([name, section]) => {
       if (!section) return;
       section.style.display = state.activeTab === name ? "" : "none";
+    });
+
+    const sideButtons = {
+      calendar: els.sideNavCalendar,
+      projects: els.sideNavProjects,
+      employees: els.sideNavEmployees,
+      admin: els.sideNavAdmin
+    };
+
+    Object.entries(sideButtons).forEach(([name, btn]) => {
+      if (!btn) return;
+      const visible = allowedTabs.includes(name);
+      btn.style.display = visible ? "" : "none";
+      btn.classList.toggle("is-active", state.activeTab === name);
     });
   }
 
