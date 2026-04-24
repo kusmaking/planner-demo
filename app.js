@@ -692,20 +692,60 @@
     }
   }
 
+  function toTitleCase(value) {
+    return String(value || "")
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean)
+      .map(part => part ? part.charAt(0).toUpperCase() + part.slice(1).toLowerCase() : "")
+      .join(" ");
+  }
+
+  function displayNameFromEmail(email) {
+    const localPart = String(email || "").split("@")[0] || "";
+    if (!localPart) return "";
+    return toTitleCase(localPart.replace(/[._-]+/g, " "));
+  }
+
+  function getAccountDisplayName() {
+    const current = String(state.currentUser || "").trim();
+    const email = String(state.currentUserEmail || "").trim();
+
+    if (current && current !== "Ikke innlogget" && current.toLowerCase() !== email.toLowerCase()) {
+      return current;
+    }
+
+    return displayNameFromEmail(email) || current || "Ikke innlogget";
+  }
+
+  function getAccountRoleLabel() {
+    const role = String(state.currentRole || "").trim();
+    if (!role) return "Pålogget";
+
+    const roleMap = {
+      superadmin: "Superadmin",
+      admin: "Admin",
+      planner: "Planner",
+      reader: "Leser"
+    };
+
+    return roleMap[role.toLowerCase()] || toTitleCase(role);
+  }
+
   function updateAccountPanel() {
-    const nameText = state.currentUser || state.currentUserEmail || "Ikke innlogget";
-    const roleText = state.currentRole || "";
+    const nameText = getAccountDisplayName();
+    const roleText = getAccountRoleLabel();
 
     if (els.accountMenuLabel) {
       els.accountMenuLabel.textContent = nameText;
     }
 
     if (els.accountMenuSub) {
-      els.accountMenuSub.textContent = roleText || "Pålogget";
+      els.accountMenuSub.textContent = roleText;
     }
 
     if (els.accountUserInfo) {
-      els.accountUserInfo.textContent = roleText ? `${nameText} • ${roleText}` : nameText;
+      els.accountUserInfo.textContent = `${nameText} • ${roleText}`;
     }
   }
 
