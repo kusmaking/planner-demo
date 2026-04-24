@@ -379,28 +379,14 @@
   }
 
   function ensureAccountPanel() {
-    const existing = document.getElementById("accountPanel");
-    if (!existing) {
+    const panel = document.getElementById("accountPanel");
+    if (!panel) {
       ensureLoginModal();
       return;
     }
 
-    existing.innerHTML = `
-      <button id="loginBtn" class="hidden border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 hover:bg-slate-50">Logg inn</button>
-      <div id="accountMenuWrap" class="relative hidden">
-        <button id="accountMenuButton" type="button" class="min-w-[220px] border border-slate-300 bg-white px-3 py-2 text-left hover:bg-slate-50">
-          <div id="accountMenuLabel" class="text-sm font-semibold text-slate-900">Ikke innlogget</div>
-          <div id="accountMenuSub" class="text-xs text-slate-500">Rolle</div>
-        </button>
-        <div id="accountMenu" class="hidden absolute right-0 z-50 mt-1 w-48 border border-slate-300 bg-white shadow-lg">
-          <button id="changePasswordBtn" class="block w-full border-b border-slate-200 px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50">Endre passord</button>
-          <button id="logoutBtn" class="block w-full px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50">Logg ut</button>
-        </div>
-      </div>
-    `;
-
-    els.accountPanel = existing;
-    els.accountUserInfo = null;
+    els.accountPanel = panel;
+    els.accountUserInfo = document.getElementById("accountUserInfo");
     els.accountMenuWrap = document.getElementById("accountMenuWrap");
     els.accountMenuButton = document.getElementById("accountMenuButton");
     els.accountMenuLabel = document.getElementById("accountMenuLabel");
@@ -707,15 +693,19 @@
   }
 
   function updateAccountPanel() {
-    const displayName = state.currentUser || state.currentUserEmail || "Ikke innlogget";
-    const roleName = state.currentRole || "";
+    const nameText = state.currentUser || state.currentUserEmail || "Ikke innlogget";
+    const roleText = state.currentRole || "";
 
     if (els.accountMenuLabel) {
-      els.accountMenuLabel.textContent = displayName;
+      els.accountMenuLabel.textContent = nameText;
     }
 
     if (els.accountMenuSub) {
-      els.accountMenuSub.textContent = roleName || "Pålogget";
+      els.accountMenuSub.textContent = roleText || "Pålogget";
+    }
+
+    if (els.accountUserInfo) {
+      els.accountUserInfo.textContent = roleText ? `${nameText} • ${roleText}` : nameText;
     }
   }
 
@@ -793,9 +783,11 @@
 
     if (els.loginBtn) {
       els.loginBtn.style.display = isLoggedIn ? "none" : "";
+      els.loginBtn.classList.remove("hidden");
     }
 
     if (els.accountMenuWrap) {
+      els.accountMenuWrap.classList.toggle("hidden", !isLoggedIn);
       els.accountMenuWrap.style.display = isLoggedIn ? "" : "none";
       if (!isLoggedIn) setAccountMenuOpen(false);
     }

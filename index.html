@@ -53,10 +53,24 @@
         <p class="text-slate-600 mt-1">Izomax personal planlegging onshore offshore</p>
       </div>
 
-      <div id="headerActions" class="flex flex-wrap gap-2 items-center">
-        <div id="accountPanel" class="flex items-center gap-2"></div>
-        <span id="storageBadge" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm">Laster...</span>
-        <span id="saveStatus" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm">Klar</span>
+      <div id="headerActions" class="flex flex-wrap gap-2 items-center justify-end">
+        <div id="accountPanel" class="relative flex items-center justify-end">
+          <button id="loginBtn" type="button" class="border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 hover:bg-slate-50">Logg inn</button>
+          <div id="accountMenuWrap" class="relative hidden">
+            <button id="accountMenuButton" type="button" class="min-w-[220px] border border-slate-300 bg-white px-3 py-2 text-left hover:bg-slate-50">
+              <div id="accountMenuLabel" class="text-sm font-semibold text-slate-900">Ikke innlogget</div>
+              <div id="accountMenuSub" class="text-xs text-slate-500">Rolle</div>
+            </button>
+            <div id="accountMenu" class="hidden absolute right-0 z-50 mt-1 w-48 border border-slate-300 bg-white shadow-lg">
+              <button id="changePasswordBtn" type="button" class="block w-full border-b border-slate-200 px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50">Endre passord</button>
+              <button id="logoutBtn" type="button" class="block w-full px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50">Logg ut</button>
+            </div>
+          </div>
+          <div id="accountUserInfo" class="hidden"></div>
+          <button id="resetPasswordBtn" type="button" class="hidden">Send reset-link</button>
+        </div>
+        <span id="storageBadge" class="hidden rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm">Laster...</span>
+        <span id="saveStatus" class="hidden rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm">Klar</span>
       </div>
     </header>
 
