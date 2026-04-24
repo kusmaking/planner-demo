@@ -379,31 +379,18 @@
   }
 
   function ensureAccountPanel() {
-    if (document.getElementById("accountPanel")) {
-      els.accountPanel = document.getElementById("accountPanel");
-      els.accountUserInfo = document.getElementById("accountUserInfo");
-      els.accountMenuWrap = document.getElementById("accountMenuWrap");
-      els.accountMenuButton = document.getElementById("accountMenuButton");
-      els.accountMenuLabel = document.getElementById("accountMenuLabel");
-      els.accountMenuSub = document.getElementById("accountMenuSub");
-      els.accountMenu = document.getElementById("accountMenu");
-      els.changePasswordBtn = document.getElementById("changePasswordBtn");
-      els.resetPasswordBtn = document.getElementById("resetPasswordBtn");
-      els.logoutBtn = document.getElementById("logoutBtn");
-      els.loginBtn = document.getElementById("loginBtn");
+    const existing = document.getElementById("accountPanel");
+    if (!existing) {
       ensureLoginModal();
       return;
     }
 
-    const panel = document.createElement("div");
-    panel.id = "accountPanel";
-    panel.className = "flex flex-wrap items-center justify-end gap-2";
-    panel.innerHTML = `
-      <button id="loginBtn" class="border border-slate-300 bg-white px-3 py-2 text-sm hover:bg-slate-50">Logg inn</button>
+    existing.innerHTML = `
+      <button id="loginBtn" class="hidden border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 hover:bg-slate-50">Logg inn</button>
       <div id="accountMenuWrap" class="relative hidden">
         <button id="accountMenuButton" type="button" class="min-w-[220px] border border-slate-300 bg-white px-3 py-2 text-left hover:bg-slate-50">
           <div id="accountMenuLabel" class="text-sm font-semibold text-slate-900">Ikke innlogget</div>
-          <div id="accountMenuSub" class="text-xs text-slate-500">Trykk for valg</div>
+          <div id="accountMenuSub" class="text-xs text-slate-500">Rolle</div>
         </button>
         <div id="accountMenu" class="hidden absolute right-0 z-50 mt-1 w-48 border border-slate-300 bg-white shadow-lg">
           <button id="changePasswordBtn" class="block w-full border-b border-slate-200 px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50">Endre passord</button>
@@ -412,11 +399,8 @@
       </div>
     `;
 
-    const anchor = els.storageBadge?.parentElement || document.body.firstElementChild || document.body;
-    anchor.appendChild(panel);
-
-    els.accountPanel = panel;
-    els.accountUserInfo = document.getElementById("accountUserInfo");
+    els.accountPanel = existing;
+    els.accountUserInfo = null;
     els.accountMenuWrap = document.getElementById("accountMenuWrap");
     els.accountMenuButton = document.getElementById("accountMenuButton");
     els.accountMenuLabel = document.getElementById("accountMenuLabel");
@@ -723,22 +707,15 @@
   }
 
   function updateAccountPanel() {
-    const isLoggedIn = isLoggedInUser();
-    const nameText = state.currentUser || state.currentUserEmail || "Ikke innlogget";
-    const subText = state.currentRole || "";
+    const displayName = state.currentUser || state.currentUserEmail || "Ikke innlogget";
+    const roleName = state.currentRole || "";
 
     if (els.accountMenuLabel) {
-      els.accountMenuLabel.textContent = nameText;
+      els.accountMenuLabel.textContent = displayName;
     }
+
     if (els.accountMenuSub) {
-      els.accountMenuSub.textContent = subText || "Pålogget";
-    }
-    if (els.accountUserInfo) {
-      const roleText = subText ? ` • ${subText}` : "";
-      els.accountUserInfo.textContent = `${nameText}${roleText}`;
-    }
-    if (els.accountMenuWrap) {
-      els.accountMenuWrap.style.display = isLoggedIn ? "" : "none";
+      els.accountMenuSub.textContent = roleName || "Pålogget";
     }
   }
 
@@ -803,11 +780,11 @@
     const isSA = isSuperadmin();
 
     if (els.storageBadge) {
-      els.storageBadge.style.display = isSA ? "" : "none";
+      els.storageBadge.style.display = "none";
     }
 
     if (els.saveStatus) {
-      els.saveStatus.style.display = canPlan ? "" : "none";
+      els.saveStatus.style.display = "none";
     }
 
     if (els.resetDemoBtn) {
