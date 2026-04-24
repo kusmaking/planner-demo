@@ -145,6 +145,98 @@
     }
     #calendarWrap { min-height: calc(100vh - 245px); }
 
+
+    /* UI cleanup pass 3: background + header/logo refinement only */
+    body {
+      background: linear-gradient(180deg, #eef3f5 0%, #e7eef1 100%);
+    }
+
+    .app-root {
+      max-width: none !important;
+      width: 100%;
+      margin: 0;
+      padding: 0 16px 16px 68px !important;
+      min-height: 100vh;
+    }
+
+    .app-topbar {
+      margin-left: -16px;
+      margin-right: -16px;
+      min-height: 78px;
+      padding: 14px 18px 12px 18px;
+      background: #062a30;
+      border-bottom: 1px solid rgba(83, 241, 198, 0.18);
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+    }
+
+    .app-brand {
+      display: flex;
+      align-items: center;
+      gap: 18px;
+      min-width: 0;
+    }
+
+    .app-brand-mark {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 112px;
+      height: 34px;
+      padding: 0;
+      color: #53f1c6;
+      font-size: 28px;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      line-height: 1;
+      text-transform: lowercase;
+    }
+
+    .app-brand-title {
+      min-width: 0;
+    }
+
+    .app-brand-title h1 {
+      margin: 0;
+      color: #ffffff;
+      font-size: 22px;
+      line-height: 1.1;
+      font-weight: 750;
+      letter-spacing: -0.02em;
+    }
+
+    .app-brand-title p {
+      margin-top: 4px;
+      color: rgba(255,255,255,0.68);
+      font-size: 12px;
+      line-height: 1.2;
+    }
+
+    #statsRow {
+      margin-top: 14px;
+    }
+
+    #calendarMainCol,
+    #plannerTabs,
+    #tabProjectsSection > div > div,
+    #tabEmployeesSection > div > div,
+    #tabAdminSection > div {
+      border-radius: 0 !important;
+    }
+
+    #accountMenuButton {
+      background: rgba(255,255,255,0.96) !important;
+      border-radius: 0 !important;
+      border-color: rgba(148,163,184,0.7) !important;
+    }
+
+    #accountMenu {
+      border-radius: 0 !important;
+    }
+
   </style>
 </head>
 <body class="bg-slate-100 text-slate-900">
@@ -157,30 +249,33 @@
   </nav>
 
   <div id="appMain" class="mx-auto space-y-3">
-    <header class="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4">
-      <div>
-        <h1 class="text-3xl font-bold tracking-tight">Personal planlegging</h1>
-        <p class="text-slate-600 mt-1">Izomax personal planlegging onshore offshore</p>
+    <header class="app-topbar">
+      <div class="app-brand">
+        <div class="app-brand-mark">izomax</div>
+        <div class="app-brand-title">
+          <h1>Personal planlegging</h1>
+          <p>Onshore / offshore bemanning</p>
+        </div>
       </div>
 
       <div id="headerActions" class="flex flex-wrap gap-2 items-center justify-end">
         <div id="accountPanel" class="relative flex items-center justify-end">
-          <button id="loginBtn" type="button" class="border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-800 hover:bg-slate-50">Logg inn</button>
+          <button id="loginBtn" type="button" class="border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 hover:bg-slate-50">Logg inn</button>
           <div id="accountMenuWrap" class="relative hidden">
-            <button id="accountMenuButton" type="button" class="min-w-[220px] border border-slate-300 bg-white px-2 py-1.5 text-left hover:bg-slate-50">
+            <button id="accountMenuButton" type="button" class="min-w-[220px] border border-slate-300 bg-white px-3 py-2 text-left hover:bg-slate-50">
               <div id="accountMenuLabel" class="text-sm font-semibold text-slate-900">Ikke innlogget</div>
               <div id="accountMenuSub" class="text-xs text-slate-500">Rolle</div>
             </button>
             <div id="accountMenu" class="hidden absolute right-0 z-50 mt-1 w-48 border border-slate-300 bg-white shadow-lg">
-              <button id="changePasswordBtn" type="button" class="block w-full border-b border-slate-200 px-2 py-1.5 text-left text-sm text-slate-700 hover:bg-slate-50">Endre passord</button>
-              <button id="logoutBtn" type="button" class="block w-full px-2 py-1.5 text-left text-sm text-slate-700 hover:bg-slate-50">Logg ut</button>
+              <button id="changePasswordBtn" type="button" class="block w-full border-b border-slate-200 px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50">Endre passord</button>
+              <button id="logoutBtn" type="button" class="block w-full px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50">Logg ut</button>
             </div>
           </div>
           <div id="accountUserInfo" class="hidden"></div>
           <button id="resetPasswordBtn" type="button" class="hidden">Send reset-link</button>
         </div>
-        <span id="storageBadge" class="hidden rounded-xl border border-slate-300 bg-white px-2 py-1.5 text-sm">Laster...</span>
-        <span id="saveStatus" class="hidden rounded-xl border border-slate-300 bg-white px-2 py-1.5 text-sm">Klar</span>
+        <span id="storageBadge" class="hidden rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm">Laster...</span>
+        <span id="saveStatus" class="hidden rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm">Klar</span>
       </div>
     </header>
 
