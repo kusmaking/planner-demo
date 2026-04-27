@@ -292,17 +292,28 @@
 
   function renderHolidayInfo(range) {
     if (!els.holidayInfo) return;
-    const names = [];
+    const holidays = [];
     for (let year = range.start.getFullYear(); year <= range.end.getFullYear(); year++) {
       for (const holiday of getHolidayNamesForYear(year)) {
         if (holiday.date >= range.start && holiday.date <= range.end) {
-          names.push(`${holiday.label} (${formatDate(holiday.date)})`);
+          holidays.push({ label: holiday.label, date: formatDate(holiday.date) });
         }
       }
     }
-    els.holidayInfo.textContent = names.length
-      ? `Helligdager i perioden: ${names.join(" • ")}`
-      : "Ingen helligdager i valgt periode.";
+
+    if (!holidays.length) {
+      els.holidayInfo.innerHTML = '<div class="holiday-banner-empty">Ingen helligdager i valgt periode.</div>';
+      return;
+    }
+
+    els.holidayInfo.innerHTML = `
+      <div class="holiday-banner">
+        <div class="holiday-banner-title">Helligdager i perioden</div>
+        <div class="holiday-banner-list">${holidays.map(item => `
+          <span class="holiday-chip">${escapeHtml(item.label)} <span class="holiday-chip-date">${escapeHtml(item.date)}</span></span>
+        `).join("")}</div>
+      </div>
+    `;
   }
 
   function renderTimelineHeaderRows(days, leftLabel = "Ansatt") {
@@ -326,7 +337,7 @@
       const nextDay = days[i + 1] || null;
       const monthBoundary = !nextDay || nextDay.getMonth() !== day.getMonth();
       const redDay = isRedDay(day);
-      html += `<div class="border-b ${monthBoundary ? 'border-r-2 border-r-slate-400' : 'border-r border-slate-200'} px-1 py-2 text-center text-[10px] ${redDay ? 'bg-red-50 text-red-700' : 'bg-white text-slate-500'}"><div class="font-medium">${escapeHtml(weekdayShort(day))}</div><div>${day.getDate()}</div><div>${escapeHtml(monthShort(day))}</div></div>`;
+      html += `<div class="border-b ${monthBoundary ? 'border-r-2 border-r-slate-400' : 'border-r border-slate-200'} px-1 py-2 text-center text-[10px] ${redDay ? 'bg-amber-50 text-slate-700 border-t-2 border-t-amber-300' : 'bg-white text-slate-500'}"><div class="font-medium">${escapeHtml(weekdayShort(day))}</div><div>${day.getDate()}</div><div>${escapeHtml(monthShort(day))}</div></div>`;
     }
 
     return html;
@@ -381,6 +392,9 @@
   function ensureAccountPanel() {
     if (document.getElementById("accountPanel")) {
       els.accountPanel = document.getElementById("accountPanel");
+      els.accountMenuWrap = document.getElementById("accountMenuWrap");
+      els.accountMenuButton = document.getElementById("accountMenuButton");
+      els.accountMenuDropdown = document.getElementById("accountMenuDropdown");
       els.accountUserInfo = document.getElementById("accountUserInfo");
       els.changePasswordBtn = document.getElementById("changePasswordBtn");
       els.resetPasswordBtn = document.getElementById("resetPasswordBtn");
@@ -392,24 +406,54 @@
 
     const panel = document.createElement("div");
     panel.id = "accountPanel";
-    panel.className = "flex flex-wrap items-center justify-end gap-2";
+    panel.className = "flex flex-wrap items-center justify-end gap-2 relative";
     panel.innerHTML = `
-      <div id="accountUserInfo" class="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700">Ikke innlogget</div>
       <button id="loginBtn" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm hover:bg-slate-50">Logg inn</button>
-      <button id="changePasswordBtn" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm hover:bg-slate-50">Endre passord</button>
-      <button id="resetPasswordBtn" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm hover:bg-slate-50">Send reset-link</button>
-      <button id="logoutBtn" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm hover:bg-slate-50">Logg ut</button>
+      <div id="accountMenuWrap" class="hidden relative">
+        <button id="accountMenuButton" type="button" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm hover:bg-slate-50 flex items-center gap-2">
+          <span id="accountUserInfo">Ikke innlogget</span>
+          <span class="account-caret text-xs">▾</span>
+        </button>
+        <div id="accountMenuDropdown" class="hidden absolute right-0 top-full mt-2 min-w-[170px] rounded-xl border border-slate-200 bg-white shadow-xl overflow-hidden z-[120]">
+          <button id="changePasswordBtn" class="w-full text-left border-b border-slate-200 bg-white px-3 py-2 text-sm hover:bg-slate-50">Endre passord</button>
+          <button id="logoutBtn" class="w-full text-left bg-white px-3 py-2 text-sm hover:bg-slate-50">Logg ut</button>
+          <button id="resetPasswordBtn" class="hidden">Send reset-link</button>
+        </div>
+      </div>
     `;
 
     const anchor = els.storageBadge?.parentElement || document.body.firstElementChild || document.body;
     anchor.appendChild(panel);
 
     els.accountPanel = panel;
+    els.accountMenuWrap = document.getElementById("accountMenuWrap");
+    els.accountMenuButton = document.getElementById("accountMenuButton");
+    els.accountMenuDropdown = document.getElementById("accountMenuDropdown");
     els.accountUserInfo = document.getElementById("accountUserInfo");
     els.changePasswordBtn = document.getElementById("changePasswordBtn");
     els.resetPasswordBtn = document.getElementById("resetPasswordBtn");
     els.logoutBtn = document.getElementById("logoutBtn");
     els.loginBtn = document.getElementById("loginBtn");
+
+    if (els.accountMenuButton) {
+      els.accountMenuButton.addEventListener("click", event => {
+        event.stopPropagation();
+        els.accountMenuDropdown?.classList.toggle("hidden");
+      });
+    }
+
+    document.addEventListener("click", event => {
+      if (!els.accountPanel?.contains(event.target)) {
+        els.accountMenuDropdown?.classList.add("hidden");
+      }
+    });
+
+    [els.changePasswordBtn, els.logoutBtn].forEach(btn => {
+      if (!btn) return;
+      btn.addEventListener("click", () => {
+        els.accountMenuDropdown?.classList.add("hidden");
+      });
+    });
 
     ensureLoginModal();
   }
@@ -769,7 +813,7 @@
     }
 
     if (els.saveStatus) {
-      els.saveStatus.style.display = canPlan ? "" : "none";
+      els.saveStatus.style.display = "none";
     }
 
     if (els.resetDemoBtn) {
@@ -780,12 +824,16 @@
       els.loginBtn.style.display = isLoggedIn ? "none" : "";
     }
 
+    if (els.accountMenuWrap) {
+      els.accountMenuWrap.style.display = isLoggedIn ? "" : "none";
+    }
+
     if (els.changePasswordBtn) {
       els.changePasswordBtn.style.display = isLoggedIn ? "" : "none";
     }
 
     if (els.resetPasswordBtn) {
-      els.resetPasswordBtn.style.display = isLoggedIn ? "" : "none";
+      els.resetPasswordBtn.style.display = "none";
     }
 
     if (els.logoutBtn) {
@@ -3422,11 +3470,13 @@ async function deleteEditedEntry() {
       <button
         type="button"
         data-stats-project-filter="${escapeHtml(card.filter)}"
-        class="w-full rounded-2xl bg-white border border-slate-200 shadow-sm p-4 text-left hover:bg-slate-50 transition"
+        class="stats-tile w-full text-left transition"
       >
-        <div class="text-sm text-slate-500">${escapeHtml(card.label)}</div>
-        <div class="text-3xl font-bold mt-2">${escapeHtml(String(card.value))}</div>
-        <div class="text-xs text-slate-500 mt-2">${escapeHtml(card.helper)}</div>
+        <div class="stats-tile-label">${escapeHtml(card.label)}</div>
+        <div class="stats-tile-bottom">
+          <div class="stats-tile-value">${escapeHtml(String(card.value))}</div>
+          <div class="stats-tile-helper">${escapeHtml(card.helper)}</div>
+        </div>
       </button>
     `).join("");
 
@@ -4675,7 +4725,7 @@ function getFilteredEmployees() {
     }
 
     if (state.viewMode === "Måned") {
-      return `${viewLabel} • Tidslinje • ${formatDate(range.start)} – ${formatDate(range.end)}`;
+      return "";
     }
 
     return `${viewLabel} • ${range.start.getFullYear()}`;
