@@ -15,6 +15,7 @@
     selectedEmployeeGroups: [],
     groupFilterSearch: "",
     employeeGroupFilterOpen: false,
+    collapsedEmployeeGroups: load("planner_collapsed_employee_groups_v1", []),
     search: "",
     viewMode: "Måned",
     calendarMode: load(STORAGE_KEYS.calendarMode, "personal"),
@@ -1286,6 +1287,54 @@
     if (!selectedGroups.length) return "Alle ansatte / alle grupper";
     if (selectedGroups.length <= 2) return selectedGroups.map(group => getEmployeeGroupLabel(group)).join(", ");
     return `${selectedGroups.length} grupper valgt`;
+  }
+
+
+  function getCalendarEmployeeGroups(employees) {
+    const map = new Map();
+    employees.forEach(employee => {
+      const group = normalizeEmployeeGroup(employee.employee_group || "");
+      const key = group || "__ungrouped__";
+      if (!map.has(key)) {
+        map.set(key, {
+          key,
+          group,
+          label: group ? getEmployeeGroupLabel(group) : "Ingen gruppe valgt",
+          iconHtml: group ? getEmployeeGroupIconHtml(group, "inline-flex h-5 w-5 items-center justify-center text-slate-600 shrink-0") : "",
+          employees: []
+        });
+      }
+      map.get(key).employees.push(employee);
+    });
+
+    return Array.from(map.values()).sort((a, b) => {
+      const groupDiff = getEmployeeGroupSortIndex(a.group) - getEmployeeGroupSortIndex(b.group);
+      if (groupDiff !== 0) return groupDiff;
+      return a.label.localeCompare(b.label, "no");
+    });
+  }
+
+  function isEmployeeGroupCollapsed(key) {
+    return (state.collapsedEmployeeGroups || []).includes(key);
+  }
+
+  function setEmployeeGroupCollapsed(key, collapsed) {
+    const current = new Set(state.collapsedEmployeeGroups || []);
+    if (collapsed) current.add(key);
+    else current.delete(key);
+    state.collapsedEmployeeGroups = Array.from(current);
+    localStorage.setItem("planner_collapsed_employee_groups_v1", JSON.stringify(state.collapsedEmployeeGroups));
+  }
+
+  function bindEmployeeGroupCollapseButtons() {
+    if (!els.calendarWrap) return;
+    els.calendarWrap.querySelectorAll("[data-employee-group-toggle]").forEach(button => {
+      button.addEventListener("click", () => {
+        const key = button.dataset.employeeGroupToggle || "";
+        setEmployeeGroupCollapsed(key, !isEmployeeGroupCollapsed(key));
+        renderCalendar();
+      });
+    });
   }
 
   function renderEmployeeGroupFilterControl() {
@@ -4103,6 +4152,7 @@ async function deleteEditedEntry() {
     const range = getCurrentRange();
     const days = getDaysBetween(range.start, range.end);
     const employees = getFilteredEmployees();
+    const employeeGroups = getCalendarEmployeeGroups(employees);
 
     const stickyWidth = 238;
     const colWidth = Math.max(28, state.viewMode === "Uke" ? 38 : 32);
@@ -4114,67 +4164,87 @@ async function deleteEditedEntry() {
 
     const warnings = [];
 
-    for (const employee of employees) {
-      const employeeEntries = getVisibleEntriesForEmployee(employee.name, range.start, range.end);
-
+    for (const group of employeeGroups) {
+      const collapsed = isEmployeeGroupCollapsed(group.key);
       html += `
-        <div class="sticky-col border-r border-b border-slate-200 px-3 py-2 ${getEmployeeCalendarCellClass(employee)}">
-          <div>${getEmployeeNameTabHtml(employee)}</div>
-          ${employee.title ? `<div class="text-[11px] opacity-80 leading-tight mt-1">${escapeHtml(employee.title)}</div>` : ""}
+        <div class="sticky-col border-r border-b border-slate-200 bg-slate-50 px-3 py-2">
+          <button type="button" data-employee-group-toggle="${escapeHtml(group.key)}" class="w-full flex items-center justify-between gap-3 text-left text-slate-800">
+            <span class="min-w-0 flex items-center gap-2">
+              <span class="text-xs text-slate-500">${collapsed ? "▶" : "▼"}</span>
+              ${group.iconHtml}
+              <span class="font-semibold text-sm truncate">${escapeHtml(group.label)}</span>
+              <span class="rounded-md border border-slate-300 bg-white px-1.5 py-0.5 text-[11px] font-semibold text-slate-600">${group.employees.length}</span>
+            </span>
+          </button>
         </div>
+        <div class="border-b border-slate-200 bg-slate-50/70" style="grid-column: span ${days.length}; width:${totalWidth}px; min-height:36px;"></div>
       `;
 
-      html += `<div class="row-overlay border-b border-slate-200 drop-row" data-employee-name="${escapeHtml(employee.name)}" data-range-start="${toIsoDate(range.start)}" data-col-width="${colWidth}" data-total-cols="${days.length}" data-time-unit="day" style="grid-column: span ${days.length}; width:${totalWidth}px;">`;
+      if (collapsed) continue;
 
-      for (let i = 0; i < days.length; i++) {
-        const day = days[i];
-        const nextDay = days[i + 1] || null;
-        const monthBoundary = !nextDay || nextDay.getMonth() !== day.getMonth();
-        const redDay = isRedDay(day);
-        html += `<div data-drop-slot-index="${i}" data-drop-date="${toIsoDate(day)}" class="day-cell ${redDay ? "red-day" : ""}" style="position:absolute; left:${i * colWidth}px; width:${colWidth}px; border-right:${monthBoundary ? "2px solid #94a3b8" : "1px solid #e2e8f0"};"></div>`;
-      }
-
-      html += `<div style="position:relative; width:${totalWidth}px; min-height:52px;">`;
-
-      for (const entry of employeeEntries) {
-        const project = getProjectById(entry.project_id);
-        if (!project) continue;
-
-        const clipped = clipRange(asLocalDate(entry.start_date), asLocalDate(entry.end_date), range.start, range.end);
-        const startIndex = diffDays(range.start, clipped.start);
-        const spanDays = diffDays(clipped.start, clipped.end) + 1;
-        const left = startIndex * colWidth + 2;
-        const width = Math.max(spanDays * colWidth - 4, 40);
+      for (const employee of group.employees) {
+        const employeeEntries = getVisibleEntriesForEmployee(employee.name, range.start, range.end);
 
         html += `
-          <div
-            class="entry-bar ${getEntryBarClasses(project, entry.role, entry)}"
-            style="left:${left}px; width:${width}px;"
-            data-entry-id="${escapeHtml(entry.id)}"
-            draggable="true"
-            title="${escapeHtml(`${employee.name} | ${displayProjectName(project)} | ${entry.role} | ${entry.start_date} - ${entry.end_date}${entry.notes ? ` | ${entry.notes}` : ""}`)}"
-          >
-            <div class="font-semibold">${escapeHtml(displayProjectName(project))}</div>
-            ${isSystemPersonalProject(project) ? "" : `<div class="text-[11px] opacity-90">${escapeHtml(entry.role)}</div>`}
-            <div data-resize-handle data-resize-type="entry" data-target-id="${escapeHtml(entry.id)}" title="Dra for å endre sluttdato" style="position:absolute; top:0; right:0; bottom:0; width:12px; cursor:ew-resize; border-left:1px solid rgba(255,255,255,0.35); background:linear-gradient(to left, rgba(255,255,255,0.35), rgba(255,255,255,0));"></div>
+          <div class="sticky-col border-r border-b border-slate-200 px-3 py-2 ${getEmployeeCalendarCellClass(employee)}">
+            <div>${getEmployeeNameTabHtml(employee)}</div>
+            ${employee.title ? `<div class="text-[11px] opacity-80 leading-tight mt-1">${escapeHtml(employee.title)}</div>` : ""}
           </div>
         `;
 
-        const overlappingCount = employeeEntries.filter(other =>
-          other.id !== entry.id &&
-          overlaps(entry.start_date, entry.end_date, other.start_date, other.end_date)
-        ).length;
+        html += `<div class="row-overlay border-b border-slate-200 drop-row" data-employee-name="${escapeHtml(employee.name)}" data-range-start="${toIsoDate(range.start)}" data-col-width="${colWidth}" data-total-cols="${days.length}" data-time-unit="day" style="grid-column: span ${days.length}; width:${totalWidth}px;">`;
 
-        if (overlappingCount > 0) {
-          warnings.push(`${employee.name} har overlappende tildelinger rundt ${entry.start_date}–${entry.end_date}.`);
+        for (let i = 0; i < days.length; i++) {
+          const day = days[i];
+          const nextDay = days[i + 1] || null;
+          const monthBoundary = !nextDay || nextDay.getMonth() !== day.getMonth();
+          const redDay = isRedDay(day);
+          html += `<div data-drop-slot-index="${i}" data-drop-date="${toIsoDate(day)}" class="day-cell ${redDay ? "red-day" : ""}" style="position:absolute; left:${i * colWidth}px; width:${colWidth}px; border-right:${monthBoundary ? "2px solid #94a3b8" : "1px solid #e2e8f0"};"></div>`;
         }
-      }
 
-      html += `</div></div>`;
+        html += `<div style="position:relative; width:${totalWidth}px; min-height:52px;">`;
+
+        for (const entry of employeeEntries) {
+          const project = getProjectById(entry.project_id);
+          if (!project) continue;
+
+          const clipped = clipRange(asLocalDate(entry.start_date), asLocalDate(entry.end_date), range.start, range.end);
+          const startIndex = diffDays(range.start, clipped.start);
+          const spanDays = diffDays(clipped.start, clipped.end) + 1;
+          const left = startIndex * colWidth + 2;
+          const width = Math.max(spanDays * colWidth - 4, 40);
+
+          html += `
+            <div
+              class="entry-bar ${getEntryBarClasses(project, entry.role, entry)}"
+              style="left:${left}px; width:${width}px;"
+              data-entry-id="${escapeHtml(entry.id)}"
+              draggable="true"
+              title="${escapeHtml(`${employee.name} | ${displayProjectName(project)} | ${entry.role} | ${entry.start_date} - ${entry.end_date}${entry.notes ? ` | ${entry.notes}` : ""}`)}"
+            >
+              <div class="font-semibold">${escapeHtml(displayProjectName(project))}</div>
+              ${isSystemPersonalProject(project) ? "" : `<div class="text-[11px] opacity-90">${escapeHtml(entry.role)}</div>`}
+              <div data-resize-handle data-resize-type="entry" data-target-id="${escapeHtml(entry.id)}" title="Dra for å endre sluttdato" style="position:absolute; top:0; right:0; bottom:0; width:12px; cursor:ew-resize; border-left:1px solid rgba(255,255,255,0.35); background:linear-gradient(to left, rgba(255,255,255,0.35), rgba(255,255,255,0));"></div>
+            </div>
+          `;
+
+          const overlappingCount = employeeEntries.filter(other =>
+            other.id !== entry.id &&
+            overlaps(entry.start_date, entry.end_date, other.start_date, other.end_date)
+          ).length;
+
+          if (overlappingCount > 0) {
+            warnings.push(`${employee.name} har overlappende tildelinger rundt ${entry.start_date}–${entry.end_date}.`);
+          }
+        }
+
+        html += `</div></div>`;
+      }
     }
 
     html += `</div></div>`;
     els.calendarWrap.innerHTML = html;
+    bindEmployeeGroupCollapseButtons();
     bindEntryClicks();
     bindResizeHandles();
     renderWarnings(uniqueArray(warnings));
@@ -4182,6 +4252,7 @@ async function deleteEditedEntry() {
 
   function renderPersonalYearCalendar() {
     const employees = getFilteredEmployees();
+    const employeeGroups = getCalendarEmployeeGroups(employees);
     const year = state.startDate.getFullYear();
     const months = Array.from({ length: 12 }, (_, i) => new Date(year, i, 1));
 
@@ -4203,56 +4274,76 @@ async function deleteEditedEntry() {
     const yearStart = new Date(year, 0, 1);
     const yearEnd = new Date(year, 11, 31);
 
-    for (const employee of employees) {
-      const employeeEntries = getVisibleEntriesForEmployee(employee.name, yearStart, yearEnd);
-
+    for (const group of employeeGroups) {
+      const collapsed = isEmployeeGroupCollapsed(group.key);
       html += `
-        <div class="sticky-col border-r border-b border-slate-200 px-3 py-2 ${getEmployeeCalendarCellClass(employee)}">
-          <div>${getEmployeeNameTabHtml(employee)}</div>
-          ${employee.title ? `<div class="text-[11px] text-slate-600 leading-tight mt-1">${escapeHtml(employee.title)}</div>` : ""}
+        <div class="sticky-col border-r border-b border-slate-200 bg-slate-50 px-3 py-2">
+          <button type="button" data-employee-group-toggle="${escapeHtml(group.key)}" class="w-full flex items-center justify-between gap-3 text-left text-slate-800">
+            <span class="min-w-0 flex items-center gap-2">
+              <span class="text-xs text-slate-500">${collapsed ? "▶" : "▼"}</span>
+              ${group.iconHtml}
+              <span class="font-semibold text-sm truncate">${escapeHtml(group.label)}</span>
+              <span class="rounded-md border border-slate-300 bg-white px-1.5 py-0.5 text-[11px] font-semibold text-slate-600">${group.employees.length}</span>
+            </span>
+          </button>
         </div>
+        <div class="border-b border-slate-200 bg-slate-50/70" style="grid-column: span 12; width:${totalWidth}px; min-height:36px;"></div>
       `;
 
-      html += `<div class="row-overlay border-b border-slate-200 drop-row" data-employee-name="${escapeHtml(employee.name)}" data-range-start="${toIsoDate(yearStart)}" data-col-width="${monthWidth}" data-total-cols="12" data-time-unit="month" style="grid-column: span 12; width:${totalWidth}px;">`;
+      if (collapsed) continue;
 
-      for (let i = 0; i < 12; i++) {
-        html += `<div data-drop-slot-index="${i}" data-drop-month-index="${i}" class="month-cell" style="position:absolute; left:${i * monthWidth}px; width:${monthWidth}px;"></div>`;
-      }
-
-      html += `<div style="position:relative; width:${totalWidth}px; min-height:56px;">`;
-
-      for (const entry of employeeEntries) {
-        const project = getProjectById(entry.project_id);
-        if (!project) continue;
-
-        const entryStart = asLocalDate(entry.start_date);
-        const entryEnd = asLocalDate(entry.end_date);
-        const startMonth = Math.max(0, entryStart.getFullYear() < year ? 0 : entryStart.getMonth());
-        const endMonth = Math.min(11, entryEnd.getFullYear() > year ? 11 : entryEnd.getMonth());
-        const spanMonths = (endMonth - startMonth) + 1;
-        const left = startMonth * monthWidth + 2;
-        const width = Math.max(spanMonths * monthWidth - 4, 40);
+      for (const employee of group.employees) {
+        const employeeEntries = getVisibleEntriesForEmployee(employee.name, yearStart, yearEnd);
 
         html += `
-          <div
-            class="entry-bar ${getEntryBarClasses(project, entry.role, entry)}"
-            style="left:${left}px; width:${width}px;"
-            data-entry-id="${escapeHtml(entry.id)}"
-            draggable="true"
-            title="${escapeHtml(`${employee.name} | ${displayProjectName(project)} | ${entry.role} | ${entry.start_date} - ${entry.end_date}`)}"
-          >
-            <div class="font-semibold">${escapeHtml(displayProjectName(project))}</div>
-            <div class="text-[11px] opacity-90">${escapeHtml(formatYearBarLabel(entry.start_date, entry.end_date))}</div>
-            <div data-resize-handle data-resize-type="entry" data-target-id="${escapeHtml(entry.id)}" title="Dra for å endre sluttdato" style="position:absolute; top:0; right:0; bottom:0; width:12px; cursor:ew-resize; border-left:1px solid rgba(255,255,255,0.35); background:linear-gradient(to left, rgba(255,255,255,0.35), rgba(255,255,255,0));"></div>
+          <div class="sticky-col border-r border-b border-slate-200 px-3 py-2 ${getEmployeeCalendarCellClass(employee)}">
+            <div>${getEmployeeNameTabHtml(employee)}</div>
+            ${employee.title ? `<div class="text-[11px] text-slate-600 leading-tight mt-1">${escapeHtml(employee.title)}</div>` : ""}
           </div>
         `;
-      }
 
-      html += `</div></div>`;
+        html += `<div class="row-overlay border-b border-slate-200 drop-row" data-employee-name="${escapeHtml(employee.name)}" data-range-start="${toIsoDate(yearStart)}" data-col-width="${monthWidth}" data-total-cols="12" data-time-unit="month" style="grid-column: span 12; width:${totalWidth}px;">`;
+
+        for (let i = 0; i < 12; i++) {
+          html += `<div data-drop-slot-index="${i}" data-drop-month-index="${i}" class="month-cell" style="position:absolute; left:${i * monthWidth}px; width:${monthWidth}px;"></div>`;
+        }
+
+        html += `<div style="position:relative; width:${totalWidth}px; min-height:56px;">`;
+
+        for (const entry of employeeEntries) {
+          const project = getProjectById(entry.project_id);
+          if (!project) continue;
+
+          const entryStart = asLocalDate(entry.start_date);
+          const entryEnd = asLocalDate(entry.end_date);
+          const startMonth = Math.max(0, entryStart.getFullYear() < year ? 0 : entryStart.getMonth());
+          const endMonth = Math.min(11, entryEnd.getFullYear() > year ? 11 : entryEnd.getMonth());
+          const spanMonths = (endMonth - startMonth) + 1;
+          const left = startMonth * monthWidth + 2;
+          const width = Math.max(spanMonths * monthWidth - 4, 40);
+
+          html += `
+            <div
+              class="entry-bar ${getEntryBarClasses(project, entry.role, entry)}"
+              style="left:${left}px; width:${width}px;"
+              data-entry-id="${escapeHtml(entry.id)}"
+              draggable="true"
+              title="${escapeHtml(`${employee.name} | ${displayProjectName(project)} | ${entry.role} | ${entry.start_date} - ${entry.end_date}`)}"
+            >
+              <div class="font-semibold">${escapeHtml(displayProjectName(project))}</div>
+              <div class="text-[11px] opacity-90">${escapeHtml(formatYearBarLabel(entry.start_date, entry.end_date))}</div>
+              <div data-resize-handle data-resize-type="entry" data-target-id="${escapeHtml(entry.id)}" title="Dra for å endre sluttdato" style="position:absolute; top:0; right:0; bottom:0; width:12px; cursor:ew-resize; border-left:1px solid rgba(255,255,255,0.35); background:linear-gradient(to left, rgba(255,255,255,0.35), rgba(255,255,255,0));"></div>
+            </div>
+          `;
+        }
+
+        html += `</div></div>`;
+      }
     }
 
     html += `</div></div>`;
     els.calendarWrap.innerHTML = html;
+    bindEmployeeGroupCollapseButtons();
     bindEntryClicks();
     bindResizeHandles();
     renderWarnings(uniqueArray(warnings));
