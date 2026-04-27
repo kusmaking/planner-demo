@@ -16,6 +16,7 @@
     groupFilterSearch: "",
     employeeGroupFilterOpen: false,
     collapsedEmployeeGroups: load("planner_collapsed_employee_groups_v1", []),
+    projectSpotlightId: "",
     search: "",
     viewMode: "Måned",
     calendarMode: load(STORAGE_KEYS.calendarMode, "personal"),
@@ -219,7 +220,7 @@
   function cacheElements() {
     const ids = [
       "statsRow", "searchInput", "employeeFilter", "viewMode", "calendarMode", "prevBtn", "nextBtn", "todayBtn",
-      "calendarWrap", "holidayInfo", "warningBox", "legendList", "projectList", "projectWorkspaceCard", "projectWorkspaceEmpty", "projectWorkspaceContent", "projectWorkspaceTitle", "projectWorkspaceMeta", "projectWorkspaceNotes", "projectWorkspaceAssignments", "projectWorkspaceActions", "assignProject", "assignPeriodWrap", "assignPeriod", "assignPeriodHint", "assignPeriodNav", "assignPrevPeriodBtn", "assignNextPeriodBtn", "assignEmployeesWrap", "assignSummary", "assignRole",
+      "calendarWrap", "holidayInfo", "projectSpotlightBar", "warningBox", "legendList", "projectList", "projectWorkspaceCard", "projectWorkspaceEmpty", "projectWorkspaceContent", "projectWorkspaceTitle", "projectWorkspaceMeta", "projectWorkspaceNotes", "projectWorkspaceAssignments", "projectWorkspaceActions", "assignProject", "assignPeriodWrap", "assignPeriod", "assignPeriodHint", "assignPeriodNav", "assignPrevPeriodBtn", "assignNextPeriodBtn", "assignEmployeesWrap", "assignSummary", "assignRole",
       "assignStart", "assignEnd", "assignNotes", "assignBtn", "bulkEmployees", "bulkAddBtn",
       "employeeList", "kanbanBoard", "notificationList", "auditList", "editModal", "closeModalBtn",
       "editProject", "editEmployee", "editRole", "editStart", "editEnd", "editNotes",
@@ -1466,6 +1467,9 @@
     }
 
     document.addEventListener("click", handleEmployeeGroupFilterOutsideClick);
+    document.addEventListener("keydown", event => {
+      if (event.key === "Escape") clearProjectSpotlight();
+    });
 
     bindTabEvents();
     if (els.calendarPanelHandleBtn) {
@@ -1500,6 +1504,7 @@
 
     els.calendarMode.addEventListener("change", e => {
       state.calendarMode = e.target.value;
+      if (state.calendarMode !== "personal") state.projectSpotlightId = "";
       persistUiState();
       renderStats();
       renderCalendar();
@@ -4128,11 +4133,83 @@ async function deleteEditedEntry() {
     els.systemStatus.innerHTML = lines.join("");
   }
 
+  function getProjectSpotlightProject() {
+    if (!state.projectSpotlightId) return null;
+    const project = getProjectById(state.projectSpotlightId);
+    if (!project || isSystemPersonalProject(project)) {
+      state.projectSpotlightId = "";
+      return null;
+    }
+    return project;
+  }
+
+  function expandEmployeeGroupsForProject(projectId) {
+    const employeeNames = new Set(state.entries
+      .filter(entry => entry.project_id === projectId)
+      .map(entry => entry.employee_name)
+      .filter(Boolean));
+
+    if (!employeeNames.size) return;
+
+    const groupsToOpen = new Set();
+    state.employees.forEach(employee => {
+      if (!employeeNames.has(employee.name)) return;
+      const group = normalizeEmployeeGroup(employee.employee_group || "");
+      groupsToOpen.add(group || "__ungrouped__");
+    });
+
+    if (!groupsToOpen.size) return;
+
+    state.collapsedEmployeeGroups = (state.collapsedEmployeeGroups || []).filter(key => !groupsToOpen.has(key));
+    localStorage.setItem("planner_collapsed_employee_groups_v1", JSON.stringify(state.collapsedEmployeeGroups));
+  }
+
+  function setProjectSpotlight(projectId) {
+    const project = getProjectById(projectId);
+    if (!project || isSystemPersonalProject(project)) return;
+    state.projectSpotlightId = project.id;
+    expandEmployeeGroupsForProject(project.id);
+    renderCalendar();
+  }
+
+  function clearProjectSpotlight() {
+    if (!state.projectSpotlightId) return;
+    state.projectSpotlightId = "";
+    renderCalendar();
+  }
+
+  function renderProjectSpotlightBar() {
+    if (!els.projectSpotlightBar) return;
+    const project = getProjectSpotlightProject();
+    if (!project || state.calendarMode !== "personal") {
+      els.projectSpotlightBar.className = "hidden";
+      els.projectSpotlightBar.innerHTML = "";
+      return;
+    }
+
+    els.projectSpotlightBar.className = "project-spotlight-bar";
+    els.projectSpotlightBar.innerHTML = `
+      <div class="min-w-0 truncate">Fokus: <strong>${escapeHtml(displayProjectName(project))}</strong></div>
+      <button id="clearProjectSpotlightBtn" type="button" class="project-spotlight-clear">Nullstill fokus</button>
+    `;
+
+    const clearBtn = document.getElementById("clearProjectSpotlightBtn");
+    if (clearBtn) clearBtn.addEventListener("click", clearProjectSpotlight);
+  }
+
+  function getEntrySpotlightClass(project) {
+    const spotlight = getProjectSpotlightProject();
+    if (!spotlight || state.calendarMode !== "personal") return "";
+    if (project && project.id === spotlight.id) return " project-spotlight-active";
+    return " project-spotlight-muted";
+  }
+
   function renderCalendar() {
     if (!els.calendarWrap) return;
     const range = getCurrentRange();
     els.rangeTitle.innerHTML = getRangeTitle();
     renderHolidayInfo(range);
+    renderProjectSpotlightBar();
     renderLegend();
 
     if (state.calendarMode === "project") {
@@ -4216,9 +4293,11 @@ async function deleteEditedEntry() {
 
           html += `
             <div
-              class="entry-bar ${getEntryBarClasses(project, entry.role, entry)}"
+              class="entry-bar ${getEntryBarClasses(project, entry.role, entry)}${getEntrySpotlightClass(project)}"
               style="left:${left}px; width:${width}px;"
               data-entry-id="${escapeHtml(entry.id)}"
+              data-project-id="${escapeHtml(project.id)}"
+              data-system-personal="${isSystemPersonalProject(project) ? "true" : "false"}"
               draggable="true"
               title="${escapeHtml(`${employee.name} | ${displayProjectName(project)} | ${entry.role} | ${entry.start_date} - ${entry.end_date}${entry.notes ? ` | ${entry.notes}` : ""}`)}"
             >
@@ -4324,9 +4403,11 @@ async function deleteEditedEntry() {
 
           html += `
             <div
-              class="entry-bar ${getEntryBarClasses(project, entry.role, entry)}"
+              class="entry-bar ${getEntryBarClasses(project, entry.role, entry)}${getEntrySpotlightClass(project)}"
               style="left:${left}px; width:${width}px;"
               data-entry-id="${escapeHtml(entry.id)}"
+              data-project-id="${escapeHtml(project.id)}"
+              data-system-personal="${isSystemPersonalProject(project) ? "true" : "false"}"
               draggable="true"
               title="${escapeHtml(`${employee.name} | ${displayProjectName(project)} | ${entry.role} | ${entry.start_date} - ${entry.end_date}`)}"
             >
@@ -4532,12 +4613,41 @@ async function deleteEditedEntry() {
     els.calendarWrap.querySelectorAll("[data-entry-id]").forEach(el => {
       if (!editable) {
         el.setAttribute("draggable", "false");
-        el.style.cursor = "default";
+        const projectId = el.dataset.projectId || "";
+        const isPersonal = el.dataset.systemPersonal === "true";
+        if (projectId && !isPersonal) {
+          el.style.cursor = "pointer";
+          el.addEventListener("click", event => {
+            event.preventDefault();
+            event.stopPropagation();
+            setProjectSpotlight(projectId);
+          });
+        } else {
+          el.style.cursor = "default";
+        }
         return;
       }
 
-      el.addEventListener("click", () => {
+      el.addEventListener("click", event => {
         if (state.justDraggedEntryId === el.dataset.entryId) return;
+        if (event.target?.closest?.("[data-resize-handle]")) return;
+
+        const projectId = el.dataset.projectId || "";
+        const isPersonal = el.dataset.systemPersonal === "true";
+        if (projectId && !isPersonal) {
+          event.preventDefault();
+          event.stopPropagation();
+          setProjectSpotlight(projectId);
+          return;
+        }
+
+        openEditModal(el.dataset.entryId);
+      });
+
+      el.addEventListener("dblclick", event => {
+        if (state.justDraggedEntryId === el.dataset.entryId) return;
+        event.preventDefault();
+        event.stopPropagation();
         openEditModal(el.dataset.entryId);
       });
 
