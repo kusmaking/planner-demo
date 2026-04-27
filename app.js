@@ -87,10 +87,10 @@
       icon: "plane",
       order: 1,
       aliases: ["Offshore", "Offshore arbeider"],
-      cardClass: "border-emerald-500 bg-emerald-50/40 hover:bg-emerald-50",
-      badgeClass: "border-emerald-200 bg-emerald-50 text-emerald-800",
-      dotClass: "bg-emerald-500",
-      calendarCellClass: "bg-emerald-50 text-emerald-950"
+      cardClass: "border-slate-200 bg-white/80 hover:bg-slate-50",
+      badgeClass: "border-slate-200 bg-slate-50 text-slate-700",
+      dotClass: "bg-slate-400",
+      calendarCellClass: "bg-white text-slate-900"
     },
     {
       value: "Onshore arbeider",
@@ -98,10 +98,10 @@
       icon: "tools",
       order: 2,
       aliases: ["Onshore", "Onshore arbeider"],
-      cardClass: "border-blue-500 bg-blue-50/40 hover:bg-blue-50",
-      badgeClass: "border-blue-200 bg-blue-50 text-blue-800",
-      dotClass: "bg-blue-500",
-      calendarCellClass: "bg-blue-50 text-blue-950"
+      cardClass: "border-slate-200 bg-white/80 hover:bg-slate-50",
+      badgeClass: "border-slate-200 bg-slate-50 text-slate-700",
+      dotClass: "bg-slate-400",
+      calendarCellClass: "bg-white text-slate-900"
     },
     {
       value: "Lager og logistikk",
@@ -109,10 +109,10 @@
       icon: "box",
       order: 3,
       aliases: ["Lager og logistikk", "Lager/logistikk"],
-      cardClass: "border-amber-500 bg-amber-50/40 hover:bg-amber-50",
-      badgeClass: "border-amber-200 bg-amber-50 text-amber-800",
-      dotClass: "bg-amber-500",
-      calendarCellClass: "bg-amber-50 text-amber-950"
+      cardClass: "border-slate-200 bg-white/80 hover:bg-slate-50",
+      badgeClass: "border-slate-200 bg-slate-50 text-slate-700",
+      dotClass: "bg-slate-400",
+      calendarCellClass: "bg-white text-slate-900"
     },
     {
       value: "Engineering",
@@ -120,10 +120,10 @@
       icon: "gear",
       order: 4,
       aliases: ["Engineer", "Engineering"],
-      cardClass: "border-violet-500 bg-violet-50/40 hover:bg-violet-50",
-      badgeClass: "border-violet-200 bg-violet-50 text-violet-800",
-      dotClass: "bg-violet-500",
-      calendarCellClass: "bg-violet-50 text-violet-950"
+      cardClass: "border-slate-200 bg-white/80 hover:bg-slate-50",
+      badgeClass: "border-slate-200 bg-slate-50 text-slate-700",
+      dotClass: "bg-slate-400",
+      calendarCellClass: "bg-white text-slate-900"
     },
     {
       value: "3 parts innleie",
@@ -131,10 +131,10 @@
       icon: "network",
       order: 5,
       aliases: ["3 parts innleie", "3 Parts innleie", "3 party"],
-      cardClass: "border-rose-500 bg-rose-50/40 hover:bg-rose-50",
-      badgeClass: "border-rose-200 bg-rose-50 text-rose-800",
-      dotClass: "bg-rose-500",
-      calendarCellClass: "bg-rose-50 text-rose-950"
+      cardClass: "border-slate-200 bg-white/80 hover:bg-slate-50",
+      badgeClass: "border-slate-200 bg-slate-50 text-slate-700",
+      dotClass: "bg-slate-400",
+      calendarCellClass: "bg-white text-slate-900"
     },
     {
       value: "Management",
@@ -142,10 +142,10 @@
       icon: "people",
       order: 6,
       aliases: ["Management", "Managment"],
-      cardClass: "border-cyan-500 bg-cyan-50/40 hover:bg-cyan-50",
-      badgeClass: "border-cyan-200 bg-cyan-50 text-cyan-800",
-      dotClass: "bg-cyan-500",
-      calendarCellClass: "bg-cyan-50 text-cyan-950"
+      cardClass: "border-slate-200 bg-white/80 hover:bg-slate-50",
+      badgeClass: "border-slate-200 bg-slate-50 text-slate-700",
+      dotClass: "bg-slate-400",
+      calendarCellClass: "bg-white text-slate-900"
     },
     {
       value: "Prosjektledelse / planlegging",
@@ -153,10 +153,10 @@
       icon: "clipboard",
       order: 7,
       aliases: ["Prosjektledelse / planlegging", "Prosjektledelse", "Project managers / planners", "Project Managers / Planners", "Project managers", "Planners", "Planner", "Planleggere"],
-      cardClass: "border-slate-500 bg-slate-100/60 hover:bg-slate-100",
-      badgeClass: "border-slate-300 bg-slate-100 text-slate-800",
-      dotClass: "bg-slate-500",
-      calendarCellClass: "bg-slate-100 text-slate-950"
+      cardClass: "border-slate-200 bg-white/80 hover:bg-slate-50",
+      badgeClass: "border-slate-200 bg-slate-50 text-slate-700",
+      dotClass: "bg-slate-400",
+      calendarCellClass: "bg-white text-slate-900"
     }
   ];
   const EMPLOYEE_GROUP_OPTIONS = ["", ...EMPLOYEE_GROUP_DEFINITIONS.map(group => group.value)];
@@ -1248,7 +1248,7 @@
   }
 
   function getEmployeeGroupIcon(group) {
-    return "";
+    return getEmployeeGroupMeta(group)?.icon || "";
   }
 
   function getEmployeeGroupIconSvg(iconKey) {
@@ -1330,11 +1330,10 @@
 
     const groupOptionsHtml = groupOptions.map(group => `
       <label class="flex items-center justify-between gap-3 px-3 py-3 hover:bg-slate-50 border-b border-slate-100">
-        <div class="flex items-center gap-2 min-w-0">
-          <span class="inline-block h-3 w-3 rounded-full ${getEmployeeGroupDotClass(group)}"></span>
-          ${getEmployeeGroupIconHtml(group, "inline-flex h-5 w-5 items-center justify-center text-slate-600 shrink-0")}
+        <div class="flex items-center gap-3 min-w-0">
+          <span class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-slate-50 text-slate-700 shrink-0">${getEmployeeGroupIconSvg(getEmployeeGroupIcon(group))}</span>
           <div class="min-w-0">
-            <div class="font-medium text-sm truncate">${escapeHtml(getEmployeeGroupLabel(group) || group)}</div>
+            <div class="font-medium text-sm text-slate-800 truncate">${escapeHtml(getEmployeeGroupLabel(group) || group)}</div>
             <div class="text-xs text-slate-500">${groupCounts.get(group) || 0} ansatte</div>
           </div>
         </div>
@@ -2430,7 +2429,7 @@
               <div class="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100 text-sm font-semibold text-blue-700">${escapeHtml(getInitials(selectedEmployee))}</div>
               <div class="min-w-0">
                 <div class="text-sm font-medium text-slate-900 truncate">${escapeHtml(selectedEmployee)}</div>
-                <div class="mt-0.5 text-xs text-slate-500">${getEmployeeGroupIcon(groupLabel) ? `${escapeHtml(getEmployeeGroupIcon(groupLabel))} ` : ""}${escapeHtml(getEmployeeGroupLabel(groupLabel) || "Ingen gruppe valgt")}${employee?.title ? ` • ${escapeHtml(employee.title)}` : ""}</div>
+                <div class="mt-0.5 text-xs text-slate-500">${escapeHtml(getEmployeeGroupLabel(groupLabel) || "Ingen gruppe valgt")}${employee?.title ? ` • ${escapeHtml(employee.title)}` : ""}</div>
               </div>
             </div>
           ` : ""}
@@ -2594,7 +2593,7 @@
             <div class="flex h-10 w-10 items-center justify-center rounded-full bg-green-100 text-sm font-semibold text-green-700">${escapeHtml(getInitials(employee.name))}</div>
             <div class="min-w-0">
               <div class="font-medium text-slate-900 truncate">${escapeHtml(employee.name)}</div>
-              <div class="text-xs text-slate-500 mt-0.5">${getEmployeeGroupIcon(employee.group) ? `${escapeHtml(getEmployeeGroupIcon(employee.group))} ` : ""}${escapeHtml(getEmployeeGroupLabel(employee.group) || "Ingen gruppe valgt")}${employee.title ? ` • ${escapeHtml(employee.title)}` : ""}</div>
+              <div class="text-xs text-slate-500 mt-0.5">${escapeHtml(getEmployeeGroupLabel(employee.group) || "Ingen gruppe valgt")}${employee.title ? ` • ${escapeHtml(employee.title)}` : ""}</div>
             </div>
           </div>
           <div class="mt-3 inline-flex rounded-full border border-green-200 bg-green-50 px-2.5 py-1 text-xs font-medium text-green-700">Tilgjengelig i valgt periode</div>
@@ -2619,7 +2618,7 @@
             <div class="flex h-10 w-10 items-center justify-center rounded-full bg-rose-100 text-sm font-semibold text-rose-700">${escapeHtml(getInitials(employee.name))}</div>
             <div class="min-w-0">
               <div class="font-medium text-slate-900 truncate">${escapeHtml(employee.name)}</div>
-              <div class="text-xs text-slate-500 mt-0.5">${getEmployeeGroupIcon(employee.group) ? `${escapeHtml(getEmployeeGroupIcon(employee.group))} ` : ""}${escapeHtml(getEmployeeGroupLabel(employee.group) || "Ingen gruppe valgt")}${employee.title ? ` • ${escapeHtml(employee.title)}` : ""}</div>
+              <div class="text-xs text-slate-500 mt-0.5">${escapeHtml(getEmployeeGroupLabel(employee.group) || "Ingen gruppe valgt")}${employee.title ? ` • ${escapeHtml(employee.title)}` : ""}</div>
             </div>
           </div>
           <div class="mt-3 space-y-2">
