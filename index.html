@@ -479,6 +479,65 @@
     }
     .iz-holiday-row span:last-child { color: rgba(235,248,250,0.70); white-space: nowrap; }
 
+
+    /* Targeted regression fixes: keep approved design, restore profile visibility, hide only inactive tabs and remove white panel close button. */
+    body.iz-compact-ui #calendarPanelCloseBtn {
+      display: none !important;
+    }
+
+    body.iz-compact-ui #tabProjectsSection[style*="display: none"],
+    body.iz-compact-ui #tabEmployeesSection[style*="display: none"],
+    body.iz-compact-ui #tabAdminSection[style*="display: none"] {
+      display: none !important;
+    }
+
+    body.iz-compact-ui #accountMenuWrap.hidden,
+    body.iz-compact-ui #accountMenuDropdown.hidden,
+    body.iz-compact-ui #loginBtn.hidden {
+      display: none !important;
+    }
+
+
+
+    /* Bugfix: remove panel header close button and keep project modal as overlay. */
+    body.iz-compact-ui #calendarPanelContent > div:first-child button,
+    body.iz-compact-ui #calendarPanelCloseBtn {
+      display: none !important;
+      visibility: hidden !important;
+      width: 0 !important;
+      height: 0 !important;
+      padding: 0 !important;
+      margin: 0 !important;
+      border: 0 !important;
+      overflow: hidden !important;
+    }
+
+    body.iz-compact-ui #projectModal.hidden,
+    body.iz-compact-ui #editModal.hidden,
+    body.iz-compact-ui #employeeModal.hidden,
+    body.iz-compact-ui #loginModal.hidden {
+      display: none !important;
+    }
+
+    body.iz-compact-ui #projectModal.flex,
+    body.iz-compact-ui #editModal.flex,
+    body.iz-compact-ui #employeeModal.flex,
+    body.iz-compact-ui #loginModal.flex {
+      position: fixed !important;
+      inset: 0 !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      z-index: 9999 !important;
+    }
+
+    body.iz-compact-ui #projectModal > div,
+    body.iz-compact-ui #editModal > div,
+    body.iz-compact-ui #employeeModal > div,
+    body.iz-compact-ui #loginModal > div {
+      color: #0f172a !important;
+    }
+
     @media (max-width: 1279px) {
       body.iz-compact-ui #plannerTabs {
         position: static;
@@ -570,8 +629,7 @@
           <div id="calendarPanelContent" class="hidden min-w-0 flex-1">
             <div class="p-4 border-b border-slate-200 flex items-center justify-between gap-3">
               <h2 class="font-semibold">Farger og status</h2>
-              <button id="calendarPanelCloseBtn" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm">Lukk</button>
-            </div>
+</div>
             <div id="legendList" class="p-4 space-y-2 text-sm"></div>
           </div>
         </div>

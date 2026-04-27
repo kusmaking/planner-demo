@@ -833,7 +833,9 @@
 
     Object.entries(sections).forEach(([name, section]) => {
       if (!section) return;
-      section.style.display = state.activeTab === name ? "" : "none";
+      const active = state.activeTab === name;
+      section.style.display = active ? "" : "none";
+      section.classList.toggle("hidden", !active);
     });
   }
 
