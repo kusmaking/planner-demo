@@ -385,6 +385,8 @@
       els.accountMenuButton = document.getElementById("accountMenuButton");
       els.accountMenuDropdown = document.getElementById("accountMenuDropdown");
       els.accountUserInfo = document.getElementById("accountUserInfo");
+      els.accountAvatar = document.getElementById("accountAvatar");
+      els.accountRoleInfo = document.getElementById("accountRoleInfo");
       els.changePasswordBtn = document.getElementById("changePasswordBtn");
       els.resetPasswordBtn = document.getElementById("resetPasswordBtn");
       els.logoutBtn = document.getElementById("logoutBtn");
@@ -399,13 +401,17 @@
     panel.innerHTML = `
       <button id="loginBtn" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm hover:bg-slate-50">Logg inn</button>
       <div id="accountMenuWrap" class="hidden relative">
-        <button id="accountMenuButton" type="button" class="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm hover:bg-slate-50 flex items-center gap-3">
-          <span id="accountUserInfo">Ikke innlogget</span>
-          <span class="text-xs opacity-80">▾</span>
+        <button id="accountMenuButton" type="button" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm hover:bg-slate-50 flex items-center gap-3">
+          <span id="accountAvatar" class="account-avatar">OH</span>
+          <span class="account-text">
+            <span id="accountUserInfo" class="account-name">Ikke innlogget</span>
+            <span id="accountRoleInfo" class="account-role"></span>
+          </span>
+          <span class="account-caret text-xs ml-auto">▾</span>
         </button>
-        <div id="accountMenuDropdown" class="hidden absolute right-0 top-full mt-2 min-w-[180px] overflow-hidden z-[120]">
-          <button id="changePasswordBtn" class="w-full text-left border-b border-slate-200 bg-white px-3 py-3 text-sm hover:bg-slate-50">Endre passord</button>
-          <button id="logoutBtn" class="w-full text-left bg-white px-3 py-3 text-sm hover:bg-slate-50">Logg ut</button>
+        <div id="accountMenuDropdown" class="hidden absolute right-0 top-full mt-2 min-w-[170px] rounded-xl border border-slate-200 bg-white shadow-xl overflow-hidden z-[120]">
+          <button id="changePasswordBtn" class="w-full text-left border-b border-slate-200 bg-white px-3 py-2 text-sm hover:bg-slate-50">Endre passord</button>
+          <button id="logoutBtn" class="w-full text-left bg-white px-3 py-2 text-sm hover:bg-slate-50">Logg ut</button>
           <button id="resetPasswordBtn" class="hidden">Send reset-link</button>
         </div>
       </div>
@@ -419,6 +425,8 @@
     els.accountMenuButton = document.getElementById("accountMenuButton");
     els.accountMenuDropdown = document.getElementById("accountMenuDropdown");
     els.accountUserInfo = document.getElementById("accountUserInfo");
+    els.accountAvatar = document.getElementById("accountAvatar");
+    els.accountRoleInfo = document.getElementById("accountRoleInfo");
     els.changePasswordBtn = document.getElementById("changePasswordBtn");
     els.resetPasswordBtn = document.getElementById("resetPasswordBtn");
     els.logoutBtn = document.getElementById("logoutBtn");
@@ -435,6 +443,11 @@
       if (!els.accountPanel?.contains(event.target)) {
         els.accountMenuDropdown?.classList.add("hidden");
       }
+    });
+
+    [els.changePasswordBtn, els.logoutBtn].forEach(btn => {
+      if (!btn) return;
+      btn.addEventListener("click", () => els.accountMenuDropdown?.classList.add("hidden"));
     });
 
     ensureLoginModal();
@@ -723,27 +736,44 @@
     if (card) card.style.display = visible ? "" : "none";
   }
 
-  function formatDisplayNameFromEmail(email) {
-    if (!email) return "";
-    const local = String(email).split("@")[0] || "";
-    return local
-      .split(/[._-]+/)
+  function toTitleCaseName(value) {
+    const raw = String(value || "").trim();
+    if (!raw) return "";
+    const noDomain = raw.includes("@") ? raw.split("@")[0] : raw;
+    return noDomain
+      .replace(/[._-]+/g, " ")
+      .split(" ")
       .filter(Boolean)
       .map(part => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
       .join(" ");
   }
 
+  function getAccountDisplayName() {
+    return toTitleCaseName(state.currentUser || state.currentUserEmail) || "Ikke innlogget";
+  }
+
+  function getAccountInitials(name) {
+    const parts = String(name || "")
+      .replace(/[^A-Za-zÆØÅæøå\s-]/g, " ")
+      .split(/[\s-]+/)
+      .filter(Boolean);
+    if (!parts.length) return "OH";
+    return parts.slice(0, 2).map(part => part.charAt(0).toUpperCase()).join("");
+  }
+
   function formatRoleLabel(role) {
-    if (!role) return "";
-    const normalized = String(role).replace(/_/g, " ").trim();
-    return normalized.charAt(0).toUpperCase() + normalized.slice(1).toLowerCase();
+    const raw = String(role || "").trim();
+    if (!raw) return "";
+    return raw.charAt(0).toUpperCase() + raw.slice(1).toLowerCase();
   }
 
   function updateAccountPanel() {
     if (!els.accountUserInfo) return;
-    const roleText = state.currentRole ? ` • ${formatRoleLabel(state.currentRole)}` : "";
-    const nameText = state.currentUser || formatDisplayNameFromEmail(state.currentUserEmail) || "Ikke innlogget";
-    els.accountUserInfo.textContent = `${nameText}${roleText}`;
+    const nameText = getAccountDisplayName();
+    const roleText = formatRoleLabel(state.currentRole);
+    els.accountUserInfo.textContent = nameText;
+    if (els.accountRoleInfo) els.accountRoleInfo.textContent = roleText;
+    if (els.accountAvatar) els.accountAvatar.textContent = getAccountInitials(nameText);
   }
 
   function bindTabEvents() {
@@ -784,6 +814,8 @@
       if (!btn) return;
       const visible = allowedTabs.includes(name);
       btn.style.display = visible ? "" : "none";
+      if (state.activeTab === name) btn.setAttribute("aria-current", "page");
+      else btn.removeAttribute("aria-current");
       btn.className = [
         "rounded-2xl px-4 py-2 text-sm border transition",
         state.activeTab === name
@@ -1464,7 +1496,6 @@
     });
 
     if (els.changePasswordBtn) {
-      els.changePasswordBtn.addEventListener("click", () => els.accountMenuDropdown?.classList.add("hidden"));
       els.changePasswordBtn.addEventListener("click", handleChangePassword);
     }
 
@@ -1473,7 +1504,6 @@
     }
 
     if (els.logoutBtn) {
-      els.logoutBtn.addEventListener("click", () => els.accountMenuDropdown?.classList.add("hidden"));
       els.logoutBtn.addEventListener("click", handleLogout);
     }
 
@@ -3508,21 +3538,14 @@ async function deleteEditedEntry() {
     `).join("");
 
     const range = getCurrentRange();
-    const holidays = [];
+    const holidayItems = [];
     for (let year = range.start.getFullYear(); year <= range.end.getFullYear(); year++) {
       for (const holiday of getHolidayNamesForYear(year)) {
         if (holiday.date >= range.start && holiday.date <= range.end) {
-          holidays.push(holiday);
+          holidayItems.push(`<div class="iz-holiday-row"><span>${escapeHtml(holiday.label)}</span><span>${escapeHtml(formatDate(holiday.date))}</span></div>`);
         }
       }
     }
-
-    const holidayHtml = holidays.length ? holidays.map(holiday => `
-      <div class="grid grid-cols-[86px_1fr] gap-2 text-xs">
-        <span class="text-slate-500">${escapeHtml(formatDate(holiday.date))}</span>
-        <span>${escapeHtml(holiday.label)}</span>
-      </div>
-    `).join("") : `<div class="text-xs text-slate-500">Ingen helligdager i valgt periode.</div>`;
 
     els.legendList.innerHTML = `
       <div>
@@ -3537,9 +3560,9 @@ async function deleteEditedEntry() {
         <div class="font-medium mb-2">Prosjektstatus</div>
         <div class="space-y-2">${statusHtml}</div>
       </div>
-      <div class="pt-4 border-t border-slate-200">
-        <div class="font-medium mb-2">Helligdager i perioden</div>
-        <div class="space-y-2">${holidayHtml}</div>
+      <div class="iz-holiday-panel">
+        <div class="iz-holiday-panel-title">Helligdager</div>
+        <div class="space-y-1">${holidayItems.length ? holidayItems.join("") : '<div class="text-slate-400">Ingen helligdager i valgt periode.</div>'}</div>
       </div>
     `;
   }
@@ -3560,12 +3583,12 @@ async function deleteEditedEntry() {
     if (state.calendarPanelOpen) {
       els.calendarPanelCol.className = "xl:w-80 w-full shrink-0 rounded-2xl bg-white border border-slate-200 shadow-sm overflow-hidden transition-all duration-300";
       els.calendarPanelContent.classList.remove("hidden");
-      els.calendarPanelHandleBtn.className = "w-12 shrink-0 border-r border-slate-200 bg-slate-50 text-slate-700 text-xs font-semibold tracking-wide [writing-mode:vertical-rl] rotate-180";
+      els.calendarPanelHandleBtn.className = "w-11 shrink-0 border-r border-slate-200 bg-slate-50 text-slate-700 text-xs font-semibold tracking-wide [writing-mode:vertical-rl] rotate-180";
       els.calendarPanelHandleBtn.textContent = "Panel";
     } else {
-      els.calendarPanelCol.className = "xl:w-12 w-full shrink-0 rounded-2xl bg-white border border-slate-200 shadow-sm overflow-hidden transition-all duration-300";
+      els.calendarPanelCol.className = "xl:w-11 w-full shrink-0 rounded-2xl bg-white border border-slate-200 shadow-sm overflow-hidden transition-all duration-300";
       els.calendarPanelContent.classList.add("hidden");
-      els.calendarPanelHandleBtn.className = "w-12 shrink-0 border-r-0 bg-slate-50 text-slate-700 text-xs font-semibold tracking-wide [writing-mode:vertical-rl] rotate-180";
+      els.calendarPanelHandleBtn.className = "w-11 shrink-0 border-r-0 bg-slate-50 text-slate-700 text-xs font-semibold tracking-wide [writing-mode:vertical-rl] rotate-180";
       els.calendarPanelHandleBtn.textContent = "Panel";
     }
   }
@@ -3950,6 +3973,7 @@ async function deleteEditedEntry() {
     const range = getCurrentRange();
     els.rangeTitle.innerHTML = getRangeTitle();
     renderHolidayInfo(range);
+    renderLegend();
 
     if (state.calendarMode === "project") {
       renderProjectCalendar();
