@@ -381,6 +381,9 @@
   function ensureAccountPanel() {
     if (document.getElementById("accountPanel")) {
       els.accountPanel = document.getElementById("accountPanel");
+      els.accountMenuWrap = document.getElementById("accountMenuWrap");
+      els.accountMenuButton = document.getElementById("accountMenuButton");
+      els.accountMenuDropdown = document.getElementById("accountMenuDropdown");
       els.accountUserInfo = document.getElementById("accountUserInfo");
       els.changePasswordBtn = document.getElementById("changePasswordBtn");
       els.resetPasswordBtn = document.getElementById("resetPasswordBtn");
@@ -392,24 +395,47 @@
 
     const panel = document.createElement("div");
     panel.id = "accountPanel";
-    panel.className = "flex flex-wrap items-center justify-end gap-2";
+    panel.className = "flex flex-wrap items-center justify-end gap-2 relative";
     panel.innerHTML = `
-      <div id="accountUserInfo" class="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700">Ikke innlogget</div>
       <button id="loginBtn" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm hover:bg-slate-50">Logg inn</button>
-      <button id="changePasswordBtn" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm hover:bg-slate-50">Endre passord</button>
-      <button id="resetPasswordBtn" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm hover:bg-slate-50">Send reset-link</button>
-      <button id="logoutBtn" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm hover:bg-slate-50">Logg ut</button>
+      <div id="accountMenuWrap" class="hidden relative">
+        <button id="accountMenuButton" type="button" class="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm hover:bg-slate-50 flex items-center gap-3">
+          <span id="accountUserInfo">Ikke innlogget</span>
+          <span class="text-xs opacity-80">▾</span>
+        </button>
+        <div id="accountMenuDropdown" class="hidden absolute right-0 top-full mt-2 min-w-[180px] overflow-hidden z-[120]">
+          <button id="changePasswordBtn" class="w-full text-left border-b border-slate-200 bg-white px-3 py-3 text-sm hover:bg-slate-50">Endre passord</button>
+          <button id="logoutBtn" class="w-full text-left bg-white px-3 py-3 text-sm hover:bg-slate-50">Logg ut</button>
+          <button id="resetPasswordBtn" class="hidden">Send reset-link</button>
+        </div>
+      </div>
     `;
 
     const anchor = els.storageBadge?.parentElement || document.body.firstElementChild || document.body;
     anchor.appendChild(panel);
 
     els.accountPanel = panel;
+    els.accountMenuWrap = document.getElementById("accountMenuWrap");
+    els.accountMenuButton = document.getElementById("accountMenuButton");
+    els.accountMenuDropdown = document.getElementById("accountMenuDropdown");
     els.accountUserInfo = document.getElementById("accountUserInfo");
     els.changePasswordBtn = document.getElementById("changePasswordBtn");
     els.resetPasswordBtn = document.getElementById("resetPasswordBtn");
     els.logoutBtn = document.getElementById("logoutBtn");
     els.loginBtn = document.getElementById("loginBtn");
+
+    if (els.accountMenuButton) {
+      els.accountMenuButton.addEventListener("click", event => {
+        event.stopPropagation();
+        els.accountMenuDropdown?.classList.toggle("hidden");
+      });
+    }
+
+    document.addEventListener("click", event => {
+      if (!els.accountPanel?.contains(event.target)) {
+        els.accountMenuDropdown?.classList.add("hidden");
+      }
+    });
 
     ensureLoginModal();
   }
@@ -697,10 +723,26 @@
     if (card) card.style.display = visible ? "" : "none";
   }
 
+  function formatDisplayNameFromEmail(email) {
+    if (!email) return "";
+    const local = String(email).split("@")[0] || "";
+    return local
+      .split(/[._-]+/)
+      .filter(Boolean)
+      .map(part => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+      .join(" ");
+  }
+
+  function formatRoleLabel(role) {
+    if (!role) return "";
+    const normalized = String(role).replace(/_/g, " ").trim();
+    return normalized.charAt(0).toUpperCase() + normalized.slice(1).toLowerCase();
+  }
+
   function updateAccountPanel() {
     if (!els.accountUserInfo) return;
-    const roleText = state.currentRole ? ` • ${state.currentRole}` : "";
-    const nameText = state.currentUser || state.currentUserEmail || "Ikke innlogget";
+    const roleText = state.currentRole ? ` • ${formatRoleLabel(state.currentRole)}` : "";
+    const nameText = state.currentUser || formatDisplayNameFromEmail(state.currentUserEmail) || "Ikke innlogget";
     els.accountUserInfo.textContent = `${nameText}${roleText}`;
   }
 
@@ -769,7 +811,7 @@
     }
 
     if (els.saveStatus) {
-      els.saveStatus.style.display = canPlan ? "" : "none";
+      els.saveStatus.style.display = "none";
     }
 
     if (els.resetDemoBtn) {
@@ -780,12 +822,16 @@
       els.loginBtn.style.display = isLoggedIn ? "none" : "";
     }
 
+    if (els.accountMenuWrap) {
+      els.accountMenuWrap.style.display = isLoggedIn ? "" : "none";
+    }
+
     if (els.changePasswordBtn) {
       els.changePasswordBtn.style.display = isLoggedIn ? "" : "none";
     }
 
     if (els.resetPasswordBtn) {
-      els.resetPasswordBtn.style.display = isLoggedIn ? "" : "none";
+      els.resetPasswordBtn.style.display = "none";
     }
 
     if (els.logoutBtn) {
@@ -1418,6 +1464,7 @@
     });
 
     if (els.changePasswordBtn) {
+      els.changePasswordBtn.addEventListener("click", () => els.accountMenuDropdown?.classList.add("hidden"));
       els.changePasswordBtn.addEventListener("click", handleChangePassword);
     }
 
@@ -1426,6 +1473,7 @@
     }
 
     if (els.logoutBtn) {
+      els.logoutBtn.addEventListener("click", () => els.accountMenuDropdown?.classList.add("hidden"));
       els.logoutBtn.addEventListener("click", handleLogout);
     }
 
@@ -3459,6 +3507,23 @@ async function deleteEditedEntry() {
       </div>
     `).join("");
 
+    const range = getCurrentRange();
+    const holidays = [];
+    for (let year = range.start.getFullYear(); year <= range.end.getFullYear(); year++) {
+      for (const holiday of getHolidayNamesForYear(year)) {
+        if (holiday.date >= range.start && holiday.date <= range.end) {
+          holidays.push(holiday);
+        }
+      }
+    }
+
+    const holidayHtml = holidays.length ? holidays.map(holiday => `
+      <div class="grid grid-cols-[86px_1fr] gap-2 text-xs">
+        <span class="text-slate-500">${escapeHtml(formatDate(holiday.date))}</span>
+        <span>${escapeHtml(holiday.label)}</span>
+      </div>
+    `).join("") : `<div class="text-xs text-slate-500">Ingen helligdager i valgt periode.</div>`;
+
     els.legendList.innerHTML = `
       <div>
         <div class="font-medium mb-2">Prosjekter</div>
@@ -3471,6 +3536,10 @@ async function deleteEditedEntry() {
       <div class="pt-4 border-t border-slate-200">
         <div class="font-medium mb-2">Prosjektstatus</div>
         <div class="space-y-2">${statusHtml}</div>
+      </div>
+      <div class="pt-4 border-t border-slate-200">
+        <div class="font-medium mb-2">Helligdager i perioden</div>
+        <div class="space-y-2">${holidayHtml}</div>
       </div>
     `;
   }

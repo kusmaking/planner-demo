@@ -43,20 +43,302 @@
     .day-cell.weekend { background: #f8fafc; }
     .day-cell.today { background: #eff6ff; }
     .day-cell.red-day { background: #fef2f2; }
+  
+
+    :root {
+      --planner-bg: #061b24;
+      --planner-bg-2: #082733;
+      --planner-line: rgba(142, 190, 203, 0.22);
+      --planner-text: #f3fbfc;
+      --planner-muted: rgba(227, 242, 246, 0.70);
+      --planner-accent: #48efc5;
+    }
+
+    body.planner-theme {
+      min-height: 100vh;
+      background:
+        radial-gradient(circle at 40% 0%, rgba(16, 71, 84, 0.72), transparent 36%),
+        linear-gradient(180deg, #04171f 0%, #051b24 100%);
+      color: var(--planner-text);
+    }
+
+    .planner-root { position: relative; }
+
+    .planner-header {
+      height: 78px;
+      padding: 10px 12px;
+      background: linear-gradient(180deg, rgba(7, 32, 43, 0.92), rgba(5, 25, 34, 0.92));
+      border: 1px solid var(--planner-line);
+      border-radius: 2px;
+      box-shadow: 0 10px 28px rgba(0, 0, 0, 0.18);
+    }
+
+    .planner-logo {
+      display: block;
+      width: 245px;
+      height: auto;
+      max-height: 52px;
+      object-fit: contain;
+      object-position: left center;
+    }
+
+    .planner-divider {
+      width: 1px;
+      height: 42px;
+      background: rgba(255, 255, 255, 0.16);
+      flex: 0 0 auto;
+    }
+
+    .planner-title {
+      color: white;
+      font-size: 30px;
+      line-height: 1;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      margin: 0;
+    }
+
+    .planner-subtitle {
+      margin-top: 6px;
+      color: var(--planner-muted);
+      font-size: 12px;
+      line-height: 1;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+    }
+
+    .planner-account-slot > #storageBadge,
+    .planner-account-slot > #saveStatus { display: none !important; }
+
+    #plannerTabs {
+      position: absolute;
+      left: 2px;
+      top: 90px;
+      z-index: 50;
+      width: 52px;
+      padding: 4px !important;
+      background: rgba(5, 24, 32, 0.92) !important;
+      border: 1px solid var(--planner-line) !important;
+      border-radius: 2px !important;
+      box-shadow: none !important;
+    }
+
+    #plannerTabs > div {
+      display: flex !important;
+      flex-direction: column !important;
+      gap: 6px !important;
+    }
+
+    #plannerTabs button {
+      width: 42px !important;
+      height: 42px !important;
+      padding: 0 !important;
+      border-radius: 2px !important;
+      display: flex !important;
+      align-items: center;
+      justify-content: center;
+      font-size: 0 !important;
+      color: #e8f8fb !important;
+      background: rgba(8, 35, 45, 0.82) !important;
+      border: 1px solid rgba(142, 190, 203, 0.22) !important;
+      box-shadow: none !important;
+      position: relative;
+    }
+
+    #plannerTabs button::before {
+      font-size: 16px;
+      line-height: 1;
+      font-weight: 800;
+    }
+    #tabCalendarBtn::before { content: "▦"; }
+    #tabProjectsBtn::before { content: "≡"; }
+    #tabEmployeesBtn::before { content: "◎"; }
+    #tabAdminBtn::before { content: "⚙"; }
+    #plannerTabs button.bg-slate-900,
+    #plannerTabs button[class*="bg-slate-900"] {
+      background: var(--planner-accent) !important;
+      color: #06222d !important;
+      border-color: var(--planner-accent) !important;
+    }
+
+    #statsRow,
+    #tabCalendarSection,
+    #tabProjectsSection,
+    #tabEmployeesSection,
+    #tabAdminSection {
+      margin-left: 66px;
+    }
+
+    #statsRow {
+      grid-template-columns: repeat(2, minmax(0, 255px)) !important;
+      gap: 12px !important;
+      margin-top: 12px;
+    }
+
+    #statsRow > button {
+      min-height: 70px;
+      padding: 12px 14px !important;
+      border-radius: 2px !important;
+      background: rgba(8, 38, 49, 0.84) !important;
+      border: 1px solid rgba(142, 190, 203, 0.22) !important;
+      color: #ffffff !important;
+      box-shadow: none !important;
+    }
+    #statsRow > button:hover { background: rgba(10, 49, 62, 0.88) !important; }
+    #statsRow > button .text-slate-500 { color: rgba(231, 244, 247, 0.78) !important; }
+    #statsRow > button .text-3xl { color: #ffffff !important; font-size: 28px !important; line-height: 1 !important; margin-top: 6px !important; }
+
+    #tabCalendarSection {
+      padding: 0 0 0 0;
+      gap: 8px !important;
+      align-items: stretch !important;
+      color: var(--planner-text);
+    }
+
+    #calendarMainCol {
+      background: transparent !important;
+      border: 0 !important;
+      border-radius: 0 !important;
+      box-shadow: none !important;
+      min-width: 0;
+    }
+
+    #calendarMainCol > div:first-child {
+      padding: 8px 0 10px 0 !important;
+      border-bottom: 1px solid rgba(142, 190, 203, 0.18) !important;
+    }
+
+    #searchInput,
+    #employeeGroupFilterButton,
+    #employeeFilter,
+    #calendarMode,
+    #viewMode,
+    #prevBtn,
+    #todayBtn,
+    #nextBtn {
+      height: 36px !important;
+      border-radius: 2px !important;
+      background: rgba(4, 22, 30, 0.76) !important;
+      border-color: rgba(142, 190, 203, 0.26) !important;
+      color: #f3fbfc !important;
+      box-shadow: none !important;
+      font-size: 14px !important;
+    }
+    #searchInput::placeholder { color: rgba(233, 245, 247, 0.75) !important; }
+    #employeeGroupFilterButton { width: 280px !important; }
+    #employeeGroupFilterLabel { color: #f3fbfc !important; }
+    #employeeGroupFilterButton span:last-child { color: rgba(233, 245, 247, 0.65) !important; }
+    #prevBtn, #todayBtn, #nextBtn { padding-left: 16px !important; padding-right: 16px !important; }
+
+    #rangeTitle,
+    #holidayInfo,
+    #calendarMainCol > div:nth-child(4) { display: none !important; }
+
+    #calendarWrap {
+      margin-top: 0;
+      background: #ffffff;
+      border: 1px solid #d9e2e8;
+      border-radius: 2px !important;
+      box-shadow: 0 12px 34px rgba(0, 0, 0, 0.16);
+      overflow: auto;
+    }
+
+    .calendar-shell { background: #ffffff; }
+    .sticky-col { background: inherit; }
+
+    .rounded-2xl,
+    .rounded-xl,
+    .rounded-lg,
+    .rounded-[28px],
+    .rounded-[24px],
+    .rounded-[22px] { border-radius: 2px !important; }
+
+    .entry-bar {
+      border-radius: 2px !important;
+      box-shadow: none !important;
+      top: 6px !important;
+      bottom: 6px !important;
+    }
+
+    #calendarPanelCol {
+      background: rgba(5, 24, 32, 0.86) !important;
+      border: 1px solid rgba(142, 190, 203, 0.24) !important;
+      border-radius: 2px !important;
+      color: #f3fbfc !important;
+      box-shadow: none !important;
+    }
+
+    #calendarPanelHandleBtn {
+      background: transparent !important;
+      color: #ffffff !important;
+      border-color: rgba(142, 190, 203, 0.20) !important;
+      text-transform: uppercase;
+      letter-spacing: 0.24em;
+      font-size: 11px !important;
+      font-weight: 800 !important;
+    }
+
+    #calendarPanelContent {
+      background: rgba(5, 24, 32, 0.98) !important;
+      color: #f3fbfc !important;
+    }
+    #calendarPanelContent .border-slate-200 { border-color: rgba(142, 190, 203, 0.20) !important; }
+    #legendList { color: #f3fbfc; }
+    #legendList .text-slate-500, #legendList .text-slate-600 { color: rgba(231, 244, 247, 0.72) !important; }
+
+    #accountPanel { position: relative; }
+    #accountMenuButton,
+    #loginBtn {
+      height: 40px !important;
+      border-radius: 2px !important;
+      background: rgba(5, 24, 32, 0.78) !important;
+      border: 1px solid rgba(142, 190, 203, 0.30) !important;
+      color: #f3fbfc !important;
+      box-shadow: none !important;
+      font-weight: 700;
+    }
+    #accountMenuDropdown {
+      background: rgba(5, 24, 32, 0.98) !important;
+      border: 1px solid rgba(142, 190, 203, 0.24) !important;
+      border-radius: 2px !important;
+      box-shadow: 0 14px 34px rgba(0,0,0,.28) !important;
+      color: #f3fbfc !important;
+    }
+    #accountMenuDropdown button {
+      background: transparent !important;
+      color: #f3fbfc !important;
+      border-color: rgba(142, 190, 203, 0.18) !important;
+    }
+    #accountMenuDropdown button:hover { background: rgba(255,255,255,0.06) !important; }
+
+    @media (max-width: 1279px) {
+      #plannerTabs { position: static; width: auto; margin-left: 0; }
+      #plannerTabs > div { flex-direction: row !important; }
+      #statsRow,
+      #tabCalendarSection,
+      #tabProjectsSection,
+      #tabEmployeesSection,
+      #tabAdminSection { margin-left: 0; }
+    }
+
   </style>
 </head>
-<body class="bg-slate-100 text-slate-900">
-  <div class="max-w-[1900px] mx-auto p-6 space-y-6">
-    <header class="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4">
-      <div>
-        <h1 class="text-3xl font-bold tracking-tight">Personal planlegging</h1>
-        <p class="text-slate-600 mt-1">Izomax personal planlegging onshore offshore</p>
+<body class="planner-theme text-slate-900">
+  <div class="planner-root max-w-[1900px] mx-auto p-2 space-y-3">
+    <header class="planner-header flex items-center justify-between gap-4">
+      <div class="planner-brand flex items-center gap-4 min-w-0">
+        <img src="izomax-logo.png" alt="Izomax" class="planner-logo" />
+        <div class="planner-divider"></div>
+        <div class="min-w-0">
+          <h1 class="planner-title">Personal planlegging</h1>
+          <p class="planner-subtitle">ONSHORE • OFFSHORE • RESSURSER</p>
+        </div>
       </div>
 
-      <div class="flex flex-wrap gap-2 items-center">
+      <div class="planner-account-slot flex flex-wrap gap-2 items-center justify-end">
         <span id="storageBadge" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm">Laster...</span>
         <span id="saveStatus" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm">Klar</span>
-              </div>
+      </div>
     </header>
 
     <section id="statsRow" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4"></section>
