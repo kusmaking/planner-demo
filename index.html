@@ -270,6 +270,250 @@
       gap: 8px;
     }
 
+
+
+    /* FINAL UI POLISH - approved compact dark shell */
+    .planner-topbar {
+      box-shadow: none !important;
+    }
+
+    .planner-surface {
+      padding: 8px !important;
+      box-shadow: none !important;
+    }
+
+    #plannerTabs {
+      width: 42px !important;
+      padding: 3px !important;
+      top: 8px !important;
+      box-shadow: none !important;
+    }
+
+    #plannerTabs button {
+      width: 34px !important;
+      height: 34px !important;
+      border-radius: 3px !important;
+      background: rgba(5, 24, 32, 0.42) !important;
+      color: #eef8fa !important;
+      border-color: rgba(143, 192, 205, 0.26) !important;
+      font-size: 15px !important;
+    }
+
+    #plannerTabs button.bg-slate-900 {
+      background: rgba(10, 42, 53, 0.80) !important;
+      color: #76e8c8 !important;
+      border-color: rgba(118, 232, 200, 0.55) !important;
+    }
+
+    #statsRow {
+      grid-template-columns: repeat(2, minmax(0, 235px)) !important;
+      gap: 8px !important;
+    }
+
+    .stats-tile {
+      min-height: 70px;
+      padding: 10px 12px;
+      border-radius: 4px !important;
+      background: rgba(10, 39, 50, 0.58);
+      border: 1px solid rgba(143, 192, 205, 0.20);
+      color: #f4fbfc;
+      box-shadow: none;
+    }
+
+    .stats-tile:hover {
+      background: rgba(14, 52, 65, 0.72);
+    }
+
+    .stats-tile-label {
+      font-size: 12px;
+      color: rgba(238, 248, 250, 0.82);
+      font-weight: 600;
+    }
+
+    .stats-tile-value {
+      margin-top: 4px;
+      font-size: 26px;
+      line-height: 1;
+      font-weight: 800;
+      color: #ffffff;
+    }
+
+    .stats-tile-helper-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-top: 4px;
+      font-size: 11px;
+      color: rgba(238, 248, 250, 0.72);
+    }
+
+    .stats-tile-arrow {
+      font-size: 18px;
+      color: rgba(238, 248, 250, 0.82);
+      line-height: 1;
+    }
+
+    #calendarMainCol > div:first-child {
+      padding: 0 !important;
+      border-bottom: 0 !important;
+    }
+
+    #searchInput,
+    #employeeGroupFilterButton,
+    #calendarMode,
+    #viewMode,
+    #prevBtn,
+    #todayBtn,
+    #nextBtn {
+      height: 34px !important;
+      min-height: 34px !important;
+      padding-top: 0 !important;
+      padding-bottom: 0 !important;
+      border-radius: 3px !important;
+      font-size: 13px !important;
+    }
+
+    #searchInput { width: 220px !important; }
+    #employeeGroupFilterButton { width: 280px !important; }
+
+    #rangeTitle,
+    #holidayInfo,
+    #calendarMainCol > div:nth-child(4),
+    #saveStatus,
+    #storageBadge {
+      display: none !important;
+    }
+
+    #calendarWrap {
+      margin-top: 8px !important;
+      border-radius: 4px !important;
+      border-color: rgba(215, 225, 231, 0.95) !important;
+      box-shadow: none !important;
+    }
+
+    .entry-bar {
+      border-radius: 2px !important;
+      box-shadow: none !important;
+      top: 4px !important;
+      bottom: 4px !important;
+      padding: 5px 8px !important;
+    }
+
+    #calendarPanelCol {
+      border-radius: 3px !important;
+      min-height: 220px;
+    }
+
+    #calendarPanelCol.panel-collapsed,
+    #calendarPanelCol:not(.panel-open) {
+      width: 34px !important;
+    }
+
+    #calendarPanelCol.panel-open {
+      width: 320px !important;
+    }
+
+    #calendarPanelHandleBtn {
+      width: 34px !important;
+      font-size: 10px !important;
+      letter-spacing: 0.18em !important;
+      border: 1px solid rgba(143, 192, 205, 0.22) !important;
+      border-radius: 3px !important;
+    }
+
+    #calendarPanelContent {
+      border: 1px solid rgba(143, 192, 205, 0.22);
+      border-left: 0;
+      border-radius: 0 3px 3px 0;
+    }
+
+    #accountPanel {
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 0;
+    }
+
+    #accountMenuButton,
+    #loginBtn {
+      min-height: 34px;
+      border-radius: 3px !important;
+      background: rgba(5, 24, 32, 0.70) !important;
+      border: 1px solid rgba(143, 192, 205, 0.28) !important;
+      color: #eef8fa !important;
+      box-shadow: none !important;
+    }
+
+    #accountMenuDropdown {
+      min-width: 190px;
+      right: 0;
+      background: #0b2530 !important;
+      border-color: rgba(143, 192, 205, 0.20) !important;
+      box-shadow: 0 12px 30px rgba(0,0,0,0.30) !important;
+      border-radius: 3px !important;
+      overflow: hidden;
+    }
+
+    #accountMenuDropdown button {
+      background: transparent !important;
+      color: #eef8fa !important;
+      border: 0 !important;
+      border-bottom: 1px solid rgba(143, 192, 205, 0.12) !important;
+      border-radius: 0 !important;
+    }
+
+    #accountMenuDropdown button:hover {
+      background: rgba(255,255,255,0.06) !important;
+    }
+
+    .legend-section {
+      padding-top: 14px;
+      margin-top: 14px;
+      border-top: 1px solid rgba(143, 192, 205, 0.18);
+    }
+
+    .legend-section:first-child {
+      padding-top: 0;
+      margin-top: 0;
+      border-top: 0;
+    }
+
+    .legend-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: #f3fbfd;
+      margin-bottom: 10px;
+    }
+
+    .holiday-panel-list {
+      display: grid;
+      gap: 7px;
+      font-size: 12px;
+    }
+
+    .holiday-panel-row {
+      display: grid;
+      grid-template-columns: 88px 1fr;
+      gap: 10px;
+      color: rgba(238, 248, 250, 0.82);
+    }
+
+    .holiday-panel-date {
+      color: rgba(238, 248, 250, 0.60);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .rounded-2xl,
+    .rounded-xl,
+    .rounded-lg,
+    .rounded-[28px],
+    .rounded-[24px],
+    .rounded-[22px] {
+      border-radius: 4px !important;
+    }
+
     @media (max-width: 1279px) {
       #plannerTabs {
         position: static;
@@ -281,19 +525,25 @@
       #statsRow {
         grid-template-columns: repeat(1, minmax(0, 1fr));
       }
+      #calendarPanelCol,
+      #calendarPanelCol.panel-collapsed,
+      #calendarPanelCol:not(.panel-open),
+      #calendarPanelCol.panel-open {
+        width: 100% !important;
+      }
     }
 
   </style>
 </head>
 <body class="planner-theme text-slate-900">
-  <div class="max-w-[1900px] mx-auto p-2 md:p-3">
-    <header class="planner-topbar rounded-[4px] px-4 py-3 text-white">
+  <div class="w-full p-2 md:p-3">
+    <header class="planner-topbar rounded-[4px] px-3 py-2 text-white">
       <div class="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4">
         <div class="flex items-center gap-4 min-w-0">
-          <img src="izomax-logo-ocean-light.png" alt="Izomax" class="h-12 w-auto shrink-0 object-contain" />
+          <img src="izomax-logo-ocean-light.png" alt="Izomax" class="h-10 w-auto shrink-0 object-contain" />
           <div class="hidden sm:block w-px self-stretch bg-white/15"></div>
           <div class="min-w-0">
-            <h1 class="text-[30px] leading-none font-bold tracking-tight">Personal planlegging</h1>
+            <h1 class="text-[24px] leading-none font-bold tracking-tight">Personal planlegging</h1>
             <p class="mt-1 text-[12px] uppercase tracking-[0.14em] text-cyan-50/80">Onshore • Offshore • Ressurser</p>
           </div>
         </div>
@@ -305,7 +555,7 @@
       </div>
     </header>
 
-    <div class="mt-3 flex flex-col xl:flex-row gap-3 items-start">
+    <div class="mt-2 flex flex-col xl:flex-row gap-2 items-start">
       <section id="plannerTabs" class="overflow-visible">
         <div>
           <button id="tabCalendarBtn" data-tooltip="Kalender" aria-label="Kalender" title="Kalender"><span aria-hidden="true">▦</span><span class="sr-only">Kalender</span></button>
@@ -315,10 +565,10 @@
         </div>
       </section>
 
-      <main class="planner-surface flex-1 min-w-0 rounded-[4px] space-y-4">
+      <main class="planner-surface flex-1 min-w-0 rounded-[4px] space-y-2">
         <section id="statsRow" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4"></section>
 
-        <section id="tabCalendarSection" class="flex flex-col xl:flex-row gap-4 items-start">
+        <section id="tabCalendarSection" class="flex flex-col xl:flex-row gap-2 items-start">
           <div id="calendarMainCol" class="min-w-0 flex-1">
             <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
               <div class="flex flex-wrap gap-2 items-center">
