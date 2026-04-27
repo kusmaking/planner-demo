@@ -84,7 +84,7 @@
     {
       value: "Offshore arbeider",
       label: "Offshore",
-      icon: "✈",
+      icon: "plane",
       order: 1,
       aliases: ["Offshore", "Offshore arbeider"],
       cardClass: "border-emerald-500 bg-emerald-50/40 hover:bg-emerald-50",
@@ -95,7 +95,7 @@
     {
       value: "Onshore arbeider",
       label: "Onshore",
-      icon: "🛠",
+      icon: "tools",
       order: 2,
       aliases: ["Onshore", "Onshore arbeider"],
       cardClass: "border-blue-500 bg-blue-50/40 hover:bg-blue-50",
@@ -106,7 +106,7 @@
     {
       value: "Lager og logistikk",
       label: "Lager og logistikk",
-      icon: "📦",
+      icon: "box",
       order: 3,
       aliases: ["Lager og logistikk", "Lager/logistikk"],
       cardClass: "border-amber-500 bg-amber-50/40 hover:bg-amber-50",
@@ -117,7 +117,7 @@
     {
       value: "Engineering",
       label: "Engineering",
-      icon: "⚙",
+      icon: "gear",
       order: 4,
       aliases: ["Engineer", "Engineering"],
       cardClass: "border-violet-500 bg-violet-50/40 hover:bg-violet-50",
@@ -128,7 +128,7 @@
     {
       value: "3 parts innleie",
       label: "3 parts innleie",
-      icon: "🤝",
+      icon: "network",
       order: 5,
       aliases: ["3 parts innleie", "3 Parts innleie", "3 party"],
       cardClass: "border-rose-500 bg-rose-50/40 hover:bg-rose-50",
@@ -139,7 +139,7 @@
     {
       value: "Management",
       label: "Management",
-      icon: "👥",
+      icon: "people",
       order: 6,
       aliases: ["Management", "Managment"],
       cardClass: "border-cyan-500 bg-cyan-50/40 hover:bg-cyan-50",
@@ -150,7 +150,7 @@
     {
       value: "Prosjektledelse / planlegging",
       label: "Prosjektledelse / planlegging",
-      icon: "📋",
+      icon: "clipboard",
       order: 7,
       aliases: ["Prosjektledelse / planlegging", "Prosjektledelse", "Project managers / planners", "Project Managers / Planners", "Project managers", "Planners", "Planner", "Planleggere"],
       cardClass: "border-slate-500 bg-slate-100/60 hover:bg-slate-100",
@@ -1248,13 +1248,28 @@
   }
 
   function getEmployeeGroupIcon(group) {
-    return getEmployeeGroupMeta(group)?.icon || "";
+    return "";
+  }
+
+  function getEmployeeGroupIconSvg(iconKey) {
+    const attrs = 'viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"';
+    const icons = {
+      plane: `<svg ${attrs}><path d="M10.8 13.2 3.6 10.8c-.8-.3-.8-1.4 0-1.7L20.4 3.2c.7-.2 1.3.4 1.1 1.1l-5.9 16.9c-.3.8-1.4.8-1.7 0l-2.4-7.2 5.1-5.1"/></svg>`,
+      tools: `<svg ${attrs}><path d="M14.7 6.3a4 4 0 0 0 4.7 4.7l-7.9 7.9a2.3 2.3 0 0 1-3.3 0l-2.1-2.1a2.3 2.3 0 0 1 0-3.3l7.9-7.9Z"/><path d="m5.2 18.8 3-3"/><path d="M4 4l5 5"/><path d="M6 3 3 6"/></svg>`,
+      box: `<svg ${attrs}><path d="m21 8.5-9-5-9 5 9 5 9-5Z"/><path d="M3 8.5v7l9 5 9-5v-7"/><path d="M12 13.5v7"/><path d="m7.5 6 9 5"/></svg>`,
+      gear: `<svg ${attrs}><path d="M12 15.2a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4Z"/><path d="M19.4 15a1.8 1.8 0 0 0 .36 2l.06.06a2.1 2.1 0 0 1-3 3l-.06-.06a1.8 1.8 0 0 0-2-.36 1.8 1.8 0 0 0-1 1.64V21.4a2.1 2.1 0 0 1-4.2 0v-.1a1.8 1.8 0 0 0-1-1.64 1.8 1.8 0 0 0-2 .36l-.06.06a2.1 2.1 0 0 1-3-3l.06-.06a1.8 1.8 0 0 0 .36-2 1.8 1.8 0 0 0-1.64-1H2.6a2.1 2.1 0 0 1 0-4.2h.1a1.8 1.8 0 0 0 1.64-1 1.8 1.8 0 0 0-.36-2l-.06-.06a2.1 2.1 0 0 1 3-3l.06.06a1.8 1.8 0 0 0 2 .36 1.8 1.8 0 0 0 1-1.64V2.6a2.1 2.1 0 0 1 4.2 0v.1a1.8 1.8 0 0 0 1 1.64 1.8 1.8 0 0 0 2-.36l.06-.06a2.1 2.1 0 0 1 3 3l-.06.06a1.8 1.8 0 0 0-.36 2 1.8 1.8 0 0 0 1.64 1h.1a2.1 2.1 0 0 1 0 4.2h-.1a1.8 1.8 0 0 0-1.64 1Z"/></svg>`,
+      network: `<svg ${attrs}><circle cx="12" cy="5" r="2.5"/><circle cx="5" cy="18" r="2.5"/><circle cx="19" cy="18" r="2.5"/><path d="M10.8 7.2 6.2 15.8"/><path d="m13.2 7.2 4.6 8.6"/><path d="M7.5 18h9"/></svg>`,
+      people: `<svg ${attrs}><path d="M16 20v-1.4a3.6 3.6 0 0 0-3.6-3.6H7.6A3.6 3.6 0 0 0 4 18.6V20"/><circle cx="10" cy="7" r="3"/><path d="M20 20v-1.2a3.2 3.2 0 0 0-2.4-3.1"/><path d="M15.5 4.2a3 3 0 0 1 0 5.6"/></svg>`,
+      clipboard: `<svg ${attrs}><path d="M9 4.5h6a2 2 0 0 1 2 2V7H7v-.5a2 2 0 0 1 2-2Z"/><path d="M8 6H6a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-2"/><path d="M8 12h8"/><path d="M8 16h6"/></svg>`
+    };
+    return icons[iconKey] || "";
   }
 
   function getEmployeeGroupIconHtml(group, classes = "") {
-    const icon = getEmployeeGroupIcon(group);
-    if (!icon) return "";
-    return `<span class="${classes || "inline-flex h-5 w-5 items-center justify-center text-sm shrink-0"}">${escapeHtml(icon)}</span>`;
+    const iconKey = getEmployeeGroupMeta(group)?.icon || "";
+    const svg = getEmployeeGroupIconSvg(iconKey);
+    if (!svg) return "";
+    return `<span class="${classes || "inline-flex h-5 w-5 items-center justify-center text-slate-600 shrink-0"}">${svg}</span>`;
   }
 
   function getOrderedEmployeeGroups() {
@@ -1317,7 +1332,7 @@
       <label class="flex items-center justify-between gap-3 px-3 py-3 hover:bg-slate-50 border-b border-slate-100">
         <div class="flex items-center gap-2 min-w-0">
           <span class="inline-block h-3 w-3 rounded-full ${getEmployeeGroupDotClass(group)}"></span>
-          ${getEmployeeGroupIconHtml(group, "inline-flex h-5 w-5 items-center justify-center text-sm shrink-0")}
+          ${getEmployeeGroupIconHtml(group, "inline-flex h-5 w-5 items-center justify-center text-slate-600 shrink-0")}
           <div class="min-w-0">
             <div class="font-medium text-sm truncate">${escapeHtml(getEmployeeGroupLabel(group) || group)}</div>
             <div class="text-xs text-slate-500">${groupCounts.get(group) || 0} ansatte</div>
@@ -1364,7 +1379,7 @@
     const group = normalizeEmployeeGroup(employee?.employee_group || "");
     return `
       <div class="flex items-center gap-2 min-w-0">
-        ${getEmployeeGroupIconHtml(group, "inline-flex h-5 w-5 items-center justify-center text-[14px] shrink-0 opacity-90")}
+        ${getEmployeeGroupIconHtml(group, "inline-flex h-5 w-5 items-center justify-center text-slate-600 shrink-0 opacity-90")}
         <div class="min-w-0 text-sm font-semibold leading-tight truncate">${escapeHtml(employee?.name || "")}</div>
       </div>
     `;
@@ -3317,7 +3332,7 @@ async function deleteEditedEntry() {
     els.employeeEmail.value = employee?.email || "";
     els.employeePhone.value = employee?.phone || "";
     els.employeeTitle.value = employee?.title || "";
-    fillSelect(els.employeeGroup, EMPLOYEE_GROUP_OPTIONS.map(value => ({ id: value, name: value ? `${getEmployeeGroupIcon(value)} ${getEmployeeGroupLabel(value)}` : "Ingen gruppe valgt" })), normalizeEmployeeGroup(employee?.employee_group || ""), "name", "id");
+    fillSelect(els.employeeGroup, EMPLOYEE_GROUP_OPTIONS.map(value => ({ id: value, name: value ? getEmployeeGroupLabel(value) : "Ingen gruppe valgt" })), normalizeEmployeeGroup(employee?.employee_group || ""), "name", "id");
     els.employeeActive.checked = employee?.active ?? true;
     els.deleteEmployeeBtn.style.display = employee ? "inline-flex" : "none";
 
@@ -3988,7 +4003,7 @@ async function deleteEditedEntry() {
       <button data-employee-id="${escapeHtml(emp.id)}" class="w-full text-left rounded-xl border-2 p-3 transition ${cardClass}">
         <div class="flex items-center justify-between gap-2">
           <div class="flex items-center gap-2 min-w-0">
-            ${getEmployeeGroupIconHtml(employeeGroup, "inline-flex h-5 w-5 items-center justify-center text-sm shrink-0")}
+            ${getEmployeeGroupIconHtml(employeeGroup, "inline-flex h-5 w-5 items-center justify-center text-slate-600 shrink-0")}
             <div class="font-medium truncate">${escapeHtml(emp.name)}</div>
           </div>
           <span class="text-xs ${emp.active ? "text-green-700" : "text-amber-700"}">${emp.active ? "Aktiv" : "Inaktiv"}</span>
@@ -3996,7 +4011,7 @@ async function deleteEditedEntry() {
         <div class="text-xs text-slate-500 mt-1">${escapeHtml(emp.email || "Ingen e-post")}</div>
         <div class="text-xs text-slate-500">${escapeHtml(emp.phone || "Ingen telefon")}</div>
         <div class="text-xs text-slate-500">${escapeHtml(emp.title || "Ingen stillingstittel")}</div>
-        <div class="mt-2 inline-flex items-center gap-1.5 rounded-full border border-current/20 bg-white/80 px-2 py-1 text-xs font-medium text-slate-700">${getEmployeeGroupIconHtml(employeeGroup, "inline-flex h-4 w-4 items-center justify-center text-xs shrink-0")}<span>${escapeHtml(getEmployeeGroupLabel(employeeGroup) || "Ingen gruppe valgt")}</span></div>
+        <div class="mt-2 inline-flex items-center gap-1.5 rounded-full border border-current/20 bg-white/80 px-2 py-1 text-xs font-medium text-slate-700">${getEmployeeGroupIconHtml(employeeGroup, "inline-flex h-4 w-4 items-center justify-center text-slate-600 shrink-0")}<span>${escapeHtml(getEmployeeGroupLabel(employeeGroup) || "Ingen gruppe valgt")}</span></div>
       </button>
     `}).join("") || `<div class="text-sm text-slate-500">Ingen ansatte enda.</div>`;
 
