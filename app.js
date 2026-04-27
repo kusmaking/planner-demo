@@ -80,43 +80,100 @@
   const els = {};
   const PERSONAL_BLOCK_TYPES = ["Kurs", "Ferie", "Syk", "Avspasering"];
   const PERSONAL_PROJECT_MARKER = "__personal_block_system_project__";
-  const EMPLOYEE_GROUP_OPTIONS = [
-    "",
-    "Offshore arbeider",
-    "Onshore arbeider",
-    "Lager og logistikk",
-    "Engineer",
-    "3 parts innleie"
+  const EMPLOYEE_GROUP_DEFINITIONS = [
+    {
+      value: "Offshore arbeider",
+      label: "Offshore",
+      icon: "✈",
+      order: 1,
+      aliases: ["Offshore", "Offshore arbeider"],
+      cardClass: "border-emerald-500 bg-emerald-50/40 hover:bg-emerald-50",
+      badgeClass: "border-emerald-200 bg-emerald-50 text-emerald-800",
+      dotClass: "bg-emerald-500",
+      calendarCellClass: "bg-emerald-50 text-emerald-950"
+    },
+    {
+      value: "Onshore arbeider",
+      label: "Onshore",
+      icon: "🛠",
+      order: 2,
+      aliases: ["Onshore", "Onshore arbeider"],
+      cardClass: "border-blue-500 bg-blue-50/40 hover:bg-blue-50",
+      badgeClass: "border-blue-200 bg-blue-50 text-blue-800",
+      dotClass: "bg-blue-500",
+      calendarCellClass: "bg-blue-50 text-blue-950"
+    },
+    {
+      value: "Lager og logistikk",
+      label: "Lager og logistikk",
+      icon: "📦",
+      order: 3,
+      aliases: ["Lager og logistikk", "Lager/logistikk"],
+      cardClass: "border-amber-500 bg-amber-50/40 hover:bg-amber-50",
+      badgeClass: "border-amber-200 bg-amber-50 text-amber-800",
+      dotClass: "bg-amber-500",
+      calendarCellClass: "bg-amber-50 text-amber-950"
+    },
+    {
+      value: "Engineering",
+      label: "Engineering",
+      icon: "⚙",
+      order: 4,
+      aliases: ["Engineer", "Engineering"],
+      cardClass: "border-violet-500 bg-violet-50/40 hover:bg-violet-50",
+      badgeClass: "border-violet-200 bg-violet-50 text-violet-800",
+      dotClass: "bg-violet-500",
+      calendarCellClass: "bg-violet-50 text-violet-950"
+    },
+    {
+      value: "3 parts innleie",
+      label: "3 parts innleie",
+      icon: "🤝",
+      order: 5,
+      aliases: ["3 parts innleie", "3 Parts innleie", "3 party"],
+      cardClass: "border-rose-500 bg-rose-50/40 hover:bg-rose-50",
+      badgeClass: "border-rose-200 bg-rose-50 text-rose-800",
+      dotClass: "bg-rose-500",
+      calendarCellClass: "bg-rose-50 text-rose-950"
+    },
+    {
+      value: "Management",
+      label: "Management",
+      icon: "👥",
+      order: 6,
+      aliases: ["Management", "Managment"],
+      cardClass: "border-cyan-500 bg-cyan-50/40 hover:bg-cyan-50",
+      badgeClass: "border-cyan-200 bg-cyan-50 text-cyan-800",
+      dotClass: "bg-cyan-500",
+      calendarCellClass: "bg-cyan-50 text-cyan-950"
+    },
+    {
+      value: "Prosjektledelse / planlegging",
+      label: "Prosjektledelse / planlegging",
+      icon: "📋",
+      order: 7,
+      aliases: ["Prosjektledelse / planlegging", "Prosjektledelse", "Project managers / planners", "Project Managers / Planners", "Project managers", "Planners", "Planner", "Planleggere"],
+      cardClass: "border-slate-500 bg-slate-100/60 hover:bg-slate-100",
+      badgeClass: "border-slate-300 bg-slate-100 text-slate-800",
+      dotClass: "bg-slate-500",
+      calendarCellClass: "bg-slate-100 text-slate-950"
+    }
   ];
+  const EMPLOYEE_GROUP_OPTIONS = ["", ...EMPLOYEE_GROUP_DEFINITIONS.map(group => group.value)];
   const EMPLOYEE_GROUP_STORAGE_KEY = "planner_employee_groups_v41";
-  const EMPLOYEE_GROUP_CARD_STYLES = {
-    "Offshore arbeider": "border-emerald-500 bg-emerald-50/40 hover:bg-emerald-50",
-    "Onshore arbeider": "border-blue-500 bg-blue-50/40 hover:bg-blue-50",
-    "Lager og logistikk": "border-amber-500 bg-amber-50/40 hover:bg-amber-50",
-    "Engineer": "border-violet-500 bg-violet-50/40 hover:bg-violet-50",
-    "3 parts innleie": "border-rose-500 bg-rose-50/40 hover:bg-rose-50"
-  };
-  const EMPLOYEE_GROUP_BADGE_STYLES = {
-    "Offshore arbeider": "border-emerald-200 bg-emerald-50 text-emerald-800",
-    "Onshore arbeider": "border-blue-200 bg-blue-50 text-blue-800",
-    "Lager og logistikk": "border-amber-200 bg-amber-50 text-amber-800",
-    "Engineer": "border-violet-200 bg-violet-50 text-violet-800",
-    "3 parts innleie": "border-rose-200 bg-rose-50 text-rose-800"
-  };
-  const EMPLOYEE_GROUP_DOT_STYLES = {
-    "Offshore arbeider": "bg-emerald-500",
-    "Onshore arbeider": "bg-blue-500",
-    "Lager og logistikk": "bg-amber-500",
-    "Engineer": "bg-violet-500",
-    "3 parts innleie": "bg-rose-500"
-  };
-  const EMPLOYEE_GROUP_ORDER = {
-    "Offshore arbeider": 1,
-    "Onshore arbeider": 2,
-    "Lager og logistikk": 3,
-    "Engineer": 4,
-    "3 parts innleie": 5
-  };
+  const EMPLOYEE_GROUP_CARD_STYLES = Object.fromEntries(EMPLOYEE_GROUP_DEFINITIONS.map(group => [group.value, group.cardClass]));
+  const EMPLOYEE_GROUP_BADGE_STYLES = Object.fromEntries(EMPLOYEE_GROUP_DEFINITIONS.map(group => [group.value, group.badgeClass]));
+  const EMPLOYEE_GROUP_DOT_STYLES = Object.fromEntries(EMPLOYEE_GROUP_DEFINITIONS.map(group => [group.value, group.dotClass]));
+  const EMPLOYEE_GROUP_CALENDAR_CELL_STYLES = Object.fromEntries(EMPLOYEE_GROUP_DEFINITIONS.map(group => [group.value, group.calendarCellClass]));
+  const EMPLOYEE_GROUP_ORDER = Object.fromEntries(EMPLOYEE_GROUP_DEFINITIONS.map(group => [group.value, group.order]));
+  const EMPLOYEE_GROUP_META = Object.fromEntries(EMPLOYEE_GROUP_DEFINITIONS.map(group => [group.value, group]));
+  const EMPLOYEE_GROUP_ALIAS_MAP = EMPLOYEE_GROUP_DEFINITIONS.reduce((map, group) => {
+    group.aliases.forEach(alias => {
+      map[String(alias || "").trim().toLowerCase()] = group.value;
+    });
+    map[String(group.value || "").trim().toLowerCase()] = group.value;
+    return map;
+  }, {});
   const EMPLOYEE_GROUP_FILTER_ALL_VALUE = "__all__";
   let saveStatusTimer = null;
   let calendarScrollSyncRaf = null;
@@ -1181,8 +1238,27 @@
     return EMPLOYEE_GROUP_DOT_STYLES[group] || "bg-slate-400";
   }
 
+  function getEmployeeGroupMeta(group) {
+    const normalized = normalizeEmployeeGroup(group || "");
+    return EMPLOYEE_GROUP_META[normalized] || null;
+  }
+
+  function getEmployeeGroupLabel(group) {
+    return getEmployeeGroupMeta(group)?.label || normalizeEmployeeGroup(group || "") || "";
+  }
+
+  function getEmployeeGroupIcon(group) {
+    return getEmployeeGroupMeta(group)?.icon || "";
+  }
+
+  function getEmployeeGroupIconHtml(group, classes = "") {
+    const icon = getEmployeeGroupIcon(group);
+    if (!icon) return "";
+    return `<span class="${classes || "inline-flex h-5 w-5 items-center justify-center text-sm shrink-0"}">${escapeHtml(icon)}</span>`;
+  }
+
   function getOrderedEmployeeGroups() {
-    return EMPLOYEE_GROUP_OPTIONS.filter(Boolean);
+    return EMPLOYEE_GROUP_DEFINITIONS.map(group => group.value);
   }
 
   function getEmployeeGroupSortIndex(group) {
@@ -1193,7 +1269,7 @@
   function getEmployeeGroupFilterLabel() {
     const selectedGroups = state.selectedEmployeeGroups || [];
     if (!selectedGroups.length) return "Alle ansatte / alle grupper";
-    if (selectedGroups.length <= 2) return selectedGroups.join(", ");
+    if (selectedGroups.length <= 2) return selectedGroups.map(group => getEmployeeGroupLabel(group)).join(", ");
     return `${selectedGroups.length} grupper valgt`;
   }
 
@@ -1241,8 +1317,9 @@
       <label class="flex items-center justify-between gap-3 px-3 py-3 hover:bg-slate-50 border-b border-slate-100">
         <div class="flex items-center gap-2 min-w-0">
           <span class="inline-block h-3 w-3 rounded-full ${getEmployeeGroupDotClass(group)}"></span>
+          ${getEmployeeGroupIconHtml(group, "inline-flex h-5 w-5 items-center justify-center text-sm shrink-0")}
           <div class="min-w-0">
-            <div class="font-medium text-sm truncate">${escapeHtml(group)}</div>
+            <div class="font-medium text-sm truncate">${escapeHtml(getEmployeeGroupLabel(group) || group)}</div>
             <div class="text-xs text-slate-500">${groupCounts.get(group) || 0} ansatte</div>
           </div>
         </div>
@@ -1280,18 +1357,17 @@
 
   function getEmployeeCalendarCellClass(employee) {
     const group = normalizeEmployeeGroup(employee?.employee_group || "");
-    const map = {
-      "Offshore arbeider": "bg-emerald-50 text-emerald-950",
-      "Onshore arbeider": "bg-blue-50 text-blue-950",
-      "Lager og logistikk": "bg-amber-50 text-amber-950",
-      "Engineer": "bg-violet-50 text-violet-950",
-      "3 parts innleie": "bg-rose-50 text-rose-950"
-    };
-    return map[group] || "bg-white text-slate-900";
+    return EMPLOYEE_GROUP_CALENDAR_CELL_STYLES[group] || "bg-white text-slate-900";
   }
 
   function getEmployeeNameTabHtml(employee) {
-    return `<div class="text-sm font-semibold leading-tight">${escapeHtml(employee?.name || "")}</div>`;
+    const group = normalizeEmployeeGroup(employee?.employee_group || "");
+    return `
+      <div class="flex items-center gap-2 min-w-0">
+        ${getEmployeeGroupIconHtml(group, "inline-flex h-5 w-5 items-center justify-center text-[14px] shrink-0 opacity-90")}
+        <div class="min-w-0 text-sm font-semibold leading-tight truncate">${escapeHtml(employee?.name || "")}</div>
+      </div>
+    `;
   }
 
   function bindEvents() {
@@ -1752,7 +1828,8 @@
 
   function normalizeEmployeeGroup(value) {
     const group = String(value || "").trim();
-    return EMPLOYEE_GROUP_OPTIONS.includes(group) ? group : "";
+    if (!group) return "";
+    return EMPLOYEE_GROUP_ALIAS_MAP[group.toLowerCase()] || (EMPLOYEE_GROUP_OPTIONS.includes(group) ? group : "");
   }
 
   function getEmployeeGroupCardClass(group) {
@@ -2338,7 +2415,7 @@
               <div class="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100 text-sm font-semibold text-blue-700">${escapeHtml(getInitials(selectedEmployee))}</div>
               <div class="min-w-0">
                 <div class="text-sm font-medium text-slate-900 truncate">${escapeHtml(selectedEmployee)}</div>
-                <div class="mt-0.5 text-xs text-slate-500">${escapeHtml(groupLabel || "Ingen gruppe valgt")}${employee?.title ? ` • ${escapeHtml(employee.title)}` : ""}</div>
+                <div class="mt-0.5 text-xs text-slate-500">${getEmployeeGroupIcon(groupLabel) ? `${escapeHtml(getEmployeeGroupIcon(groupLabel))} ` : ""}${escapeHtml(getEmployeeGroupLabel(groupLabel) || "Ingen gruppe valgt")}${employee?.title ? ` • ${escapeHtml(employee.title)}` : ""}</div>
               </div>
             </div>
           ` : ""}
@@ -2502,7 +2579,7 @@
             <div class="flex h-10 w-10 items-center justify-center rounded-full bg-green-100 text-sm font-semibold text-green-700">${escapeHtml(getInitials(employee.name))}</div>
             <div class="min-w-0">
               <div class="font-medium text-slate-900 truncate">${escapeHtml(employee.name)}</div>
-              <div class="text-xs text-slate-500 mt-0.5">${escapeHtml(employee.group || "Ingen gruppe valgt")}${employee.title ? ` • ${escapeHtml(employee.title)}` : ""}</div>
+              <div class="text-xs text-slate-500 mt-0.5">${getEmployeeGroupIcon(employee.group) ? `${escapeHtml(getEmployeeGroupIcon(employee.group))} ` : ""}${escapeHtml(getEmployeeGroupLabel(employee.group) || "Ingen gruppe valgt")}${employee.title ? ` • ${escapeHtml(employee.title)}` : ""}</div>
             </div>
           </div>
           <div class="mt-3 inline-flex rounded-full border border-green-200 bg-green-50 px-2.5 py-1 text-xs font-medium text-green-700">Tilgjengelig i valgt periode</div>
@@ -2527,7 +2604,7 @@
             <div class="flex h-10 w-10 items-center justify-center rounded-full bg-rose-100 text-sm font-semibold text-rose-700">${escapeHtml(getInitials(employee.name))}</div>
             <div class="min-w-0">
               <div class="font-medium text-slate-900 truncate">${escapeHtml(employee.name)}</div>
-              <div class="text-xs text-slate-500 mt-0.5">${escapeHtml(employee.group || "Ingen gruppe valgt")}${employee.title ? ` • ${escapeHtml(employee.title)}` : ""}</div>
+              <div class="text-xs text-slate-500 mt-0.5">${getEmployeeGroupIcon(employee.group) ? `${escapeHtml(getEmployeeGroupIcon(employee.group))} ` : ""}${escapeHtml(getEmployeeGroupLabel(employee.group) || "Ingen gruppe valgt")}${employee.title ? ` • ${escapeHtml(employee.title)}` : ""}</div>
             </div>
           </div>
           <div class="mt-3 space-y-2">
@@ -3240,7 +3317,7 @@ async function deleteEditedEntry() {
     els.employeeEmail.value = employee?.email || "";
     els.employeePhone.value = employee?.phone || "";
     els.employeeTitle.value = employee?.title || "";
-    fillSelect(els.employeeGroup, EMPLOYEE_GROUP_OPTIONS.map(value => ({ id: value, name: value || "Ingen gruppe valgt" })), normalizeEmployeeGroup(employee?.employee_group || ""), "name", "id");
+    fillSelect(els.employeeGroup, EMPLOYEE_GROUP_OPTIONS.map(value => ({ id: value, name: value ? `${getEmployeeGroupIcon(value)} ${getEmployeeGroupLabel(value)}` : "Ingen gruppe valgt" })), normalizeEmployeeGroup(employee?.employee_group || ""), "name", "id");
     els.employeeActive.checked = employee?.active ?? true;
     els.deleteEmployeeBtn.style.display = employee ? "inline-flex" : "none";
 
@@ -3898,19 +3975,28 @@ async function deleteEditedEntry() {
   }
 
   function renderEmployees() {
-    els.employeeList.innerHTML = state.employees.map(emp => {
+    const sortedEmployees = state.employees.slice().sort((a, b) => {
+      const groupDiff = getEmployeeGroupSortIndex(a.employee_group) - getEmployeeGroupSortIndex(b.employee_group);
+      if (groupDiff !== 0) return groupDiff;
+      return (a.name || "").localeCompare(b.name || "", "no");
+    });
+
+    els.employeeList.innerHTML = sortedEmployees.map(emp => {
       const employeeGroup = normalizeEmployeeGroup(emp.employee_group || "");
       const cardClass = getEmployeeGroupCardClass(employeeGroup);
       return `
       <button data-employee-id="${escapeHtml(emp.id)}" class="w-full text-left rounded-xl border-2 p-3 transition ${cardClass}">
         <div class="flex items-center justify-between gap-2">
-          <div class="font-medium">${escapeHtml(emp.name)}</div>
+          <div class="flex items-center gap-2 min-w-0">
+            ${getEmployeeGroupIconHtml(employeeGroup, "inline-flex h-5 w-5 items-center justify-center text-sm shrink-0")}
+            <div class="font-medium truncate">${escapeHtml(emp.name)}</div>
+          </div>
           <span class="text-xs ${emp.active ? "text-green-700" : "text-amber-700"}">${emp.active ? "Aktiv" : "Inaktiv"}</span>
         </div>
         <div class="text-xs text-slate-500 mt-1">${escapeHtml(emp.email || "Ingen e-post")}</div>
         <div class="text-xs text-slate-500">${escapeHtml(emp.phone || "Ingen telefon")}</div>
         <div class="text-xs text-slate-500">${escapeHtml(emp.title || "Ingen stillingstittel")}</div>
-        <div class="mt-2 inline-flex rounded-full border border-current/20 bg-white/80 px-2 py-1 text-xs font-medium text-slate-700">${escapeHtml(employeeGroup || "Ingen gruppe valgt")}</div>
+        <div class="mt-2 inline-flex items-center gap-1.5 rounded-full border border-current/20 bg-white/80 px-2 py-1 text-xs font-medium text-slate-700">${getEmployeeGroupIconHtml(employeeGroup, "inline-flex h-4 w-4 items-center justify-center text-xs shrink-0")}<span>${escapeHtml(getEmployeeGroupLabel(employeeGroup) || "Ingen gruppe valgt")}</span></div>
       </button>
     `}).join("") || `<div class="text-sm text-slate-500">Ingen ansatte enda.</div>`;
 
