@@ -391,6 +391,13 @@
       els.resetPasswordBtn = document.getElementById("resetPasswordBtn");
       els.logoutBtn = document.getElementById("logoutBtn");
       els.loginBtn = document.getElementById("loginBtn");
+      if (els.accountMenuButton && !els.accountMenuButton.dataset.boundAccountMenu) {
+        els.accountMenuButton.dataset.boundAccountMenu = "true";
+        els.accountMenuButton.addEventListener("click", event => {
+          event.stopPropagation();
+          els.accountMenuDropdown?.classList.toggle("hidden");
+        });
+      }
       ensureLoginModal();
       return;
     }
@@ -852,10 +859,12 @@
 
     if (els.loginBtn) {
       els.loginBtn.style.display = isLoggedIn ? "none" : "";
+      els.loginBtn.classList.toggle("hidden", isLoggedIn);
     }
 
     if (els.accountMenuWrap) {
       els.accountMenuWrap.style.display = isLoggedIn ? "" : "none";
+      els.accountMenuWrap.classList.toggle("hidden", !isLoggedIn);
     }
 
     if (els.changePasswordBtn) {
