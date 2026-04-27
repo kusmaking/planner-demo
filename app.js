@@ -290,27 +290,19 @@
     ];
   }
 
-  function getHolidayItemsForRange(range = getCurrentRange()) {
-    const items = [];
-    if (!range?.start || !range?.end) return items;
-
+  function renderHolidayInfo(range) {
+    if (!els.holidayInfo) return;
+    const names = [];
     for (let year = range.start.getFullYear(); year <= range.end.getFullYear(); year++) {
       for (const holiday of getHolidayNamesForYear(year)) {
         if (holiday.date >= range.start && holiday.date <= range.end) {
-          items.push({ label: holiday.label, date: formatDate(holiday.date) });
+          names.push(`${holiday.label} (${formatDate(holiday.date)})`);
         }
       }
     }
-
-    return items;
-  }
-
-  function renderHolidayInfo(range) {
-    if (!els.holidayInfo) return;
-    // Helligdager vises ikke lenger i hovedvisningen. De vises i sidepanelet,
-    // under eksisterende fargeforklaring, når panelet åpnes.
-    els.holidayInfo.textContent = "";
-    els.holidayInfo.style.display = "none";
+    els.holidayInfo.textContent = names.length
+      ? `Helligdager i perioden: ${names.join(" • ")}`
+      : "Ingen helligdager i valgt periode.";
   }
 
   function renderTimelineHeaderRows(days, leftLabel = "Ansatt") {
@@ -389,9 +381,6 @@
   function ensureAccountPanel() {
     if (document.getElementById("accountPanel")) {
       els.accountPanel = document.getElementById("accountPanel");
-      els.accountMenuWrap = document.getElementById("accountMenuWrap");
-      els.accountMenuButton = document.getElementById("accountMenuButton");
-      els.accountMenuDropdown = document.getElementById("accountMenuDropdown");
       els.accountUserInfo = document.getElementById("accountUserInfo");
       els.changePasswordBtn = document.getElementById("changePasswordBtn");
       els.resetPasswordBtn = document.getElementById("resetPasswordBtn");
@@ -403,52 +392,24 @@
 
     const panel = document.createElement("div");
     panel.id = "accountPanel";
-    panel.className = "relative flex items-center justify-end";
+    panel.className = "flex flex-wrap items-center justify-end gap-2";
     panel.innerHTML = `
-      <button id="loginBtn" class="px-3 py-2 text-sm">Logg inn</button>
-      <div id="accountMenuWrap" class="hidden relative">
-        <button id="accountMenuButton" type="button" class="px-3 py-2 text-sm flex items-center gap-2">
-          <span id="accountUserInfo">Ikke innlogget</span>
-          <span class="account-caret text-xs">▾</span>
-        </button>
-        <div id="accountMenuDropdown" class="hidden absolute right-0 top-full mt-2 z-[120]">
-          <button id="changePasswordBtn" class="w-full text-left px-3 py-2 text-sm">Endre passord</button>
-          <button id="logoutBtn" class="w-full text-left px-3 py-2 text-sm">Logg ut</button>
-          <button id="resetPasswordBtn" class="hidden">Send reset-link</button>
-        </div>
-      </div>
+      <div id="accountUserInfo" class="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700">Ikke innlogget</div>
+      <button id="loginBtn" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm hover:bg-slate-50">Logg inn</button>
+      <button id="changePasswordBtn" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm hover:bg-slate-50">Endre passord</button>
+      <button id="resetPasswordBtn" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm hover:bg-slate-50">Send reset-link</button>
+      <button id="logoutBtn" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm hover:bg-slate-50">Logg ut</button>
     `;
 
     const anchor = els.storageBadge?.parentElement || document.body.firstElementChild || document.body;
     anchor.appendChild(panel);
 
     els.accountPanel = panel;
-    els.accountMenuWrap = document.getElementById("accountMenuWrap");
-    els.accountMenuButton = document.getElementById("accountMenuButton");
-    els.accountMenuDropdown = document.getElementById("accountMenuDropdown");
     els.accountUserInfo = document.getElementById("accountUserInfo");
     els.changePasswordBtn = document.getElementById("changePasswordBtn");
     els.resetPasswordBtn = document.getElementById("resetPasswordBtn");
     els.logoutBtn = document.getElementById("logoutBtn");
     els.loginBtn = document.getElementById("loginBtn");
-
-    if (els.accountMenuButton) {
-      els.accountMenuButton.addEventListener("click", event => {
-        event.stopPropagation();
-        els.accountMenuDropdown?.classList.toggle("hidden");
-      });
-    }
-
-    document.addEventListener("click", event => {
-      if (!els.accountPanel?.contains(event.target)) {
-        els.accountMenuDropdown?.classList.add("hidden");
-      }
-    });
-
-    [els.changePasswordBtn, els.logoutBtn].forEach(btn => {
-      if (!btn) return;
-      btn.addEventListener("click", () => els.accountMenuDropdown?.classList.add("hidden"));
-    });
 
     ensureLoginModal();
   }
@@ -736,29 +697,10 @@
     if (card) card.style.display = visible ? "" : "none";
   }
 
-  function toTitleCase(value) {
-    return String(value || "")
-      .split(/\s+/)
-      .filter(Boolean)
-      .map(part => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
-      .join(" ");
-  }
-
-  function displayNameFromEmail(email) {
-    if (!email || !email.includes("@")) return "";
-    return email
-      .split("@")[0]
-      .replace(/[._-]+/g, " ")
-      .split(/\s+/)
-      .filter(Boolean)
-      .map(part => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
-      .join(" ");
-  }
-
   function updateAccountPanel() {
     if (!els.accountUserInfo) return;
-    const roleText = state.currentRole ? ` • ${toTitleCase(state.currentRole)}` : "";
-    const nameText = state.currentUser || displayNameFromEmail(state.currentUserEmail) || "Ikke innlogget";
+    const roleText = state.currentRole ? ` • ${state.currentRole}` : "";
+    const nameText = state.currentUser || state.currentUserEmail || "Ikke innlogget";
     els.accountUserInfo.textContent = `${nameText}${roleText}`;
   }
 
@@ -823,11 +765,11 @@
     const isSA = isSuperadmin();
 
     if (els.storageBadge) {
-      els.storageBadge.style.display = "none";
+      els.storageBadge.style.display = isSA ? "" : "none";
     }
 
     if (els.saveStatus) {
-      els.saveStatus.style.display = "none";
+      els.saveStatus.style.display = canPlan ? "" : "none";
     }
 
     if (els.resetDemoBtn) {
@@ -838,16 +780,12 @@
       els.loginBtn.style.display = isLoggedIn ? "none" : "";
     }
 
-    if (els.accountMenuWrap) {
-      els.accountMenuWrap.style.display = isLoggedIn ? "" : "none";
-    }
-
     if (els.changePasswordBtn) {
       els.changePasswordBtn.style.display = isLoggedIn ? "" : "none";
     }
 
     if (els.resetPasswordBtn) {
-      els.resetPasswordBtn.style.display = "none";
+      els.resetPasswordBtn.style.display = isLoggedIn ? "" : "none";
     }
 
     if (els.logoutBtn) {
@@ -3484,11 +3422,11 @@ async function deleteEditedEntry() {
       <button
         type="button"
         data-stats-project-filter="${escapeHtml(card.filter)}"
-        class="stats-tile text-left transition"
+        class="w-full rounded-2xl bg-white border border-slate-200 shadow-sm p-4 text-left hover:bg-slate-50 transition"
       >
-        <div class="stats-tile-label">${escapeHtml(card.label)}</div>
-        <div class="stats-tile-value">${escapeHtml(String(card.value))}</div>
-        <div class="stats-tile-helper-row"><span>${escapeHtml(card.helper)}</span><span class="stats-tile-arrow">›</span></div>
+        <div class="text-sm text-slate-500">${escapeHtml(card.label)}</div>
+        <div class="text-3xl font-bold mt-2">${escapeHtml(String(card.value))}</div>
+        <div class="text-xs text-slate-500 mt-2">${escapeHtml(card.helper)}</div>
       </button>
     `).join("");
 
@@ -3521,32 +3459,18 @@ async function deleteEditedEntry() {
       </div>
     `).join("");
 
-    const holidayItems = getHolidayItemsForRange(getCurrentRange());
-    const holidayHtml = holidayItems.length
-      ? holidayItems.map(item => `
-          <div class="holiday-panel-row">
-            <span class="holiday-panel-date">${escapeHtml(item.date)}</span>
-            <span>${escapeHtml(item.label)}</span>
-          </div>
-        `).join("")
-      : `<div class="text-slate-300/80 text-sm">Ingen helligdager i valgt periode.</div>`;
-
     els.legendList.innerHTML = `
-      <div class="legend-section">
-        <div class="legend-title">Prosjekter</div>
+      <div>
+        <div class="font-medium mb-2">Prosjekter</div>
         <div class="space-y-2">${projectCategoryHtml}</div>
       </div>
-      <div class="legend-section">
-        <div class="legend-title">Direkte blokk på ansatt</div>
+      <div class="pt-4 border-t border-slate-200">
+        <div class="font-medium mb-2">Direkte blokk på ansatt</div>
         <div class="space-y-2">${personalCategoryHtml}</div>
       </div>
-      <div class="legend-section">
-        <div class="legend-title">Prosjektstatus</div>
+      <div class="pt-4 border-t border-slate-200">
+        <div class="font-medium mb-2">Prosjektstatus</div>
         <div class="space-y-2">${statusHtml}</div>
-      </div>
-      <div class="legend-section">
-        <div class="legend-title">Helligdager i perioden</div>
-        <div class="holiday-panel-list">${holidayHtml}</div>
       </div>
     `;
   }
@@ -3565,12 +3489,12 @@ async function deleteEditedEntry() {
     }
 
     if (state.calendarPanelOpen) {
-      els.calendarPanelCol.className = "panel-open xl:w-80 w-full shrink-0 rounded-2xl bg-white border border-slate-200 shadow-sm overflow-hidden transition-all duration-300";
+      els.calendarPanelCol.className = "xl:w-80 w-full shrink-0 rounded-2xl bg-white border border-slate-200 shadow-sm overflow-hidden transition-all duration-300";
       els.calendarPanelContent.classList.remove("hidden");
       els.calendarPanelHandleBtn.className = "w-12 shrink-0 border-r border-slate-200 bg-slate-50 text-slate-700 text-xs font-semibold tracking-wide [writing-mode:vertical-rl] rotate-180";
       els.calendarPanelHandleBtn.textContent = "Panel";
     } else {
-      els.calendarPanelCol.className = "panel-collapsed xl:w-12 w-full shrink-0 rounded-2xl bg-white border border-slate-200 shadow-sm overflow-hidden transition-all duration-300";
+      els.calendarPanelCol.className = "xl:w-12 w-full shrink-0 rounded-2xl bg-white border border-slate-200 shadow-sm overflow-hidden transition-all duration-300";
       els.calendarPanelContent.classList.add("hidden");
       els.calendarPanelHandleBtn.className = "w-12 shrink-0 border-r-0 bg-slate-50 text-slate-700 text-xs font-semibold tracking-wide [writing-mode:vertical-rl] rotate-180";
       els.calendarPanelHandleBtn.textContent = "Panel";

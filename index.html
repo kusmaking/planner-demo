@@ -43,714 +43,214 @@
     .day-cell.weekend { background: #f8fafc; }
     .day-cell.today { background: #eff6ff; }
     .day-cell.red-day { background: #fef2f2; }
-  
-
-    body.planner-theme {
-      min-height: 100vh;
-      background:
-        radial-gradient(circle at top, rgba(14, 57, 67, 0.35), transparent 36%),
-        linear-gradient(180deg, #04161d 0%, #051a22 100%);
-    }
-
-    .planner-topbar,
-    .planner-surface,
-    #plannerTabs {
-      background: radial-gradient(circle at top, rgba(13, 57, 67, 0.98) 0%, rgba(8, 32, 42, 0.98) 58%, rgba(5, 24, 32, 0.98) 100%);
-      border: 1px solid rgba(124, 177, 192, 0.20);
-      box-shadow: 0 12px 34px rgba(0, 0, 0, 0.22);
-    }
-
-    .planner-surface {
-      padding: 16px;
-    }
-
-    #plannerTabs {
-      width: 52px;
-      padding: 6px;
-      border-radius: 4px;
-      position: sticky;
-      top: 10px;
-      overflow: visible;
-      flex-shrink: 0;
-    }
-
-    #plannerTabs > div {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-    }
-
-    #plannerTabs button {
-      width: 38px !important;
-      height: 38px !important;
-      padding: 0 !important;
-      border-radius: 2px !important;
-      display: flex !important;
-      align-items: center;
-      justify-content: center;
-      position: relative;
-      font-size: 16px !important;
-      font-weight: 700 !important;
-      line-height: 1;
-      border-color: rgba(143, 192, 205, 0.18) !important;
-      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.02);
-    }
-
-    #plannerTabs button.bg-slate-900 {
-      background: #76e8c8 !important;
-      color: #0e2b34 !important;
-      border-color: #76e8c8 !important;
-    }
-
-    #plannerTabs button.bg-white {
-      background: rgba(5, 24, 32, 0.30) !important;
-      color: #e7f4f7 !important;
-    }
-
-    #plannerTabs button::after {
-      content: attr(data-tooltip);
-      position: absolute;
-      left: calc(100% + 10px);
-      top: 50%;
-      transform: translateY(-50%);
-      background: rgba(6, 19, 25, 0.94);
-      color: #f8fbfc;
-      border: 1px solid rgba(143, 192, 205, 0.16);
-      padding: 5px 9px;
-      border-radius: 6px;
-      font-size: 11px;
-      font-weight: 600;
-      letter-spacing: 0.01em;
-      white-space: nowrap;
-      opacity: 0;
-      pointer-events: none;
-      transition: opacity 0.15s ease;
-      z-index: 60;
-    }
-
-    #plannerTabs button:hover::after { opacity: 1; }
-
-    #statsRow {
-      grid-template-columns: repeat(2, minmax(0, 320px));
-      gap: 14px;
-      align-items: stretch;
-    }
-
-    #statsRow > button {
-      border-radius: 16px !important;
-      min-height: 104px;
-    }
-
-    #tabCalendarSection,
-    #tabProjectsSection,
-    #tabEmployeesSection,
-    #tabAdminSection {
-      color: #e8f4f7;
-    }
-
-    #calendarMainCol {
-      background: transparent !important;
-      border: 0 !important;
-      box-shadow: none !important;
-      border-radius: 0 !important;
-    }
-
-    #calendarMainCol > div:first-child {
-      padding: 0 0 14px 0 !important;
-      border-bottom: 1px solid rgba(143, 192, 205, 0.18) !important;
-    }
-
-    #rangeTitle {
-      padding: 10px 0 8px 0 !important;
-      border-bottom: 1px solid rgba(143, 192, 205, 0.14) !important;
-      color: #f4fbfc !important;
-      font-weight: 700;
-      font-size: 18px;
-    }
-
-    #holidayInfo {
-      padding: 10px 0 14px 0 !important;
-      border-bottom: 0 !important;
-      background: transparent !important;
-      color: #f08a8a !important;
-    }
-
-    #calendarMainCol > div:nth-child(4) {
-      display: none;
-    }
-
-    #warningBox {
-      margin: 0 0 14px 0 !important;
-      border-radius: 12px !important;
-    }
-
-    #calendarWrap {
-      margin-top: 10px;
-      background: #ffffff;
-      border: 1px solid #d7e1e7;
-      border-radius: 14px;
-      overflow: auto;
-      box-shadow: 0 10px 24px rgba(2, 23, 31, 0.10);
-    }
-
-    #calendarWrap .scrollbar-thin::-webkit-scrollbar-thumb,
-    #calendarWrap::-webkit-scrollbar-thumb {
-      background: #b9c7cf;
-    }
-
-    #calendarPanelCol {
-      width: 44px !important;
-      background: transparent !important;
-      border-radius: 4px !important;
-      border-color: rgba(143, 192, 205, 0.18) !important;
-      box-shadow: none !important;
-    }
-
-    #calendarPanelHandleBtn {
-      width: 44px !important;
-      border-right: 0 !important;
-      background: transparent !important;
-      color: #ffffff !important;
-      text-transform: uppercase;
-      writing-mode: vertical-rl;
-      transform: rotate(180deg);
-      letter-spacing: 0.25em;
-      padding: 16px 0 !important;
-    }
-
-    #calendarPanelContent {
-      background: rgba(6, 22, 28, 0.94);
-      color: #eef8fa;
-    }
-
-    #searchInput,
-    #employeeGroupFilterButton,
-    #calendarMode,
-    #viewMode,
-    #prevBtn,
-    #todayBtn,
-    #nextBtn {
-      border-radius: 4px !important;
-      background: rgba(4, 23, 31, 0.58) !important;
-      border-color: rgba(143, 192, 205, 0.22) !important;
-      color: #f2fbfc !important;
-      box-shadow: none !important;
-    }
-
-    #searchInput::placeholder { color: rgba(233, 245, 247, 0.68); }
-    #employeeGroupFilterLabel { color: #f2fbfc !important; }
-    #employeeGroupFilterButton span:last-child { color: rgba(233, 245, 247, 0.65) !important; }
-
-    #employeeGroupFilterPanel {
-      border-radius: 10px !important;
-      border-color: rgba(143, 192, 205, 0.18) !important;
-    }
-
-    #storageBadge,
-    #saveStatus,
-    #accountUserInfo,
-    #loginBtn,
-    #changePasswordBtn,
-    #resetPasswordBtn,
-    #logoutBtn {
-      border-radius: 4px !important;
-      background: rgba(5, 24, 32, 0.70) !important;
-      border: 1px solid rgba(143, 192, 205, 0.22) !important;
-      color: #eef8fa !important;
-      box-shadow: none !important;
-    }
-
-    #resetPasswordBtn { display: none !important; }
-
-    #accountPanel {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      justify-content: flex-end;
-      gap: 8px;
-    }
-
-
-
-    /* FINAL UI POLISH - approved compact dark shell */
-    .planner-topbar {
-      box-shadow: none !important;
-    }
-
-    .planner-surface {
-      padding: 8px !important;
-      box-shadow: none !important;
-    }
-
-    #plannerTabs {
-      width: 42px !important;
-      padding: 3px !important;
-      top: 8px !important;
-      box-shadow: none !important;
-    }
-
-    #plannerTabs button {
-      width: 34px !important;
-      height: 34px !important;
-      border-radius: 3px !important;
-      background: rgba(5, 24, 32, 0.42) !important;
-      color: #eef8fa !important;
-      border-color: rgba(143, 192, 205, 0.26) !important;
-      font-size: 15px !important;
-    }
-
-    #plannerTabs button.bg-slate-900 {
-      background: rgba(10, 42, 53, 0.80) !important;
-      color: #76e8c8 !important;
-      border-color: rgba(118, 232, 200, 0.55) !important;
-    }
-
-    #statsRow {
-      grid-template-columns: repeat(2, minmax(0, 235px)) !important;
-      gap: 8px !important;
-    }
-
-    .stats-tile {
-      min-height: 70px;
-      padding: 10px 12px;
-      border-radius: 4px !important;
-      background: rgba(10, 39, 50, 0.58);
-      border: 1px solid rgba(143, 192, 205, 0.20);
-      color: #f4fbfc;
-      box-shadow: none;
-    }
-
-    .stats-tile:hover {
-      background: rgba(14, 52, 65, 0.72);
-    }
-
-    .stats-tile-label {
-      font-size: 12px;
-      color: rgba(238, 248, 250, 0.82);
-      font-weight: 600;
-    }
-
-    .stats-tile-value {
-      margin-top: 4px;
-      font-size: 26px;
-      line-height: 1;
-      font-weight: 800;
-      color: #ffffff;
-    }
-
-    .stats-tile-helper-row {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 10px;
-      margin-top: 4px;
-      font-size: 11px;
-      color: rgba(238, 248, 250, 0.72);
-    }
-
-    .stats-tile-arrow {
-      font-size: 18px;
-      color: rgba(238, 248, 250, 0.82);
-      line-height: 1;
-    }
-
-    #calendarMainCol > div:first-child {
-      padding: 0 !important;
-      border-bottom: 0 !important;
-    }
-
-    #searchInput,
-    #employeeGroupFilterButton,
-    #calendarMode,
-    #viewMode,
-    #prevBtn,
-    #todayBtn,
-    #nextBtn {
-      height: 34px !important;
-      min-height: 34px !important;
-      padding-top: 0 !important;
-      padding-bottom: 0 !important;
-      border-radius: 3px !important;
-      font-size: 13px !important;
-    }
-
-    #searchInput { width: 220px !important; }
-    #employeeGroupFilterButton { width: 280px !important; }
-
-    #rangeTitle,
-    #holidayInfo,
-    #calendarMainCol > div:nth-child(4),
-    #saveStatus,
-    #storageBadge {
-      display: none !important;
-    }
-
-    #calendarWrap {
-      margin-top: 8px !important;
-      border-radius: 4px !important;
-      border-color: rgba(215, 225, 231, 0.95) !important;
-      box-shadow: none !important;
-    }
-
-    .entry-bar {
-      border-radius: 2px !important;
-      box-shadow: none !important;
-      top: 4px !important;
-      bottom: 4px !important;
-      padding: 5px 8px !important;
-    }
-
-    #calendarPanelCol {
-      border-radius: 3px !important;
-      min-height: 220px;
-    }
-
-    #calendarPanelCol.panel-collapsed,
-    #calendarPanelCol:not(.panel-open) {
-      width: 34px !important;
-    }
-
-    #calendarPanelCol.panel-open {
-      width: 320px !important;
-    }
-
-    #calendarPanelHandleBtn {
-      width: 34px !important;
-      font-size: 10px !important;
-      letter-spacing: 0.18em !important;
-      border: 1px solid rgba(143, 192, 205, 0.22) !important;
-      border-radius: 3px !important;
-    }
-
-    #calendarPanelContent {
-      border: 1px solid rgba(143, 192, 205, 0.22);
-      border-left: 0;
-      border-radius: 0 3px 3px 0;
-    }
-
-    #accountPanel {
-      position: relative;
-      display: flex;
-      align-items: center;
-      justify-content: flex-end;
-      gap: 0;
-    }
-
-    #accountMenuButton,
-    #loginBtn {
-      min-height: 34px;
-      border-radius: 3px !important;
-      background: rgba(5, 24, 32, 0.70) !important;
-      border: 1px solid rgba(143, 192, 205, 0.28) !important;
-      color: #eef8fa !important;
-      box-shadow: none !important;
-    }
-
-    #accountMenuDropdown {
-      min-width: 190px;
-      right: 0;
-      background: #0b2530 !important;
-      border-color: rgba(143, 192, 205, 0.20) !important;
-      box-shadow: 0 12px 30px rgba(0,0,0,0.30) !important;
-      border-radius: 3px !important;
-      overflow: hidden;
-    }
-
-    #accountMenuDropdown button {
-      background: transparent !important;
-      color: #eef8fa !important;
-      border: 0 !important;
-      border-bottom: 1px solid rgba(143, 192, 205, 0.12) !important;
-      border-radius: 0 !important;
-    }
-
-    #accountMenuDropdown button:hover {
-      background: rgba(255,255,255,0.06) !important;
-    }
-
-    .legend-section {
-      padding-top: 14px;
-      margin-top: 14px;
-      border-top: 1px solid rgba(143, 192, 205, 0.18);
-    }
-
-    .legend-section:first-child {
-      padding-top: 0;
-      margin-top: 0;
-      border-top: 0;
-    }
-
-    .legend-title {
-      font-size: 13px;
-      font-weight: 700;
-      color: #f3fbfd;
-      margin-bottom: 10px;
-    }
-
-    .holiday-panel-list {
-      display: grid;
-      gap: 7px;
-      font-size: 12px;
-    }
-
-    .holiday-panel-row {
-      display: grid;
-      grid-template-columns: 88px 1fr;
-      gap: 10px;
-      color: rgba(238, 248, 250, 0.82);
-    }
-
-    .holiday-panel-date {
-      color: rgba(238, 248, 250, 0.60);
-      font-variant-numeric: tabular-nums;
-    }
-
-    .rounded-2xl,
-    .rounded-xl,
-    .rounded-lg,
-    .rounded-[28px],
-    .rounded-[24px],
-    .rounded-[22px] {
-      border-radius: 4px !important;
-    }
-
-    @media (max-width: 1279px) {
-      #plannerTabs {
-        position: static;
-        width: 100%;
-      }
-      #plannerTabs > div {
-        flex-direction: row;
-      }
-      #statsRow {
-        grid-template-columns: repeat(1, minmax(0, 1fr));
-      }
-      #calendarPanelCol,
-      #calendarPanelCol.panel-collapsed,
-      #calendarPanelCol:not(.panel-open),
-      #calendarPanelCol.panel-open {
-        width: 100% !important;
-      }
-    }
-
   </style>
 </head>
-<body class="planner-theme text-slate-900">
-  <div class="w-full p-2 md:p-3">
-    <header class="planner-topbar rounded-[4px] px-3 py-2 text-white">
-      <div class="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4">
-        <div class="flex items-center gap-4 min-w-0">
-          <img src="izomax-logo-ocean-light.png" alt="Izomax" class="h-10 w-auto shrink-0 object-contain" />
-          <div class="hidden sm:block w-px self-stretch bg-white/15"></div>
-          <div class="min-w-0">
-            <h1 class="text-[24px] leading-none font-bold tracking-tight">Personal planlegging</h1>
-            <p class="mt-1 text-[12px] uppercase tracking-[0.14em] text-cyan-50/80">Onshore • Offshore • Ressurser</p>
-          </div>
-        </div>
-
-        <div class="flex flex-wrap gap-2 items-center justify-end">
-          <span id="storageBadge" class="px-3 py-2 text-sm">Laster...</span>
-          <span id="saveStatus" class="px-3 py-2 text-sm">Klar</span>
-        </div>
+<body class="bg-slate-100 text-slate-900">
+  <div class="max-w-[1900px] mx-auto p-6 space-y-6">
+    <header class="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4">
+      <div>
+        <h1 class="text-3xl font-bold tracking-tight">Personal planlegging</h1>
+        <p class="text-slate-600 mt-1">Izomax personal planlegging onshore offshore</p>
       </div>
+
+      <div class="flex flex-wrap gap-2 items-center">
+        <span id="storageBadge" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm">Laster...</span>
+        <span id="saveStatus" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm">Klar</span>
+              </div>
     </header>
 
-    <div class="mt-2 flex flex-col xl:flex-row gap-2 items-start">
-      <section id="plannerTabs" class="overflow-visible">
-        <div>
-          <button id="tabCalendarBtn" data-tooltip="Kalender" aria-label="Kalender" title="Kalender"><span aria-hidden="true">▦</span><span class="sr-only">Kalender</span></button>
-          <button id="tabProjectsBtn" data-tooltip="Prosjekter" aria-label="Prosjekter" title="Prosjekter"><span aria-hidden="true">≡</span><span class="sr-only">Prosjekter</span></button>
-          <button id="tabEmployeesBtn" data-tooltip="Ansatte" aria-label="Ansatte" title="Ansatte"><span aria-hidden="true">◎</span><span class="sr-only">Ansatte</span></button>
-          <button id="tabAdminBtn" data-tooltip="Admin" aria-label="Admin" title="Admin"><span aria-hidden="true">⚙</span><span class="sr-only">Admin</span></button>
+    <section id="statsRow" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4"></section>
+
+    <section id="plannerTabs" class="rounded-2xl bg-white border border-slate-200 shadow-sm p-3">
+      <div class="flex flex-wrap gap-2">
+        <button id="tabCalendarBtn" class="rounded-2xl px-4 py-2 text-sm border border-slate-900 bg-slate-900 text-white">Kalender</button>
+        <button id="tabProjectsBtn" class="rounded-2xl px-4 py-2 text-sm border border-slate-300 bg-white text-slate-700">Prosjekter</button>
+        <button id="tabEmployeesBtn" class="rounded-2xl px-4 py-2 text-sm border border-slate-300 bg-white text-slate-700">Ansatte</button>
+        <button id="tabAdminBtn" class="rounded-2xl px-4 py-2 text-sm border border-slate-300 bg-white text-slate-700">Admin</button>
+      </div>
+    </section>
+
+    <section id="tabCalendarSection" class="flex flex-col xl:flex-row gap-4 items-start">
+      <div id="calendarMainCol" class="min-w-0 flex-1 rounded-2xl bg-white border border-slate-200 shadow-sm">
+        <div class="p-4 border-b border-slate-200 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+          <div class="flex flex-wrap gap-2 items-center">
+            <input id="searchInput" name="planner_search_filter" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false" class="w-[220px] rounded-2xl border border-slate-300 px-3 py-2" placeholder="Søk ansatt" />
+            <select id="employeeFilter" class="w-[220px] rounded-2xl border border-slate-300 px-3 py-2"></select>
+            <select id="calendarMode" class="rounded-2xl border border-slate-300 px-3 py-2">
+              <option value="personal">Personalplan</option>
+              <option value="project">Prosjektplan</option>
+            </select>
+            <select id="viewMode" class="rounded-2xl border border-slate-300 px-3 py-2">
+              <option value="Uke">Uke</option>
+              <option value="Måned">Måned</option>
+              <option value="År">År</option>
+            </select>
+          </div>
+
+          <div class="flex gap-2">
+            <button id="prevBtn" class="rounded-2xl border border-slate-300 bg-white px-4 py-2">Tilbake</button>
+            <button id="todayBtn" class="rounded-2xl border border-slate-300 bg-white px-4 py-2">I dag</button>
+            <button id="nextBtn" class="rounded-2xl border border-slate-300 bg-white px-4 py-2">Frem</button>
+          </div>
         </div>
-      </section>
 
-      <main class="planner-surface flex-1 min-w-0 rounded-[4px] space-y-2">
-        <section id="statsRow" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4"></section>
+        <div id="rangeTitle" class="px-4 py-3 border-b border-slate-200 text-sm text-slate-600"></div>
+        <div id="holidayInfo" class="px-4 py-2 border-b border-slate-200 text-sm text-red-700 bg-red-50/60"></div>
 
-        <section id="tabCalendarSection" class="flex flex-col xl:flex-row gap-2 items-start">
-          <div id="calendarMainCol" class="min-w-0 flex-1">
-            <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
-              <div class="flex flex-wrap gap-2 items-center">
-                <input id="searchInput" name="planner_search_filter" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false" class="w-[220px] border px-3 py-2" placeholder="Søk ansatt" />
-                <select id="employeeFilter" class="w-[220px] border px-3 py-2"></select>
-                <select id="calendarMode" class="border px-3 py-2">
-                  <option value="personal">Personalplan</option>
-                  <option value="project">Prosjektplan</option>
-                </select>
-                <select id="viewMode" class="border px-3 py-2">
-                  <option value="Uke">Uke</option>
-                  <option value="Måned">Måned</option>
-                  <option value="År">År</option>
-                </select>
-              </div>
+        <div class="p-4 border-b border-slate-200 text-sm text-slate-500">
+          Personalplan viser tildelte ressurser. Prosjektplan viser alle prosjekter, også de som ennå ikke er bemannet.
+        </div>
 
-              <div class="flex gap-2">
-                <button id="prevBtn" class="border px-4 py-2">Tilbake</button>
-                <button id="todayBtn" class="border px-4 py-2">I dag</button>
-                <button id="nextBtn" class="border px-4 py-2">Frem</button>
-              </div>
+        <div id="warningBox" class="hidden mx-4 mt-4 rounded-2xl border border-red-300 bg-red-50 p-4 text-red-700 text-sm"></div>
+        <div id="calendarWrap" class="overflow-auto scrollbar-thin"></div>
+      </div>
+
+      <aside id="calendarPanelCol" class="w-full xl:w-12 shrink-0 rounded-2xl bg-white border border-slate-200 shadow-sm overflow-hidden transition-all duration-300">
+        <div class="flex h-full min-h-[220px]">
+          <button id="calendarPanelHandleBtn" class="w-12 shrink-0 border-r border-slate-200 bg-slate-50 text-slate-700 text-xs font-semibold tracking-wide">
+            Panel
+          </button>
+          <div id="calendarPanelContent" class="hidden min-w-0 flex-1">
+            <div class="p-4 border-b border-slate-200 flex items-center justify-between gap-3">
+              <h2 class="font-semibold">Farger og status</h2>
+              <button id="calendarPanelCloseBtn" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm">Lukk</button>
             </div>
-
-            <div id="rangeTitle" class="text-sm"></div>
-            <div id="holidayInfo" class="text-sm"></div>
-
-            <div class="p-4 border-b border-slate-200 text-sm text-slate-500">
-              Personalplan viser tildelte ressurser. Prosjektplan viser alle prosjekter, også de som ennå ikke er bemannet.
-            </div>
-
-            <div id="warningBox" class="hidden rounded-2xl border border-red-300 bg-red-50 p-4 text-red-700 text-sm"></div>
-            <div id="calendarWrap" class="overflow-auto scrollbar-thin"></div>
+            <div id="legendList" class="p-4 space-y-2 text-sm"></div>
           </div>
+        </div>
+      </aside>
 
-          <aside id="calendarPanelCol" class="w-full xl:w-12 shrink-0 overflow-hidden transition-all duration-300">
-            <div class="flex h-full min-h-[220px]">
-              <button id="calendarPanelHandleBtn" class="w-12 shrink-0 text-xs font-semibold tracking-wide">
-                Panel
-              </button>
-              <div id="calendarPanelContent" class="hidden min-w-0 flex-1">
-                <div class="p-4 border-b border-slate-200/20 flex items-center justify-between gap-3">
-                  <h2 class="font-semibold">Farger og status</h2>
-                  <button id="calendarPanelCloseBtn" class="rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-sm">Lukk</button>
-                </div>
-                <div id="legendList" class="p-4 space-y-2 text-sm"></div>
-              </div>
+      <div id="systemStatus" class="hidden"></div>
+    </section>
+
+    <section id="tabProjectsSection" class="grid grid-cols-1 xl:grid-cols-12 gap-5" style="display:none;">
+      <div class="xl:col-span-3">
+        <div class="rounded-[28px] bg-white border border-slate-200 shadow-sm overflow-hidden">
+          <div class="p-5 border-b border-slate-200 bg-slate-50/80 flex items-start justify-between gap-3">
+            <div>
+              <h2 class="font-semibold text-lg text-slate-900">Prosjekter</h2>
+              <p class="text-sm text-slate-500 mt-1">Velg et prosjekt for å bemanne, følge perioder og åpne detaljer.</p>
             </div>
-          </aside>
-
-          <div id="systemStatus" class="hidden"></div>
-        </section>
-
-        <section id="tabProjectsSection" class="grid grid-cols-1 xl:grid-cols-12 gap-5" style="display:none;">
-          <div class="xl:col-span-3">
-            <div class="rounded-[28px] bg-white border border-slate-200 shadow-sm overflow-hidden">
-              <div class="p-5 border-b border-slate-200 bg-slate-50/80 flex items-start justify-between gap-3">
-                <div>
-                  <h2 class="font-semibold text-lg text-slate-900">Prosjekter</h2>
-                  <p class="text-sm text-slate-500 mt-1">Velg et prosjekt for å bemanne, følge perioder og åpne detaljer.</p>
-                </div>
-                <button id="newProjectBtn" class="rounded-2xl bg-slate-900 text-white px-4 py-2.5 text-sm font-medium shadow-sm">Nytt prosjekt</button>
-              </div>
-              <div class="p-4">
-                <div id="projectList" class="space-y-3 max-h-[780px] overflow-auto scrollbar-thin pr-1"></div>
-              </div>
-            </div>
+            <button id="newProjectBtn" class="rounded-2xl bg-slate-900 text-white px-4 py-2.5 text-sm font-medium shadow-sm">Nytt prosjekt</button>
           </div>
+          <div class="p-4">
+            <div id="projectList" class="space-y-3 max-h-[780px] overflow-auto scrollbar-thin pr-1"></div>
+          </div>
+        </div>
+      </div>
 
-          <div id="projectsWorkspaceCol" class="xl:col-span-5 space-y-5">
-            <div id="projectWorkspaceCard" class="rounded-[28px] bg-white border border-slate-200 shadow-sm overflow-hidden">
-              <div class="p-5 border-b border-slate-200 bg-slate-50/80">
-                <h2 class="font-semibold text-lg text-slate-900">Valgt prosjekt</h2>
-                <p class="text-sm text-slate-500 mt-1">Prosjektkort med periode-status, nøkkelinformasjon og tildelte ressurser.</p>
+      <div id="projectsWorkspaceCol" class="xl:col-span-5 space-y-5">
+        <div id="projectWorkspaceCard" class="rounded-[28px] bg-white border border-slate-200 shadow-sm overflow-hidden">
+          <div class="p-5 border-b border-slate-200 bg-slate-50/80">
+            <h2 class="font-semibold text-lg text-slate-900">Valgt prosjekt</h2>
+            <p class="text-sm text-slate-500 mt-1">Prosjektkort med periode-status, nøkkelinformasjon og tildelte ressurser.</p>
+          </div>
+          <div class="p-5">
+            <div id="projectWorkspaceEmpty" class="rounded-[24px] border border-dashed border-slate-300 bg-slate-50 px-5 py-8 text-sm text-slate-500">Velg et prosjekt fra listen til venstre for å se detaljer, bemanning og arkivstatus.</div>
+            <div id="projectWorkspaceContent" class="hidden space-y-5">
+              <div>
+                <div id="projectWorkspaceTitle" class="text-[28px] leading-tight font-semibold text-slate-950"></div>
+                <div id="projectWorkspaceMeta" class="mt-4 space-y-4"></div>
               </div>
-              <div class="p-5">
-                <div id="projectWorkspaceEmpty" class="rounded-[24px] border border-dashed border-slate-300 bg-slate-50 px-5 py-8 text-sm text-slate-500">Velg et prosjekt fra listen til venstre for å se detaljer, bemanning og arkivstatus.</div>
-                <div id="projectWorkspaceContent" class="hidden space-y-5">
-                  <div>
-                    <div id="projectWorkspaceTitle" class="text-[28px] leading-tight font-semibold text-slate-950"></div>
-                    <div id="projectWorkspaceMeta" class="mt-4 space-y-4"></div>
-                  </div>
-                  <div>
-                    <div class="text-sm font-medium text-slate-700 mb-2">Notater</div>
-                    <div id="projectWorkspaceNotes" class="rounded-[22px] border border-slate-200 bg-slate-50 px-4 py-4 text-sm text-slate-600"></div>
-                  </div>
-                  <div>
-                    <div class="flex items-center justify-between gap-3 mb-3">
-                      <div class="text-sm font-medium text-slate-700">Tildelte ressurser</div>
-                      <div id="projectWorkspaceActions" class="flex flex-wrap gap-2"></div>
-                    </div>
-                    <div id="projectWorkspaceAssignments" class="space-y-3"></div>
-                  </div>
+              <div>
+                <div class="text-sm font-medium text-slate-700 mb-2">Notater</div>
+                <div id="projectWorkspaceNotes" class="rounded-[22px] border border-slate-200 bg-slate-50 px-4 py-4 text-sm text-slate-600"></div>
+              </div>
+              <div>
+                <div class="flex items-center justify-between gap-3 mb-3">
+                  <div class="text-sm font-medium text-slate-700">Tildelte ressurser</div>
+                  <div id="projectWorkspaceActions" class="flex flex-wrap gap-2"></div>
                 </div>
+                <div id="projectWorkspaceAssignments" class="space-y-3"></div>
               </div>
             </div>
           </div>
+        </div>
+      </div>
 
-          <div class="xl:col-span-4 space-y-5">
-            <div class="rounded-[28px] bg-white border border-slate-200 shadow-sm overflow-hidden">
-              <div class="p-5 border-b border-slate-200 bg-slate-50/80">
-                <h2 class="font-semibold text-lg text-slate-900">Bemann prosjekt</h2>
-                <p class="text-sm text-slate-500 mt-1">Flere navnevalg og rollevalg vises automatisk ut fra bemanningsbehovet på prosjektet.</p>
+      <div class="xl:col-span-4 space-y-5">
+        <div class="rounded-[28px] bg-white border border-slate-200 shadow-sm overflow-hidden">
+          <div class="p-5 border-b border-slate-200 bg-slate-50/80">
+            <h2 class="font-semibold text-lg text-slate-900">Bemann prosjekt</h2>
+            <p class="text-sm text-slate-500 mt-1">Flere navnevalg og rollevalg vises automatisk ut fra bemanningsbehovet på prosjektet.</p>
+          </div>
+          <div class="p-5 space-y-5">
+            <div class="space-y-2">
+              <label for="assignProject" class="text-sm font-medium text-slate-700">Velg prosjekt</label>
+              <select id="assignProject" class="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm shadow-sm"></select>
+            </div>
+
+            <div id="assignPeriodWrap" class="hidden space-y-2">
+              <div class="flex items-center justify-between gap-3">
+                <label for="assignPeriod" class="text-sm font-medium text-slate-700">Velg periode</label>
+                <span id="assignPeriodHint" class="text-xs font-medium text-blue-700"></span>
               </div>
-              <div class="p-5 space-y-5">
-                <div class="space-y-2">
-                  <label for="assignProject" class="text-sm font-medium text-slate-700">Velg prosjekt</label>
-                  <select id="assignProject" class="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm shadow-sm"></select>
-                </div>
+              <select id="assignPeriod" class="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm shadow-sm"></select>
+            </div>
 
-                <div id="assignPeriodWrap" class="hidden space-y-2">
-                  <div class="flex items-center justify-between gap-3">
-                    <label for="assignPeriod" class="text-sm font-medium text-slate-700">Velg periode</label>
-                    <span id="assignPeriodHint" class="text-xs font-medium text-blue-700"></span>
-                  </div>
-                  <select id="assignPeriod" class="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm shadow-sm"></select>
-                </div>
+            <div id="assignSummary" class="rounded-[24px] border border-blue-200 bg-gradient-to-br from-blue-50 to-white px-5 py-4 text-sm text-slate-700 shadow-sm">
+              Velg et prosjekt for å starte bemanning.
+            </div>
 
-                <div id="assignSummary" class="rounded-[24px] border border-blue-200 bg-gradient-to-br from-blue-50 to-white px-5 py-4 text-sm text-slate-700 shadow-sm">
-                  Velg et prosjekt for å starte bemanning.
-                </div>
+            <div id="assignPeriodNav" class="hidden grid grid-cols-2 gap-3">
+              <button id="assignPrevPeriodBtn" type="button" class="rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-medium text-slate-700 shadow-sm disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400">← Forrige periode</button>
+              <button id="assignNextPeriodBtn" type="button" class="rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-medium text-slate-700 shadow-sm disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400">Neste periode →</button>
+            </div>
 
-                <div id="assignPeriodNav" class="hidden grid grid-cols-2 gap-3">
-                  <button id="assignPrevPeriodBtn" type="button" class="rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-medium text-slate-700 shadow-sm disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400">← Forrige periode</button>
-                  <button id="assignNextPeriodBtn" type="button" class="rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-medium text-slate-700 shadow-sm disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400">Neste periode →</button>
-                </div>
+            <div id="assignEmployeesWrap" class="space-y-3"></div>
 
-                <div id="assignEmployeesWrap" class="space-y-3"></div>
-
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <div class="space-y-2">
-                    <label for="assignStart" class="text-sm font-medium text-slate-700">Startdato</label>
-                    <input id="assignStart" type="date" class="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm shadow-sm" />
-                  </div>
-                  <div class="space-y-2">
-                    <label for="assignEnd" class="text-sm font-medium text-slate-700">Sluttdato</label>
-                    <input id="assignEnd" type="date" class="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm shadow-sm" />
-                  </div>
-                </div>
-                <div class="space-y-2">
-                  <label for="assignNotes" class="text-sm font-medium text-slate-700">Notater (valgfritt)</label>
-                  <textarea id="assignNotes" class="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm shadow-sm" rows="4" placeholder="Legg til notater om bemanningen..."></textarea>
-                </div>
-                <button id="assignBtn" class="w-full rounded-2xl bg-slate-900 text-white px-4 py-3 text-sm font-medium shadow-sm">Legg i kalender</button>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div class="space-y-2">
+                <label for="assignStart" class="text-sm font-medium text-slate-700">Startdato</label>
+                <input id="assignStart" type="date" class="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm shadow-sm" />
+              </div>
+              <div class="space-y-2">
+                <label for="assignEnd" class="text-sm font-medium text-slate-700">Sluttdato</label>
+                <input id="assignEnd" type="date" class="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm shadow-sm" />
               </div>
             </div>
-          </div>
-        </section>
-
-        <section id="tabEmployeesSection" class="grid grid-cols-1 xl:grid-cols-4 gap-4" style="display:none;">
-          <div class="xl:col-span-4">
-            <div class="rounded-2xl bg-white border border-slate-200 shadow-sm">
-              <div class="p-4 border-b border-slate-200 flex items-center justify-between">
-                <h2 class="font-semibold text-slate-900">Ansatte</h2>
-                <button id="newEmployeeBtn" class="rounded-xl bg-slate-900 text-white px-3 py-2 text-sm">Ny ansatt</button>
-              </div>
-              <div class="p-4 space-y-3">
-                <textarea id="bulkEmployees" class="w-full rounded-2xl border border-slate-300 px-3 py-2 text-slate-900" rows="4" placeholder="Lim inn flere navn, ett per linje"></textarea>
-                <button id="bulkAddBtn" class="w-full rounded-2xl border border-slate-300 bg-white px-4 py-2 text-slate-900">Legg til mange ansatte</button>
-                <div id="employeeList" class="space-y-2 max-h-[680px] overflow-auto scrollbar-thin"></div>
-              </div>
+            <div class="space-y-2">
+              <label for="assignNotes" class="text-sm font-medium text-slate-700">Notater (valgfritt)</label>
+              <textarea id="assignNotes" class="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm shadow-sm" rows="4" placeholder="Legg til notater om bemanningen..."></textarea>
             </div>
+            <button id="assignBtn" class="w-full rounded-2xl bg-slate-900 text-white px-4 py-3 text-sm font-medium shadow-sm">Legg i kalender</button>
           </div>
-        </section>
+        </div>
+      </div>
+    </section>
 
-        <section id="tabAdminSection" class="grid grid-cols-1 xl:grid-cols-3 gap-4" style="display:none;">
-          <div class="rounded-2xl bg-white border border-slate-200 shadow-sm">
-            <div class="p-4 border-b border-slate-200"><h2 class="font-semibold text-slate-900">Kanban – prosjekter</h2></div>
-            <div id="kanbanBoard" class="p-4 grid grid-cols-1 gap-4"></div>
+    <section id="tabEmployeesSection" class="grid grid-cols-1 xl:grid-cols-4 gap-4" style="display:none;">
+      <div class="xl:col-span-4">
+        <div class="rounded-2xl bg-white border border-slate-200 shadow-sm">
+          <div class="p-4 border-b border-slate-200 flex items-center justify-between">
+            <h2 class="font-semibold">Ansatte</h2>
+            <button id="newEmployeeBtn" class="rounded-xl bg-slate-900 text-white px-3 py-2 text-sm">Ny ansatt</button>
           </div>
+          <div class="p-4 space-y-3">
+            <textarea id="bulkEmployees" class="w-full rounded-2xl border border-slate-300 px-3 py-2" rows="4" placeholder="Lim inn flere navn, ett per linje"></textarea>
+            <button id="bulkAddBtn" class="w-full rounded-2xl border border-slate-300 bg-white px-4 py-2">Legg til mange ansatte</button>
+            <div id="employeeList" class="space-y-2 max-h-[680px] overflow-auto scrollbar-thin"></div>
+          </div>
+        </div>
+      </div>
+    </section>
 
-          <div class="rounded-2xl bg-white border border-slate-200 shadow-sm">
-            <div class="p-4 border-b border-slate-200"><h2 class="font-semibold text-slate-900">Varsellogg</h2></div>
-            <div id="notificationList" class="p-4 space-y-3 max-h-[300px] overflow-auto scrollbar-thin"></div>
-          </div>
+    <section id="tabAdminSection" class="grid grid-cols-1 xl:grid-cols-3 gap-4" style="display:none;">
+      <div class="rounded-2xl bg-white border border-slate-200 shadow-sm">
+        <div class="p-4 border-b border-slate-200"><h2 class="font-semibold">Kanban – prosjekter</h2></div>
+        <div id="kanbanBoard" class="p-4 grid grid-cols-1 gap-4"></div>
+      </div>
 
-          <div class="rounded-2xl bg-white border border-slate-200 shadow-sm">
-            <div class="p-4 border-b border-slate-200"><h2 class="font-semibold text-slate-900">Endringslogg</h2></div>
-            <div id="auditList" class="p-4 space-y-3 max-h-[300px] overflow-auto scrollbar-thin"></div>
-          </div>
-        </section>
-      </main>
-    </div>
+      <div class="rounded-2xl bg-white border border-slate-200 shadow-sm">
+        <div class="p-4 border-b border-slate-200"><h2 class="font-semibold">Varsellogg</h2></div>
+        <div id="notificationList" class="p-4 space-y-3 max-h-[300px] overflow-auto scrollbar-thin"></div>
+      </div>
+
+      <div class="rounded-2xl bg-white border border-slate-200 shadow-sm">
+        <div class="p-4 border-b border-slate-200"><h2 class="font-semibold">Endringslogg</h2></div>
+        <div id="auditList" class="p-4 space-y-3 max-h-[300px] overflow-auto scrollbar-thin"></div>
+      </div>
+    </section>
   </div>
 
   <div id="editModal" class="fixed inset-0 z-[200] bg-black/40 hidden items-center justify-center p-4">
