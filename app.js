@@ -219,7 +219,7 @@
 
   function cacheElements() {
     const ids = [
-      "statsRow", "searchInput", "employeeFilter", "viewMode", "calendarMode", "projectPlanQuickBtn", "unstaffedProjectsQuickBtn", "prevBtn", "nextBtn", "todayBtn",
+      "statsRow", "searchInput", "employeeFilter", "viewMode", "calendarMode", "personalPlanQuickBtn", "projectPlanQuickBtn", "unstaffedProjectsQuickBtn", "prevBtn", "nextBtn", "todayBtn",
       "calendarWrap", "holidayInfo", "projectSpotlightBar", "warningBox", "legendList", "projectList", "projectWorkspaceCard", "projectWorkspaceEmpty", "projectWorkspaceContent", "projectWorkspaceTitle", "projectWorkspaceMeta", "projectWorkspaceNotes", "projectWorkspaceAssignments", "projectWorkspaceActions", "assignProject", "assignPeriodWrap", "assignPeriod", "assignPeriodHint", "assignPeriodNav", "assignPrevPeriodBtn", "assignNextPeriodBtn", "assignEmployeesWrap", "assignSummary", "assignRole",
       "assignStart", "assignEnd", "assignNotes", "assignBtn", "bulkEmployees", "bulkAddBtn",
       "employeeList", "kanbanBoard", "notificationList", "auditList", "editModal", "closeModalBtn",
@@ -1510,14 +1510,12 @@
       });
     }
 
+    if (els.personalPlanQuickBtn) {
+      els.personalPlanQuickBtn.addEventListener("click", () => openPersonalCalendarView());
+    }
+
     if (els.projectPlanQuickBtn) {
-      els.projectPlanQuickBtn.addEventListener("click", () => {
-        if (state.calendarMode === "project" && state.projectListFilter === "all") {
-          openPersonalCalendarView();
-        } else {
-          openProjectCalendarView("all");
-        }
-      });
+      els.projectPlanQuickBtn.addEventListener("click", () => openProjectCalendarView("all"));
     }
 
     if (els.unstaffedProjectsQuickBtn) {
@@ -2809,7 +2807,7 @@
   function getProjectsForCurrentListFilter() {
     const visibleProjects = getVisibleProjects().slice().sort((a, b) => compareProjectDates(a, b));
     if (state.projectListFilter === "unstaffed") {
-      return visibleProjects.filter(project => getProjectAssignedCount(project.id) === 0);
+      return visibleProjects.filter(project => projectNeedsStaffing(project));
     }
     return visibleProjects;
   }
@@ -2847,7 +2845,7 @@
   function getProjectCalendarItems() {
     const projects = getVisibleProjects().slice();
     if (state.projectListFilter === "unstaffed") {
-      return projects.filter(project => projectNeedsStaffing(project));
+      return getUnstaffedProjectsForCurrentCalendarRange();
     }
     return projects;
   }
@@ -3676,9 +3674,16 @@ async function deleteEditedEntry() {
     }
   }
 
+  function getUnstaffedProjectsForCurrentCalendarRange() {
+    const range = getCurrentRange();
+    return getVisibleProjects()
+      .filter(project => projectNeedsStaffing(project))
+      .filter(project => projectOverlapsRange(project, range.start, range.end));
+  }
+
   function renderStats() {
     const visibleProjects = getVisibleProjects();
-    const unstaffedProjects = visibleProjects.filter(project => projectNeedsStaffing(project));
+    const unstaffedProjects = getUnstaffedProjectsForCurrentCalendarRange();
 
     if (els.statsRow) {
       els.statsRow.innerHTML = "";
@@ -3689,22 +3694,27 @@ async function deleteEditedEntry() {
 
   function updateProjectQuickControls(projectCount = null, unstaffedCount = null) {
     const totalProjects = projectCount ?? getVisibleProjects().length;
-    const missingStaffCount = unstaffedCount ?? getVisibleProjects().filter(project => projectNeedsStaffing(project)).length;
+    const missingStaffCount = unstaffedCount ?? getUnstaffedProjectsForCurrentCalendarRange().length;
+
+    if (els.personalPlanQuickBtn) {
+      const active = state.calendarMode === "personal";
+      els.personalPlanQuickBtn.classList.toggle("is-active", active);
+      els.personalPlanQuickBtn.textContent = "Ansattplan";
+      els.personalPlanQuickBtn.title = "Vis ansattplan i kalenderen";
+    }
 
     if (els.projectPlanQuickBtn) {
-      const inProjectPlanAll = state.calendarMode === "project" && state.projectListFilter !== "unstaffed";
-      els.projectPlanQuickBtn.classList.toggle("is-active", inProjectPlanAll);
-      els.projectPlanQuickBtn.textContent = inProjectPlanAll
-        ? "Personalplan"
-        : `Prosjektplan (${totalProjects}) ↗`;
-      els.projectPlanQuickBtn.title = inProjectPlanAll ? "Tilbake til personalplan" : "Åpne prosjektplan i kalenderen";
+      const active = state.calendarMode === "project" && state.projectListFilter !== "unstaffed";
+      els.projectPlanQuickBtn.classList.toggle("is-active", active);
+      els.projectPlanQuickBtn.textContent = `Prosjektplan (${totalProjects})`;
+      els.projectPlanQuickBtn.title = "Åpne prosjektplan i kalenderen";
     }
 
     if (els.unstaffedProjectsQuickBtn) {
       const active = state.calendarMode === "project" && state.projectListFilter === "unstaffed";
       els.unstaffedProjectsQuickBtn.classList.toggle("is-active", active);
       els.unstaffedProjectsQuickBtn.innerHTML = `Uten bemanning <span class="quick-count">${escapeHtml(String(missingStaffCount))}</span>`;
-      els.unstaffedProjectsQuickBtn.title = "Vis prosjekter som mangler bemanning i prosjektplanen";
+      els.unstaffedProjectsQuickBtn.title = "Vis prosjekter som mangler bemanning i prosjektplanen for valgt periode";
     }
   }
 

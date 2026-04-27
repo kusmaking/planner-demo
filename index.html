@@ -279,6 +279,7 @@
     body.iz-compact-ui #todayBtn,
     body.iz-compact-ui #nextBtn { padding-left: 17px !important; padding-right: 17px !important; }
 
+    body.iz-compact-ui #personalPlanQuickBtn,
     body.iz-compact-ui #projectPlanQuickBtn,
     body.iz-compact-ui #unstaffedProjectsQuickBtn {
       height: 42px !important;
@@ -296,6 +297,7 @@
       white-space: nowrap !important;
     }
 
+    body.iz-compact-ui #personalPlanQuickBtn.is-active,
     body.iz-compact-ui #projectPlanQuickBtn.is-active,
     body.iz-compact-ui #unstaffedProjectsQuickBtn.is-active {
       border-color: rgba(80, 240, 199, 0.75) !important;
@@ -682,7 +684,8 @@
               <option value="Måned">Måned</option>
               <option value="År">År</option>
             </select>
-            <button id="projectPlanQuickBtn" type="button">Prosjektplan ↗</button>
+            <button id="personalPlanQuickBtn" type="button">Ansattplan</button>
+            <button id="projectPlanQuickBtn" type="button">Prosjektplan</button>
             <button id="unstaffedProjectsQuickBtn" type="button">Uten bemanning <span class="quick-count">0</span></button>
           </div>
 
