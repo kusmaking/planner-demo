@@ -172,8 +172,7 @@
       "newEmployeeBtn", "employeeModal", "employeeModalTitle", "closeEmployeeModalBtn",
       "employeeName", "employeeEmail", "employeePhone", "employeeTitle", "employeeGroup", "employeeActive", "saveEmployeeBtn", "deleteEmployeeBtn",
       "calendarContextMenu", "contextMenuEmployee", "contextMenuStart", "contextMenuEnd", "contextMenuType", "contextMenuNotes", "contextMenuAddBtn", "contextMenuCloseBtn",
-      "accountPanel", "accountUserInfo", "changePasswordBtn", "resetPasswordBtn", "logoutBtn", "loginBtn", "loginModal", "closeLoginModalBtn", "loginEmail", "loginPassword", "loginSubmitBtn", "forgotPasswordBtn",
-      "sideNavCalendar", "sideNavProjects", "sideNavEmployees", "sideNavAdmin"
+      "accountPanel", "accountUserInfo", "changePasswordBtn", "resetPasswordBtn", "logoutBtn", "loginBtn", "loginModal", "closeLoginModalBtn", "loginEmail", "loginPassword", "loginSubmitBtn", "forgotPasswordBtn"
     ];
 
     ids.forEach(id => els[id] = document.getElementById(id));
@@ -380,19 +379,33 @@
   }
 
   function ensureAccountPanel() {
-    const panel = document.getElementById("accountPanel");
-    if (!panel) {
+    if (document.getElementById("accountPanel")) {
+      els.accountPanel = document.getElementById("accountPanel");
+      els.accountUserInfo = document.getElementById("accountUserInfo");
+      els.changePasswordBtn = document.getElementById("changePasswordBtn");
+      els.resetPasswordBtn = document.getElementById("resetPasswordBtn");
+      els.logoutBtn = document.getElementById("logoutBtn");
+      els.loginBtn = document.getElementById("loginBtn");
       ensureLoginModal();
       return;
     }
 
+    const panel = document.createElement("div");
+    panel.id = "accountPanel";
+    panel.className = "flex flex-wrap items-center justify-end gap-2";
+    panel.innerHTML = `
+      <div id="accountUserInfo" class="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700">Ikke innlogget</div>
+      <button id="loginBtn" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm hover:bg-slate-50">Logg inn</button>
+      <button id="changePasswordBtn" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm hover:bg-slate-50">Endre passord</button>
+      <button id="resetPasswordBtn" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm hover:bg-slate-50">Send reset-link</button>
+      <button id="logoutBtn" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm hover:bg-slate-50">Logg ut</button>
+    `;
+
+    const anchor = els.storageBadge?.parentElement || document.body.firstElementChild || document.body;
+    anchor.appendChild(panel);
+
     els.accountPanel = panel;
     els.accountUserInfo = document.getElementById("accountUserInfo");
-    els.accountMenuWrap = document.getElementById("accountMenuWrap");
-    els.accountMenuButton = document.getElementById("accountMenuButton");
-    els.accountMenuLabel = document.getElementById("accountMenuLabel");
-    els.accountMenuSub = document.getElementById("accountMenuSub");
-    els.accountMenu = document.getElementById("accountMenu");
     els.changePasswordBtn = document.getElementById("changePasswordBtn");
     els.resetPasswordBtn = document.getElementById("resetPasswordBtn");
     els.logoutBtn = document.getElementById("logoutBtn");
@@ -684,70 +697,11 @@
     if (card) card.style.display = visible ? "" : "none";
   }
 
-  function setAccountMenuOpen(open) {
-    if (!els.accountMenu) return;
-    const shouldOpen = !!open;
-    els.accountMenu.classList.toggle("hidden", !shouldOpen);
-    if (els.accountMenuButton) {
-      els.accountMenuButton.setAttribute("aria-expanded", shouldOpen ? "true" : "false");
-    }
-  }
-
-  function toTitleCase(value) {
-    return String(value || "")
-      .trim()
-      .split(/\s+/)
-      .filter(Boolean)
-      .map(part => part ? part.charAt(0).toUpperCase() + part.slice(1).toLowerCase() : "")
-      .join(" ");
-  }
-
-  function displayNameFromEmail(email) {
-    const localPart = String(email || "").split("@")[0] || "";
-    if (!localPart) return "";
-    return toTitleCase(localPart.replace(/[._-]+/g, " "));
-  }
-
-  function getAccountDisplayName() {
-    const current = String(state.currentUser || "").trim();
-    const email = String(state.currentUserEmail || "").trim();
-
-    if (current && current !== "Ikke innlogget" && current.toLowerCase() !== email.toLowerCase()) {
-      return current;
-    }
-
-    return displayNameFromEmail(email) || current || "Ikke innlogget";
-  }
-
-  function getAccountRoleLabel() {
-    const role = String(state.currentRole || "").trim();
-    if (!role) return "Pålogget";
-
-    const roleMap = {
-      superadmin: "Superadmin",
-      admin: "Admin",
-      planner: "Planner",
-      reader: "Leser"
-    };
-
-    return roleMap[role.toLowerCase()] || toTitleCase(role);
-  }
-
   function updateAccountPanel() {
-    const nameText = getAccountDisplayName();
-    const roleText = getAccountRoleLabel();
-
-    if (els.accountMenuLabel) {
-      els.accountMenuLabel.textContent = nameText;
-    }
-
-    if (els.accountMenuSub) {
-      els.accountMenuSub.textContent = roleText;
-    }
-
-    if (els.accountUserInfo) {
-      els.accountUserInfo.textContent = `${nameText} • ${roleText}`;
-    }
+    if (!els.accountUserInfo) return;
+    const roleText = state.currentRole ? ` • ${state.currentRole}` : "";
+    const nameText = state.currentUser || state.currentUserEmail || "Ikke innlogget";
+    els.accountUserInfo.textContent = `${nameText}${roleText}`;
   }
 
   function bindTabEvents() {
@@ -755,17 +709,6 @@
     if (els.tabProjectsBtn) els.tabProjectsBtn.addEventListener("click", () => setActiveTab("projects"));
     if (els.tabEmployeesBtn) els.tabEmployeesBtn.addEventListener("click", () => setActiveTab("employees"));
     if (els.tabAdminBtn) els.tabAdminBtn.addEventListener("click", () => setActiveTab("admin"));
-
-    const sideButtons = [
-      [els.sideNavCalendar, "calendar"],
-      [els.sideNavProjects, "projects"],
-      [els.sideNavEmployees, "employees"],
-      [els.sideNavAdmin, "admin"]
-    ];
-    sideButtons.forEach(([btn, tab]) => {
-      if (!btn) return;
-      btn.addEventListener("click", () => setActiveTab(tab));
-    });
   }
 
   function setActiveTab(tabName) {
@@ -811,20 +754,6 @@
       if (!section) return;
       section.style.display = state.activeTab === name ? "" : "none";
     });
-
-    const sideButtons = {
-      calendar: els.sideNavCalendar,
-      projects: els.sideNavProjects,
-      employees: els.sideNavEmployees,
-      admin: els.sideNavAdmin
-    };
-
-    Object.entries(sideButtons).forEach(([name, btn]) => {
-      if (!btn) return;
-      const visible = allowedTabs.includes(name);
-      btn.style.display = visible ? "" : "none";
-      btn.classList.toggle("is-active", state.activeTab === name);
-    });
   }
 
 
@@ -836,11 +765,11 @@
     const isSA = isSuperadmin();
 
     if (els.storageBadge) {
-      els.storageBadge.style.display = "none";
+      els.storageBadge.style.display = isSA ? "" : "none";
     }
 
     if (els.saveStatus) {
-      els.saveStatus.style.display = "none";
+      els.saveStatus.style.display = canPlan ? "" : "none";
     }
 
     if (els.resetDemoBtn) {
@@ -849,13 +778,6 @@
 
     if (els.loginBtn) {
       els.loginBtn.style.display = isLoggedIn ? "none" : "";
-      els.loginBtn.classList.remove("hidden");
-    }
-
-    if (els.accountMenuWrap) {
-      els.accountMenuWrap.classList.toggle("hidden", !isLoggedIn);
-      els.accountMenuWrap.style.display = isLoggedIn ? "" : "none";
-      if (!isLoggedIn) setAccountMenuOpen(false);
     }
 
     if (els.changePasswordBtn) {
@@ -863,7 +785,7 @@
     }
 
     if (els.resetPasswordBtn) {
-      els.resetPasswordBtn.style.display = "none";
+      els.resetPasswordBtn.style.display = isLoggedIn ? "" : "none";
     }
 
     if (els.logoutBtn) {
@@ -1316,23 +1238,6 @@
     }
 
     document.addEventListener("click", handleEmployeeGroupFilterOutsideClick);
-    if (els.accountMenuButton) {
-      els.accountMenuButton.addEventListener("click", event => {
-        event.preventDefault();
-        event.stopPropagation();
-        const isOpen = els.accountMenu && !els.accountMenu.classList.contains("hidden");
-        setAccountMenuOpen(!isOpen);
-      });
-    }
-
-    if (els.accountMenu) {
-      els.accountMenu.addEventListener("click", event => {
-        event.stopPropagation();
-      });
-    }
-
-    document.addEventListener("click", () => setAccountMenuOpen(false));
-
 
     bindTabEvents();
     if (els.calendarPanelHandleBtn) {
@@ -1513,10 +1418,7 @@
     });
 
     if (els.changePasswordBtn) {
-      els.changePasswordBtn.addEventListener("click", () => {
-        setAccountMenuOpen(false);
-        handleChangePassword();
-      });
+      els.changePasswordBtn.addEventListener("click", handleChangePassword);
     }
 
     if (els.resetPasswordBtn) {
@@ -1524,10 +1426,7 @@
     }
 
     if (els.logoutBtn) {
-      els.logoutBtn.addEventListener("click", () => {
-        setAccountMenuOpen(false);
-        handleLogout();
-      });
+      els.logoutBtn.addEventListener("click", handleLogout);
     }
 
     if (els.loginBtn) {
