@@ -1467,9 +1467,6 @@
     }
 
     document.addEventListener("click", handleEmployeeGroupFilterOutsideClick);
-    document.addEventListener("keydown", event => {
-      if (event.key === "Escape") clearProjectSpotlight();
-    });
 
     bindTabEvents();
     if (els.calendarPanelHandleBtn) {
@@ -4178,6 +4175,18 @@ async function deleteEditedEntry() {
     renderCalendar();
   }
 
+  function bindEmptyCalendarClickForProjectSpotlight() {
+    if (!els.calendarWrap) return;
+    els.calendarWrap.querySelectorAll(".drop-row").forEach(row => {
+      row.addEventListener("click", event => {
+        if (!state.projectSpotlightId) return;
+        if (event.target?.closest?.(".entry-bar")) return;
+        if (event.target?.closest?.("[data-resize-handle]")) return;
+        clearProjectSpotlight();
+      });
+    });
+  }
+
   function renderProjectSpotlightBar() {
     if (!els.projectSpotlightBar) return;
     const project = getProjectSpotlightProject();
@@ -4325,6 +4334,7 @@ async function deleteEditedEntry() {
     els.calendarWrap.innerHTML = html;
     bindEmployeeGroupCollapseButtons();
     bindEntryClicks();
+    bindEmptyCalendarClickForProjectSpotlight();
     bindResizeHandles();
     renderWarnings(uniqueArray(warnings));
   }
@@ -4426,6 +4436,7 @@ async function deleteEditedEntry() {
     els.calendarWrap.innerHTML = html;
     bindEmployeeGroupCollapseButtons();
     bindEntryClicks();
+    bindEmptyCalendarClickForProjectSpotlight();
     bindResizeHandles();
     renderWarnings(uniqueArray(warnings));
   }
