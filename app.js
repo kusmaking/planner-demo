@@ -1297,24 +1297,6 @@
     openCalendarContextMenuFromEvent(event);
   }
 
-  function handleCalendarEmptyCellClick(event) {
-    if (state.calendarMode !== "personal" || state.viewMode === "År") return;
-    if (!canEditApp()) return;
-    if (!els.calendarWrap) return;
-    if (event.target?.closest?.(".entry-bar")) return;
-    if (event.target?.closest?.("[data-resize-handle]")) return;
-    if (event.target?.closest?.("[data-employee-group-toggle]")) return;
-    if (event.target?.closest?.("#calendarContextMenu")) return;
-    if (!getCalendarDropRowFromPointer(event)) return;
-
-    const opened = openCalendarContextMenuFromEvent(event);
-    if (opened) {
-      event.preventDefault();
-      event.stopPropagation();
-      if (typeof event.stopImmediatePropagation === "function") event.stopImmediatePropagation();
-    }
-  }
-
   function getEmployeeGroupBadgeClass(group) {
     return EMPLOYEE_GROUP_BADGE_STYLES[group] || "border-slate-200 bg-slate-100 text-slate-700";
   }
@@ -1552,7 +1534,6 @@
     document.addEventListener("click", handleEmployeeGroupFilterOutsideClick);
     if (els.calendarWrap) {
       els.calendarWrap.addEventListener("contextmenu", handleCalendarWrapContextMenu, true);
-      els.calendarWrap.addEventListener("click", handleCalendarEmptyCellClick, true);
       els.calendarWrap.addEventListener("pointerdown", event => {
         if (event.button === 2) openCalendarContextMenuFromEvent(event);
       }, true);
@@ -5545,4 +5526,85 @@ function getEntryBarClasses(project, role, entry = null) {
       .replaceAll('"', "&quot;")
       .replaceAll("'", "&#039;");
   }
+
+  function installPlannerPersonalBlockDebug() {
+    if (document.getElementById("plannerPersonalBlockDebugPanel")) return;
+
+    const panel = document.createElement("div");
+    panel.id = "plannerPersonalBlockDebugPanel";
+    panel.style.cssText = [
+      "position:fixed",
+      "left:12px",
+      "bottom:12px",
+      "z-index:2147483647",
+      "max-width:580px",
+      "font:12px/1.35 system-ui,-apple-system,Segoe UI,sans-serif",
+      "background:#fff7ed",
+      "color:#111827",
+      "border:2px solid #f97316",
+      "box-shadow:0 12px 30px rgba(0,0,0,.25)",
+      "border-radius:10px",
+      "padding:10px 12px",
+      "white-space:pre-wrap",
+      "pointer-events:none"
+    ].join(";");
+    document.body.appendChild(panel);
+
+    const update = (lines) => {
+      const now = new Date().toLocaleTimeString();
+      panel.textContent = [
+        "DEBUG app.js loaded – personal block test",
+        `Time: ${now}`,
+        `Role: ${state.currentRole || "(blank)"}`,
+        `canEditApp: ${typeof canEditApp === "function" ? canEditApp() : "missing"}`,
+        `calendarMode: ${state.calendarMode}`,
+        `viewMode: ${state.viewMode}`,
+        `calendarWrap: ${!!els.calendarWrap}`,
+        ...(lines || [])
+      ].join("\n");
+    };
+
+    update(["Waiting for click/right-click in calendar..."]);
+
+    const inspectEvent = (event, label) => {
+      let row = null;
+      let meta = null;
+      try {
+        row = typeof getCalendarDropRowFromPointer === "function" ? getCalendarDropRowFromPointer(event) : null;
+        if (row && typeof getDropMetaFromRow === "function") meta = getDropMetaFromRow(row, event);
+      } catch (err) {
+        meta = { error: err?.message || String(err) };
+      }
+
+      const inCalendar = !!(els.calendarWrap && els.calendarWrap.contains(event.target));
+      const targetDesc = event.target?.className ? String(event.target.className).slice(0, 180) : event.target?.tagName || "";
+
+      update([
+        `Event: ${label}`,
+        `Button: ${event.button}`,
+        `Target: ${targetDesc}`,
+        `In calendar: ${inCalendar}`,
+        `Row found: ${!!row}`,
+        `Employee: ${row?.dataset?.employeeName || "(none)"}`,
+        `Range start: ${row?.dataset?.rangeStart || "(none)"}`,
+        `colWidth: ${row?.dataset?.colWidth || "(none)"}`,
+        `Drop colIndex: ${meta?.colIndex ?? "(none)"}`,
+        `Drop date: ${meta?.dropDate || "(none)"}`,
+        `Meta rangeStart: ${meta?.rangeStart || "(none)"}`,
+        `Meta error: ${meta?.error || "(none)"}`,
+        `Context menu visible: ${state.contextMenu?.visible}`,
+        `Mouse: ${event.clientX}, ${event.clientY}`
+      ]);
+    };
+
+    document.addEventListener("contextmenu", event => inspectEvent(event, "contextmenu"), true);
+    document.addEventListener("click", event => inspectEvent(event, "click"), true);
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", () => setTimeout(installPlannerPersonalBlockDebug, 1200));
+  } else {
+    setTimeout(installPlannerPersonalBlockDebug, 1200);
+  }
+
 })();
