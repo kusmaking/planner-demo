@@ -592,12 +592,12 @@
 
     const menu = document.createElement("div");
     menu.id = "calendarContextMenu";
-    menu.className = "fixed z-[120] hidden w-80 rounded-2xl border border-slate-200 bg-white shadow-2xl";
+    menu.className = "fixed z-[500] hidden w-80 rounded-2xl border border-slate-200 bg-white shadow-2xl";
     menu.innerHTML = `
       <div class="p-4 border-b border-slate-200 flex items-center justify-between gap-3">
         <div>
           <div class="font-semibold">Legg til direkte blokk</div>
-          <div class="text-xs text-slate-500 mt-1">Fra høyreklikk i kalender</div>
+          <div class="text-xs text-slate-500 mt-1">Fra kalender</div>
         </div>
         <button id="contextMenuCloseBtn" class="rounded-lg border border-slate-300 px-3 py-1 text-sm">Lukk</button>
       </div>
@@ -4225,31 +4225,43 @@ async function deleteEditedEntry() {
     renderCalendar();
   }
 
+  function handleEmptyCalendarSlotAction(row, event) {
+    if (!row || !event) return;
+    if (event.button !== 0) return;
+    if (event.target?.closest?.(".entry-bar")) return;
+    if (event.target?.closest?.("[data-resize-handle]")) return;
+    if (event.target?.closest?.("[data-employee-group-toggle]")) return;
+    if (state.dragEntryId) return;
+
+    if (state.projectSpotlightId) {
+      event.preventDefault();
+      event.stopPropagation();
+      clearProjectSpotlight();
+      return;
+    }
+
+    if (!canEditApp()) return;
+    if (state.calendarMode !== "personal" || state.viewMode === "År") return;
+
+    const targetEmployeeName = row.dataset.employeeName;
+    if (!targetEmployeeName) return;
+    const dropMeta = getDropMetaFromRow(row, event);
+    if (!dropMeta?.rangeStart || !Number.isFinite(dropMeta.colIndex)) return;
+
+    const selectedDate = dropMeta?.dropDate
+      ? toIsoDate(parseIsoDateLocal(dropMeta.dropDate))
+      : toIsoDate(addDays(parseIsoDateLocal(dropMeta.rangeStart), dropMeta.colIndex));
+
+    event.preventDefault();
+    event.stopPropagation();
+    openCalendarContextMenu(targetEmployeeName, selectedDate, event.clientX + 8, event.clientY + 8);
+  }
+
   function bindEmptyCalendarClickForProjectSpotlight() {
     if (!els.calendarWrap) return;
     els.calendarWrap.querySelectorAll(".drop-row").forEach(row => {
-      row.addEventListener("click", event => {
-        if (event.button !== 0) return;
-        if (event.target?.closest?.(".entry-bar")) return;
-        if (event.target?.closest?.("[data-resize-handle]")) return;
-        if (state.dragEntryId) return;
-
-        if (state.projectSpotlightId) {
-          clearProjectSpotlight();
-          return;
-        }
-
-        if (!canEditApp()) return;
-        if (state.calendarMode !== "personal" || state.viewMode === "År") return;
-
-        const targetEmployeeName = row.dataset.employeeName;
-        if (!targetEmployeeName) return;
-        const dropMeta = getDropMetaFromRow(row, event);
-        if (!dropMeta?.rangeStart || !Number.isFinite(dropMeta.colIndex)) return;
-        const selectedDate = dropMeta?.dropDate
-          ? toIsoDate(parseIsoDateLocal(dropMeta.dropDate))
-          : toIsoDate(addDays(parseIsoDateLocal(dropMeta.rangeStart), dropMeta.colIndex));
-        openCalendarContextMenu(targetEmployeeName, selectedDate, event.clientX + 8, event.clientY + 8);
+      row.addEventListener("pointerup", event => {
+        handleEmptyCalendarSlotAction(row, event);
       });
     });
   }
