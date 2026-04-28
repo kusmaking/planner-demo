@@ -3448,7 +3448,7 @@ async function deleteEditedEntry() {
     if (!canEditApp()) return;
     const name = els.projectName.value.trim();
     const category = els.projectCategory.value;
-    const status = els.projectStatus.value;
+    const status = normalizeProjectStatus(els.projectStatus.value);
     const singlePlannedStart = els.projectPlannedStart.value;
     const singlePlannedEnd = els.projectPlannedEnd.value;
     const hasMultiplePeriods = Boolean(els.projectHasMultiplePeriods?.checked);
@@ -3488,6 +3488,18 @@ async function deleteEditedEntry() {
     }
 
     let project = state.projects.find(p => p.id === state.selectedProjectId);
+    const isExistingProject = Boolean(project);
+    const willCancelProject = status === "Kansellert";
+    const entriesToRemoveOnCancel = project
+      ? state.entries.filter(entry => entry.project_id === project.id)
+      : [];
+
+    if (willCancelProject && entriesToRemoveOnCancel.length) {
+      const confirmed = confirm(
+        `Prosjektet settes til Kansellert. Dette fjerner ${entriesToRemoveOnCancel.length} tildeling${entriesToRemoveOnCancel.length === 1 ? "" : "er"} fra ansattplanen. Prosjektet blir fortsatt liggende i prosjektplanen. Fortsette?`
+      );
+      if (!confirmed) return;
+    }
 
     if (project) {
       project.name = name;
@@ -3524,9 +3536,28 @@ async function deleteEditedEntry() {
     const result = await saveRow("planner_projects", project);
     if (!result.ok) return;
 
+    if (willCancelProject && entriesToRemoveOnCancel.length) {
+      const removedEntryIds = new Set(entriesToRemoveOnCancel.map(entry => entry.id));
+      state.entries = state.entries.filter(entry => !removedEntryIds.has(entry.id));
+      rebuildDerivedState();
+      saveAllLocal();
+
+      let failedDeletes = 0;
+      for (const entry of entriesToRemoveOnCancel) {
+        const deleteResult = await deleteRow("planner_entries", entry.id);
+        if (!deleteResult.ok) failedDeletes += 1;
+      }
+
+      if (failedDeletes) {
+        alert(`Prosjektet ble kansellert, men ${failedDeletes} tildeling${failedDeletes === 1 ? "" : "er"} kunne ikke slettes fra Supabase. Oppdater siden og kontroller ansattplanen.`);
+      }
+
+      void addAudit(`Kansellerte prosjekt og fjernet ${entriesToRemoveOnCancel.length} tildeling${entriesToRemoveOnCancel.length === 1 ? "" : "er"}: ${name}`);
+    }
+
     closeProjectModal();
     renderAll();
-    void addAudit(`${state.selectedProjectId ? "Redigerte" : "Opprettet"} prosjekt: ${name}`);
+    void addAudit(`${isExistingProject ? "Redigerte" : "Opprettet"} prosjekt: ${name}`);
   }
 
   async function deleteProjectFromModal() {
