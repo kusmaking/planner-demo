@@ -1297,6 +1297,10 @@
     if (event.target?.closest?.("[data-resize-handle]")) return false;
     if (event.target?.closest?.("#calendarContextMenu")) return false;
 
+    // Når prosjekt-spotlight er aktiv, skal tomme kalenderfelt ikke åpne
+    // ferie/syk/kurs/avspasering. Bruk Nullstill fokus først.
+    if (getProjectSpotlightProject()) return false;
+
     const row = getCalendarDropRowFromPointer(event);
     if (!row) return false;
 
