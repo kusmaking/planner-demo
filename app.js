@@ -2823,6 +2823,9 @@
 
   function openCalendarContextMenu(employeeName, isoDate, x, y) {
     if (!canEditApp() || !els.calendarContextMenu) return;
+    // Hard stop: personalblokker skal ikke kunne åpnes mens prosjekt-spotlight er aktiv.
+    // Brukeren må først trykke Nullstill fokus.
+    if (state.projectSpotlightId || getProjectSpotlightProject()) return;
 
     state.contextMenu = {
       visible: true,
