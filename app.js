@@ -592,7 +592,7 @@
 
     const menu = document.createElement("div");
     menu.id = "calendarContextMenu";
-    menu.className = "fixed z-[300] hidden w-80 rounded-2xl border border-slate-200 bg-white shadow-2xl";
+    menu.className = "fixed z-[9999] hidden w-80 rounded-2xl border border-slate-200 bg-white shadow-2xl";
     menu.innerHTML = `
       <div class="p-4 border-b border-slate-200 flex items-center justify-between gap-3">
         <div>
@@ -1239,19 +1239,48 @@
     toggleEmployeeGroupFilter(false);
   }
 
-  function handleCalendarWrapContextMenu(event) {
-    if (state.calendarMode !== "personal" || state.viewMode === "År") return;
-    if (!canEditApp()) return;
-    if (event.target?.closest?.(".entry-bar")) return;
+  function getCalendarDropRowFromPointer(event) {
+    if (!els.calendarWrap) return null;
+    const target = event.target;
+    const directRow = target?.closest?.(".drop-row");
+    if (directRow && els.calendarWrap.contains(directRow)) return directRow;
 
-    const row = event.target?.closest?.(".drop-row");
-    if (!row || !els.calendarWrap?.contains(row)) return;
+    if (typeof document.elementsFromPoint === "function") {
+      const hitElements = document.elementsFromPoint(event.clientX, event.clientY);
+      for (const hit of hitElements) {
+        if (!(hit instanceof HTMLElement)) continue;
+        const row = hit.matches(".drop-row") ? hit : hit.closest(".drop-row");
+        if (row && els.calendarWrap.contains(row)) return row;
+      }
+    }
+
+    const rows = Array.from(els.calendarWrap.querySelectorAll(".drop-row"));
+    for (const row of rows) {
+      const rect = row.getBoundingClientRect();
+      if (event.clientY >= rect.top && event.clientY <= rect.bottom && event.clientX >= rect.left && event.clientX <= rect.right) {
+        return row;
+      }
+    }
+
+    return null;
+  }
+
+  function openCalendarContextMenuFromEvent(event) {
+    if (state.calendarMode !== "personal" || state.viewMode === "År") return false;
+    if (!canEditApp()) return false;
+    if (!els.calendarWrap) return false;
+    if (event.target?.closest?.(".entry-bar")) return false;
+    if (event.target?.closest?.("[data-resize-handle]")) return false;
+    if (event.target?.closest?.("#calendarContextMenu")) return false;
+
+    const row = getCalendarDropRowFromPointer(event);
+    if (!row) return false;
 
     const targetEmployeeName = row.dataset.employeeName;
-    if (!targetEmployeeName) return;
+    if (!targetEmployeeName) return false;
 
     const dropMeta = getDropMetaFromRow(row, event);
-    if (!dropMeta?.rangeStart || !Number.isFinite(dropMeta.colIndex)) return;
+    if (!dropMeta?.rangeStart || !Number.isFinite(dropMeta.colIndex)) return false;
 
     const selectedDate = dropMeta?.dropDate
       ? toIsoDate(parseIsoDateLocal(dropMeta.dropDate))
@@ -1259,7 +1288,13 @@
 
     event.preventDefault();
     event.stopPropagation();
+    if (typeof event.stopImmediatePropagation === "function") event.stopImmediatePropagation();
     openCalendarContextMenu(targetEmployeeName, selectedDate, event.clientX + 8, event.clientY + 8);
+    return true;
+  }
+
+  function handleCalendarWrapContextMenu(event) {
+    openCalendarContextMenuFromEvent(event);
   }
 
   function getEmployeeGroupBadgeClass(group) {
@@ -1499,6 +1534,12 @@
     document.addEventListener("click", handleEmployeeGroupFilterOutsideClick);
     if (els.calendarWrap) {
       els.calendarWrap.addEventListener("contextmenu", handleCalendarWrapContextMenu, true);
+      els.calendarWrap.addEventListener("pointerdown", event => {
+        if (event.button === 2) openCalendarContextMenuFromEvent(event);
+      }, true);
+      els.calendarWrap.addEventListener("mousedown", event => {
+        if (event.button === 2) openCalendarContextMenuFromEvent(event);
+      }, true);
     }
 
     bindTabEvents();
@@ -1616,7 +1657,6 @@
       els.contextMenuCloseBtn.addEventListener("click", hideCalendarContextMenu);
     }
     document.addEventListener("click", handleGlobalPointerClose, true);
-    window.addEventListener("scroll", hideCalendarContextMenu, true);
     window.addEventListener("resize", hideCalendarContextMenu);
     window.addEventListener("mousemove", handleResizePointerMove);
     window.addEventListener("mouseup", handleResizePointerUp);
@@ -4703,16 +4743,7 @@ async function deleteEditedEntry() {
 
     els.calendarWrap.querySelectorAll(".drop-row").forEach(row => {
       row.addEventListener("contextmenu", event => {
-        if (state.calendarMode !== "personal" || state.viewMode === "År") return;
-        event.preventDefault();
-        const targetEmployeeName = row.dataset.employeeName;
-        if (!targetEmployeeName) return;
-        const dropMeta = getDropMetaFromRow(row, event);
-        if (!dropMeta?.rangeStart || !Number.isFinite(dropMeta.colIndex)) return;
-        const selectedDate = dropMeta?.dropDate
-          ? toIsoDate(parseIsoDateLocal(dropMeta.dropDate))
-          : toIsoDate(addDays(parseIsoDateLocal(dropMeta.rangeStart), dropMeta.colIndex));
-        openCalendarContextMenu(targetEmployeeName, selectedDate, event.clientX + 8, event.clientY + 8);
+        openCalendarContextMenuFromEvent(event);
       });
 
       row.addEventListener("dragover", event => {
