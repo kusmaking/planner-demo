@@ -4229,10 +4229,27 @@ async function deleteEditedEntry() {
     if (!els.calendarWrap) return;
     els.calendarWrap.querySelectorAll(".drop-row").forEach(row => {
       row.addEventListener("click", event => {
-        if (!state.projectSpotlightId) return;
+        if (event.button !== 0) return;
         if (event.target?.closest?.(".entry-bar")) return;
         if (event.target?.closest?.("[data-resize-handle]")) return;
-        clearProjectSpotlight();
+        if (state.dragEntryId) return;
+
+        if (state.projectSpotlightId) {
+          clearProjectSpotlight();
+          return;
+        }
+
+        if (!canEditApp()) return;
+        if (state.calendarMode !== "personal" || state.viewMode === "År") return;
+
+        const targetEmployeeName = row.dataset.employeeName;
+        if (!targetEmployeeName) return;
+        const dropMeta = getDropMetaFromRow(row, event);
+        if (!dropMeta?.rangeStart || !Number.isFinite(dropMeta.colIndex)) return;
+        const selectedDate = dropMeta?.dropDate
+          ? toIsoDate(parseIsoDateLocal(dropMeta.dropDate))
+          : toIsoDate(addDays(parseIsoDateLocal(dropMeta.rangeStart), dropMeta.colIndex));
+        openCalendarContextMenu(targetEmployeeName, selectedDate, event.clientX + 8, event.clientY + 8);
       });
     });
   }
