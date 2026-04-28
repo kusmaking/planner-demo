@@ -257,13 +257,15 @@
 
     body.iz-compact-ui #searchInput,
     body.iz-compact-ui #employeeGroupFilterButton,
+    body.iz-compact-ui #projectFilterControl,
+    body.iz-compact-ui #calendarNewProjectBtn,
     body.iz-compact-ui #calendarMode,
     body.iz-compact-ui #viewMode,
     body.iz-compact-ui #prevBtn,
     body.iz-compact-ui #todayBtn,
     body.iz-compact-ui #nextBtn {
       height: 42px !important;
-      border-radius: 5px !important;
+      border-radius: 4px !important;
       background: rgba(3, 20, 28, 0.62) !important;
       border: 1px solid rgba(172, 219, 230, 0.35) !important;
       color: #ffffff !important;
@@ -273,6 +275,8 @@
 
     body.iz-compact-ui #searchInput { width: 240px !important; }
     body.iz-compact-ui #employeeGroupFilterButton { width: 315px !important; }
+    body.iz-compact-ui #projectFilterControl { width: 260px !important; }
+    body.iz-compact-ui #calendarNewProjectBtn { padding-left: 16px !important; padding-right: 16px !important; font-weight: 700 !important; }
     body.iz-compact-ui #calendarMode { width: 170px !important; }
     body.iz-compact-ui #viewMode { width: 120px !important; }
     body.iz-compact-ui #prevBtn,
@@ -322,7 +326,16 @@
     body.iz-compact-ui #searchInput::placeholder { color: rgba(235, 248, 250, 0.73); }
     body.iz-compact-ui #employeeGroupFilterLabel { color: #ffffff !important; }
     body.iz-compact-ui #employeeGroupFilterButton span:last-child { color: rgba(255,255,255,0.85) !important; }
-    body.iz-compact-ui select option { color: #0f172a; }
+    body.iz-compact-ui #projectFilterControl { color: #ffffff !important; }
+    body.iz-compact-ui #projectFilterControl option,
+    body.iz-compact-ui select option { color: #0f172a; background: #ffffff; }
+
+    body.iz-compact-ui #employeeGroupFilterPanel,
+    body.iz-compact-ui #accountMenuDropdown,
+    body.iz-compact-ui #calendarPanelCol,
+    body.iz-compact-ui #calendarPanelContent {
+      border-radius: 4px !important;
+    }
 
     body.iz-compact-ui #rangeTitle,
     body.iz-compact-ui #holidayInfo,

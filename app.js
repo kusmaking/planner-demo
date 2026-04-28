@@ -449,7 +449,7 @@
     }
     const select = document.createElement("select");
     select.id = "projectFilterControl";
-    select.className = "hidden w-[260px] rounded-2xl border border-slate-300 px-3 py-2";
+    select.className = "hidden w-[260px] rounded border border-slate-300 bg-white px-3 py-2 text-sm";
     select.setAttribute("aria-label", "Filtrer prosjekter");
     const anchor = document.getElementById("employeeGroupFilterControl") || els.employeeFilter;
     anchor.parentNode.insertBefore(select, anchor.nextSibling);
@@ -465,7 +465,7 @@
     const button = document.createElement("button");
     button.id = "calendarNewProjectBtn";
     button.type = "button";
-    button.className = "hidden rounded-2xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50";
+    button.className = "hidden rounded border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50";
     button.textContent = "+ Nytt prosjekt";
     const anchor = document.getElementById("projectFilterControl") || els.employeeFilter;
     anchor.parentNode.insertBefore(button, anchor.nextSibling);
@@ -4235,7 +4235,7 @@ async function deleteEditedEntry() {
         els.calendarPanelContent.classList.add("hidden");
         return;
       }
-      els.calendarPanelCol.className = "w-full xl:w-[360px] shrink-0 rounded-2xl bg-white border border-slate-200 shadow-sm overflow-hidden transition-all duration-300";
+      els.calendarPanelCol.className = "w-full xl:w-[360px] shrink-0 rounded bg-white border border-slate-200 shadow-sm overflow-hidden transition-all duration-300";
       els.calendarPanelHandleBtn.className = "hidden";
       els.calendarPanelContent.classList.remove("hidden");
       renderProjectInspectorPanel(project);
