@@ -80,7 +80,7 @@
   };
 
   const els = {};
-  const PERSONAL_BLOCK_TYPES = ["Kurs", "Ferie", "Syk", "Avspasering"];
+  const PERSONAL_BLOCK_TYPES = ["Kurs", "Ferie", "Syk", "Avspasering", "Travel"];
   const PERSONAL_PROJECT_MARKER = "__personal_block_system_project__";
   const EMPLOYEE_GROUP_DEFINITIONS = [
     {
@@ -1963,11 +1963,32 @@
     }));
   }
 
+  function normalizeProjectStatus(status) {
+    const value = String(status || "").trim();
+    if (!value) return "Planlagt";
+    if (value === "Avsluttet") return "Fullført";
+    if (value === "Fullført") return "Fullført";
+    if (value === "Kansellert") return "Kansellert";
+    return STATUS_OPTIONS.includes(value) ? value : value;
+  }
+
+  function isCancelledProject(project) {
+    return normalizeProjectStatus(project?.status || "") === "Kansellert";
+  }
+
+  function isCompletedProject(project) {
+    return normalizeProjectStatus(project?.status || "") === "Fullført";
+  }
+
+  function isClosedProject(project) {
+    return isCompletedProject(project) || isCancelledProject(project);
+  }
+
   function normalizeProjects(list) {
     return (list || []).map(project => ({
       ...project,
       category: project?.category === "Project" ? "Offshore" : project?.category,
-      status: project?.status === "Fullført" ? "Avsluttet" : project?.status,
+      status: normalizeProjectStatus(project?.status || "Planlagt"),
       has_multiple_periods: Boolean(project?.has_multiple_periods),
       project_periods_json: normalizeProjectPeriods(project?.project_periods_json || [])
     }));
@@ -3837,7 +3858,7 @@ async function deleteEditedEntry() {
 
 
   function renderLegend() {
-    const projectCategoryHtml = ["Offshore", "Travel", "Onshore"].map(name => `
+    const projectCategoryHtml = ["Offshore", "Onshore"].map(name => `
       <div class="flex items-center gap-2">
         <span class="inline-block w-4 h-4 rounded ${CATEGORY_COLORS[name] || "bg-slate-400"}"></span>
         <span>${escapeHtml(name)}</span>
@@ -3927,7 +3948,7 @@ async function deleteEditedEntry() {
 
   function getArchivedProjectsForWorkspace() {
     return getVisibleProjects()
-      .filter(project => project.status === "Avsluttet")
+      .filter(project => isClosedProject(project))
       .slice()
       .sort((a, b) => compareProjectDates(a, b));
   }
@@ -4248,7 +4269,7 @@ async function deleteEditedEntry() {
         <div class="p-3 border-b border-slate-200 font-medium">${escapeHtml(group.status)} (${group.projects.length})</div>
         <div class="p-3 space-y-2">
           ${group.projects.length ? group.projects.map(project => `
-            <div class="rounded-xl border border-slate-200 ${project.status === "Avsluttet" ? "bg-slate-100" : "bg-white"} p-3">
+            <div class="rounded-xl border border-slate-200 ${isClosedProject(project) ? "bg-slate-100" : "bg-white"} p-3">
               <div class="font-medium">${escapeHtml(project.name)}</div>
               <div class="mt-1 text-xs text-slate-500">${escapeHtml(project.category)}${project.location ? ` • ${escapeHtml(project.location)}` : ""}</div>
               <div class="mt-1 text-xs text-slate-600">${escapeHtml(formatProjectDateRange(project))}</div>
@@ -4625,7 +4646,7 @@ async function deleteEditedEntry() {
       const projectPeriods = getProjectTimelinePeriods(project);
 
       html += `
-        <div class="sticky-col border-r border-b border-slate-200 px-3 py-2 ${project.status === "Avsluttet" ? "bg-slate-100" : "bg-white"}">
+        <div class="sticky-col border-r border-b border-slate-200 px-3 py-2 ${isClosedProject(project) ? "bg-slate-100" : "bg-white"}">
           <div class="font-medium">${escapeHtml(project.name)}</div>
           <div class="text-xs text-slate-500">${escapeHtml(project.location || "")}</div>
           <div class="text-xs ${staffing.variant} mt-1">${escapeHtml(staffing.text)}${required ? ` (${assigned}/${required})` : ""}</div>
@@ -4703,7 +4724,7 @@ async function deleteEditedEntry() {
       const staffing = getProjectStaffingLabel(project.id, required);
 
       html += `
-        <div class="sticky-col border-r border-b border-slate-200 px-3 py-3 ${project.status === "Avsluttet" ? "bg-slate-100" : ""}">
+        <div class="sticky-col border-r border-b border-slate-200 px-3 py-3 ${isClosedProject(project) ? "bg-slate-100" : ""}">
           <div class="font-medium">${escapeHtml(project.name)}</div>
           <div class="text-xs text-slate-500">${escapeHtml(project.location || "")}</div>
           <div class="text-xs ${staffing.variant} mt-1">${escapeHtml(staffing.text)}${required ? ` (${assigned}/${required})` : ""}</div>
@@ -5261,7 +5282,8 @@ function getFilteredEmployees() {
   }
 
   function getProjectRemainingSlots(projectId, required = null) {
-    const project = required === null ? getProjectById(projectId) : null;
+    const project = getProjectById(projectId);
+    if (project && isCancelledProject(project)) return 0;
     const requiredBase = required !== null ? required : (project?.headcount_required ?? 0);
     const requiredCount = Math.max(Number(requiredBase), 0);
     const assignedCount = getProjectAssignedCount(projectId);
@@ -5269,12 +5291,18 @@ function getFilteredEmployees() {
   }
 
   function projectNeedsStaffing(project) {
+    if (!project || isClosedProject(project)) return false;
     const requiredCount = Math.max(Number(project?.headcount_required || 0), 0);
     if (!requiredCount) return false;
     return getProjectAssignedCount(project.id) < requiredCount;
   }
 
   function getProjectStaffingLabel(projectId, required) {
+    const project = getProjectById(projectId);
+    if (project && isCancelledProject(project)) {
+      return { text: "Kansellert", variant: "text-red-700" };
+    }
+
     const assigned = getProjectAssignedCount(projectId);
 
     if (assigned === 0) {
@@ -5589,14 +5617,16 @@ function getFilteredEmployees() {
 function getEntryBarClasses(project, role, entry = null) {
     const categoryClasses = CATEGORY_COLORS[project.category] || "bg-slate-500 border-slate-600 text-white";
     const roleClasses = ROLE_CLASSES[role] || "";
-    const endedClasses = project.status === "Avsluttet" ? " opacity-70 grayscale" : "";
+    const cancelledClasses = isCancelledProject(project) ? " bg-red-100 border-red-500 text-red-800 line-through decoration-red-600 decoration-2 opacity-80 grayscale" : "";
+    const endedClasses = !cancelledClasses && isCompletedProject(project) ? " opacity-70 grayscale" : "";
     const conflictClasses = entry && entryHasVisibleConflict(entry) ? " overlap-conflict border-2 border-red-700 ring-2 ring-red-300" : "";
-    return `${categoryClasses} ${roleClasses}${endedClasses}${conflictClasses}`;
+    return `${cancelledClasses || categoryClasses} ${roleClasses}${endedClasses}${conflictClasses}`;
   }
 
   function getProjectBarClasses(project) {
     const categoryClasses = CATEGORY_COLORS[project.category] || "bg-slate-500 border-slate-600 text-white";
-    const endedClasses = project.status === "Avsluttet" ? " opacity-70 grayscale" : "";
+    if (isCancelledProject(project)) return "bg-red-100 border-red-500 text-red-800 line-through decoration-red-600 decoration-2 opacity-80 grayscale";
+    const endedClasses = isCompletedProject(project) ? " opacity-70 grayscale" : "";
     return `${categoryClasses}${endedClasses}`;
   }
 
