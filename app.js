@@ -64,6 +64,7 @@
     activeTab: "calendar",
     calendarPanelOpen: false,
     projectListFilter: "all",
+    projectFilterCategory: "all",
     contextMenu: {
       visible: false,
       employeeName: "",
@@ -188,6 +189,8 @@
     cacheElements();
     hardenSearchInput();
     ensureEmployeeGroupFilterControl();
+    ensureProjectFilterControl();
+    ensureCalendarNewProjectButton();
     ensureAccountPanel();
     ensurePersonalBlockPanel();
     ensureCalendarContextMenu();
@@ -220,7 +223,7 @@
 
   function cacheElements() {
     const ids = [
-      "statsRow", "searchInput", "employeeFilter", "viewMode", "calendarMode", "personalPlanQuickBtn", "projectPlanQuickBtn", "unstaffedProjectsQuickBtn", "prevBtn", "nextBtn", "todayBtn",
+      "statsRow", "searchInput", "employeeFilter", "projectFilterControl", "calendarNewProjectBtn", "viewMode", "calendarMode", "personalPlanQuickBtn", "projectPlanQuickBtn", "unstaffedProjectsQuickBtn", "prevBtn", "nextBtn", "todayBtn",
       "calendarWrap", "holidayInfo", "projectSpotlightBar", "warningBox", "legendList", "projectList", "projectWorkspaceCard", "projectWorkspaceEmpty", "projectWorkspaceContent", "projectWorkspaceTitle", "projectWorkspaceMeta", "projectWorkspaceNotes", "projectWorkspaceAssignments", "projectWorkspaceActions", "assignProject", "assignPeriodWrap", "assignPeriod", "assignPeriodHint", "assignPeriodNav", "assignPrevPeriodBtn", "assignNextPeriodBtn", "assignEmployeesWrap", "assignSummary", "assignRole",
       "assignStart", "assignEnd", "assignNotes", "assignBtn", "bulkEmployees", "bulkAddBtn",
       "employeeList", "kanbanBoard", "notificationList", "auditList", "editModal", "closeModalBtn",
@@ -436,6 +439,57 @@
     els.groupFilterOptions = document.getElementById("employeeGroupFilterOptions");
 
     renderEmployeeGroupFilterControl();
+  }
+
+  function ensureProjectFilterControl() {
+    if (!els.employeeFilter) return;
+    if (document.getElementById("projectFilterControl")) {
+      els.projectFilterControl = document.getElementById("projectFilterControl");
+      return;
+    }
+    const select = document.createElement("select");
+    select.id = "projectFilterControl";
+    select.className = "hidden w-[260px] rounded-2xl border border-slate-300 px-3 py-2";
+    select.setAttribute("aria-label", "Filtrer prosjekter");
+    const anchor = document.getElementById("employeeGroupFilterControl") || els.employeeFilter;
+    anchor.parentNode.insertBefore(select, anchor.nextSibling);
+    els.projectFilterControl = select;
+  }
+
+  function ensureCalendarNewProjectButton() {
+    if (!els.employeeFilter) return;
+    if (document.getElementById("calendarNewProjectBtn")) {
+      els.calendarNewProjectBtn = document.getElementById("calendarNewProjectBtn");
+      return;
+    }
+    const button = document.createElement("button");
+    button.id = "calendarNewProjectBtn";
+    button.type = "button";
+    button.className = "hidden rounded-2xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50";
+    button.textContent = "+ Nytt prosjekt";
+    const anchor = document.getElementById("projectFilterControl") || els.employeeFilter;
+    anchor.parentNode.insertBefore(button, anchor.nextSibling);
+    els.calendarNewProjectBtn = button;
+  }
+
+  function updateCalendarSearchControls() {
+    if (!els.searchInput) return;
+    const isProjectMode = state.calendarMode === "project";
+    els.searchInput.placeholder = isProjectMode ? "Søk prosjekt" : "Søk ansatt";
+    els.searchInput.setAttribute("aria-label", isProjectMode ? "Søk prosjekt" : "Søk ansatt");
+    els.searchInput.setAttribute("name", isProjectMode ? "planner_project_search_filter" : "planner_search_filter");
+    if (els.groupFilterControl) els.groupFilterControl.classList.toggle("hidden", isProjectMode);
+    if (els.projectFilterControl) els.projectFilterControl.classList.toggle("hidden", !isProjectMode);
+    if (els.calendarNewProjectBtn) els.calendarNewProjectBtn.classList.toggle("hidden", !isProjectMode);
+  }
+
+  function getProjectFilterOptions() {
+    const categories = Array.from(new Set(getVisibleProjects().map(project => project.category).filter(Boolean)))
+      .sort((a, b) => a.localeCompare(b, "no"));
+    return [
+      { id: "all", name: "Alle prosjekter / kategorier" },
+      ...categories.map(category => ({ id: category, name: category }))
+    ];
   }
 
   function ensureAccountPanel() {
@@ -1605,6 +1659,18 @@
       renderStats();
       renderCalendar();
     });
+
+    if (els.projectFilterControl) {
+      els.projectFilterControl.addEventListener("change", e => {
+        state.projectFilterCategory = e.target.value || "all";
+        renderStats();
+        renderCalendar();
+      });
+    }
+
+    if (els.calendarNewProjectBtn) {
+      els.calendarNewProjectBtn.addEventListener("click", () => openProjectModal());
+    }
 
     els.viewMode.addEventListener("change", e => {
       state.viewMode = e.target.value;
@@ -2968,29 +3034,43 @@
     state.calendarMode = "project";
     state.projectListFilter = filter === "unstaffed" ? "unstaffed" : "all";
     state.projectSpotlightId = "";
+    state.calendarPanelOpen = false;
+    state.focusProjectId = "";
     if (els.calendarMode) els.calendarMode.value = "project";
+    updateCalendarSearchControls();
     persistUiState();
     setActiveTab("calendar");
     renderStats();
+    renderCalendarPanel();
     renderCalendar();
   }
 
   function openPersonalCalendarView() {
     state.calendarMode = "personal";
     state.projectListFilter = "all";
+    state.calendarPanelOpen = false;
     if (els.calendarMode) els.calendarMode.value = "personal";
+    updateCalendarSearchControls();
     persistUiState();
     setActiveTab("calendar");
     renderStats();
+    renderCalendarPanel();
     renderCalendar();
   }
 
   function getProjectCalendarItems() {
-    const projects = getVisibleProjects().slice();
-    if (state.projectListFilter === "unstaffed") {
-      return getUnstaffedProjectsForCurrentCalendarRange();
-    }
-    return projects;
+    const baseProjects = state.projectListFilter === "unstaffed"
+      ? getUnstaffedProjectsForCurrentCalendarRange()
+      : getVisibleProjects().slice();
+
+    return baseProjects.filter(project => {
+      const categoryMatch = !state.projectFilterCategory || state.projectFilterCategory === "all" || project.category === state.projectFilterCategory;
+      const search = String(state.search || "").trim().toLowerCase();
+      const searchMatch = !search || [project.name, project.category, project.location, project.status]
+        .filter(Boolean)
+        .some(value => String(value).toLowerCase().includes(search));
+      return categoryMatch && searchMatch;
+    });
   }
 
   async function ensurePersonalProject(type) {
@@ -3556,6 +3636,10 @@ async function deleteEditedEntry() {
     }
 
     closeProjectModal();
+    if (!isExistingProject && state.calendarMode === "project") {
+      state.focusProjectId = project.id;
+      state.calendarPanelOpen = true;
+    }
     renderAll();
     void addAudit(`${isExistingProject ? "Redigerte" : "Opprettet"} prosjekt: ${name}`);
   }
@@ -3821,6 +3905,10 @@ async function deleteEditedEntry() {
     };
 
     fillSelect(els.employeeFilter, employeeFilterItems, state.employeeFilter, "name", "id");
+    if (els.projectFilterControl) {
+      fillSelect(els.projectFilterControl, getProjectFilterOptions(), state.projectFilterCategory || "all", "name", "id");
+    }
+    updateCalendarSearchControls();
     renderEmployeeGroupFilterControl();
     fillSelect(els.editEmployee, state.employees.filter(e => e.active !== false), null, "name", "name");
     fillSelect(els.assignProject, [{ id: "", name: "Velg prosjekt" }, ...visibleProjects.map(p => ({ id: p.id, name: p.name }))], assignFormState.projectId, "name", "id");
@@ -3944,8 +4032,226 @@ async function deleteEditedEntry() {
     `;
   }
 
+  function selectProjectInCalendar(projectId) {
+    state.focusProjectId = projectId || "";
+    state.calendarPanelOpen = !!projectId;
+    renderCalendarPanel();
+    renderCalendar();
+  }
+
+  function getProjectInspectorPeriods(project) {
+    const periods = getProjectTimelinePeriods(project);
+    if (periods.length) return periods;
+    if (project?.planned_start_date && project?.planned_end_date) {
+      return [{ start: project.planned_start_date, end: project.planned_end_date }];
+    }
+    return [];
+  }
+
+  function getProjectStaffingGroupRank(group) {
+    const normalized = normalizeEmployeeGroup(group || "");
+    if (normalized === "Offshore arbeider") return 1;
+    if (normalized === "3 parts innleie") return 2;
+    if (normalized === "Engineering") return 3;
+    if (normalized === "Onshore arbeider") return 4;
+    return 9;
+  }
+
+  function getProjectStaffingGroupLabel(group) {
+    const normalized = normalizeEmployeeGroup(group || "");
+    if (normalized === "Offshore arbeider") return "Offshore";
+    if (normalized === "3 parts innleie") return "3 Part";
+    if (normalized === "Engineering") return "Engineer";
+    if (normalized === "Onshore arbeider") return "Onshore";
+    return getEmployeeGroupLabel(normalized) || "Annet";
+  }
+
+  function getProjectInspectorAvailability(employee, project) {
+    const periods = getProjectInspectorPeriods(project);
+    if (!periods.length) return { label: "Ukjent", tone: "text-slate-500", rank: 3 };
+
+    let conflictPeriods = 0;
+    for (const period of periods) {
+      const conflicts = (state.derived.entriesByEmployee.get(employee.name) || [])
+        .filter(entry => overlaps(entry.start_date, entry.end_date, period.start, period.end))
+        .filter(entry => entry.project_id !== project.id);
+      if (conflicts.length) conflictPeriods += 1;
+    }
+
+    if (conflictPeriods === 0) return { label: "Ledig", tone: "text-green-700", rank: 1 };
+    if (conflictPeriods < periods.length) return { label: "Delvis ledig", tone: "text-amber-700", rank: 2 };
+    return { label: "Opptatt", tone: "text-red-700", rank: 3 };
+  }
+
+  function getProjectInspectorEmployees(project) {
+    return state.employees
+      .filter(employee => employee.active !== false)
+      .map(employee => ({
+        ...employee,
+        normalizedGroup: normalizeEmployeeGroup(employee.employee_group || ""),
+        availability: getProjectInspectorAvailability(employee, project)
+      }))
+      .sort((a, b) => {
+        const groupDiff = getProjectStaffingGroupRank(a.normalizedGroup) - getProjectStaffingGroupRank(b.normalizedGroup);
+        if (groupDiff !== 0) return groupDiff;
+        const availabilityDiff = a.availability.rank - b.availability.rank;
+        if (availabilityDiff !== 0) return availabilityDiff;
+        return a.name.localeCompare(b.name, "no");
+      });
+  }
+
+  function renderProjectInspectorPanel(project) {
+    if (!els.calendarPanelContent || !project) return;
+
+    const assignedEntries = state.entries
+      .filter(entry => entry.project_id === project.id)
+      .slice()
+      .sort((a, b) => a.employee_name.localeCompare(b.employee_name, "no"));
+    const assigned = assignedEntries.length;
+    const required = Number(project.headcount_required || 0);
+    const staffing = getProjectStaffingLabel(project.id, required);
+    const periods = getProjectInspectorPeriods(project);
+    const employees = getProjectInspectorEmployees(project).slice(0, 8);
+    const staffingTone = staffing.variant.includes("green")
+      ? "text-green-700"
+      : staffing.variant.includes("amber")
+        ? "text-amber-700"
+        : "text-red-700";
+
+    els.calendarPanelContent.innerHTML = `
+      <div class="flex h-full flex-col">
+        <div class="flex items-start justify-between gap-3 border-b border-slate-200 p-4">
+          <div class="min-w-0">
+            <h2 class="text-base font-semibold text-slate-950">Prosjektdetaljer</h2>
+            <div class="mt-1 truncate text-sm font-medium text-slate-800">${escapeHtml(project.name)}</div>
+            <div class="mt-1 text-xs font-medium ${staffingTone}">${escapeHtml(staffing.text)}${required ? ` (${assigned}/${required})` : ""}</div>
+          </div>
+          <button id="calendarProjectPanelCloseBtn" type="button" class="rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50">×</button>
+        </div>
+
+        <div class="min-h-0 flex-1 space-y-4 overflow-auto p-4 text-sm">
+          <div class="grid grid-cols-2 gap-2">
+            <div class="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+              <div class="text-[11px] uppercase tracking-wide text-slate-500">Kategori</div>
+              <div class="mt-1 font-semibold text-slate-900">${escapeHtml(project.category || "Ikke satt")}</div>
+            </div>
+            <div class="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+              <div class="text-[11px] uppercase tracking-wide text-slate-500">Bemanningsbehov</div>
+              <div class="mt-1 font-semibold text-slate-900">${required || 0} personer</div>
+            </div>
+          </div>
+
+          <section>
+            <div class="mb-2 flex items-center justify-between gap-2">
+              <h3 class="font-semibold text-slate-900">Perioder</h3>
+              <button data-calendar-panel-edit-project="${escapeHtml(project.id)}" type="button" class="rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50">+ Del opp / legg til periode</button>
+            </div>
+            <div class="space-y-2">
+              ${periods.length ? periods.map((period, index) => `
+                <div class="flex items-center justify-between gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2">
+                  <span class="font-medium text-slate-700">Periode ${index + 1}</span>
+                  <span class="text-xs text-slate-500">${escapeHtml(formatDate(period.start))} – ${escapeHtml(formatDate(period.end))}</span>
+                </div>
+              `).join("") : `<div class="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-3 py-3 text-xs text-slate-500">Ingen periode satt.</div>`}
+            </div>
+          </section>
+
+          <section>
+            <div class="mb-2 flex items-center justify-between gap-2">
+              <h3 class="font-semibold text-slate-900">Bemanning</h3>
+              <button data-calendar-panel-staff-project="${escapeHtml(project.id)}" type="button" class="rounded-xl bg-slate-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-slate-800">Bemann prosjekt</button>
+            </div>
+            <input type="text" class="mb-2 w-full rounded-xl border border-slate-300 px-3 py-2 text-xs" placeholder="Søk etter ansatt eller rolle" disabled />
+            <div class="mb-2 flex flex-wrap gap-1 text-[11px]">
+              <span class="rounded-lg border border-blue-200 bg-blue-50 px-2 py-1 font-medium text-blue-700">Offshore</span>
+              <span class="rounded-lg border border-slate-200 bg-white px-2 py-1 font-medium text-slate-700">3 Part</span>
+              <span class="rounded-lg border border-slate-200 bg-white px-2 py-1 font-medium text-slate-700">Engineer</span>
+              <span class="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 font-medium text-slate-400">Onshore ikke anbefalt</span>
+            </div>
+            <div class="rounded-2xl border border-slate-200 bg-white">
+              <div class="grid grid-cols-[1fr_auto] border-b border-slate-200 px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                <span>Ansatt</span><span>Tilgjengelighet</span>
+              </div>
+              ${employees.map(employee => `
+                <div class="grid grid-cols-[1fr_auto] items-center gap-2 border-b border-slate-100 px-3 py-2 last:border-b-0">
+                  <div class="min-w-0">
+                    <div class="truncate text-xs font-medium text-slate-900">${escapeHtml(employee.name)}</div>
+                    <div class="text-[11px] text-slate-500">${escapeHtml(getProjectStaffingGroupLabel(employee.normalizedGroup))}</div>
+                  </div>
+                  <div class="text-xs font-medium ${employee.availability.tone}">${escapeHtml(employee.availability.label)}</div>
+                </div>
+              `).join("")}
+            </div>
+          </section>
+
+          <section>
+            <h3 class="mb-2 font-semibold text-slate-900">Tildelte (${assigned}${required ? `/${required}` : ""})</h3>
+            <div class="space-y-2">
+              ${assignedEntries.length ? assignedEntries.slice(0, 6).map(entry => `
+                <div class="flex items-center justify-between gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2">
+                  <div class="min-w-0">
+                    <div class="truncate text-xs font-medium text-slate-900">${escapeHtml(entry.employee_name)}</div>
+                    <div class="text-[11px] text-slate-500">${escapeHtml(entry.role || "Rolle ikke satt")}</div>
+                  </div>
+                  <button data-project-entry-delete-id="${escapeHtml(entry.id)}" type="button" class="text-slate-400 hover:text-red-600">×</button>
+                </div>
+              `).join("") : `<div class="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-3 py-3 text-xs text-slate-500">Ingen tildelte ressurser.</div>`}
+            </div>
+          </section>
+        </div>
+
+        <div class="grid grid-cols-2 gap-2 border-t border-slate-200 p-4">
+          <button data-calendar-panel-edit-project="${escapeHtml(project.id)}" type="button" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">Rediger</button>
+          <button data-calendar-panel-staff-project="${escapeHtml(project.id)}" type="button" class="rounded-xl bg-green-600 px-3 py-2 text-sm font-medium text-white hover:bg-green-700">Bemann</button>
+        </div>
+      </div>
+    `;
+
+    const closeBtn = document.getElementById("calendarProjectPanelCloseBtn");
+    if (closeBtn) closeBtn.addEventListener("click", () => {
+      state.calendarPanelOpen = false;
+      state.focusProjectId = "";
+      renderCalendarPanel();
+      renderCalendar();
+    });
+    els.calendarPanelContent.querySelectorAll("[data-calendar-panel-edit-project]").forEach(btn => {
+      btn.addEventListener("click", () => openProjectModal(btn.dataset.calendarPanelEditProject));
+    });
+    els.calendarPanelContent.querySelectorAll("[data-calendar-panel-staff-project]").forEach(btn => {
+      btn.addEventListener("click", () => startProjectStaffing(btn.dataset.calendarPanelStaffProject));
+    });
+    els.calendarPanelContent.querySelectorAll("[data-project-entry-delete-id]").forEach(btn => {
+      btn.addEventListener("click", () => deleteEntryFromProjectCard(btn.dataset.projectEntryDeleteId));
+    });
+  }
+
   function renderCalendarPanel() {
     if (!els.calendarPanelCol || !els.calendarPanelHandleBtn || !els.calendarPanelContent) return;
+
+    if (state.calendarMode === "project") {
+      const project = state.calendarPanelOpen ? getProjectById(state.focusProjectId || "") : null;
+      if (!project) {
+        els.calendarPanelCol.className = "hidden";
+        els.calendarPanelContent.classList.add("hidden");
+        return;
+      }
+      els.calendarPanelCol.className = "w-full xl:w-[360px] shrink-0 rounded-2xl bg-white border border-slate-200 shadow-sm overflow-hidden transition-all duration-300";
+      els.calendarPanelHandleBtn.className = "hidden";
+      els.calendarPanelContent.classList.remove("hidden");
+      renderProjectInspectorPanel(project);
+      return;
+    }
+
+    if (els.calendarPanelContent && !els.calendarPanelContent.querySelector('#legendList')) {
+      els.calendarPanelContent.innerHTML = `
+        <div class="p-4 border-b border-slate-200 flex items-center justify-between gap-3">
+          <h2 class="font-semibold">Farger og status</h2>
+        </div>
+        <div id="legendList" class="p-4 space-y-2 text-sm"></div>
+      `;
+      els.legendList = document.getElementById("legendList");
+      renderLegend();
+    }
 
     const isDesktop = window.innerWidth >= 1280;
 
@@ -4432,6 +4738,8 @@ async function deleteEditedEntry() {
     renderHolidayInfo(range);
     renderProjectSpotlightBar();
     renderLegend();
+    updateCalendarSearchControls();
+    renderCalendarPanel();
 
     if (state.calendarMode === "project") {
       renderProjectCalendar();
@@ -4682,12 +4990,12 @@ async function deleteEditedEntry() {
       const projectPeriods = getProjectTimelinePeriods(project);
 
       html += `
-        <div class="sticky-col border-r border-b border-slate-200 px-3 py-2 ${isClosedProject(project) ? "bg-slate-100" : "bg-white"}">
+        <button type="button" data-project-list-row-id="${escapeHtml(project.id)}" class="sticky-col border-r border-b border-slate-200 px-3 py-2 text-left ${project.id === state.focusProjectId ? "bg-blue-50 ring-2 ring-blue-200" : isClosedProject(project) ? "bg-slate-100" : "bg-white"}">
           <div class="font-medium">${escapeHtml(project.name)}</div>
           <div class="text-xs text-slate-500">${escapeHtml(project.location || "")}</div>
           <div class="text-xs ${staffing.variant} mt-1">${escapeHtml(staffing.text)}${required ? ` (${assigned}/${required})` : ""}</div>
           ${project.has_multiple_periods && projectPeriods.length ? `<div class="text-[11px] text-slate-400 mt-1">${projectPeriods.length} perioder</div>` : ""}
-        </div>
+        </button>
       `;
 
       html += `<div class="row-overlay border-b border-slate-200" data-range-start="${toIsoDate(range.start)}" data-col-width="${colWidth}" data-total-cols="${days.length}" data-time-unit="day" style="grid-column: span ${days.length}; width:${totalWidth}px;">`;
@@ -4712,7 +5020,7 @@ async function deleteEditedEntry() {
 
         html += `
           <div
-            class="entry-bar ${getProjectBarClasses(project)}"
+            class="entry-bar ${getProjectBarClasses(project)} ${project.id === state.focusProjectId ? 'ring-2 ring-blue-300 ring-offset-1' : ''}"
             style="left:${left}px; width:${width}px;"
             data-project-row-id="${escapeHtml(project.id)}"
             title="${escapeHtml(`${project.name} | ${formatDate(period.start)} – ${formatDate(period.end)} | ${staffing.text}`)}"
@@ -4730,7 +5038,10 @@ async function deleteEditedEntry() {
     els.calendarWrap.innerHTML = html;
 
     els.calendarWrap.querySelectorAll("[data-project-row-id]").forEach(el => {
-      el.addEventListener("click", () => openProjectModal(el.dataset.projectRowId));
+      el.addEventListener("click", () => selectProjectInCalendar(el.dataset.projectRowId));
+    });
+    els.calendarWrap.querySelectorAll("[data-project-list-row-id]").forEach(el => {
+      el.addEventListener("click", () => selectProjectInCalendar(el.dataset.projectListRowId));
     });
     renderWarnings(uniqueArray(warnings));
   }
@@ -4786,7 +5097,7 @@ async function deleteEditedEntry() {
 
         html += `
           <div
-            class="entry-bar ${getProjectBarClasses(project)}"
+            class="entry-bar ${getProjectBarClasses(project)} ${project.id === state.focusProjectId ? 'ring-2 ring-blue-300 ring-offset-1' : ''}"
             style="left:${left}px; width:${width}px;"
             data-project-row-id="${escapeHtml(project.id)}"
             title="${escapeHtml(`${project.name} | ${formatProjectDateRange(project)} | ${staffing.text}`)}"
@@ -4805,7 +5116,10 @@ async function deleteEditedEntry() {
     els.calendarWrap.innerHTML = html;
 
     els.calendarWrap.querySelectorAll("[data-project-row-id]").forEach(el => {
-      el.addEventListener("click", () => openProjectModal(el.dataset.projectRowId));
+      el.addEventListener("click", () => selectProjectInCalendar(el.dataset.projectRowId));
+    });
+    els.calendarWrap.querySelectorAll("[data-project-list-row-id]").forEach(el => {
+      el.addEventListener("click", () => selectProjectInCalendar(el.dataset.projectListRowId));
     });
     bindResizeHandles();
 
