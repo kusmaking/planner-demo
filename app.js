@@ -592,7 +592,7 @@
 
     const menu = document.createElement("div");
     menu.id = "calendarContextMenu";
-    menu.className = "fixed z-[120] hidden w-80 rounded-2xl border border-slate-200 bg-white shadow-2xl";
+    menu.className = "fixed z-[300] hidden w-80 rounded-2xl border border-slate-200 bg-white shadow-2xl";
     menu.innerHTML = `
       <div class="p-4 border-b border-slate-200 flex items-center justify-between gap-3">
         <div>
@@ -752,7 +752,7 @@
       try {
         const { data, error } = await supabaseClient.rpc("get_my_profile");
         if (!error && Array.isArray(data) && data[0]) {
-          state.currentRole = data[0].role || "";
+          state.currentRole = normalizeRoleValue(data[0].role || "");
           if (data[0].full_name) state.currentUser = data[0].full_name;
           if (data[0].email) state.currentUserEmail = data[0].email;
         }
@@ -767,12 +767,19 @@
     }
   }
 
+  function normalizeRoleValue(role) {
+    const normalized = String(role || "").trim().toLowerCase();
+    if (normalized === "planlegger") return "planner";
+    return normalized;
+  }
+
   function isSuperadmin() {
-    return state.currentRole === "superadmin";
+    return normalizeRoleValue(state.currentRole) === "superadmin";
   }
 
   function isPlanner() {
-    return state.currentRole === "planner";
+    const role = normalizeRoleValue(state.currentRole);
+    return role === "planner" || role === "admin";
   }
 
   function isLoggedInUser() {
@@ -1232,6 +1239,29 @@
     toggleEmployeeGroupFilter(false);
   }
 
+  function handleCalendarWrapContextMenu(event) {
+    if (state.calendarMode !== "personal" || state.viewMode === "År") return;
+    if (!canEditApp()) return;
+    if (event.target?.closest?.(".entry-bar")) return;
+
+    const row = event.target?.closest?.(".drop-row");
+    if (!row || !els.calendarWrap?.contains(row)) return;
+
+    const targetEmployeeName = row.dataset.employeeName;
+    if (!targetEmployeeName) return;
+
+    const dropMeta = getDropMetaFromRow(row, event);
+    if (!dropMeta?.rangeStart || !Number.isFinite(dropMeta.colIndex)) return;
+
+    const selectedDate = dropMeta?.dropDate
+      ? toIsoDate(parseIsoDateLocal(dropMeta.dropDate))
+      : toIsoDate(addDays(parseIsoDateLocal(dropMeta.rangeStart), dropMeta.colIndex));
+
+    event.preventDefault();
+    event.stopPropagation();
+    openCalendarContextMenu(targetEmployeeName, selectedDate, event.clientX + 8, event.clientY + 8);
+  }
+
   function getEmployeeGroupBadgeClass(group) {
     return EMPLOYEE_GROUP_BADGE_STYLES[group] || "border-slate-200 bg-slate-100 text-slate-700";
   }
@@ -1467,6 +1497,9 @@
     }
 
     document.addEventListener("click", handleEmployeeGroupFilterOutsideClick);
+    if (els.calendarWrap) {
+      els.calendarWrap.addEventListener("contextmenu", handleCalendarWrapContextMenu, true);
+    }
 
     bindTabEvents();
     if (els.calendarPanelHandleBtn) {
