@@ -81,6 +81,7 @@
 
   const els = {};
   const PERSONAL_BLOCK_TYPES = ["Kurs", "Ferie", "Syk", "Avspasering", "Travel"];
+  const PROJECT_STATUS_OPTIONS = ["Planlagt", "Pågår", "Avventer", "Fullført", "Kansellert"];
   const PERSONAL_PROJECT_MARKER = "__personal_block_system_project__";
   const EMPLOYEE_GROUP_DEFINITIONS = [
     {
@@ -1231,10 +1232,10 @@
 
   function setupStaticOptions() {
     fillSelect(els.projectCategory, CATEGORY_OPTIONS);
-    fillSelect(els.projectStatus, STATUS_OPTIONS, "Planlagt");
+    fillSelect(els.projectStatus, PROJECT_STATUS_OPTIONS, "Planlagt");
     fillSelect(els.editRole, ROLE_OPTIONS, "Supervisor");
-    fillSelect(els.personalBlockType, PERSONAL_BLOCK_TYPES);
-    fillSelect(els.contextMenuType, PERSONAL_BLOCK_TYPES);
+    fillSelect(els.personalBlockType, getPersonalBlockTypeOptions());
+    fillSelect(els.contextMenuType, getPersonalBlockTypeOptions());
   }
 
 
@@ -1969,7 +1970,7 @@
     if (value === "Avsluttet") return "Fullført";
     if (value === "Fullført") return "Fullført";
     if (value === "Kansellert") return "Kansellert";
-    return STATUS_OPTIONS.includes(value) ? value : value;
+    return PROJECT_STATUS_OPTIONS.includes(value) ? value : "Planlagt";
   }
 
   function isCancelledProject(project) {
@@ -2844,8 +2845,12 @@
     return canEditApp();
   }
 
+  function getPersonalBlockTypeOptions() {
+    return Array.from(new Set([...(PERSONAL_BLOCK_TYPES || []), "Travel"]));
+  }
+
   function getVisiblePersonalBlockTypes() {
-    return PERSONAL_BLOCK_TYPES.filter(canSeePersonalBlockType);
+    return getPersonalBlockTypeOptions().filter(canSeePersonalBlockType);
   }
 
   function getVisibleEntriesForEmployee(employeeName, rangeStart, rangeEnd) {
@@ -2875,7 +2880,7 @@
     if (els.contextMenuEmployee) els.contextMenuEmployee.textContent = employeeName;
     if (els.contextMenuStart) els.contextMenuStart.value = isoDate;
     if (els.contextMenuEnd) els.contextMenuEnd.value = isoDate;
-    fillSelect(els.contextMenuType, PERSONAL_BLOCK_TYPES);
+    fillSelect(els.contextMenuType, getPersonalBlockTypeOptions());
     if (els.contextMenuType) els.contextMenuType.value = "Ferie";
     if (els.contextMenuNotes) els.contextMenuNotes.value = "";
 
@@ -3019,7 +3024,7 @@
 
   function clearPersonalBlockForm() {
     if (els.personalBlockEmployee) els.personalBlockEmployee.value = "";
-    if (els.personalBlockType) els.personalBlockType.value = PERSONAL_BLOCK_TYPES[0] || "";
+    if (els.personalBlockType) els.personalBlockType.value = getPersonalBlockTypeOptions()[0] || "";
     if (els.personalBlockStart) els.personalBlockStart.value = "";
     if (els.personalBlockEnd) els.personalBlockEnd.value = "";
     if (els.personalBlockNotes) els.personalBlockNotes.value = "";
@@ -3413,7 +3418,7 @@ async function deleteEditedEntry() {
     els.projectModalTitle.textContent = project ? "Rediger prosjekt" : "Nytt prosjekt";
     els.projectName.value = project?.name || "";
     fillSelect(els.projectCategory, CATEGORY_OPTIONS, project?.category || "Offshore");
-    fillSelect(els.projectStatus, STATUS_OPTIONS, project?.status || "Planlagt");
+    fillSelect(els.projectStatus, PROJECT_STATUS_OPTIONS, normalizeProjectStatus(project?.status || "Planlagt"));
     els.projectPlannedStart.value = project?.planned_start_date || "";
     els.projectPlannedEnd.value = project?.planned_end_date || "";
     if (els.projectHasMultiplePeriods) {
@@ -3790,8 +3795,8 @@ async function deleteEditedEntry() {
     fillSelect(els.assignProject, [{ id: "", name: "Velg prosjekt" }, ...visibleProjects.map(p => ({ id: p.id, name: p.name }))], assignFormState.projectId, "name", "id");
     fillSelect(els.editProject, state.projects, null, "name", "id");
     fillSelect(els.personalBlockEmployee, [{ id: "", name: "Velg ansatt" }, ...state.employees.filter(e => e.active !== false).map(e => ({ id: e.name, name: e.name }))], els.personalBlockEmployee?.value || "", "name", "id");
-    fillSelect(els.personalBlockType, PERSONAL_BLOCK_TYPES, els.personalBlockType?.value || PERSONAL_BLOCK_TYPES[0] || "");
-    fillSelect(els.contextMenuType, PERSONAL_BLOCK_TYPES, els.contextMenuType?.value || "Ferie");
+    fillSelect(els.personalBlockType, getPersonalBlockTypeOptions(), els.personalBlockType?.value || getPersonalBlockTypeOptions()[0] || "");
+    fillSelect(els.contextMenuType, getPersonalBlockTypeOptions(), els.contextMenuType?.value || "Ferie");
     fillSelect(els.viewMode, ["Uke", "Måned", "År"], state.viewMode);
     fillSelect(els.calendarMode, [
       { id: "personal", name: "Personalplan" },
@@ -4259,7 +4264,7 @@ async function deleteEditedEntry() {
   }
 
   function renderKanban() {
-    const groups = STATUS_OPTIONS.map(status => ({
+    const groups = PROJECT_STATUS_OPTIONS.map(status => ({
       status,
       projects: getVisibleProjects().filter(p => p.status === status)
     }));
