@@ -1242,9 +1242,12 @@
   function getCalendarDropRowFromPointer(event) {
     if (!els.calendarWrap) return null;
     const target = event.target;
+
+    // First try the normal DOM path. This works when the pointer event lands directly on a calendar row/cell.
     const directRow = target?.closest?.(".drop-row");
     if (directRow && els.calendarWrap.contains(directRow)) return directRow;
 
+    // Then try the browser hit-stack. This helps when visual layers sit above the row.
     if (typeof document.elementsFromPoint === "function") {
       const hitElements = document.elementsFromPoint(event.clientX, event.clientY);
       for (const hit of hitElements) {
@@ -1254,10 +1257,13 @@
       }
     }
 
+    // Final fallback after employee grouping/expand-collapse:
+    // find the visible employee row by Y-position only. The clicked element can be a sticky/name/layout
+    // layer even when the pointer is visually over the calendar row.
     const rows = Array.from(els.calendarWrap.querySelectorAll(".drop-row"));
     for (const row of rows) {
       const rect = row.getBoundingClientRect();
-      if (event.clientY >= rect.top && event.clientY <= rect.bottom && event.clientX >= rect.left && event.clientX <= rect.right) {
+      if (event.clientY >= rect.top && event.clientY <= rect.bottom) {
         return row;
       }
     }
@@ -1294,6 +1300,15 @@
   }
 
   function handleCalendarWrapContextMenu(event) {
+    openCalendarContextMenuFromEvent(event);
+  }
+
+  function handleCalendarDocumentContextMenu(event) {
+    openCalendarContextMenuFromEvent(event);
+  }
+
+  function handleCalendarDocumentClick(event) {
+    if (event.button !== 0) return;
     openCalendarContextMenuFromEvent(event);
   }
 
@@ -1541,6 +1556,8 @@
         if (event.button === 2) openCalendarContextMenuFromEvent(event);
       }, true);
     }
+    document.addEventListener("contextmenu", handleCalendarDocumentContextMenu, true);
+    document.addEventListener("click", handleCalendarDocumentClick, true);
 
     bindTabEvents();
     if (els.calendarPanelHandleBtn) {
@@ -5526,85 +5543,4 @@ function getEntryBarClasses(project, role, entry = null) {
       .replaceAll('"', "&quot;")
       .replaceAll("'", "&#039;");
   }
-
-  function installPlannerPersonalBlockDebug() {
-    if (document.getElementById("plannerPersonalBlockDebugPanel")) return;
-
-    const panel = document.createElement("div");
-    panel.id = "plannerPersonalBlockDebugPanel";
-    panel.style.cssText = [
-      "position:fixed",
-      "left:12px",
-      "bottom:12px",
-      "z-index:2147483647",
-      "max-width:580px",
-      "font:12px/1.35 system-ui,-apple-system,Segoe UI,sans-serif",
-      "background:#fff7ed",
-      "color:#111827",
-      "border:2px solid #f97316",
-      "box-shadow:0 12px 30px rgba(0,0,0,.25)",
-      "border-radius:10px",
-      "padding:10px 12px",
-      "white-space:pre-wrap",
-      "pointer-events:none"
-    ].join(";");
-    document.body.appendChild(panel);
-
-    const update = (lines) => {
-      const now = new Date().toLocaleTimeString();
-      panel.textContent = [
-        "DEBUG app.js loaded – personal block test",
-        `Time: ${now}`,
-        `Role: ${state.currentRole || "(blank)"}`,
-        `canEditApp: ${typeof canEditApp === "function" ? canEditApp() : "missing"}`,
-        `calendarMode: ${state.calendarMode}`,
-        `viewMode: ${state.viewMode}`,
-        `calendarWrap: ${!!els.calendarWrap}`,
-        ...(lines || [])
-      ].join("\n");
-    };
-
-    update(["Waiting for click/right-click in calendar..."]);
-
-    const inspectEvent = (event, label) => {
-      let row = null;
-      let meta = null;
-      try {
-        row = typeof getCalendarDropRowFromPointer === "function" ? getCalendarDropRowFromPointer(event) : null;
-        if (row && typeof getDropMetaFromRow === "function") meta = getDropMetaFromRow(row, event);
-      } catch (err) {
-        meta = { error: err?.message || String(err) };
-      }
-
-      const inCalendar = !!(els.calendarWrap && els.calendarWrap.contains(event.target));
-      const targetDesc = event.target?.className ? String(event.target.className).slice(0, 180) : event.target?.tagName || "";
-
-      update([
-        `Event: ${label}`,
-        `Button: ${event.button}`,
-        `Target: ${targetDesc}`,
-        `In calendar: ${inCalendar}`,
-        `Row found: ${!!row}`,
-        `Employee: ${row?.dataset?.employeeName || "(none)"}`,
-        `Range start: ${row?.dataset?.rangeStart || "(none)"}`,
-        `colWidth: ${row?.dataset?.colWidth || "(none)"}`,
-        `Drop colIndex: ${meta?.colIndex ?? "(none)"}`,
-        `Drop date: ${meta?.dropDate || "(none)"}`,
-        `Meta rangeStart: ${meta?.rangeStart || "(none)"}`,
-        `Meta error: ${meta?.error || "(none)"}`,
-        `Context menu visible: ${state.contextMenu?.visible}`,
-        `Mouse: ${event.clientX}, ${event.clientY}`
-      ]);
-    };
-
-    document.addEventListener("contextmenu", event => inspectEvent(event, "contextmenu"), true);
-    document.addEventListener("click", event => inspectEvent(event, "click"), true);
-  }
-
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", () => setTimeout(installPlannerPersonalBlockDebug, 1200));
-  } else {
-    setTimeout(installPlannerPersonalBlockDebug, 1200);
-  }
-
 })();
