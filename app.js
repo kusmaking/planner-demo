@@ -2733,7 +2733,8 @@
       startDate: isoDate,
       endDate: isoDate,
       x,
-      y
+      y,
+      skipNextGlobalClose: true
     };
 
     if (els.contextMenuEmployee) els.contextMenuEmployee.textContent = employeeName;
@@ -2765,6 +2766,10 @@
 
   function handleGlobalPointerClose(event) {
     if (!state.contextMenu.visible) return;
+    if (state.contextMenu.skipNextGlobalClose) {
+      state.contextMenu.skipNextGlobalClose = false;
+      return;
+    }
     if (els.calendarContextMenu?.contains(event.target)) return;
     hideCalendarContextMenu();
   }
