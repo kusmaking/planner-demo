@@ -583,38 +583,38 @@
     if (menu.parentElement !== document.body) {
       document.body.appendChild(menu);
     }
-    menu.className = "fixed z-[99999] hidden w-80 rounded-2xl border border-slate-200 bg-white text-slate-900 shadow-2xl";
-    menu.style.position = "fixed";
-    menu.style.zIndex = "99999";
-    menu.style.width = "320px";
-    menu.style.maxWidth = "calc(100vw - 24px)";
-    menu.style.pointerEvents = "auto";
+    menu.className = menu.classList.contains("hidden") ? "hidden" : "";
+    menu.style.setProperty("position", "fixed", "important");
+    menu.style.setProperty("z-index", "2147483647", "important");
+    menu.style.setProperty("width", "320px", "important");
+    menu.style.setProperty("max-width", "calc(100vw - 24px)", "important");
+    menu.style.setProperty("background", "#ffffff", "important");
+    menu.style.setProperty("color", "#0f172a", "important");
+    menu.style.setProperty("border", "1px solid #cbd5e1", "important");
+    menu.style.setProperty("border-radius", "16px", "important");
+    menu.style.setProperty("box-shadow", "0 24px 80px rgba(0,0,0,0.35)", "important");
+    menu.style.setProperty("pointer-events", "auto", "important");
+    menu.style.setProperty("overflow", "hidden", "important");
   }
 
   function ensureCalendarContextMenu() {
-    if (document.getElementById("calendarContextMenu")) {
-      els.calendarContextMenu = document.getElementById("calendarContextMenu");
-      els.contextMenuEmployee = document.getElementById("contextMenuEmployee");
-      els.contextMenuStart = document.getElementById("contextMenuStart");
-      els.contextMenuEnd = document.getElementById("contextMenuEnd");
-      els.contextMenuType = document.getElementById("contextMenuType");
-      els.contextMenuNotes = document.getElementById("contextMenuNotes");
-      els.contextMenuAddBtn = document.getElementById("contextMenuAddBtn");
-      els.contextMenuCloseBtn = document.getElementById("contextMenuCloseBtn");
-      normalizeCalendarContextMenuElement();
-      return;
-    }
+    // Rebuild the context menu as a true body-level portal every time app.js starts.
+    // This avoids the old problem where the menu stayed inside the calendar/layout grid
+    // and rendered as a full-width section below the calendar.
+    document.querySelectorAll('#calendarContextMenu').forEach(existing => existing.remove());
 
     const menu = document.createElement("div");
     menu.id = "calendarContextMenu";
-    menu.className = "fixed z-[9999] hidden w-80 rounded-2xl border border-slate-200 bg-white shadow-2xl";
+    menu.className = "hidden";
+    menu.setAttribute("role", "dialog");
+    menu.setAttribute("aria-label", "Legg til direkte blokk");
     menu.innerHTML = `
       <div class="p-4 border-b border-slate-200 flex items-center justify-between gap-3">
         <div>
           <div class="font-semibold">Legg til direkte blokk</div>
-          <div class="text-xs text-slate-500 mt-1">Fra høyreklikk i kalender</div>
+          <div class="text-xs text-slate-500 mt-1">Fra kalender</div>
         </div>
-        <button id="contextMenuCloseBtn" class="rounded-lg border border-slate-300 px-3 py-1 text-sm">Lukk</button>
+        <button id="contextMenuCloseBtn" type="button" class="rounded-lg border border-slate-300 bg-white px-3 py-1 text-sm">Lukk</button>
       </div>
       <div class="p-4 space-y-3">
         <div>
@@ -623,29 +623,29 @@
         </div>
         <div>
           <div class="text-xs text-slate-500">Kategori</div>
-          <select id="contextMenuType" class="mt-1 w-full rounded-2xl border border-slate-300 px-3 py-2"></select>
+          <select id="contextMenuType" class="mt-1 w-full rounded-2xl border border-slate-300 bg-white px-3 py-2"></select>
         </div>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
           <div>
             <div class="text-xs text-slate-500">Fra</div>
-            <input id="contextMenuStart" type="date" class="mt-1 w-full rounded-2xl border border-slate-300 px-3 py-2" />
+            <input id="contextMenuStart" type="date" class="mt-1 w-full rounded-2xl border border-slate-300 bg-white px-3 py-2" />
           </div>
           <div>
             <div class="text-xs text-slate-500">Til</div>
-            <input id="contextMenuEnd" type="date" class="mt-1 w-full rounded-2xl border border-slate-300 px-3 py-2" />
+            <input id="contextMenuEnd" type="date" class="mt-1 w-full rounded-2xl border border-slate-300 bg-white px-3 py-2" />
           </div>
         </div>
         <div>
           <div class="text-xs text-slate-500">Notat / beskrivelse</div>
-          <textarea id="contextMenuNotes" class="mt-1 w-full rounded-2xl border border-slate-300 px-3 py-2" rows="4" placeholder="For eksempel kursnavn eller kommentar"></textarea>
+          <textarea id="contextMenuNotes" class="mt-1 w-full rounded-2xl border border-slate-300 bg-white px-3 py-2" rows="4" placeholder="For eksempel kursnavn eller kommentar"></textarea>
         </div>
-        <button id="contextMenuAddBtn" class="w-full rounded-2xl bg-slate-900 text-white px-4 py-2">Legg i kalender</button>
+        <button id="contextMenuAddBtn" type="button" class="w-full rounded-2xl bg-slate-900 text-white px-4 py-2">Legg i kalender</button>
       </div>
     `;
+
     document.body.appendChild(menu);
 
     els.calendarContextMenu = menu;
-    normalizeCalendarContextMenuElement();
     els.contextMenuEmployee = document.getElementById("contextMenuEmployee");
     els.contextMenuStart = document.getElementById("contextMenuStart");
     els.contextMenuEnd = document.getElementById("contextMenuEnd");
@@ -653,6 +653,8 @@
     els.contextMenuNotes = document.getElementById("contextMenuNotes");
     els.contextMenuAddBtn = document.getElementById("contextMenuAddBtn");
     els.contextMenuCloseBtn = document.getElementById("contextMenuCloseBtn");
+
+    normalizeCalendarContextMenuElement();
   }
 
   function ensureAvailabilityPanel() {
@@ -2837,24 +2839,23 @@
     const menu = els.calendarContextMenu;
     normalizeCalendarContextMenuElement();
     menu.classList.remove("hidden");
-    menu.style.position = "fixed";
-    menu.style.zIndex = "99999";
-    menu.style.left = "0px";
-    menu.style.top = "0px";
+    menu.style.setProperty("display", "block", "important");
+    menu.style.setProperty("position", "fixed", "important");
+    menu.style.setProperty("z-index", "2147483647", "important");
 
-    requestAnimationFrame(() => {
-      const menuRect = menu.getBoundingClientRect();
-      const maxLeft = Math.max(12, window.innerWidth - menuRect.width - 12);
-      const maxTop = Math.max(12, window.innerHeight - menuRect.height - 12);
-      menu.style.left = `${Math.min(Math.max(12, x), maxLeft)}px`;
-      menu.style.top = `${Math.min(Math.max(12, y), maxTop)}px`;
-    });
+    const menuWidth = 320;
+    const menuHeight = Math.min(520, window.innerHeight - 24);
+    const maxLeft = Math.max(12, window.innerWidth - menuWidth - 12);
+    const maxTop = Math.max(12, window.innerHeight - menuHeight - 12);
+    menu.style.setProperty("left", `${Math.min(Math.max(12, x), maxLeft)}px`, "important");
+    menu.style.setProperty("top", `${Math.min(Math.max(12, y), maxTop)}px`, "important");
   }
 
   function hideCalendarContextMenu() {
     state.contextMenu.visible = false;
     if (!els.calendarContextMenu) return;
     els.calendarContextMenu.classList.add("hidden");
+    els.calendarContextMenu.style.setProperty("display", "none", "important");
   }
 
   function handleGlobalPointerClose(event) {
