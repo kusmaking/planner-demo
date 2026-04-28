@@ -577,6 +577,20 @@
 
 
 
+  function normalizeCalendarContextMenuElement() {
+    const menu = els.calendarContextMenu || document.getElementById("calendarContextMenu");
+    if (!menu) return;
+    if (menu.parentElement !== document.body) {
+      document.body.appendChild(menu);
+    }
+    menu.className = "fixed z-[99999] hidden w-80 rounded-2xl border border-slate-200 bg-white text-slate-900 shadow-2xl";
+    menu.style.position = "fixed";
+    menu.style.zIndex = "99999";
+    menu.style.width = "320px";
+    menu.style.maxWidth = "calc(100vw - 24px)";
+    menu.style.pointerEvents = "auto";
+  }
+
   function ensureCalendarContextMenu() {
     if (document.getElementById("calendarContextMenu")) {
       els.calendarContextMenu = document.getElementById("calendarContextMenu");
@@ -587,6 +601,7 @@
       els.contextMenuNotes = document.getElementById("contextMenuNotes");
       els.contextMenuAddBtn = document.getElementById("contextMenuAddBtn");
       els.contextMenuCloseBtn = document.getElementById("contextMenuCloseBtn");
+      normalizeCalendarContextMenuElement();
       return;
     }
 
@@ -630,6 +645,7 @@
     document.body.appendChild(menu);
 
     els.calendarContextMenu = menu;
+    normalizeCalendarContextMenuElement();
     els.contextMenuEmployee = document.getElementById("contextMenuEmployee");
     els.contextMenuStart = document.getElementById("contextMenuStart");
     els.contextMenuEnd = document.getElementById("contextMenuEnd");
@@ -2819,7 +2835,10 @@
     if (els.contextMenuNotes) els.contextMenuNotes.value = "";
 
     const menu = els.calendarContextMenu;
+    normalizeCalendarContextMenuElement();
     menu.classList.remove("hidden");
+    menu.style.position = "fixed";
+    menu.style.zIndex = "99999";
     menu.style.left = "0px";
     menu.style.top = "0px";
 
