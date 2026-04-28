@@ -1297,31 +1297,22 @@
     openCalendarContextMenuFromEvent(event);
   }
 
-  function bindEmptyCalendarLayerContextMenus() {
+  function handleCalendarEmptyCellClick(event) {
+    if (state.calendarMode !== "personal" || state.viewMode === "År") return;
+    if (!canEditApp()) return;
     if (!els.calendarWrap) return;
-    const targets = els.calendarWrap.querySelectorAll("[data-empty-calendar-layer], .drop-row .day-cell, .drop-row .month-cell");
+    if (event.target?.closest?.(".entry-bar")) return;
+    if (event.target?.closest?.("[data-resize-handle]")) return;
+    if (event.target?.closest?.("[data-employee-group-toggle]")) return;
+    if (event.target?.closest?.("#calendarContextMenu")) return;
+    if (!getCalendarDropRowFromPointer(event)) return;
 
-    targets.forEach(target => {
-      if (target.dataset.contextMenuBound === "true") return;
-      target.dataset.contextMenuBound = "true";
-
-      const suppressBrowserRightClick = event => {
-        if (event.button !== 2) return;
-        if (event.target?.closest?.(".entry-bar")) return;
-        if (event.target?.closest?.("[data-resize-handle]")) return;
-        event.preventDefault();
-        event.stopPropagation();
-      };
-
-      target.addEventListener("pointerdown", suppressBrowserRightClick, true);
-      target.addEventListener("mousedown", suppressBrowserRightClick, true);
-      target.addEventListener("contextmenu", event => {
-        event.preventDefault();
-        event.stopPropagation();
-        if (typeof event.stopImmediatePropagation === "function") event.stopImmediatePropagation();
-        openCalendarContextMenuFromEvent(event);
-      }, true);
-    });
+    const opened = openCalendarContextMenuFromEvent(event);
+    if (opened) {
+      event.preventDefault();
+      event.stopPropagation();
+      if (typeof event.stopImmediatePropagation === "function") event.stopImmediatePropagation();
+    }
   }
 
   function getEmployeeGroupBadgeClass(group) {
@@ -1561,6 +1552,7 @@
     document.addEventListener("click", handleEmployeeGroupFilterOutsideClick);
     if (els.calendarWrap) {
       els.calendarWrap.addEventListener("contextmenu", handleCalendarWrapContextMenu, true);
+      els.calendarWrap.addEventListener("click", handleCalendarEmptyCellClick, true);
       els.calendarWrap.addEventListener("pointerdown", event => {
         if (event.button === 2) openCalendarContextMenuFromEvent(event);
       }, true);
@@ -4376,7 +4368,7 @@ async function deleteEditedEntry() {
           html += `<div data-drop-slot-index="${i}" data-drop-date="${toIsoDate(day)}" class="day-cell ${redDay ? "red-day" : ""}" style="position:absolute; left:${i * colWidth}px; width:${colWidth}px; border-right:${monthBoundary ? "2px solid #94a3b8" : "1px solid #e2e8f0"};"></div>`;
         }
 
-        html += `<div data-empty-calendar-layer="true" style="position:relative; width:${totalWidth}px; min-height:52px;">`;
+        html += `<div style="position:relative; width:${totalWidth}px; min-height:52px;">`;
 
         for (const entry of employeeEntries) {
           const project = getProjectById(entry.project_id);
@@ -4422,7 +4414,6 @@ async function deleteEditedEntry() {
     els.calendarWrap.innerHTML = html;
     bindEmployeeGroupCollapseButtons();
     bindEntryClicks();
-    bindEmptyCalendarLayerContextMenus();
     bindResizeHandles();
     renderWarnings(uniqueArray(warnings));
   }
@@ -4485,7 +4476,7 @@ async function deleteEditedEntry() {
           html += `<div data-drop-slot-index="${i}" data-drop-month-index="${i}" class="month-cell" style="position:absolute; left:${i * monthWidth}px; width:${monthWidth}px;"></div>`;
         }
 
-        html += `<div data-empty-calendar-layer="true" style="position:relative; width:${totalWidth}px; min-height:56px;">`;
+        html += `<div style="position:relative; width:${totalWidth}px; min-height:56px;">`;
 
         for (const entry of employeeEntries) {
           const project = getProjectById(entry.project_id);
@@ -4524,7 +4515,6 @@ async function deleteEditedEntry() {
     els.calendarWrap.innerHTML = html;
     bindEmployeeGroupCollapseButtons();
     bindEntryClicks();
-    bindEmptyCalendarLayerContextMenus();
     bindResizeHandles();
     renderWarnings(uniqueArray(warnings));
   }
