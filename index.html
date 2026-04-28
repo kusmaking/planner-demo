@@ -652,6 +652,58 @@
       box-shadow: 0 0 0 2px rgba(255,255,255,0.82), 0 8px 20px rgba(15,23,42,0.18) !important;
     }
 
+
+    /* v16.8: Prosjektinspektoer som lys overlay over kalenderen. */
+    body.iz-compact-ui #calendarPanelCol.iz-project-inspector-shell {
+      position: fixed !important;
+      top: 98px !important;
+      right: 26px !important;
+      bottom: 26px !important;
+      width: 380px !important;
+      max-width: calc(100vw - 52px) !important;
+      z-index: 80 !important;
+      background: #ffffff !important;
+      color: #0f172a !important;
+      border: 1px solid #d7e3ea !important;
+      border-radius: 4px !important;
+      box-shadow: 0 24px 60px rgba(2, 12, 18, 0.32) !important;
+      overflow: hidden !important;
+    }
+    body.iz-compact-ui #calendarPanelCol.iz-project-inspector-shell #calendarPanelContent {
+      background: #ffffff !important;
+      color: #0f172a !important;
+      border-radius: 4px !important;
+    }
+    body.iz-compact-ui #calendarPanelCol.iz-project-inspector-shell h2,
+    body.iz-compact-ui #calendarPanelCol.iz-project-inspector-shell h3,
+    body.iz-compact-ui #calendarPanelCol.iz-project-inspector-shell .text-slate-950,
+    body.iz-compact-ui #calendarPanelCol.iz-project-inspector-shell .text-slate-900,
+    body.iz-compact-ui #calendarPanelCol.iz-project-inspector-shell .text-slate-800,
+    body.iz-compact-ui #calendarPanelCol.iz-project-inspector-shell .text-slate-700 {
+      color: #0f172a !important;
+    }
+    body.iz-compact-ui #calendarPanelCol.iz-project-inspector-shell .text-slate-500,
+    body.iz-compact-ui #calendarPanelCol.iz-project-inspector-shell .text-slate-400 {
+      color: #64748b !important;
+    }
+    body.iz-compact-ui #calendarPanelCol.iz-project-inspector-shell button,
+    body.iz-compact-ui #calendarPanelCol.iz-project-inspector-shell input,
+    body.iz-compact-ui #calendarPanelCol.iz-project-inspector-shell select,
+    body.iz-compact-ui #calendarPanelCol.iz-project-inspector-shell .rounded-2xl,
+    body.iz-compact-ui #calendarPanelCol.iz-project-inspector-shell .rounded-xl,
+    body.iz-compact-ui #calendarPanelCol.iz-project-inspector-shell .rounded-lg,
+    body.iz-compact-ui #calendarPanelCol.iz-project-inspector-shell .rounded-full {
+      border-radius: 4px !important;
+    }
+    @media (max-width: 900px) {
+      body.iz-compact-ui #calendarPanelCol.iz-project-inspector-shell {
+        top: 74px !important;
+        right: 10px !important;
+        bottom: 10px !important;
+        width: calc(100vw - 20px) !important;
+      }
+    }
+
   </style>
 </head>
 <body class="iz-compact-ui text-slate-900">

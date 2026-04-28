@@ -4178,7 +4178,10 @@ async function deleteEditedEntry() {
                     <div class="truncate text-xs font-medium text-slate-900">${escapeHtml(employee.name)}</div>
                     <div class="text-[11px] text-slate-500">${escapeHtml(getProjectStaffingGroupLabel(employee.normalizedGroup))}</div>
                   </div>
-                  <div class="text-xs font-medium ${employee.availability.tone}">${escapeHtml(employee.availability.label)}</div>
+                  <div class="flex items-center justify-end gap-2">
+                    <span class="text-xs font-medium ${employee.availability.tone}">${escapeHtml(employee.availability.label)}</span>
+                    <button data-calendar-panel-add-employee="${escapeHtml(employee.name)}" type="button" class="border border-slate-300 bg-white px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50" title="Legg til i bemanning">+</button>
+                  </div>
                 </div>
               `).join("")}
             </div>
@@ -4220,6 +4223,9 @@ async function deleteEditedEntry() {
     els.calendarPanelContent.querySelectorAll("[data-calendar-panel-staff-project]").forEach(btn => {
       btn.addEventListener("click", () => startProjectStaffing(btn.dataset.calendarPanelStaffProject));
     });
+    els.calendarPanelContent.querySelectorAll("[data-calendar-panel-add-employee]").forEach(btn => {
+      btn.addEventListener("click", () => startProjectStaffing(project.id, btn.dataset.calendarPanelAddEmployee));
+    });
     els.calendarPanelContent.querySelectorAll("[data-project-entry-delete-id]").forEach(btn => {
       btn.addEventListener("click", () => deleteEntryFromProjectCard(btn.dataset.projectEntryDeleteId));
     });
@@ -4232,12 +4238,12 @@ async function deleteEditedEntry() {
       const project = state.calendarPanelOpen ? getProjectById(state.focusProjectId || "") : null;
       if (!project) {
         els.calendarPanelCol.className = "hidden";
-        els.calendarPanelContent.classList.add("hidden");
+        els.calendarPanelContent.className = "hidden min-w-0 flex-1";
         return;
       }
-      els.calendarPanelCol.className = "w-full xl:w-[360px] shrink-0 rounded bg-white border border-slate-200 shadow-sm overflow-hidden transition-all duration-300";
+      els.calendarPanelCol.className = "iz-project-inspector-shell w-full shrink-0 bg-white border border-slate-200 shadow-sm overflow-hidden transition-all duration-300";
       els.calendarPanelHandleBtn.className = "hidden";
-      els.calendarPanelContent.classList.remove("hidden");
+      els.calendarPanelContent.className = "min-w-0 flex-1";
       renderProjectInspectorPanel(project);
       return;
     }
@@ -4529,13 +4535,16 @@ async function deleteEditedEntry() {
   }
 
 
-  function startProjectStaffing(projectId) {
+  function startProjectStaffing(projectId, preselectEmployeeName = "") {
     if (!els.assignProject) return;
     state.focusProjectId = projectId || "";
     setActiveTab("projects");
     els.assignProject.value = projectId;
     if (els.assignNotes) els.assignNotes.value = "";
-    syncAssignDatesFromProject({ projectId, rows: [] });
+    const rows = preselectEmployeeName
+      ? [{ employee_name: preselectEmployeeName, role: getDefaultRoleForIndex(0) }]
+      : [];
+    syncAssignDatesFromProject({ projectId, rows });
     updateAvailabilityAnalysis();
     els.assignProject.scrollIntoView({ behavior: "smooth", block: "center" });
     renderProjects();
