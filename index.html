@@ -205,11 +205,7 @@
     }
 
     body.iz-compact-ui #statsRow {
-      display: grid !important;
-      grid-template-columns: repeat(2, minmax(190px, 250px)) !important;
-      gap: 14px !important;
-      margin-top: 0 !important;
-      margin-bottom: 16px !important;
+      display: none !important;
     }
 
     body.iz-compact-ui .iz-stat-card,
@@ -282,6 +278,46 @@
     body.iz-compact-ui #prevBtn,
     body.iz-compact-ui #todayBtn,
     body.iz-compact-ui #nextBtn { padding-left: 17px !important; padding-right: 17px !important; }
+
+    body.iz-compact-ui #personalPlanQuickBtn,
+    body.iz-compact-ui #projectPlanQuickBtn,
+    body.iz-compact-ui #unstaffedProjectsQuickBtn {
+      height: 42px !important;
+      border-radius: 5px !important;
+      background: rgba(3, 20, 28, 0.62) !important;
+      border: 1px solid rgba(172, 219, 230, 0.35) !important;
+      color: #ffffff !important;
+      box-shadow: none !important;
+      font-size: 14px !important;
+      font-weight: 700 !important;
+      padding: 0 14px !important;
+      display: inline-flex !important;
+      align-items: center !important;
+      gap: 8px !important;
+      white-space: nowrap !important;
+    }
+
+    body.iz-compact-ui #personalPlanQuickBtn.is-active,
+    body.iz-compact-ui #projectPlanQuickBtn.is-active,
+    body.iz-compact-ui #unstaffedProjectsQuickBtn.is-active {
+      border-color: rgba(80, 240, 199, 0.75) !important;
+      box-shadow: inset 0 0 0 1px rgba(80, 240, 199, 0.25) !important;
+      color: #ffffff !important;
+    }
+
+    body.iz-compact-ui #unstaffedProjectsQuickBtn .quick-count {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 22px;
+      height: 22px;
+      border-radius: 5px !important;
+      background: var(--iz-green);
+      color: #062531;
+      padding: 0 6px;
+      font-size: 12px;
+      font-weight: 900;
+    }
 
     body.iz-compact-ui #searchInput::placeholder { color: rgba(235, 248, 250, 0.73); }
     body.iz-compact-ui #employeeGroupFilterLabel { color: #ffffff !important; }
@@ -639,7 +675,7 @@
           <div class="flex flex-wrap gap-2 items-center">
             <input id="searchInput" name="planner_search_filter" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false" class="w-[220px] rounded-2xl border border-slate-300 px-3 py-2" placeholder="Søk ansatt" />
             <select id="employeeFilter" class="w-[220px] rounded-2xl border border-slate-300 px-3 py-2"></select>
-            <select id="calendarMode" class="rounded-2xl border border-slate-300 px-3 py-2">
+            <select id="calendarMode" class="hidden" aria-hidden="true" tabindex="-1">
               <option value="personal">Personalplan</option>
               <option value="project">Prosjektplan</option>
             </select>
@@ -648,6 +684,9 @@
               <option value="Måned">Måned</option>
               <option value="År">År</option>
             </select>
+            <button id="personalPlanQuickBtn" type="button">Ansattplan</button>
+            <button id="projectPlanQuickBtn" type="button">Prosjektplan</button>
+            <button id="unstaffedProjectsQuickBtn" type="button">Uten bemanning <span class="quick-count">0</span></button>
           </div>
 
           <div class="flex gap-2">

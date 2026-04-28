@@ -219,7 +219,7 @@
 
   function cacheElements() {
     const ids = [
-      "statsRow", "searchInput", "employeeFilter", "viewMode", "calendarMode", "prevBtn", "nextBtn", "todayBtn",
+      "statsRow", "searchInput", "employeeFilter", "viewMode", "calendarMode", "personalPlanQuickBtn", "projectPlanQuickBtn", "unstaffedProjectsQuickBtn", "prevBtn", "nextBtn", "todayBtn",
       "calendarWrap", "holidayInfo", "projectSpotlightBar", "warningBox", "legendList", "projectList", "projectWorkspaceCard", "projectWorkspaceEmpty", "projectWorkspaceContent", "projectWorkspaceTitle", "projectWorkspaceMeta", "projectWorkspaceNotes", "projectWorkspaceAssignments", "projectWorkspaceActions", "assignProject", "assignPeriodWrap", "assignPeriod", "assignPeriodHint", "assignPeriodNav", "assignPrevPeriodBtn", "assignNextPeriodBtn", "assignEmployeesWrap", "assignSummary", "assignRole",
       "assignStart", "assignEnd", "assignNotes", "assignBtn", "bulkEmployees", "bulkAddBtn",
       "employeeList", "kanbanBoard", "notificationList", "auditList", "editModal", "closeModalBtn",
@@ -1612,13 +1612,28 @@
       renderCalendar();
     });
 
-    els.calendarMode.addEventListener("change", e => {
-      state.calendarMode = e.target.value;
-      if (state.calendarMode !== "personal") state.projectSpotlightId = "";
-      persistUiState();
-      renderStats();
-      renderCalendar();
-    });
+    if (els.calendarMode) {
+      els.calendarMode.addEventListener("change", e => {
+        state.calendarMode = e.target.value;
+        if (state.calendarMode !== "personal") state.projectSpotlightId = "";
+        if (state.calendarMode === "personal") state.projectListFilter = "all";
+        persistUiState();
+        renderStats();
+        renderCalendar();
+      });
+    }
+
+    if (els.personalPlanQuickBtn) {
+      els.personalPlanQuickBtn.addEventListener("click", () => openPersonalCalendarView());
+    }
+
+    if (els.projectPlanQuickBtn) {
+      els.projectPlanQuickBtn.addEventListener("click", () => openProjectCalendarView("all"));
+    }
+
+    if (els.unstaffedProjectsQuickBtn) {
+      els.unstaffedProjectsQuickBtn.addEventListener("click", () => openProjectCalendarView("unstaffed"));
+    }
 
     els.prevBtn.addEventListener("click", () => {
       shiftPeriod(-1);
@@ -2923,6 +2938,35 @@
     }
   }
 
+  function openProjectCalendarView(filter = "all") {
+    state.calendarMode = "project";
+    state.projectListFilter = filter === "unstaffed" ? "unstaffed" : "all";
+    state.projectSpotlightId = "";
+    if (els.calendarMode) els.calendarMode.value = "project";
+    persistUiState();
+    setActiveTab("calendar");
+    renderStats();
+    renderCalendar();
+  }
+
+  function openPersonalCalendarView() {
+    state.calendarMode = "personal";
+    state.projectListFilter = "all";
+    if (els.calendarMode) els.calendarMode.value = "personal";
+    persistUiState();
+    setActiveTab("calendar");
+    renderStats();
+    renderCalendar();
+  }
+
+  function getProjectCalendarItems() {
+    const projects = getVisibleProjects().slice();
+    if (state.projectListFilter === "unstaffed") {
+      return getUnstaffedProjectsForCurrentCalendarRange();
+    }
+    return projects;
+  }
+
   async function ensurePersonalProject(type) {
     let project = state.projects.find(item => isSystemPersonalProject(item) && item.category === type);
     if (project) return { ok: true, project };
@@ -3747,42 +3791,48 @@ async function deleteEditedEntry() {
     }
   }
 
+  function getUnstaffedProjectsForCurrentCalendarRange() {
+    const range = getCurrentRange();
+    return getVisibleProjects()
+      .filter(project => projectNeedsStaffing(project))
+      .filter(project => projectOverlapsRange(project, range.start, range.end));
+  }
+
   function renderStats() {
     const visibleProjects = getVisibleProjects();
-    const unstaffedProjects = visibleProjects.filter(project => projectNeedsStaffing(project));
+    const unstaffedProjects = getUnstaffedProjectsForCurrentCalendarRange();
 
-    const cards = [
-      {
-        label: "Prosjekter",
-        value: visibleProjects.length,
-        filter: "all",
-        helper: "Vis alle prosjekter"
-      },
-      {
-        label: "Prosjekter uten bemanning",
-        value: unstaffedProjects.length,
-        filter: "unstaffed",
-        helper: "Vis prosjekter som må bemannes"
-      }
-    ];
+    if (els.statsRow) {
+      els.statsRow.innerHTML = "";
+    }
 
-    els.statsRow.innerHTML = cards.map(card => `
-      <button
-        type="button"
-        data-stats-project-filter="${escapeHtml(card.filter)}"
-        class="w-full rounded-2xl bg-white border border-slate-200 shadow-sm p-4 text-left hover:bg-slate-50 transition"
-      >
-        <div class="text-sm text-slate-500">${escapeHtml(card.label)}</div>
-        <div class="text-3xl font-bold mt-2">${escapeHtml(String(card.value))}</div>
-        <div class="text-xs text-slate-500 mt-2">${escapeHtml(card.helper)}</div>
-      </button>
-    `).join("");
+    updateProjectQuickControls(visibleProjects.length, unstaffedProjects.length);
+  }
 
-    els.statsRow.querySelectorAll("[data-stats-project-filter]").forEach(btn => {
-      btn.addEventListener("click", () => {
-        openProjectListView(btn.dataset.statsProjectFilter || "all");
-      });
-    });
+  function updateProjectQuickControls(projectCount = null, unstaffedCount = null) {
+    const totalProjects = projectCount ?? getVisibleProjects().length;
+    const missingStaffCount = unstaffedCount ?? getUnstaffedProjectsForCurrentCalendarRange().length;
+
+    if (els.personalPlanQuickBtn) {
+      const active = state.calendarMode === "personal";
+      els.personalPlanQuickBtn.classList.toggle("is-active", active);
+      els.personalPlanQuickBtn.textContent = "Ansattplan";
+      els.personalPlanQuickBtn.title = "Vis ansattplan i kalenderen";
+    }
+
+    if (els.projectPlanQuickBtn) {
+      const active = state.calendarMode === "project" && state.projectListFilter !== "unstaffed";
+      els.projectPlanQuickBtn.classList.toggle("is-active", active);
+      els.projectPlanQuickBtn.textContent = `Prosjektplan (${totalProjects})`;
+      els.projectPlanQuickBtn.title = "Åpne prosjektplan i kalenderen";
+    }
+
+    if (els.unstaffedProjectsQuickBtn) {
+      const active = state.calendarMode === "project" && state.projectListFilter === "unstaffed";
+      els.unstaffedProjectsQuickBtn.classList.toggle("is-active", active);
+      els.unstaffedProjectsQuickBtn.innerHTML = `Uten bemanning <span class="quick-count">${escapeHtml(String(missingStaffCount))}</span>`;
+      els.unstaffedProjectsQuickBtn.title = "Vis prosjekter som mangler bemanning i prosjektplanen for valgt periode";
+    }
   }
 
 
@@ -4558,7 +4608,7 @@ async function deleteEditedEntry() {
 
   function renderProjectDayCalendar(range, warnings) {
     const days = getDaysBetween(range.start, range.end);
-    const projects = getVisibleProjects().filter(project => projectOverlapsRange(project, range.start, range.end));
+    const projects = getProjectCalendarItems().filter(project => projectOverlapsRange(project, range.start, range.end));
 
     const stickyWidth = 300;
     const colWidth = Math.max(28, state.viewMode === "Uke" ? 38 : 32);
@@ -4631,7 +4681,7 @@ async function deleteEditedEntry() {
   function renderProjectYearCalendar(range, warnings) {
     const year = range.start.getFullYear();
     const months = Array.from({ length: 12 }, (_, i) => new Date(year, i, 1));
-    const projects = getVisibleProjects().filter(project => projectOverlapsRange(project, range.start, range.end));
+    const projects = getProjectCalendarItems().filter(project => projectOverlapsRange(project, range.start, range.end));
 
     const calendarWrapWidth = Math.max(els.calendarWrap.clientWidth - 8, 900);
     const stickyWidth = 320;
