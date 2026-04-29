@@ -4179,6 +4179,7 @@ async function deleteEditedEntry() {
   }
 
   function renderProjectInspectorPanel(project) {
+    // v17.8: Assigned rows render visible Endre and remove buttons directly in this panel.
     if (!els.calendarPanelContent || !project) return;
 
     const assignedEntries = state.entries
@@ -4219,8 +4220,20 @@ async function deleteEditedEntry() {
                 <div class="mt-1 truncate text-[11px] text-slate-500">${escapeHtml(entry.role || "Rolle ikke satt")}</div>
               </div>
               <div class="flex shrink-0 items-center gap-2">
-                <button data-project-entry-edit-id="${escapeHtml(entry.id)}" type="button" class="border border-slate-300 bg-white px-2.5 py-1.5 text-[11px] font-semibold text-slate-100 hover:bg-white/10" title="Endre tildeling">Endre</button>
-                <button data-project-entry-delete-id="${escapeHtml(entry.id)}" type="button" class="px-2 py-1 text-base leading-none text-slate-300 hover:text-red-400" title="Fjern tildeling">×</button>
+                <button
+                  data-project-entry-edit-id="${escapeHtml(entry.id)}"
+                  type="button"
+                  class="project-assigned-edit-btn px-2.5 py-1.5 text-[11px] font-semibold"
+                  style="display:inline-flex;align-items:center;justify-content:center;min-width:52px;border:1px solid rgba(132,204,222,0.45);background:rgba(15,96,124,0.72);color:#f8fbfd;border-radius:4px;"
+                  title="Endre tildeling"
+                >Endre</button>
+                <button
+                  data-project-entry-delete-id="${escapeHtml(entry.id)}"
+                  type="button"
+                  class="project-assigned-delete-btn px-2 py-1 text-base leading-none"
+                  style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border:1px solid rgba(248,113,113,0.30);background:rgba(127,29,29,0.18);color:#fecaca;border-radius:4px;"
+                  title="Fjern tildeling"
+                >×</button>
               </div>
             </div>
           `).join("") : `<div class="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-3 py-3 text-xs text-slate-500">Ingen tildelte ressurser.</div>`}
