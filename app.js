@@ -4237,6 +4237,19 @@ async function deleteEditedEntry() {
               </div>
             </div>
           `).join("") : `<div class="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-3 py-3 text-xs text-slate-500">Ingen tildelte ressurser.</div>`}
+          ${needsStaffing ? `
+            <button
+              id="projectInspectorAddStaffBtn"
+              type="button"
+              class="project-add-staff-slot"
+              style="display:flex !important;align-items:center !important;justify-content:center !important;gap:8px !important;width:100% !important;min-height:48px !important;box-sizing:border-box !important;border:1px dashed rgba(132,204,222,0.62) !important;background:rgba(255,255,255,0.08) !important;color:#f8fbfd !important;border-radius:4px !important;font-size:13px !important;font-weight:700 !important;cursor:pointer !important;visibility:visible !important;opacity:1 !important;"
+              title="Legg til ansatt på dette prosjektet"
+            >
+              <span style="font-size:18px !important;line-height:1 !important;">+</span>
+              <span>Legg til ansatt</span>
+              <span style="font-size:11px !important;font-weight:600 !important;color:rgba(232,244,248,0.72) !important;">${missingStaffCount} mangler</span>
+            </button>
+          ` : ""}
         </div>
       </section>
     `;
@@ -4273,22 +4286,6 @@ async function deleteEditedEntry() {
           `).join("") : `<div class="px-3 py-4 text-xs text-slate-500">Ingen treff i tilgjengelig-listen.</div>`}
         </div>
         ${filteredEmployees.length > employees.length ? `<div class="mt-2 text-[11px] text-slate-500">Viser ${employees.length} av ${filteredEmployees.length}. Bruk søk eller gruppefilter for å snevre inn.</div>` : ""}
-      </section>
-    ` : "";
-
-    const fillStaffingHtml = needsStaffing ? `
-      <section>
-        <button
-          id="projectInspectorAddStaffBtn"
-          type="button"
-          class="project-add-staff-slot"
-          style="display:flex !important;align-items:center !important;justify-content:center !important;gap:8px !important;width:100% !important;min-height:48px !important;border:1px dashed rgba(132,204,222,0.55) !important;background:rgba(255,255,255,0.07) !important;color:#f8fbfd !important;border-radius:4px !important;font-size:13px !important;font-weight:700 !important;cursor:pointer !important;"
-          title="Legg til ansatt på dette prosjektet"
-        >
-          <span style="font-size:18px !important;line-height:1 !important;">+</span>
-          <span>Legg til ansatt</span>
-          <span style="font-size:11px !important;font-weight:600 !important;color:rgba(232,244,248,0.72) !important;">${missingStaffCount} mangler</span>
-        </button>
       </section>
     ` : "";
 
@@ -4347,7 +4344,6 @@ async function deleteEditedEntry() {
           </section>
 
           ${assignedHtml}
-          ${fillStaffingHtml}
           ${fullStaffedCrewActionHtml}
           ${availableHtml}
         </div>
