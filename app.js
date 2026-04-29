@@ -4405,7 +4405,7 @@ async function deleteEditedEntry() {
       </section>
     `;
 
-    const availableHtml = shouldShowAvailable ? `
+    const availableHtml = shouldShowAvailable ? `<!-- v18.12-dark-available-cards -->
       <section>
         <div class="mb-2 grid grid-cols-3 gap-1 text-[11px]">
           <div class="rounded-lg border border-green-200 bg-green-50 px-2 py-1 text-center font-semibold text-green-700"><div>Ledig</div><div class="text-sm">${availabilitySummary.available}</div></div>
@@ -4416,16 +4416,16 @@ async function deleteEditedEntry() {
           <input id="projectInspectorSearchInput" type="text" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs" placeholder="Søk navn, gruppe, tittel eller status" value="${escapeHtml(state.projectInspectorSearch || "")}" />
           <select id="projectInspectorGroupFilter" class="rounded-xl border border-slate-300 px-2 py-2 text-xs">${groupOptions}</select>
         </div>
-        <div class="rounded-2xl border border-slate-200 bg-white overflow-hidden">
-          <div class="grid grid-cols-[1fr_auto] border-b border-slate-200 px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+        <div style="display:grid !important;gap:8px !important;background:transparent !important;border:0 !important;overflow:visible !important;">
+          <div style="display:grid !important;grid-template-columns:1fr auto !important;align-items:center !important;padding:0 2px 2px 2px !important;font-size:11px !important;font-weight:800 !important;text-transform:uppercase !important;letter-spacing:.04em !important;color:rgba(232,244,248,0.78) !important;">
             <span>Tilgjengelige / øvrige</span><span>Status</span>
           </div>
           ${employees.length ? employees.map(employee => {
             const isSelected = addCandidate && addCandidate.name === employee.name;
             const canAssign = employee.availability.label !== "Opptatt";
             const expandedHtml = isSelected ? `
-              <div class="border-t border-slate-200 bg-slate-50 px-3 py-3">
-                <div class="text-sm font-semibold text-slate-900">Legg til ${escapeHtml(employee.name)}</div>
+              <div style="border-top:1px solid rgba(148,187,199,0.22);background:rgba(255,255,255,0.08);padding:12px;">
+                <div style="font-size:13px;font-weight:800;color:#f8fbfd;">Legg til ${escapeHtml(employee.name)}</div>
                 <div class="mt-2 grid gap-3">
                   <label class="grid gap-1 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
                     Rolle
@@ -4463,19 +4463,19 @@ async function deleteEditedEntry() {
               <div
                 class="project-available-person-row-v1811"
                 data-project-available-person-row="${escapeHtml(employee.name)}"
-                style="display:block !important;width:100% !important;box-sizing:border-box !important;border-bottom:1px solid #dbe4ee !important;background:${isSelected ? '#eaf4ff' : '#ffffff'} !important;color:#0f172a !important;visibility:visible !important;opacity:1 !important;"
+                style="display:block !important;width:100% !important;box-sizing:border-box !important;border:1px solid rgba(148,187,199,0.26) !important;background:${isSelected ? 'rgba(255,255,255,0.16)' : 'rgba(255,255,255,0.10)'} !important;color:#f8fbfd !important;border-radius:4px !important;visibility:visible !important;opacity:1 !important;overflow:hidden !important;"
               >
-                <div style="display:flex !important;align-items:center !important;justify-content:space-between !important;gap:10px !important;width:100% !important;box-sizing:border-box !important;padding:10px 12px !important;color:#0f172a !important;visibility:visible !important;opacity:1 !important;">
-                  <div style="display:flex !important;align-items:center !important;gap:9px !important;min-width:0 !important;flex:1 1 auto !important;color:#0f172a !important;visibility:visible !important;opacity:1 !important;">
-                    ${getEmployeeGroupIconHtml(employee.normalizedGroup, "inline-flex h-5 w-5 items-center justify-center text-slate-500 shrink-0 opacity-90") || `<span style="display:inline-flex !important;width:20px !important;height:20px !important;align-items:center !important;justify-content:center !important;color:#64748b !important;flex:0 0 auto !important;">•</span>`}
-                    <div style="display:block !important;min-width:0 !important;flex:1 1 auto !important;color:#0f172a !important;visibility:visible !important;opacity:1 !important;">
-                      <div class="project-available-person-name v1811-visible-name" style="display:block !important;font-size:13px !important;font-weight:800 !important;line-height:1.2 !important;color:#0f172a !important;background:transparent !important;white-space:nowrap !important;overflow:hidden !important;text-overflow:ellipsis !important;visibility:visible !important;opacity:1 !important;position:relative !important;z-index:2 !important;">${escapeHtml(employee.name)}</div>
-                      <div class="project-available-person-title v1811-visible-title" style="display:block !important;margin-top:3px !important;font-size:11px !important;font-weight:600 !important;line-height:1.2 !important;color:#475569 !important;background:transparent !important;white-space:nowrap !important;overflow:hidden !important;text-overflow:ellipsis !important;visibility:visible !important;opacity:1 !important;position:relative !important;z-index:2 !important;">${escapeHtml(employee.title || "Tittel ikke satt")}</div>
+                <div style="display:flex !important;align-items:center !important;justify-content:space-between !important;gap:10px !important;width:100% !important;box-sizing:border-box !important;padding:10px 12px !important;color:#f8fbfd !important;visibility:visible !important;opacity:1 !important;">
+                  <div style="display:flex !important;align-items:center !important;gap:9px !important;min-width:0 !important;flex:1 1 auto !important;color:#f8fbfd !important;visibility:visible !important;opacity:1 !important;">
+                    ${getEmployeeGroupIconHtml(employee.normalizedGroup, "inline-flex h-5 w-5 items-center justify-center text-cyan-100 shrink-0 opacity-80") || `<span style="display:inline-flex !important;width:20px !important;height:20px !important;align-items:center !important;justify-content:center !important;color:rgba(232,244,248,0.62) !important;flex:0 0 auto !important;">•</span>`}
+                    <div style="display:block !important;min-width:0 !important;flex:1 1 auto !important;color:#f8fbfd !important;visibility:visible !important;opacity:1 !important;">
+                      <div class="project-available-person-name v1811-visible-name v1812-dark-card-name" style="display:block !important;font-size:13px !important;font-weight:800 !important;line-height:1.2 !important;color:#f8fbfd !important;background:transparent !important;white-space:nowrap !important;overflow:hidden !important;text-overflow:ellipsis !important;visibility:visible !important;opacity:1 !important;position:relative !important;z-index:2 !important;">${escapeHtml(employee.name)}</div>
+                      <div class="project-available-person-title v1811-visible-title v1812-dark-card-title" style="display:block !important;margin-top:3px !important;font-size:11px !important;font-weight:600 !important;line-height:1.2 !important;color:rgba(232,244,248,0.78) !important;background:transparent !important;white-space:nowrap !important;overflow:hidden !important;text-overflow:ellipsis !important;visibility:visible !important;opacity:1 !important;position:relative !important;z-index:2 !important;">${escapeHtml(employee.title || "Tittel ikke satt")}</div>
                     </div>
                   </div>
-                  <div style="display:flex !important;align-items:center !important;justify-content:flex-end !important;gap:8px !important;flex:0 0 auto !important;color:#0f172a !important;visibility:visible !important;opacity:1 !important;">
+                  <div style="display:flex !important;align-items:center !important;justify-content:flex-end !important;gap:8px !important;flex:0 0 auto !important;color:#f8fbfd !important;visibility:visible !important;opacity:1 !important;">
                     <span style="display:inline-flex !important;align-items:center !important;justify-content:center !important;min-width:58px !important;font-size:12px !important;font-weight:850 !important;line-height:1.1 !important;color:${employee.availability.label === 'Ledig' ? '#15803d' : employee.availability.label === 'Delvis ledig' ? '#b45309' : '#b91c1c'} !important;visibility:visible !important;opacity:1 !important;">${escapeHtml(employee.availability.label)}</span>
-                    ${canAssign ? `<button data-project-inspector-select-employee="${escapeHtml(employee.name)}" data-project-inspector-select-role="${escapeHtml(getDefaultRoleForIndex(0))}" type="button" style="display:inline-flex !important;align-items:center !important;justify-content:center !important;border:1px solid #cbd5e1 !important;background:#ffffff !important;color:#0f172a !important;border-radius:4px !important;padding:6px 9px !important;font-size:11px !important;font-weight:900 !important;cursor:pointer !important;visibility:visible !important;opacity:1 !important;">${isSelected ? "Valgt" : "Velg"}</button>` : `<span style="display:inline-flex !important;align-items:center !important;justify-content:center !important;border:1px solid #e2e8f0 !important;background:#f8fafc !important;color:#64748b !important;border-radius:4px !important;padding:6px 9px !important;font-size:11px !important;font-weight:900 !important;visibility:visible !important;opacity:1 !important;">Opptatt</span>`}
+                    ${canAssign ? `<button data-project-inspector-select-employee="${escapeHtml(employee.name)}" data-project-inspector-select-role="${escapeHtml(getDefaultRoleForIndex(0))}" type="button" style="display:inline-flex !important;align-items:center !important;justify-content:center !important;border:1px solid rgba(132,204,222,0.32) !important;background:rgba(255,255,255,0.06) !important;color:#f8fbfd !important;border-radius:4px !important;padding:6px 9px !important;font-size:11px !important;font-weight:900 !important;cursor:pointer !important;visibility:visible !important;opacity:1 !important;">${isSelected ? "Valgt" : "Velg"}</button>` : `<span style="display:inline-flex !important;align-items:center !important;justify-content:center !important;border:1px solid #e2e8f0 !important;background:#f8fafc !important;color:#64748b !important;border-radius:4px !important;padding:6px 9px !important;font-size:11px !important;font-weight:900 !important;visibility:visible !important;opacity:1 !important;">Opptatt</span>`}
                   </div>
                 </div>
                 <button
