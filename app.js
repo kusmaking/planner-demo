@@ -68,6 +68,7 @@
     projectInspectorSearch: "",
     projectInspectorGroup: "all",
     projectInspectorShowAvailable: false,
+    projectInspectorShowAddBox: false,
     projectInspectorAddCandidateName: "",
     projectInspectorAddRole: "",
     projectInspectorAddPeriodId: "",
@@ -4179,6 +4180,7 @@ async function deleteEditedEntry() {
     state.projectInspectorSearch = "";
     state.projectInspectorGroup = "all";
     state.projectInspectorShowAvailable = false;
+    state.projectInspectorShowAddBox = false;
     state.projectInspectorAddCandidateName = "";
     state.projectInspectorAddRole = "";
     state.projectInspectorAddPeriodId = "";
@@ -4255,6 +4257,7 @@ async function deleteEditedEntry() {
     }
 
     state.entries.push(entry);
+    state.projectInspectorShowAddBox = false;
     state.projectInspectorAddCandidateName = "";
     state.projectInspectorAddRole = "";
     state.projectInspectorAddPeriodId = "";
@@ -4306,26 +4309,38 @@ async function deleteEditedEntry() {
         ? "text-amber-700"
         : "text-red-700";
     const preferredRole = getDefaultRoleForIndex(0);
+    const addCandidates = getProjectInspectorEmployees(project)
+      .filter(employee => !assignedNames.has(employee.name))
+      .slice()
+      .sort((a, b) => a.name.localeCompare(b.name, "no"));
     const addCandidate = getProjectInspectorAddCandidate(project);
     const addCandidateRole = getProjectInspectorAddRole(addCandidate);
     const selectedAddPeriod = getProjectInspectorSelectedPeriod(project);
     const addCandidateAvailability = addCandidate ? getProjectInspectorAvailability(addCandidate, project) : null;
+    const shouldShowAddBox = needsStaffing && (state.projectInspectorShowAddBox === true || !!addCandidate);
+    const employeeOptionsForAdd = ['<option value="">Velg ansatt...</option>'].concat(addCandidates.map(employee => {
+      const availability = getProjectInspectorAvailability(employee, project);
+      const isSelected = addCandidate && addCandidate.name === employee.name;
+      return `<option value="${escapeHtml(employee.name)}" ${isSelected ? "selected" : ""}>${escapeHtml(employee.name)} · ${escapeHtml(employee.title || "Tittel ikke satt")} · ${escapeHtml(availability.label)}</option>`;
+    })).join("");
     const periodOptions = periods.map((period, index) => `
       <option value="${escapeHtml(period.id || '')}" ${selectedAddPeriod && String(selectedAddPeriod.id || '') === String(period.id || '') ? "selected" : ""}>Periode ${index + 1}: ${escapeHtml(formatDate(period.start))} – ${escapeHtml(formatDate(period.end))}</option>
     `).join("");
     const roleOptionsForAdd = ROLE_OPTIONS.map(role => `<option value="${escapeHtml(role)}" ${role === addCandidateRole ? "selected" : ""}>${escapeHtml(role)}</option>`).join("");
-    const addCandidateHtml = needsStaffing && addCandidate ? `
+    const addCandidateHtml = shouldShowAddBox ? `
       <section id="projectInspectorAddCandidateBox" style="border:1px solid rgba(132,204,222,0.38);background:rgba(255,255,255,0.10);border-radius:4px;padding:12px;">
         <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:10px;">
           <div style="min-width:0;">
             <div style="font-size:13px;font-weight:800;color:#f8fbfd;">Legg til i prosjekt</div>
-            <div style="margin-top:4px;font-size:12px;font-weight:700;color:#f8fbfd;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(addCandidate.name)}</div>
-            <div style="margin-top:2px;font-size:11px;color:rgba(232,244,248,0.72);">${escapeHtml(addCandidate.title || "Tittel ikke satt")} • ${escapeHtml(addCandidateAvailability?.label || "Ukjent")}</div>
+            <div style="margin-top:4px;font-size:11px;color:rgba(232,244,248,0.72);">Velg ansatt og rolle, og trykk Legg til.</div>
           </div>
           <button id="projectInspectorAddCancelBtn" type="button" style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border:1px solid rgba(132,204,222,0.28);background:rgba(255,255,255,0.06);color:#f8fbfd;border-radius:4px;font-size:16px;cursor:pointer;">×</button>
         </div>
-        ${addCandidateAvailability?.label === "Delvis ledig" ? `<div style="margin-bottom:10px;border:1px solid rgba(245,158,11,0.35);background:rgba(245,158,11,0.12);color:#fde68a;border-radius:4px;padding:8px;font-size:11px;line-height:1.35;">Denne personen er delvis tilgjengelig. Kontroller periode før du legger til.</div>` : ""}
         <div style="display:grid;grid-template-columns:1fr;gap:10px;">
+          <label style="display:grid;gap:5px;font-size:11px;font-weight:700;color:rgba(232,244,248,0.76);text-transform:uppercase;letter-spacing:.04em;">
+            Ansatt
+            <select id="projectInspectorAddEmployeeSelect" style="width:100%;border:1px solid rgba(132,204,222,0.34);background:rgba(255,255,255,0.12);color:#f8fbfd;border-radius:4px;padding:9px;font-size:12px;">${employeeOptionsForAdd}</select>
+          </label>
           <label style="display:grid;gap:5px;font-size:11px;font-weight:700;color:rgba(232,244,248,0.76);text-transform:uppercase;letter-spacing:.04em;">
             Rolle
             <select id="projectInspectorAddRoleSelect" style="width:100%;border:1px solid rgba(132,204,222,0.34);background:rgba(255,255,255,0.12);color:#f8fbfd;border-radius:4px;padding:9px;font-size:12px;">${roleOptionsForAdd}</select>
@@ -4336,10 +4351,12 @@ async function deleteEditedEntry() {
               <select id="projectInspectorAddPeriodSelect" style="width:100%;border:1px solid rgba(132,204,222,0.34);background:rgba(255,255,255,0.12);color:#f8fbfd;border-radius:4px;padding:9px;font-size:12px;">${periodOptions}</select>
             </label>
           ` : `<div style="border:1px solid rgba(132,204,222,0.22);background:rgba(255,255,255,0.06);border-radius:4px;padding:8px;font-size:12px;color:rgba(232,244,248,0.82);"><span style="font-weight:700;color:#f8fbfd;">Periode:</span> ${selectedAddPeriod ? `${escapeHtml(formatDate(selectedAddPeriod.start))} – ${escapeHtml(formatDate(selectedAddPeriod.end))}` : "Ikke satt"}</div>`}
+          <div style="border:1px solid rgba(132,204,222,0.22);background:rgba(255,255,255,0.06);border-radius:4px;padding:8px;font-size:12px;color:rgba(232,244,248,0.82);"><span style="font-weight:700;color:#f8fbfd;">Tilgjengelighet:</span> ${escapeHtml(addCandidateAvailability?.label || "Ikke valgt")}</div>
+          ${addCandidateAvailability?.label === "Delvis ledig" ? `<div style="border:1px solid rgba(245,158,11,0.35);background:rgba(245,158,11,0.12);color:#fde68a;border-radius:4px;padding:8px;font-size:11px;line-height:1.35;">Denne personen er delvis tilgjengelig. Kontroller periode før du legger til.</div>` : ""}
         </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px;">
+        <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:12px;">
           <button id="projectInspectorAddAbortBtn" type="button" style="border:1px solid rgba(132,204,222,0.28);background:rgba(255,255,255,0.06);color:#f8fbfd;border-radius:4px;padding:9px 10px;font-size:12px;font-weight:700;cursor:pointer;">Avbryt</button>
-          <button id="projectInspectorAddConfirmBtn" type="button" style="border:1px solid rgba(34,197,94,0.38);background:rgba(22,163,74,0.88);color:#ffffff;border-radius:4px;padding:9px 10px;font-size:12px;font-weight:800;cursor:pointer;">Legg til</button>
+          <button id="projectInspectorAddConfirmBtn" type="button" ${addCandidate ? "" : "disabled"} style="border:1px solid rgba(34,197,94,0.38);background:${addCandidate ? "rgba(22,163,74,0.88)" : "rgba(100,116,139,0.55)"};color:#ffffff;border-radius:4px;padding:10px 10px;font-size:12px;font-weight:800;cursor:${addCandidate ? "pointer" : "not-allowed"};opacity:${addCandidate ? "1" : "0.75"};">Legg til</button>
         </div>
       </section>
     ` : "";
@@ -4529,13 +4546,16 @@ async function deleteEditedEntry() {
     if (addStaffBtn) {
       addStaffBtn.addEventListener("click", () => {
         state.projectInspectorShowAvailable = true;
+        state.projectInspectorShowAddBox = true;
         state.projectInspectorAddCandidateName = "";
         state.projectInspectorAddRole = "";
-        rerenderPanel(true);
+        state.projectInspectorAddPeriodId = "";
+        rerenderPanel(false);
       });
     }
 
     const cancelAddCandidate = () => {
+      state.projectInspectorShowAddBox = false;
       state.projectInspectorAddCandidateName = "";
       state.projectInspectorAddRole = "";
       state.projectInspectorAddPeriodId = "";
@@ -4543,6 +4563,11 @@ async function deleteEditedEntry() {
     };
     document.getElementById("projectInspectorAddCancelBtn")?.addEventListener("click", cancelAddCandidate);
     document.getElementById("projectInspectorAddAbortBtn")?.addEventListener("click", cancelAddCandidate);
+    document.getElementById("projectInspectorAddEmployeeSelect")?.addEventListener("change", event => {
+      state.projectInspectorAddCandidateName = event.target.value || "";
+      state.projectInspectorAddRole = "";
+      rerenderPanel(false);
+    });
     document.getElementById("projectInspectorAddRoleSelect")?.addEventListener("change", event => {
       state.projectInspectorAddRole = event.target.value || "";
     });
@@ -4581,6 +4606,7 @@ async function deleteEditedEntry() {
         state.projectInspectorAddCandidateName = btn.dataset.calendarPanelAddEmployee || "";
         state.projectInspectorAddRole = btn.dataset.calendarPanelAddRole || getDefaultRoleForIndex(0);
         state.projectInspectorShowAvailable = true;
+        state.projectInspectorShowAddBox = true;
         rerenderPanel(false);
       });
     });
