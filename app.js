@@ -68,6 +68,9 @@
     projectInspectorSearch: "",
     projectInspectorGroup: "all",
     projectInspectorShowAvailable: false,
+    projectInspectorAddCandidateName: "",
+    projectInspectorAddRole: "",
+    projectInspectorAddPeriodId: "",
     contextMenu: {
       visible: false,
       employeeName: "",
@@ -4176,6 +4179,102 @@ async function deleteEditedEntry() {
     state.projectInspectorSearch = "";
     state.projectInspectorGroup = "all";
     state.projectInspectorShowAvailable = false;
+    state.projectInspectorAddCandidateName = "";
+    state.projectInspectorAddRole = "";
+    state.projectInspectorAddPeriodId = "";
+  }
+
+  function getProjectInspectorAddCandidate(project) {
+    const name = String(state.projectInspectorAddCandidateName || "").trim();
+    if (!name) return null;
+    const assignedNames = new Set(state.entries.filter(entry => entry.project_id === project?.id).map(entry => entry.employee_name));
+    if (assignedNames.has(name)) return null;
+    return getProjectInspectorEmployees(project).find(employee => employee.name === name) || null;
+  }
+
+  function getProjectInspectorAddRole(employee) {
+    const current = String(state.projectInspectorAddRole || "").trim();
+    if (current && ROLE_OPTIONS.includes(current)) return current;
+    const title = String(employee?.title || "").trim();
+    const exact = ROLE_OPTIONS.find(role => role.toLowerCase() === title.toLowerCase());
+    return exact || getDefaultRoleForIndex(0);
+  }
+
+  function getProjectInspectorSelectedPeriod(project) {
+    const periods = getProjectInspectorPeriods(project);
+    if (!periods.length) return null;
+    const selectedId = String(state.projectInspectorAddPeriodId || "").trim();
+    return periods.find(period => String(period.id || "") === selectedId) || periods[0];
+  }
+
+  function getProjectInspectorAddRange(project) {
+    const period = getProjectInspectorSelectedPeriod(project);
+    if (period) return { start: period.start || "", end: period.end || "", period };
+    return { start: project?.planned_start_date || "", end: project?.planned_end_date || "", period: null };
+  }
+
+  async function createProjectInspectorAssignment(projectId) {
+    if (!canEditApp()) return;
+    const project = getProjectById(projectId);
+    if (!project) return;
+
+    const assigned = state.entries.filter(entry => entry.project_id === project.id).length;
+    const required = Math.max(Number(project.headcount_required || 0), 0);
+    if (required > 0 && assigned >= required) {
+      alert("Prosjektet er allerede fullbemannet.");
+      return;
+    }
+
+    const employee = getProjectInspectorAddCandidate(project);
+    if (!employee) {
+      alert("Velg en ansatt fra tilgjengelig-listen først.");
+      return;
+    }
+
+    const range = getProjectInspectorAddRange(project);
+    if (!range.start || !range.end) {
+      alert("Prosjektet mangler gyldig periode.");
+      return;
+    }
+
+    const role = getProjectInspectorAddRole(employee);
+    const entry = {
+      id: crypto.randomUUID(),
+      project_id: project.id,
+      employee_name: employee.name,
+      role,
+      start_date: range.start,
+      end_date: range.end,
+      notes: ""
+    };
+
+    const conflicts = getEntryOverlapConflicts(entry);
+    if (conflicts.length) {
+      alert(getEntryConflictSummary(entry, conflicts));
+      return;
+    }
+
+    state.entries.push(entry);
+    state.projectInspectorAddCandidateName = "";
+    state.projectInspectorAddRole = "";
+    state.projectInspectorAddPeriodId = "";
+    rebuildDerivedState();
+    renderAll();
+
+    const result = await saveRow("planner_entries", entry);
+    if (!result.ok) {
+      state.entries = state.entries.filter(item => item.id !== entry.id);
+      rebuildDerivedState();
+      renderAll();
+      return;
+    }
+
+    state.calendarMode = "project";
+    state.focusProjectId = project.id;
+    state.calendarPanelOpen = true;
+    renderAll();
+    void addAudit(`La til ${employee.name} på ${project.name} fra prosjektpanelet`);
+    void addNotification(employee.name, project.name);
   }
 
   function renderProjectInspectorPanel(project) {
@@ -4207,6 +4306,43 @@ async function deleteEditedEntry() {
         ? "text-amber-700"
         : "text-red-700";
     const preferredRole = getDefaultRoleForIndex(0);
+    const addCandidate = getProjectInspectorAddCandidate(project);
+    const addCandidateRole = getProjectInspectorAddRole(addCandidate);
+    const selectedAddPeriod = getProjectInspectorSelectedPeriod(project);
+    const addCandidateAvailability = addCandidate ? getProjectInspectorAvailability(addCandidate, project) : null;
+    const periodOptions = periods.map((period, index) => `
+      <option value="${escapeHtml(period.id || '')}" ${selectedAddPeriod && String(selectedAddPeriod.id || '') === String(period.id || '') ? "selected" : ""}>Periode ${index + 1}: ${escapeHtml(formatDate(period.start))} – ${escapeHtml(formatDate(period.end))}</option>
+    `).join("");
+    const roleOptionsForAdd = ROLE_OPTIONS.map(role => `<option value="${escapeHtml(role)}" ${role === addCandidateRole ? "selected" : ""}>${escapeHtml(role)}</option>`).join("");
+    const addCandidateHtml = needsStaffing && addCandidate ? `
+      <section id="projectInspectorAddCandidateBox" style="border:1px solid rgba(132,204,222,0.38);background:rgba(255,255,255,0.10);border-radius:4px;padding:12px;">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:10px;">
+          <div style="min-width:0;">
+            <div style="font-size:13px;font-weight:800;color:#f8fbfd;">Legg til i prosjekt</div>
+            <div style="margin-top:4px;font-size:12px;font-weight:700;color:#f8fbfd;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(addCandidate.name)}</div>
+            <div style="margin-top:2px;font-size:11px;color:rgba(232,244,248,0.72);">${escapeHtml(addCandidate.title || "Tittel ikke satt")} • ${escapeHtml(addCandidateAvailability?.label || "Ukjent")}</div>
+          </div>
+          <button id="projectInspectorAddCancelBtn" type="button" style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border:1px solid rgba(132,204,222,0.28);background:rgba(255,255,255,0.06);color:#f8fbfd;border-radius:4px;font-size:16px;cursor:pointer;">×</button>
+        </div>
+        ${addCandidateAvailability?.label === "Delvis ledig" ? `<div style="margin-bottom:10px;border:1px solid rgba(245,158,11,0.35);background:rgba(245,158,11,0.12);color:#fde68a;border-radius:4px;padding:8px;font-size:11px;line-height:1.35;">Denne personen er delvis tilgjengelig. Kontroller periode før du legger til.</div>` : ""}
+        <div style="display:grid;grid-template-columns:1fr;gap:10px;">
+          <label style="display:grid;gap:5px;font-size:11px;font-weight:700;color:rgba(232,244,248,0.76);text-transform:uppercase;letter-spacing:.04em;">
+            Rolle
+            <select id="projectInspectorAddRoleSelect" style="width:100%;border:1px solid rgba(132,204,222,0.34);background:rgba(255,255,255,0.12);color:#f8fbfd;border-radius:4px;padding:9px;font-size:12px;">${roleOptionsForAdd}</select>
+          </label>
+          ${periods.length > 1 ? `
+            <label style="display:grid;gap:5px;font-size:11px;font-weight:700;color:rgba(232,244,248,0.76);text-transform:uppercase;letter-spacing:.04em;">
+              Periode
+              <select id="projectInspectorAddPeriodSelect" style="width:100%;border:1px solid rgba(132,204,222,0.34);background:rgba(255,255,255,0.12);color:#f8fbfd;border-radius:4px;padding:9px;font-size:12px;">${periodOptions}</select>
+            </label>
+          ` : `<div style="border:1px solid rgba(132,204,222,0.22);background:rgba(255,255,255,0.06);border-radius:4px;padding:8px;font-size:12px;color:rgba(232,244,248,0.82);"><span style="font-weight:700;color:#f8fbfd;">Periode:</span> ${selectedAddPeriod ? `${escapeHtml(formatDate(selectedAddPeriod.start))} – ${escapeHtml(formatDate(selectedAddPeriod.end))}` : "Ikke satt"}</div>`}
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px;">
+          <button id="projectInspectorAddAbortBtn" type="button" style="border:1px solid rgba(132,204,222,0.28);background:rgba(255,255,255,0.06);color:#f8fbfd;border-radius:4px;padding:9px 10px;font-size:12px;font-weight:700;cursor:pointer;">Avbryt</button>
+          <button id="projectInspectorAddConfirmBtn" type="button" style="border:1px solid rgba(34,197,94,0.38);background:rgba(22,163,74,0.88);color:#ffffff;border-radius:4px;padding:9px 10px;font-size:12px;font-weight:800;cursor:pointer;">Legg til</button>
+        </div>
+      </section>
+    ` : "";
 
     const assignedHtml = `
       <section>
@@ -4269,8 +4405,10 @@ async function deleteEditedEntry() {
           <div class="grid grid-cols-[1fr_auto] border-b border-slate-200 px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
             <span>Tilgjengelige / øvrige</span><span>Status</span>
           </div>
-          ${employees.length ? employees.map(employee => `
-            <div class="grid grid-cols-[1fr_auto] items-center gap-2 border-b border-slate-100 px-3 py-2 last:border-b-0">
+          ${employees.length ? employees.map(employee => {
+            const canAddEmployee = employee.availability.label !== "Opptatt";
+            return `
+            <div class="grid grid-cols-[1fr_auto] items-center gap-2 border-b border-slate-100 px-3 py-2 last:border-b-0 ${canAddEmployee ? 'cursor-pointer hover:bg-white/10' : ''}" ${canAddEmployee ? `data-calendar-panel-add-employee="${escapeHtml(employee.name)}" data-calendar-panel-add-role="${escapeHtml(preferredRole)}"` : ''}>
               <div class="flex min-w-0 items-center gap-2">
                 ${getEmployeeGroupIconHtml(employee.normalizedGroup, "inline-flex h-5 w-5 items-center justify-center text-slate-500 shrink-0 opacity-90") || `<span class="inline-flex h-5 w-5 shrink-0 items-center justify-center text-slate-400">•</span>`}
                 <div class="min-w-0">
@@ -4280,10 +4418,10 @@ async function deleteEditedEntry() {
               </div>
               <div class="flex items-center justify-end gap-2">
                 <span class="text-xs font-medium ${employee.availability.tone}">${escapeHtml(employee.availability.label)}</span>
-                <button data-calendar-panel-add-employee="${escapeHtml(employee.name)}" data-calendar-panel-add-role="${escapeHtml(preferredRole)}" type="button" class="border border-slate-300 bg-white px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50" title="Legg til i bemanning">+</button>
+                ${canAddEmployee ? `<button data-calendar-panel-add-employee="${escapeHtml(employee.name)}" data-calendar-panel-add-role="${escapeHtml(preferredRole)}" type="button" class="border border-slate-300 bg-white px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50" title="Legg til i prosjekt">+</button>` : ''}
               </div>
             </div>
-          `).join("") : `<div class="px-3 py-4 text-xs text-slate-500">Ingen treff i tilgjengelig-listen.</div>`}
+          `}).join("") : `<div class="px-3 py-4 text-xs text-slate-500">Ingen treff i tilgjengelig-listen.</div>`}
         </div>
         ${filteredEmployees.length > employees.length ? `<div class="mt-2 text-[11px] text-slate-500">Viser ${employees.length} av ${filteredEmployees.length}. Bruk søk eller gruppefilter for å snevre inn.</div>` : ""}
       </section>
@@ -4344,6 +4482,7 @@ async function deleteEditedEntry() {
           </section>
 
           ${assignedHtml}
+          ${addCandidateHtml}
           ${fullStaffedCrewActionHtml}
           ${availableHtml}
         </div>
@@ -4388,8 +4527,31 @@ async function deleteEditedEntry() {
 
     const addStaffBtn = document.getElementById("projectInspectorAddStaffBtn");
     if (addStaffBtn) {
-      addStaffBtn.addEventListener("click", () => startProjectStaffing(project.id));
+      addStaffBtn.addEventListener("click", () => {
+        state.projectInspectorShowAvailable = true;
+        state.projectInspectorAddCandidateName = "";
+        state.projectInspectorAddRole = "";
+        rerenderPanel(true);
+      });
     }
+
+    const cancelAddCandidate = () => {
+      state.projectInspectorAddCandidateName = "";
+      state.projectInspectorAddRole = "";
+      state.projectInspectorAddPeriodId = "";
+      rerenderPanel(false);
+    };
+    document.getElementById("projectInspectorAddCancelBtn")?.addEventListener("click", cancelAddCandidate);
+    document.getElementById("projectInspectorAddAbortBtn")?.addEventListener("click", cancelAddCandidate);
+    document.getElementById("projectInspectorAddRoleSelect")?.addEventListener("change", event => {
+      state.projectInspectorAddRole = event.target.value || "";
+    });
+    document.getElementById("projectInspectorAddPeriodSelect")?.addEventListener("change", event => {
+      state.projectInspectorAddPeriodId = event.target.value || "";
+    });
+    document.getElementById("projectInspectorAddConfirmBtn")?.addEventListener("click", () => {
+      void createProjectInspectorAssignment(project.id);
+    });
 
     const searchInput = document.getElementById("projectInspectorSearchInput");
     if (searchInput) {
@@ -4413,7 +4575,14 @@ async function deleteEditedEntry() {
       btn.addEventListener("click", () => startProjectStaffing(btn.dataset.calendarPanelStaffProject));
     });
     els.calendarPanelContent.querySelectorAll("[data-calendar-panel-add-employee]").forEach(btn => {
-      btn.addEventListener("click", () => startProjectStaffing(project.id, btn.dataset.calendarPanelAddEmployee, btn.dataset.calendarPanelAddRole));
+      btn.addEventListener("click", event => {
+        event.preventDefault();
+        event.stopPropagation();
+        state.projectInspectorAddCandidateName = btn.dataset.calendarPanelAddEmployee || "";
+        state.projectInspectorAddRole = btn.dataset.calendarPanelAddRole || getDefaultRoleForIndex(0);
+        state.projectInspectorShowAvailable = true;
+        rerenderPanel(false);
+      });
     });
     els.calendarPanelContent.querySelectorAll("[data-project-entry-edit-id]").forEach(btn => {
       btn.addEventListener("click", () => openEditModal(btn.dataset.projectEntryEditId));
