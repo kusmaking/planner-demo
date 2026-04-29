@@ -3163,6 +3163,7 @@
       state.entries = state.entries.filter(item => item.id !== entry.id);
       rebuildDerivedState();
       renderAll();
+      alert(`Kunne ikke lagre tildelingen: ${result.error?.message || "ukjent feil"}`);
       return;
     }
 
@@ -4405,7 +4406,7 @@ async function deleteEditedEntry() {
       </section>
     `;
 
-    const availableHtml = shouldShowAvailable ? `<!-- v18.12-dark-available-cards -->
+    const availableHtml = shouldShowAvailable ? `<!-- v18.13-add-flow-event-fix --><!-- v18.12-dark-available-cards -->
       <section>
         <div class="mb-2 grid grid-cols-3 gap-1 text-[11px]">
           <div class="rounded-lg border border-green-200 bg-green-50 px-2 py-1 text-center font-semibold text-green-700"><div>Ledig</div><div class="text-sm">${availabilitySummary.available}</div></div>
@@ -4454,7 +4455,7 @@ async function deleteEditedEntry() {
                   ${employee.availability.label === "Delvis ledig" ? `<div class="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">Denne personen er delvis tilgjengelig. Velg riktig delperiode før du legger til.</div>` : ""}
                   <div class="flex items-center justify-end gap-2">
                     <button id="projectInspectorAddCancelBtn" type="button" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">Avbryt</button>
-                    <button id="projectInspectorAddConfirmBtn" type="button" class="rounded-xl bg-green-600 px-3 py-2 text-sm font-semibold text-white hover:bg-green-700">Legg til prosjekt</button>
+                    <button id="projectInspectorAddConfirmBtn" data-project-inspector-confirm-add="1" data-project-inspector-confirm-employee="${escapeHtml(employee.name)}" type="button" class="rounded-xl bg-green-600 px-3 py-2 text-sm font-semibold text-white hover:bg-green-700">Legg til prosjekt</button>
                   </div>
                 </div>
               </div>
@@ -4463,7 +4464,8 @@ async function deleteEditedEntry() {
               <div
                 class="project-available-person-row-v1811"
                 data-project-available-person-row="${escapeHtml(employee.name)}"
-                style="display:block !important;width:100% !important;box-sizing:border-box !important;border:1px solid rgba(148,187,199,0.26) !important;background:${isSelected ? 'rgba(255,255,255,0.16)' : 'rgba(255,255,255,0.10)'} !important;color:#f8fbfd !important;border-radius:4px !important;visibility:visible !important;opacity:1 !important;overflow:hidden !important;"
+                data-project-inspector-row-role="${escapeHtml(getDefaultRoleForIndex(0))}"
+                style="display:block !important;width:100% !important;box-sizing:border-box !important;border:1px solid rgba(148,187,199,0.26) !important;background:${isSelected ? 'rgba(255,255,255,0.16)' : 'rgba(255,255,255,0.10)'} !important;color:#f8fbfd !important;border-radius:4px !important;visibility:visible !important;opacity:1 !important;overflow:hidden !important;cursor:pointer !important;"
               >
                 <div style="display:flex !important;align-items:center !important;justify-content:space-between !important;gap:10px !important;width:100% !important;box-sizing:border-box !important;padding:10px 12px !important;color:#f8fbfd !important;visibility:visible !important;opacity:1 !important;">
                   <div style="display:flex !important;align-items:center !important;gap:9px !important;min-width:0 !important;flex:1 1 auto !important;color:#f8fbfd !important;visibility:visible !important;opacity:1 !important;">
@@ -4627,23 +4629,37 @@ async function deleteEditedEntry() {
     els.calendarPanelContent.querySelectorAll("[data-calendar-panel-staff-project]").forEach(btn => {
       btn.addEventListener("click", () => startProjectStaffing(btn.dataset.calendarPanelStaffProject));
     });
-    els.calendarPanelContent.querySelectorAll("[data-project-inspector-select-employee]").forEach(btn => {
-      btn.addEventListener("click", () => {
-        const employeeName = btn.dataset.projectInspectorSelectEmployee || "";
-        const suggestedRole = btn.dataset.projectInspectorSelectRole || "";
-        if (state.projectInspectorAddCandidateName === employeeName) {
-          state.projectInspectorAddCandidateName = "";
-          state.projectInspectorAddRole = "";
-          state.projectInspectorAddUseCustomRange = false;
-          rerenderPanel(false);
-          return;
-        }
-        primeProjectInspectorCandidate(project, employeeName, suggestedRole);
-        state.projectInspectorShowAvailable = true;
+    const selectProjectInspectorCandidate = (employeeName, suggestedRole = "", options = {}) => {
+      if (!employeeName) return;
+      if (options.toggle && state.projectInspectorAddCandidateName === employeeName) {
+        state.projectInspectorAddCandidateName = "";
+        state.projectInspectorAddRole = "";
+        state.projectInspectorAddUseCustomRange = false;
         rerenderPanel(false);
+        return;
+      }
+      primeProjectInspectorCandidate(project, employeeName, suggestedRole || getDefaultRoleForIndex(0));
+      state.projectInspectorShowAvailable = true;
+      rerenderPanel(false);
+    };
+
+    els.calendarPanelContent.querySelectorAll("[data-project-available-person-row]").forEach(row => {
+      row.addEventListener("click", event => {
+        if (event.target?.closest?.("button, input, select, textarea, label")) return;
+        selectProjectInspectorCandidate(row.dataset.projectAvailablePersonRow || "", row.dataset.projectInspectorRowRole || getDefaultRoleForIndex(0), { toggle: true });
       });
     });
-    document.getElementById("projectInspectorAddCancelBtn")?.addEventListener("click", () => {
+
+    els.calendarPanelContent.querySelectorAll("[data-project-inspector-select-employee]").forEach(btn => {
+      btn.addEventListener("click", event => {
+        event.preventDefault();
+        event.stopPropagation();
+        selectProjectInspectorCandidate(btn.dataset.projectInspectorSelectEmployee || "", btn.dataset.projectInspectorSelectRole || getDefaultRoleForIndex(0), { toggle: true });
+      });
+    });
+
+    document.getElementById("projectInspectorAddCancelBtn")?.addEventListener("click", event => {
+      event.preventDefault();
       state.projectInspectorAddCandidateName = "";
       state.projectInspectorAddRole = "";
       state.projectInspectorAddUseCustomRange = false;
@@ -4674,7 +4690,20 @@ async function deleteEditedEntry() {
     document.getElementById("projectInspectorCustomEndInput")?.addEventListener("change", event => {
       state.projectInspectorAddCustomEnd = event.target.value || "";
     });
-    document.getElementById("projectInspectorAddConfirmBtn")?.addEventListener("click", () => {
+    document.getElementById("projectInspectorAddConfirmBtn")?.addEventListener("click", event => {
+      event.preventDefault();
+      event.stopPropagation();
+      const btn = event.currentTarget;
+      const employeeName = btn?.dataset?.projectInspectorConfirmEmployee || state.projectInspectorAddCandidateName || "";
+      if (employeeName && state.projectInspectorAddCandidateName !== employeeName) {
+        primeProjectInspectorCandidate(project, employeeName, state.projectInspectorAddRole || getDefaultRoleForIndex(0));
+      }
+      const roleSelect = document.getElementById("projectInspectorAddRoleSelect");
+      if (roleSelect) state.projectInspectorAddRole = roleSelect.value || state.projectInspectorAddRole || getDefaultRoleForIndex(0);
+      const customStart = document.getElementById("projectInspectorCustomStartInput");
+      const customEnd = document.getElementById("projectInspectorCustomEndInput");
+      if (customStart && !customStart.disabled) state.projectInspectorAddCustomStart = customStart.value || state.projectInspectorAddCustomStart;
+      if (customEnd && !customEnd.disabled) state.projectInspectorAddCustomEnd = customEnd.value || state.projectInspectorAddCustomEnd;
       void createProjectInspectorAssignment(project.id);
     });
     els.calendarPanelContent.querySelectorAll("[data-project-entry-edit-id]").forEach(btn => {
