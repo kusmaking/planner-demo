@@ -4209,7 +4209,6 @@ async function deleteEditedEntry() {
       <section>
         <div class="mb-2 flex items-center justify-between gap-2">
           <h3 class="font-semibold text-slate-900">Tildelte (${assigned}${required ? `/${required}` : ""})</h3>
-          ${isFullyStaffed ? `<button id="projectInspectorChangeCrewBtn" type="button" class="rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50">${shouldShowAvailable ? "Skjul øvrige" : "Endre crew"}</button>` : ""}
         </div>
         <div class="space-y-2">
           ${assignedEntries.length ? assignedEntries.slice(0, 10).map(entry => `
@@ -4230,6 +4229,12 @@ async function deleteEditedEntry() {
 
     const availableHtml = shouldShowAvailable ? `
       <section>
+        <div class="mb-2 grid grid-cols-4 gap-1 text-[11px]">
+          <div class="rounded-lg border border-green-200 bg-green-50 px-2 py-1 text-center font-semibold text-green-700"><div>Ledig</div><div class="text-sm">${availabilitySummary.available}</div></div>
+          <div class="rounded-lg border border-amber-200 bg-amber-50 px-2 py-1 text-center font-semibold text-amber-700"><div>Delvis</div><div class="text-sm">${availabilitySummary.partial}</div></div>
+          <div class="rounded-lg border border-red-200 bg-red-50 px-2 py-1 text-center font-semibold text-red-700"><div>Opptatt</div><div class="text-sm">${availabilitySummary.busy}</div></div>
+          <div class="rounded-lg border border-blue-200 bg-blue-50 px-2 py-1 text-center font-semibold text-blue-700"><div>Tildelt</div><div class="text-sm">${availabilitySummary.assigned}</div></div>
+        </div>
         <div class="mb-2 grid grid-cols-[1fr_auto] gap-2">
           <input id="projectInspectorSearchInput" type="text" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs" placeholder="Søk navn, gruppe, tittel eller status" value="${escapeHtml(state.projectInspectorSearch || "")}" />
           <select id="projectInspectorGroupFilter" class="rounded-xl border border-slate-300 px-2 py-2 text-xs">${groupOptions}</select>
@@ -4256,13 +4261,16 @@ async function deleteEditedEntry() {
         </div>
         ${filteredEmployees.length > employees.length ? `<div class="mt-2 text-[11px] text-slate-500">Viser ${employees.length} av ${filteredEmployees.length}. Bruk søk eller gruppefilter for å snevre inn.</div>` : ""}
       </section>
-    ` : `
+    ` : "";
+
+    const fullStaffedCrewActionHtml = isFullyStaffed ? `
       <section>
-        <div class="rounded-2xl border border-slate-200 bg-white px-3 py-3 text-xs text-slate-500">
-          Prosjektet er fullt bemannet. Tilgjengelige / øvrige er skjult for å holde panelet ryddig. Bruk <span class="font-semibold text-slate-700">Endre crew</span> hvis du skal bytte personer.
-        </div>
+        <button id="projectInspectorChangeCrewBtn" type="button" class="w-full rounded-xl border border-cyan-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-800 hover:bg-slate-50">
+          ${shouldShowAvailable ? "Skjul tilgjengelige / øvrige" : "Endre crew"}
+        </button>
+        ${!shouldShowAvailable ? `<div class="mt-2 text-xs text-slate-500">Prosjektet er fullt bemannet. Tilgjengelighetsanalyse vises først når du skal endre crew.</div>` : ""}
       </section>
-    `;
+    ` : "";
 
     els.calendarPanelContent.innerHTML = `
       <div class="flex h-full flex-col">
@@ -4307,16 +4315,10 @@ async function deleteEditedEntry() {
               <h3 class="font-semibold text-slate-900">Bemanning</h3>
               <button data-calendar-panel-staff-project="${escapeHtml(project.id)}" type="button" class="rounded-xl bg-slate-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-slate-800">Bemann prosjekt</button>
             </div>
-
-            <div class="mb-2 grid grid-cols-4 gap-1 text-[11px]">
-              <div class="rounded-lg border border-green-200 bg-green-50 px-2 py-1 text-center font-semibold text-green-700"><div>Ledig</div><div class="text-sm">${availabilitySummary.available}</div></div>
-              <div class="rounded-lg border border-amber-200 bg-amber-50 px-2 py-1 text-center font-semibold text-amber-700"><div>Delvis</div><div class="text-sm">${availabilitySummary.partial}</div></div>
-              <div class="rounded-lg border border-red-200 bg-red-50 px-2 py-1 text-center font-semibold text-red-700"><div>Opptatt</div><div class="text-sm">${availabilitySummary.busy}</div></div>
-              <div class="rounded-lg border border-blue-200 bg-blue-50 px-2 py-1 text-center font-semibold text-blue-700"><div>Tildelt</div><div class="text-sm">${availabilitySummary.assigned}</div></div>
-            </div>
           </section>
 
           ${assignedHtml}
+          ${fullStaffedCrewActionHtml}
           ${availableHtml}
         </div>
 
