@@ -68,11 +68,6 @@
     projectInspectorSearch: "",
     projectInspectorGroup: "all",
     projectInspectorShowAvailable: false,
-    projectInspectorAddCandidateName: "",
-    projectInspectorAddRole: "",
-    projectInspectorAddUseCustomRange: false,
-    projectInspectorAddCustomStart: "",
-    projectInspectorAddCustomEnd: "",
     contextMenu: {
       visible: false,
       employeeName: "",
@@ -4181,147 +4176,6 @@ async function deleteEditedEntry() {
     state.projectInspectorSearch = "";
     state.projectInspectorGroup = "all";
     state.projectInspectorShowAvailable = false;
-    state.projectInspectorAddCandidateName = "";
-    state.projectInspectorAddRole = "";
-    state.projectInspectorAddUseCustomRange = false;
-    state.projectInspectorAddCustomStart = "";
-    state.projectInspectorAddCustomEnd = "";
-  }
-
-  function getProjectInspectorProjectBounds(project) {
-    const periods = getProjectInspectorPeriods(project).filter(period => period.start && period.end);
-    if (periods.length) {
-      const starts = periods.map(period => period.start).sort();
-      const ends = periods.map(period => period.end).sort();
-      return { start: starts[0], end: ends[ends.length - 1] };
-    }
-    if (project?.planned_start_date && project?.planned_end_date) {
-      return { start: project.planned_start_date, end: project.planned_end_date };
-    }
-    return { start: "", end: "" };
-  }
-
-  function getProjectInspectorAddCandidate(project) {
-    const name = String(state.projectInspectorAddCandidateName || "").trim();
-    if (!name) return null;
-    const assignedNames = new Set(state.entries.filter(entry => entry.project_id === project?.id).map(entry => entry.employee_name));
-    if (assignedNames.has(name)) return null;
-    return getProjectInspectorEmployees(project).find(employee => employee.name === name) || null;
-  }
-
-  function getProjectInspectorAddRole(employee) {
-    const current = String(state.projectInspectorAddRole || "").trim();
-    if (current && ROLE_OPTIONS.includes(current)) return current;
-    const title = String(employee?.title || "").trim();
-    const exact = ROLE_OPTIONS.find(role => role.toLowerCase() === title.toLowerCase());
-    return exact || getDefaultRoleForIndex(0);
-  }
-
-  function primeProjectInspectorCandidate(project, employeeName, suggestedRole = "") {
-    const bounds = getProjectInspectorProjectBounds(project);
-    state.projectInspectorAddCandidateName = employeeName || "";
-    state.projectInspectorAddRole = suggestedRole || "";
-    state.projectInspectorAddUseCustomRange = false;
-    state.projectInspectorAddCustomStart = bounds.start || "";
-    state.projectInspectorAddCustomEnd = bounds.end || "";
-  }
-
-  function getProjectInspectorAddRange(project) {
-    const bounds = getProjectInspectorProjectBounds(project);
-    if (state.projectInspectorAddUseCustomRange) {
-      return {
-        start: String(state.projectInspectorAddCustomStart || "").trim(),
-        end: String(state.projectInspectorAddCustomEnd || "").trim(),
-        bounds
-      };
-    }
-    return {
-      start: bounds.start || "",
-      end: bounds.end || "",
-      bounds
-    };
-  }
-
-  async function createProjectInspectorAssignment(projectId) {
-    if (!canEditApp()) return;
-    const project = getProjectById(projectId);
-    if (!project) return;
-
-    const assigned = state.entries.filter(entry => entry.project_id === project.id).length;
-    const required = Math.max(Number(project.headcount_required || 0), 0);
-    if (required > 0 && assigned >= required) {
-      alert("Prosjektet er allerede fullbemannet.");
-      return;
-    }
-
-    const employee = getProjectInspectorAddCandidate(project);
-    if (!employee) {
-      alert("Velg en ansatt fra listen først.");
-      return;
-    }
-    if (employee.availability?.label === "Opptatt") {
-      alert("Denne personen er opptatt i prosjektperioden.");
-      return;
-    }
-
-    const range = getProjectInspectorAddRange(project);
-    if (!range.start || !range.end) {
-      alert("Velg en gyldig periode.");
-      return;
-    }
-    if (range.start > range.end) {
-      alert("Fra-dato kan ikke være senere enn til-dato.");
-      return;
-    }
-    if (range.bounds.start && range.start < range.bounds.start) {
-      alert("Fra-dato må være innenfor prosjektperioden.");
-      return;
-    }
-    if (range.bounds.end && range.end > range.bounds.end) {
-      alert("Til-dato må være innenfor prosjektperioden.");
-      return;
-    }
-
-    const role = getProjectInspectorAddRole(employee);
-    const entry = {
-      id: crypto.randomUUID(),
-      project_id: project.id,
-      employee_name: employee.name,
-      role,
-      start_date: range.start,
-      end_date: range.end,
-      notes: ""
-    };
-
-    const conflicts = getEntryOverlapConflicts(entry);
-    if (conflicts.length) {
-      alert(getEntryConflictSummary(entry, conflicts));
-      return;
-    }
-
-    state.entries.push(entry);
-    state.projectInspectorAddCandidateName = "";
-    state.projectInspectorAddRole = "";
-    state.projectInspectorAddUseCustomRange = false;
-    state.projectInspectorAddCustomStart = "";
-    state.projectInspectorAddCustomEnd = "";
-    rebuildDerivedState();
-    renderAll();
-
-    const result = await saveRow("planner_entries", entry);
-    if (!result.ok) {
-      state.entries = state.entries.filter(item => item.id !== entry.id);
-      rebuildDerivedState();
-      renderAll();
-      return;
-    }
-
-    state.calendarMode = "project";
-    state.focusProjectId = project.id;
-    state.calendarPanelOpen = true;
-    renderAll();
-    void addAudit(`La til ${employee.name} på ${project.name} fra prosjektpanelet`);
-    void addNotification(employee.name, project.name);
   }
 
   function renderProjectInspectorPanel(project) {
@@ -4336,8 +4190,6 @@ async function deleteEditedEntry() {
     const assigned = assignedEntries.length;
     const required = Number(project.headcount_required || 0);
     const isFullyStaffed = required > 0 && assigned >= required;
-    const needsStaffing = required > 0 && assigned < required;
-    const missingStaffCount = Math.max(required - assigned, 0);
     const shouldShowAvailable = !isFullyStaffed || state.projectInspectorShowAvailable === true;
     const staffing = getProjectStaffingLabel(project.id, required);
     const periods = getProjectInspectorPeriods(project);
@@ -4352,11 +4204,7 @@ async function deleteEditedEntry() {
       : staffing.variant.includes("amber")
         ? "text-amber-700"
         : "text-red-700";
-    const addCandidate = getProjectInspectorAddCandidate(project);
-    const addCandidateRole = getProjectInspectorAddRole(addCandidate);
-    const projectBounds = getProjectInspectorProjectBounds(project);
-    const addRange = getProjectInspectorAddRange(project);
-    const showAddFromList = needsStaffing && shouldShowAvailable;
+    const preferredRole = getDefaultRoleForIndex(0);
 
     const assignedHtml = `
       <section>
@@ -4366,40 +4214,29 @@ async function deleteEditedEntry() {
         </div>
         <div class="space-y-2">
           ${assignedEntries.length ? assignedEntries.slice(0, 10).map(entry => `
-            <div
-              class="project-assigned-row"
-              data-project-assigned-row="${escapeHtml(entry.id)}"
-              style="display:flex !important;align-items:center !important;justify-content:space-between !important;gap:10px !important;width:100% !important;min-height:56px !important;box-sizing:border-box !important;border:1px solid rgba(148, 187, 199, 0.26) !important;background:rgba(255,255,255,0.10) !important;padding:10px 12px !important;border-radius:4px !important;overflow:visible !important;"
-            >
-              <div style="min-width:0 !important;flex:1 1 auto !important;overflow:hidden !important;">
-                <div style="font-size:12px !important;font-weight:700 !important;line-height:1.25 !important;color:#f8fbfd !important;white-space:nowrap !important;overflow:hidden !important;text-overflow:ellipsis !important;">${escapeHtml(entry.employee_name)}</div>
-                <div style="margin-top:4px !important;font-size:11px !important;line-height:1.25 !important;color:rgba(232,244,248,0.78) !important;white-space:nowrap !important;overflow:hidden !important;text-overflow:ellipsis !important;">${escapeHtml(entry.role || "Rolle ikke satt")}</div>
+            <div class="grid grid-cols-[1fr_auto] items-center gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-2">
+              <div class="min-w-0">
+                <div class="truncate text-xs font-semibold text-slate-900">${escapeHtml(entry.employee_name)}</div>
+                <div class="mt-1 truncate text-[11px] text-slate-500">${escapeHtml(entry.role || "Rolle ikke satt")}</div>
               </div>
-              <div style="display:flex !important;align-items:center !important;justify-content:flex-end !important;gap:6px !important;flex:0 0 auto !important;visibility:visible !important;opacity:1 !important;">
+              <div class="flex shrink-0 items-center gap-2">
                 <button
                   data-project-entry-edit-id="${escapeHtml(entry.id)}"
                   type="button"
-                  class="project-assigned-edit-pencil-btn"
-                  style="display:inline-flex !important;align-items:center !important;justify-content:center !important;width:30px !important;height:30px !important;border:1px solid rgba(132,204,222,0.32) !important;background:rgba(255,255,255,0.06) !important;color:rgba(248,251,253,0.82) !important;border-radius:4px !important;font-size:14px !important;font-weight:700 !important;line-height:1 !important;cursor:pointer !important;visibility:visible !important;opacity:1 !important;position:relative !important;z-index:5 !important;"
+                  class="project-assigned-edit-btn px-2.5 py-1.5 text-[11px] font-semibold"
+                  style="display:inline-flex;align-items:center;justify-content:center;min-width:52px;border:1px solid rgba(132,204,222,0.45);background:rgba(15,96,124,0.72);color:#f8fbfd;border-radius:4px;"
                   title="Endre tildeling"
-                  aria-label="Endre tildeling"
-                >✎</button>
+                >Endre</button>
+                <button
+                  data-project-entry-delete-id="${escapeHtml(entry.id)}"
+                  type="button"
+                  class="project-assigned-delete-btn px-2 py-1 text-base leading-none"
+                  style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border:1px solid rgba(248,113,113,0.30);background:rgba(127,29,29,0.18);color:#fecaca;border-radius:4px;"
+                  title="Fjern tildeling"
+                >×</button>
               </div>
             </div>
           `).join("") : `<div class="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-3 py-3 text-xs text-slate-500">Ingen tildelte ressurser.</div>`}
-          ${needsStaffing ? `
-            <button
-              id="projectInspectorAddStaffBtn"
-              type="button"
-              class="project-add-staff-slot"
-              style="display:flex !important;align-items:center !important;justify-content:center !important;gap:8px !important;width:100% !important;min-height:48px !important;box-sizing:border-box !important;border:1px dashed rgba(132,204,222,0.62) !important;background:rgba(255,255,255,0.08) !important;color:#f8fbfd !important;border-radius:4px !important;font-size:13px !important;font-weight:700 !important;cursor:pointer !important;visibility:visible !important;opacity:1 !important;"
-              title="Legg til ansatt på dette prosjektet"
-            >
-              <span style="font-size:18px !important;line-height:1 !important;">+</span>
-              <span>Legg til ansatt</span>
-              <span style="font-size:11px !important;font-weight:600 !important;color:rgba(232,244,248,0.72) !important;">Velg fra tilgjengelige personer under · ${missingStaffCount} mangler</span>
-            </button>
-          ` : ""}
         </div>
       </section>
     `;
@@ -4415,73 +4252,45 @@ async function deleteEditedEntry() {
           <input id="projectInspectorSearchInput" type="text" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs" placeholder="Søk navn, gruppe, tittel eller status" value="${escapeHtml(state.projectInspectorSearch || "")}" />
           <select id="projectInspectorGroupFilter" class="rounded-xl border border-slate-300 px-2 py-2 text-xs">${groupOptions}</select>
         </div>
-        <div class="rounded-2xl border border-slate-200 bg-white overflow-hidden">
+        <div class="rounded-2xl border border-slate-200 bg-white">
           <div class="grid grid-cols-[1fr_auto] border-b border-slate-200 px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
             <span>Tilgjengelige / øvrige</span><span>Status</span>
           </div>
           ${employees.length ? employees.map(employee => {
-            const isSelected = addCandidate && addCandidate.name === employee.name;
-            const canAssign = employee.availability.label !== "Opptatt";
-            const expandedHtml = isSelected ? `
-              <div class="border-t border-slate-200 bg-slate-50 px-3 py-3">
-                <div class="text-sm font-semibold text-slate-900">Legg til ${escapeHtml(employee.name)}</div>
-                <div class="mt-2 grid gap-3">
-                  <label class="grid gap-1 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                    Rolle
-                    <select id="projectInspectorAddRoleSelect" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800">${ROLE_OPTIONS.map(role => `<option value="${escapeHtml(role)}" ${role === addCandidateRole ? "selected" : ""}>${escapeHtml(role)}</option>`).join("")}</select>
-                  </label>
-                  <div class="grid gap-2 rounded-2xl border border-slate-200 bg-white p-3">
-                    <label class="flex items-start gap-2 text-sm text-slate-700">
-                      <input id="projectInspectorWholePeriodRadio" type="radio" name="projectInspectorPeriodMode" value="whole" ${state.projectInspectorAddUseCustomRange ? "" : "checked"} class="mt-0.5" />
-                      <span><span class="block font-medium text-slate-900">Hele prosjektperioden</span><span class="block text-xs text-slate-500">${escapeHtml(projectBounds.start ? `${formatDate(projectBounds.start)} – ${formatDate(projectBounds.end)}` : "Periode ikke satt")}</span></span>
-                    </label>
-                    <label class="flex items-start gap-2 text-sm text-slate-700">
-                      <input id="projectInspectorCustomPeriodRadio" type="radio" name="projectInspectorPeriodMode" value="custom" ${state.projectInspectorAddUseCustomRange ? "checked" : ""} class="mt-0.5" />
-                      <span><span class="block font-medium text-slate-900">Egendefinert periode</span><span class="block text-xs text-slate-500">Velg fra/til innenfor prosjektperioden.</span></span>
-                    </label>
-                    <div class="grid grid-cols-2 gap-2 ${state.projectInspectorAddUseCustomRange ? "" : "opacity-60"}">
-                      <label class="grid gap-1 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                        Fra
-                        <input id="projectInspectorCustomStartInput" type="date" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800" value="${escapeHtml(addRange.start || projectBounds.start || "")}" min="${escapeHtml(projectBounds.start || "")}" max="${escapeHtml(projectBounds.end || "")}" ${state.projectInspectorAddUseCustomRange ? "" : "disabled"} />
-                      </label>
-                      <label class="grid gap-1 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                        Til
-                        <input id="projectInspectorCustomEndInput" type="date" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800" value="${escapeHtml(addRange.end || projectBounds.end || "")}" min="${escapeHtml(projectBounds.start || "")}" max="${escapeHtml(projectBounds.end || "")}" ${state.projectInspectorAddUseCustomRange ? "" : "disabled"} />
-                      </label>
-                    </div>
-                  </div>
-                  ${employee.availability.label === "Delvis ledig" ? `<div class="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">Denne personen er delvis tilgjengelig. Velg riktig delperiode før du legger til.</div>` : ""}
-                  <div class="flex items-center justify-end gap-2">
-                    <button id="projectInspectorAddCancelBtn" type="button" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">Avbryt</button>
-                    <button id="projectInspectorAddConfirmBtn" type="button" class="rounded-xl bg-green-600 px-3 py-2 text-sm font-semibold text-white hover:bg-green-700">Legg til prosjekt</button>
-                  </div>
-                </div>
-              </div>
-            ` : "";
+            const availabilityColor = employee.availability.label === "Ledig"
+              ? "#15803d"
+              : employee.availability.label === "Delvis ledig"
+                ? "#b45309"
+                : "#b91c1c";
             return `
-              <div class="border-b border-slate-100 last:border-b-0">
-                <div
-                  data-project-available-person-row="${escapeHtml(employee.name)}"
-                  style="display:grid !important;grid-template-columns:minmax(0,1fr) auto !important;align-items:center !important;gap:8px !important;padding:10px 12px !important;background:${isSelected ? '#eef6ff' : '#ffffff'} !important;border-bottom:1px solid #e2e8f0 !important;color:#0f172a !important;"
+              <div
+                class="project-available-person-row"
+                data-project-available-person-row="${escapeHtml(employee.name)}"
+                style="display:grid !important;grid-template-columns:minmax(0,1fr) auto !important;align-items:center !important;gap:10px !important;width:100% !important;box-sizing:border-box !important;border-bottom:1px solid #e2e8f0 !important;background:#ffffff !important;padding:10px 12px !important;color:#0f172a !important;visibility:visible !important;opacity:1 !important;"
+              >
+                <button
+                  data-calendar-panel-add-employee="${escapeHtml(employee.name)}"
+                  data-calendar-panel-add-role="${escapeHtml(preferredRole)}"
+                  type="button"
+                  style="display:flex !important;align-items:center !important;gap:8px !important;width:100% !important;min-width:0 !important;text-align:left !important;background:transparent !important;border:0 !important;padding:0 !important;margin:0 !important;color:#0f172a !important;cursor:pointer !important;visibility:visible !important;opacity:1 !important;"
+                  title="Velg ${escapeHtml(employee.name)}"
                 >
+                  ${getEmployeeGroupIconHtml(employee.normalizedGroup, "inline-flex h-5 w-5 items-center justify-center text-slate-500 shrink-0 opacity-90") || `<span style="display:inline-flex !important;width:20px !important;height:20px !important;align-items:center !important;justify-content:center !important;color:#64748b !important;flex:0 0 auto !important;">•</span>`}
+                  <span style="display:block !important;min-width:0 !important;overflow:hidden !important;visibility:visible !important;opacity:1 !important;">
+                    <span class="project-available-person-name" style="display:block !important;font-size:12px !important;font-weight:800 !important;line-height:1.25 !important;color:#0f172a !important;white-space:nowrap !important;overflow:hidden !important;text-overflow:ellipsis !important;visibility:visible !important;opacity:1 !important;">${escapeHtml(employee.name)}</span>
+                    <span class="project-available-person-title" style="display:block !important;margin-top:3px !important;font-size:11px !important;line-height:1.25 !important;color:#64748b !important;white-space:nowrap !important;overflow:hidden !important;text-overflow:ellipsis !important;visibility:visible !important;opacity:1 !important;">${escapeHtml(employee.title || "Tittel ikke satt")}</span>
+                  </span>
+                </button>
+                <div style="display:flex !important;align-items:center !important;justify-content:flex-end !important;gap:8px !important;flex:0 0 auto !important;visibility:visible !important;opacity:1 !important;">
+                  <span style="font-size:12px !important;font-weight:800 !important;color:${availabilityColor} !important;white-space:nowrap !important;">${escapeHtml(employee.availability.label)}</span>
                   <button
-                    data-project-inspector-select-employee="${escapeHtml(employee.name)}"
-                    data-project-inspector-select-role="${escapeHtml(getDefaultRoleForIndex(0))}"
+                    data-calendar-panel-add-employee="${escapeHtml(employee.name)}"
+                    data-calendar-panel-add-role="${escapeHtml(preferredRole)}"
                     type="button"
-                    style="display:flex !important;align-items:center !important;gap:8px !important;width:100% !important;min-width:0 !important;text-align:left !important;background:transparent !important;border:0 !important;padding:0 !important;color:#0f172a !important;cursor:pointer !important;"
-                  >
-                    ${getEmployeeGroupIconHtml(employee.normalizedGroup, "inline-flex h-5 w-5 items-center justify-center text-slate-500 shrink-0 opacity-90") || `<span style="display:inline-flex;width:20px;height:20px;align-items:center;justify-content:center;color:#64748b;flex:0 0 auto;">•</span>`}
-                    <div style="min-width:0 !important;overflow:hidden !important;">
-                      <div class="project-available-person-name" style="display:block !important;font-size:12px !important;font-weight:750 !important;line-height:1.25 !important;color:#0f172a !important;white-space:nowrap !important;overflow:hidden !important;text-overflow:ellipsis !important;visibility:visible !important;opacity:1 !important;">${escapeHtml(employee.name)}</div>
-                      <div class="project-available-person-title" style="display:block !important;margin-top:3px !important;font-size:11px !important;line-height:1.25 !important;color:#64748b !important;white-space:nowrap !important;overflow:hidden !important;text-overflow:ellipsis !important;visibility:visible !important;opacity:1 !important;">${escapeHtml(employee.title || "Tittel ikke satt")}</div>
-                    </div>
-                  </button>
-                  <div style="display:flex !important;align-items:center !important;justify-content:flex-end !important;gap:8px !important;flex:0 0 auto !important;">
-                    <span style="font-size:12px !important;font-weight:750 !important;color:${employee.availability.label === 'Ledig' ? '#15803d' : employee.availability.label === 'Delvis ledig' ? '#b45309' : '#b91c1c'} !important;">${escapeHtml(employee.availability.label)}</span>
-                    ${canAssign ? `<button data-project-inspector-select-employee="${escapeHtml(employee.name)}" data-project-inspector-select-role="${escapeHtml(getDefaultRoleForIndex(0))}" type="button" style="display:inline-flex;align-items:center;justify-content:center;border:1px solid #cbd5e1;background:#ffffff;color:#0f172a;border-radius:4px;padding:5px 8px;font-size:11px;font-weight:800;cursor:pointer;">${isSelected ? "Valgt" : "Velg"}</button>` : `<span style="display:inline-flex;align-items:center;justify-content:center;border:1px solid #e2e8f0;background:#f8fafc;color:#64748b;border-radius:4px;padding:5px 8px;font-size:11px;font-weight:800;">Opptatt</span>`}
-                  </div>
+                    style="display:inline-flex !important;align-items:center !important;justify-content:center !important;min-width:28px !important;height:28px !important;border:1px solid #cbd5e1 !important;background:#ffffff !important;color:#0f172a !important;border-radius:4px !important;padding:0 8px !important;font-size:13px !important;font-weight:900 !important;line-height:1 !important;cursor:pointer !important;visibility:visible !important;opacity:1 !important;"
+                    title="Legg til i bemanning"
+                  >+</button>
                 </div>
-                ${expandedHtml}
               </div>
             `;
           }).join("") : `<div class="px-3 py-4 text-xs text-slate-500">Ingen treff i tilgjengelig-listen.</div>`}
@@ -4587,20 +4396,6 @@ async function deleteEditedEntry() {
     wireChangeCrewButton(document.getElementById("projectInspectorChangeCrewBtn"));
     wireChangeCrewButton(document.getElementById("projectInspectorChangeCrewHeaderBtn"));
 
-    const addStaffBtn = document.getElementById("projectInspectorAddStaffBtn");
-    if (addStaffBtn) {
-      addStaffBtn.addEventListener("click", () => {
-        state.projectInspectorShowAvailable = true;
-        state.projectInspectorAddCandidateName = "";
-        state.projectInspectorAddRole = "";
-        state.projectInspectorAddUseCustomRange = false;
-        const bounds = getProjectInspectorProjectBounds(project);
-        state.projectInspectorAddCustomStart = bounds.start || "";
-        state.projectInspectorAddCustomEnd = bounds.end || "";
-        rerenderPanel(false);
-      });
-    }
-
     const searchInput = document.getElementById("projectInspectorSearchInput");
     if (searchInput) {
       searchInput.addEventListener("input", event => {
@@ -4622,55 +4417,8 @@ async function deleteEditedEntry() {
     els.calendarPanelContent.querySelectorAll("[data-calendar-panel-staff-project]").forEach(btn => {
       btn.addEventListener("click", () => startProjectStaffing(btn.dataset.calendarPanelStaffProject));
     });
-    els.calendarPanelContent.querySelectorAll("[data-project-inspector-select-employee]").forEach(btn => {
-      btn.addEventListener("click", () => {
-        const employeeName = btn.dataset.projectInspectorSelectEmployee || "";
-        const suggestedRole = btn.dataset.projectInspectorSelectRole || "";
-        if (state.projectInspectorAddCandidateName === employeeName) {
-          state.projectInspectorAddCandidateName = "";
-          state.projectInspectorAddRole = "";
-          state.projectInspectorAddUseCustomRange = false;
-          rerenderPanel(false);
-          return;
-        }
-        primeProjectInspectorCandidate(project, employeeName, suggestedRole);
-        state.projectInspectorShowAvailable = true;
-        rerenderPanel(false);
-      });
-    });
-    document.getElementById("projectInspectorAddCancelBtn")?.addEventListener("click", () => {
-      state.projectInspectorAddCandidateName = "";
-      state.projectInspectorAddRole = "";
-      state.projectInspectorAddUseCustomRange = false;
-      rerenderPanel(false);
-    });
-    document.getElementById("projectInspectorAddRoleSelect")?.addEventListener("change", event => {
-      state.projectInspectorAddRole = event.target.value || "";
-    });
-    document.getElementById("projectInspectorWholePeriodRadio")?.addEventListener("change", () => {
-      state.projectInspectorAddUseCustomRange = false;
-      const bounds = getProjectInspectorProjectBounds(project);
-      state.projectInspectorAddCustomStart = bounds.start || "";
-      state.projectInspectorAddCustomEnd = bounds.end || "";
-      rerenderPanel(false);
-    });
-    document.getElementById("projectInspectorCustomPeriodRadio")?.addEventListener("change", () => {
-      state.projectInspectorAddUseCustomRange = true;
-      if (!state.projectInspectorAddCustomStart || !state.projectInspectorAddCustomEnd) {
-        const bounds = getProjectInspectorProjectBounds(project);
-        state.projectInspectorAddCustomStart = state.projectInspectorAddCustomStart || bounds.start || "";
-        state.projectInspectorAddCustomEnd = state.projectInspectorAddCustomEnd || bounds.end || "";
-      }
-      rerenderPanel(false);
-    });
-    document.getElementById("projectInspectorCustomStartInput")?.addEventListener("change", event => {
-      state.projectInspectorAddCustomStart = event.target.value || "";
-    });
-    document.getElementById("projectInspectorCustomEndInput")?.addEventListener("change", event => {
-      state.projectInspectorAddCustomEnd = event.target.value || "";
-    });
-    document.getElementById("projectInspectorAddConfirmBtn")?.addEventListener("click", () => {
-      void createProjectInspectorAssignment(project.id);
+    els.calendarPanelContent.querySelectorAll("[data-calendar-panel-add-employee]").forEach(btn => {
+      btn.addEventListener("click", () => startProjectStaffing(project.id, btn.dataset.calendarPanelAddEmployee, btn.dataset.calendarPanelAddRole));
     });
     els.calendarPanelContent.querySelectorAll("[data-project-entry-edit-id]").forEach(btn => {
       btn.addEventListener("click", () => openEditModal(btn.dataset.projectEntryEditId));
