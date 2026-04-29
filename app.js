@@ -4214,24 +4214,28 @@ async function deleteEditedEntry() {
         </div>
         <div class="space-y-2">
           ${assignedEntries.length ? assignedEntries.slice(0, 10).map(entry => `
-            <div class="grid grid-cols-[1fr_auto] items-center gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-2">
-              <div class="min-w-0">
-                <div class="truncate text-xs font-semibold text-slate-900">${escapeHtml(entry.employee_name)}</div>
-                <div class="mt-1 truncate text-[11px] text-slate-500">${escapeHtml(entry.role || "Rolle ikke satt")}</div>
+            <div
+              class="project-assigned-row"
+              data-project-assigned-row="${escapeHtml(entry.id)}"
+              style="display:flex !important;align-items:center !important;justify-content:space-between !important;gap:10px !important;width:100% !important;min-height:56px !important;box-sizing:border-box !important;border:1px solid rgba(148, 187, 199, 0.26) !important;background:rgba(255,255,255,0.10) !important;padding:10px 12px !important;border-radius:4px !important;overflow:visible !important;"
+            >
+              <div style="min-width:0 !important;flex:1 1 auto !important;overflow:hidden !important;">
+                <div style="font-size:12px !important;font-weight:700 !important;line-height:1.25 !important;color:#f8fbfd !important;white-space:nowrap !important;overflow:hidden !important;text-overflow:ellipsis !important;">${escapeHtml(entry.employee_name)}</div>
+                <div style="margin-top:4px !important;font-size:11px !important;line-height:1.25 !important;color:rgba(232,244,248,0.78) !important;white-space:nowrap !important;overflow:hidden !important;text-overflow:ellipsis !important;">${escapeHtml(entry.role || "Rolle ikke satt")}</div>
               </div>
-              <div class="flex shrink-0 items-center gap-2">
+              <div style="display:flex !important;align-items:center !important;justify-content:flex-end !important;gap:6px !important;flex:0 0 auto !important;visibility:visible !important;opacity:1 !important;">
                 <button
                   data-project-entry-edit-id="${escapeHtml(entry.id)}"
                   type="button"
-                  class="project-assigned-edit-btn px-2.5 py-1.5 text-[11px] font-semibold"
-                  style="display:inline-flex;align-items:center;justify-content:center;min-width:52px;border:1px solid rgba(132,204,222,0.45);background:rgba(15,96,124,0.72);color:#f8fbfd;border-radius:4px;"
+                  class="project-assigned-edit-btn"
+                  style="display:inline-flex !important;align-items:center !important;justify-content:center !important;min-width:54px !important;height:30px !important;padding:0 10px !important;border:1px solid rgba(132,204,222,0.55) !important;background:rgba(15,96,124,0.72) !important;color:#f8fbfd !important;border-radius:4px !important;font-size:11px !important;font-weight:700 !important;line-height:1 !important;cursor:pointer !important;visibility:visible !important;opacity:1 !important;position:relative !important;z-index:5 !important;"
                   title="Endre tildeling"
                 >Endre</button>
                 <button
                   data-project-entry-delete-id="${escapeHtml(entry.id)}"
                   type="button"
-                  class="project-assigned-delete-btn px-2 py-1 text-base leading-none"
-                  style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border:1px solid rgba(248,113,113,0.30);background:rgba(127,29,29,0.18);color:#fecaca;border-radius:4px;"
+                  class="project-assigned-delete-btn"
+                  style="display:inline-flex !important;align-items:center !important;justify-content:center !important;width:30px !important;height:30px !important;border:1px solid rgba(248,113,113,0.35) !important;background:rgba(127,29,29,0.18) !important;color:#fecaca !important;border-radius:4px !important;font-size:18px !important;font-weight:700 !important;line-height:1 !important;cursor:pointer !important;visibility:visible !important;opacity:1 !important;position:relative !important;z-index:5 !important;"
                   title="Fjern tildeling"
                 >×</button>
               </div>
