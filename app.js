@@ -4460,17 +4460,17 @@ async function deleteEditedEntry() {
             ` : "";
             return `
               <div class="border-b border-slate-100 last:border-b-0">
-                <div class="grid grid-cols-[1fr_auto] items-center gap-2 px-3 py-2 ${isSelected ? "bg-slate-50" : "bg-white"}">
-                  <button data-project-inspector-select-employee="${escapeHtml(employee.name)}" data-project-inspector-select-role="${escapeHtml(getDefaultRoleForIndex(0))}" type="button" class="flex min-w-0 items-center gap-2 text-left">
-                    ${getEmployeeGroupIconHtml(employee.normalizedGroup, "inline-flex h-5 w-5 items-center justify-center text-slate-500 shrink-0 opacity-90") || `<span class="inline-flex h-5 w-5 shrink-0 items-center justify-center text-slate-400">•</span>`}
-                    <div class="min-w-0">
-                      <div class="truncate text-xs font-medium text-slate-900">${escapeHtml(employee.name)}</div>
-                      <div class="truncate text-[11px] text-slate-500">${escapeHtml(employee.title || "Tittel ikke satt")}</div>
+                <div style="display:grid !important;grid-template-columns:minmax(0,1fr) auto !important;align-items:center !important;gap:8px !important;padding:10px 12px !important;background:${isSelected ? 'rgba(255,255,255,0.16)' : 'rgba(255,255,255,0.08)'} !important;border-bottom:1px solid rgba(148,187,199,0.18) !important;">
+                  <button data-project-inspector-select-employee="${escapeHtml(employee.name)}" data-project-inspector-select-role="${escapeHtml(getDefaultRoleForIndex(0))}" type="button" style="display:flex !important;align-items:center !important;gap:8px !important;width:100% !important;min-width:0 !important;text-align:left !important;background:transparent !important;border:0 !important;padding:0 !important;color:#f8fbfd !important;cursor:pointer !important;">
+                    ${getEmployeeGroupIconHtml(employee.normalizedGroup, "inline-flex h-5 w-5 items-center justify-center text-slate-500 shrink-0 opacity-90") || `<span style="display:inline-flex;width:20px;height:20px;align-items:center;justify-content:center;color:rgba(232,244,248,0.65);flex:0 0 auto;">•</span>`}
+                    <div style="min-width:0 !important;overflow:hidden !important;">
+                      <div style="font-size:12px !important;font-weight:750 !important;line-height:1.25 !important;color:#f8fbfd !important;white-space:nowrap !important;overflow:hidden !important;text-overflow:ellipsis !important;">${escapeHtml(employee.name)}</div>
+                      <div style="margin-top:3px !important;font-size:11px !important;line-height:1.25 !important;color:rgba(232,244,248,0.72) !important;white-space:nowrap !important;overflow:hidden !important;text-overflow:ellipsis !important;">${escapeHtml(employee.title || "Tittel ikke satt")}</div>
                     </div>
                   </button>
-                  <div class="flex items-center justify-end gap-2">
-                    <span class="text-xs font-medium ${employee.availability.tone}">${escapeHtml(employee.availability.label)}</span>
-                    ${canAssign ? `<button data-project-inspector-select-employee="${escapeHtml(employee.name)}" data-project-inspector-select-role="${escapeHtml(getDefaultRoleForIndex(0))}" type="button" class="rounded-lg border border-slate-300 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50">${isSelected ? "Valgt" : "Velg"}</button>` : `<span class="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-semibold text-slate-400">Opptatt</span>`}
+                  <div style="display:flex !important;align-items:center !important;justify-content:flex-end !important;gap:8px !important;flex:0 0 auto !important;">
+                    <span style="font-size:12px !important;font-weight:750 !important;color:${employee.availability.label === 'Ledig' ? '#22c55e' : employee.availability.label === 'Delvis ledig' ? '#f59e0b' : '#ef4444'} !important;">${escapeHtml(employee.availability.label)}</span>
+                    ${canAssign ? `<button data-project-inspector-select-employee="${escapeHtml(employee.name)}" data-project-inspector-select-role="${escapeHtml(getDefaultRoleForIndex(0))}" type="button" style="display:inline-flex;align-items:center;justify-content:center;border:1px solid rgba(132,204,222,0.42);background:rgba(255,255,255,0.10);color:#f8fbfd;border-radius:4px;padding:5px 8px;font-size:11px;font-weight:800;cursor:pointer;">${isSelected ? "Valgt" : "Velg"}</button>` : `<span style="display:inline-flex;align-items:center;justify-content:center;border:1px solid rgba(148,163,184,0.25);background:rgba(148,163,184,0.12);color:rgba(232,244,248,0.55);border-radius:4px;padding:5px 8px;font-size:11px;font-weight:800;">Opptatt</span>`}
                   </div>
                 </div>
                 ${expandedHtml}
