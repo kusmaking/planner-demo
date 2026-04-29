@@ -4359,6 +4359,48 @@ async function deleteEditedEntry() {
     const projectBounds = getProjectInspectorProjectBounds(project);
     const addRange = getProjectInspectorAddRange(project);
     const showAddFromList = needsStaffing && shouldShowAvailable;
+    const selectedAddPanelHtml = addCandidate ? `
+      <div id="projectInspectorStableAddBox" data-project-inspector-stable-add-box="1" style="display:block !important;width:100% !important;box-sizing:border-box !important;border:1px solid rgba(132,204,222,0.38) !important;background:rgba(15,23,42,0.92) !important;color:#f8fbfd !important;border-radius:4px !important;padding:12px !important;margin-top:10px !important;visibility:visible !important;opacity:1 !important;">
+        <div style="display:flex !important;align-items:flex-start !important;justify-content:space-between !important;gap:10px !important;margin-bottom:10px !important;">
+          <div style="min-width:0 !important;">
+            <div style="font-size:13px !important;font-weight:900 !important;line-height:1.25 !important;color:#f8fbfd !important;">Legg til ${escapeHtml(addCandidate.name)}</div>
+            <div style="margin-top:4px !important;font-size:11px !important;font-weight:600 !important;color:rgba(232,244,248,0.72) !important;">Velg rolle og periode, trykk deretter Legg til prosjekt.</div>
+          </div>
+          <span style="display:inline-flex !important;align-items:center !important;justify-content:center !important;border:1px solid rgba(132,204,222,0.28) !important;background:rgba(255,255,255,0.06) !important;color:#f8fbfd !important;border-radius:4px !important;padding:5px 8px !important;font-size:11px !important;font-weight:900 !important;">${escapeHtml(addCandidate.availability?.label || "Valgt")}</span>
+        </div>
+        <div style="display:grid !important;gap:10px !important;">
+          <label style="display:grid !important;gap:5px !important;font-size:11px !important;font-weight:800 !important;text-transform:uppercase !important;letter-spacing:.04em !important;color:rgba(232,244,248,0.76) !important;">
+            Rolle
+            <select id="projectInspectorAddRoleSelect" style="width:100% !important;border:1px solid rgba(132,204,222,0.34) !important;background:#ffffff !important;color:#0f172a !important;border-radius:4px !important;padding:9px !important;font-size:12px !important;">${ROLE_OPTIONS.map(role => `<option value="${escapeHtml(role)}" ${role === addCandidateRole ? "selected" : ""}>${escapeHtml(role)}</option>`).join("")}</select>
+          </label>
+          <div style="display:grid !important;gap:8px !important;border:1px solid rgba(132,204,222,0.22) !important;background:rgba(255,255,255,0.08) !important;border-radius:4px !important;padding:10px !important;">
+            <label style="display:flex !important;align-items:flex-start !important;gap:8px !important;color:#f8fbfd !important;font-size:12px !important;">
+              <input id="projectInspectorWholePeriodRadio" type="radio" name="projectInspectorPeriodMode" value="whole" ${state.projectInspectorAddUseCustomRange ? "" : "checked"} style="margin-top:2px !important;" />
+              <span><span style="display:block !important;font-weight:800 !important;color:#f8fbfd !important;">Hele prosjektperioden</span><span style="display:block !important;margin-top:2px !important;font-size:11px !important;color:rgba(232,244,248,0.72) !important;">${escapeHtml(projectBounds.start ? `${formatDate(projectBounds.start)} – ${formatDate(projectBounds.end)}` : "Periode ikke satt")}</span></span>
+            </label>
+            <label style="display:flex !important;align-items:flex-start !important;gap:8px !important;color:#f8fbfd !important;font-size:12px !important;">
+              <input id="projectInspectorCustomPeriodRadio" type="radio" name="projectInspectorPeriodMode" value="custom" ${state.projectInspectorAddUseCustomRange ? "checked" : ""} style="margin-top:2px !important;" />
+              <span><span style="display:block !important;font-weight:800 !important;color:#f8fbfd !important;">Egendefinert periode</span><span style="display:block !important;margin-top:2px !important;font-size:11px !important;color:rgba(232,244,248,0.72) !important;">Velg fra/til innenfor prosjektperioden.</span></span>
+            </label>
+            <div style="display:grid !important;grid-template-columns:repeat(2,minmax(0,1fr)) !important;gap:8px !important;opacity:${state.projectInspectorAddUseCustomRange ? "1" : "0.62"} !important;">
+              <label style="display:grid !important;gap:4px !important;font-size:10px !important;font-weight:800 !important;text-transform:uppercase !important;letter-spacing:.04em !important;color:rgba(232,244,248,0.72) !important;">
+                Fra
+                <input id="projectInspectorCustomStartInput" type="date" value="${escapeHtml(addRange.start || projectBounds.start || "")}" min="${escapeHtml(projectBounds.start || "")}" max="${escapeHtml(projectBounds.end || "")}" ${state.projectInspectorAddUseCustomRange ? "" : "disabled"} style="width:100% !important;border:1px solid rgba(132,204,222,0.34) !important;background:#ffffff !important;color:#0f172a !important;border-radius:4px !important;padding:8px !important;font-size:12px !important;" />
+              </label>
+              <label style="display:grid !important;gap:4px !important;font-size:10px !important;font-weight:800 !important;text-transform:uppercase !important;letter-spacing:.04em !important;color:rgba(232,244,248,0.72) !important;">
+                Til
+                <input id="projectInspectorCustomEndInput" type="date" value="${escapeHtml(addRange.end || projectBounds.end || "")}" min="${escapeHtml(projectBounds.start || "")}" max="${escapeHtml(projectBounds.end || "")}" ${state.projectInspectorAddUseCustomRange ? "" : "disabled"} style="width:100% !important;border:1px solid rgba(132,204,222,0.34) !important;background:#ffffff !important;color:#0f172a !important;border-radius:4px !important;padding:8px !important;font-size:12px !important;" />
+              </label>
+            </div>
+          </div>
+          ${addCandidate.availability?.label === "Delvis ledig" ? `<div style="border:1px solid rgba(245,158,11,0.35) !important;background:rgba(245,158,11,0.12) !important;color:#fde68a !important;border-radius:4px !important;padding:8px !important;font-size:11px !important;line-height:1.35 !important;">Denne personen er delvis tilgjengelig. Velg riktig delperiode før du legger til.</div>` : ""}
+        </div>
+        <div style="display:grid !important;grid-template-columns:repeat(2,minmax(0,1fr)) !important;gap:8px !important;margin-top:12px !important;">
+          <button id="projectInspectorAddCancelBtn" type="button" style="border:1px solid rgba(132,204,222,0.28) !important;background:rgba(255,255,255,0.06) !important;color:#f8fbfd !important;border-radius:4px !important;padding:9px 10px !important;font-size:12px !important;font-weight:800 !important;cursor:pointer !important;">Avbryt</button>
+          <button id="projectInspectorAddConfirmBtn" data-project-inspector-confirm-add="1" data-project-inspector-confirm-employee="${escapeHtml(addCandidate.name)}" type="button" style="border:1px solid rgba(34,197,94,0.38) !important;background:rgba(22,163,74,0.92) !important;color:#ffffff !important;border-radius:4px !important;padding:10px 10px !important;font-size:12px !important;font-weight:900 !important;cursor:pointer !important;">Legg til prosjekt</button>
+        </div>
+      </div>
+    ` : "";
 
     const assignedHtml = `
       <section>
@@ -4406,7 +4448,7 @@ async function deleteEditedEntry() {
       </section>
     `;
 
-    const availableHtml = shouldShowAvailable ? `<!-- v18.13-add-flow-event-fix --><!-- v18.12-dark-available-cards -->
+    const availableHtml = shouldShowAvailable ? `<!-- v18.14-stable-add-box --><!-- v18.13-add-flow-event-fix --><!-- v18.12-dark-available-cards -->
       <section>
         <div class="mb-2 grid grid-cols-3 gap-1 text-[11px]">
           <div class="rounded-lg border border-green-200 bg-green-50 px-2 py-1 text-center font-semibold text-green-700"><div>Ledig</div><div class="text-sm">${availabilitySummary.available}</div></div>
@@ -4424,42 +4466,7 @@ async function deleteEditedEntry() {
           ${employees.length ? employees.map(employee => {
             const isSelected = addCandidate && addCandidate.name === employee.name;
             const canAssign = employee.availability.label !== "Opptatt";
-            const expandedHtml = isSelected ? `
-              <div style="border-top:1px solid rgba(148,187,199,0.22);background:rgba(255,255,255,0.08);padding:12px;">
-                <div style="font-size:13px;font-weight:800;color:#f8fbfd;">Legg til ${escapeHtml(employee.name)}</div>
-                <div class="mt-2 grid gap-3">
-                  <label class="grid gap-1 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                    Rolle
-                    <select id="projectInspectorAddRoleSelect" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800">${ROLE_OPTIONS.map(role => `<option value="${escapeHtml(role)}" ${role === addCandidateRole ? "selected" : ""}>${escapeHtml(role)}</option>`).join("")}</select>
-                  </label>
-                  <div class="grid gap-2 rounded-2xl border border-slate-200 bg-white p-3">
-                    <label class="flex items-start gap-2 text-sm text-slate-700">
-                      <input id="projectInspectorWholePeriodRadio" type="radio" name="projectInspectorPeriodMode" value="whole" ${state.projectInspectorAddUseCustomRange ? "" : "checked"} class="mt-0.5" />
-                      <span><span class="block font-medium text-slate-900">Hele prosjektperioden</span><span class="block text-xs text-slate-500">${escapeHtml(projectBounds.start ? `${formatDate(projectBounds.start)} – ${formatDate(projectBounds.end)}` : "Periode ikke satt")}</span></span>
-                    </label>
-                    <label class="flex items-start gap-2 text-sm text-slate-700">
-                      <input id="projectInspectorCustomPeriodRadio" type="radio" name="projectInspectorPeriodMode" value="custom" ${state.projectInspectorAddUseCustomRange ? "checked" : ""} class="mt-0.5" />
-                      <span><span class="block font-medium text-slate-900">Egendefinert periode</span><span class="block text-xs text-slate-500">Velg fra/til innenfor prosjektperioden.</span></span>
-                    </label>
-                    <div class="grid grid-cols-2 gap-2 ${state.projectInspectorAddUseCustomRange ? "" : "opacity-60"}">
-                      <label class="grid gap-1 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                        Fra
-                        <input id="projectInspectorCustomStartInput" type="date" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800" value="${escapeHtml(addRange.start || projectBounds.start || "")}" min="${escapeHtml(projectBounds.start || "")}" max="${escapeHtml(projectBounds.end || "")}" ${state.projectInspectorAddUseCustomRange ? "" : "disabled"} />
-                      </label>
-                      <label class="grid gap-1 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                        Til
-                        <input id="projectInspectorCustomEndInput" type="date" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800" value="${escapeHtml(addRange.end || projectBounds.end || "")}" min="${escapeHtml(projectBounds.start || "")}" max="${escapeHtml(projectBounds.end || "")}" ${state.projectInspectorAddUseCustomRange ? "" : "disabled"} />
-                      </label>
-                    </div>
-                  </div>
-                  ${employee.availability.label === "Delvis ledig" ? `<div class="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">Denne personen er delvis tilgjengelig. Velg riktig delperiode før du legger til.</div>` : ""}
-                  <div class="flex items-center justify-end gap-2">
-                    <button id="projectInspectorAddCancelBtn" type="button" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">Avbryt</button>
-                    <button id="projectInspectorAddConfirmBtn" data-project-inspector-confirm-add="1" data-project-inspector-confirm-employee="${escapeHtml(employee.name)}" type="button" class="rounded-xl bg-green-600 px-3 py-2 text-sm font-semibold text-white hover:bg-green-700">Legg til prosjekt</button>
-                  </div>
-                </div>
-              </div>
-            ` : "";
+            const expandedHtml = "";
             return `
               <div
                 class="project-available-person-row-v1811"
@@ -4493,6 +4500,7 @@ async function deleteEditedEntry() {
             `;
           }).join("") : `<div class="px-3 py-4 text-xs text-slate-500">Ingen treff i tilgjengelig-listen.</div>`}
         </div>
+        ${selectedAddPanelHtml}
         ${filteredEmployees.length > employees.length ? `<div class="mt-2 text-[11px] text-slate-500">Viser ${employees.length} av ${filteredEmployees.length}. Bruk søk eller gruppefilter for å snevre inn.</div>` : ""}
       </section>
     ` : "";
