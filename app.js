@@ -67,6 +67,7 @@
     projectFilterCategory: "all",
     projectInspectorSearch: "",
     projectInspectorGroup: "all",
+    projectInspectorShowAvailable: false,
     contextMenu: {
       visible: false,
       employeeName: "",
@@ -4174,6 +4175,7 @@ async function deleteEditedEntry() {
   function resetProjectInspectorFilters() {
     state.projectInspectorSearch = "";
     state.projectInspectorGroup = "all";
+    state.projectInspectorShowAvailable = false;
   }
 
   function renderProjectInspectorPanel(project) {
@@ -4186,10 +4188,12 @@ async function deleteEditedEntry() {
     const assignedNames = new Set(assignedEntries.map(entry => entry.employee_name));
     const assigned = assignedEntries.length;
     const required = Number(project.headcount_required || 0);
+    const isFullyStaffed = required > 0 && assigned >= required;
+    const shouldShowAvailable = !isFullyStaffed || state.projectInspectorShowAvailable === true;
     const staffing = getProjectStaffingLabel(project.id, required);
     const periods = getProjectInspectorPeriods(project);
     const availabilitySummary = getProjectInspectorAvailabilitySummary(project, assignedNames);
-    const filteredEmployees = getProjectInspectorFilteredEmployees(project, assignedNames);
+    const filteredEmployees = shouldShowAvailable ? getProjectInspectorFilteredEmployees(project, assignedNames) : [];
     const employees = filteredEmployees.slice(0, 10);
     const groupOptions = getProjectInspectorFilterOptions()
       .map(option => `<option value="${escapeHtml(option.id)}" ${state.projectInspectorGroup === option.id ? "selected" : ""}>${escapeHtml(option.label)}</option>`)
@@ -4200,6 +4204,65 @@ async function deleteEditedEntry() {
         ? "text-amber-700"
         : "text-red-700";
     const preferredRole = getDefaultRoleForIndex(0);
+
+    const assignedHtml = `
+      <section>
+        <div class="mb-2 flex items-center justify-between gap-2">
+          <h3 class="font-semibold text-slate-900">Tildelte (${assigned}${required ? `/${required}` : ""})</h3>
+          ${isFullyStaffed ? `<button id="projectInspectorChangeCrewBtn" type="button" class="rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50">${shouldShowAvailable ? "Skjul øvrige" : "Endre crew"}</button>` : ""}
+        </div>
+        <div class="space-y-2">
+          ${assignedEntries.length ? assignedEntries.slice(0, 10).map(entry => `
+            <div class="grid grid-cols-[1fr_auto] items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2">
+              <div class="min-w-0">
+                <div class="truncate text-xs font-medium text-slate-900">${escapeHtml(entry.employee_name)}</div>
+                <div class="text-[11px] text-slate-500">${escapeHtml(entry.role || "Rolle ikke satt")} · ${escapeHtml(formatDate(entry.start_date))} – ${escapeHtml(formatDate(entry.end_date))}</div>
+              </div>
+              <div class="flex items-center gap-2">
+                <button data-project-entry-edit-id="${escapeHtml(entry.id)}" type="button" class="border border-slate-300 bg-white px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50">Rediger</button>
+                <button data-project-entry-delete-id="${escapeHtml(entry.id)}" type="button" class="px-2 py-1 text-slate-400 hover:text-red-600">×</button>
+              </div>
+            </div>
+          `).join("") : `<div class="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-3 py-3 text-xs text-slate-500">Ingen tildelte ressurser.</div>`}
+        </div>
+      </section>
+    `;
+
+    const availableHtml = shouldShowAvailable ? `
+      <section>
+        <div class="mb-2 grid grid-cols-[1fr_auto] gap-2">
+          <input id="projectInspectorSearchInput" type="text" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs" placeholder="Søk navn, gruppe, tittel eller status" value="${escapeHtml(state.projectInspectorSearch || "")}" />
+          <select id="projectInspectorGroupFilter" class="rounded-xl border border-slate-300 px-2 py-2 text-xs">${groupOptions}</select>
+        </div>
+        <div class="rounded-2xl border border-slate-200 bg-white">
+          <div class="grid grid-cols-[1fr_auto] border-b border-slate-200 px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+            <span>Tilgjengelige / øvrige</span><span>Status</span>
+          </div>
+          ${employees.length ? employees.map(employee => `
+            <div class="grid grid-cols-[1fr_auto] items-center gap-2 border-b border-slate-100 px-3 py-2 last:border-b-0">
+              <div class="flex min-w-0 items-center gap-2">
+                ${getEmployeeGroupIconHtml(employee.normalizedGroup, "inline-flex h-5 w-5 items-center justify-center text-slate-500 shrink-0 opacity-90") || `<span class="inline-flex h-5 w-5 shrink-0 items-center justify-center text-slate-400">•</span>`}
+                <div class="min-w-0">
+                  <div class="truncate text-xs font-medium text-slate-900">${escapeHtml(employee.name)}</div>
+                  <div class="truncate text-[11px] text-slate-500">${escapeHtml(employee.title || "Tittel ikke satt")}</div>
+                </div>
+              </div>
+              <div class="flex items-center justify-end gap-2">
+                <span class="text-xs font-medium ${employee.availability.tone}">${escapeHtml(employee.availability.label)}</span>
+                <button data-calendar-panel-add-employee="${escapeHtml(employee.name)}" data-calendar-panel-add-role="${escapeHtml(preferredRole)}" type="button" class="border border-slate-300 bg-white px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50" title="Legg til i bemanning">+</button>
+              </div>
+            </div>
+          `).join("") : `<div class="px-3 py-4 text-xs text-slate-500">Ingen treff i tilgjengelig-listen.</div>`}
+        </div>
+        ${filteredEmployees.length > employees.length ? `<div class="mt-2 text-[11px] text-slate-500">Viser ${employees.length} av ${filteredEmployees.length}. Bruk søk eller gruppefilter for å snevre inn.</div>` : ""}
+      </section>
+    ` : `
+      <section>
+        <div class="rounded-2xl border border-slate-200 bg-white px-3 py-3 text-xs text-slate-500">
+          Prosjektet er fullt bemannet. Tilgjengelige / øvrige er skjult for å holde panelet ryddig. Bruk <span class="font-semibold text-slate-700">Endre crew</span> hvis du skal bytte personer.
+        </div>
+      </section>
+    `;
 
     els.calendarPanelContent.innerHTML = `
       <div class="flex h-full flex-col">
@@ -4251,51 +4314,10 @@ async function deleteEditedEntry() {
               <div class="rounded-lg border border-red-200 bg-red-50 px-2 py-1 text-center font-semibold text-red-700"><div>Opptatt</div><div class="text-sm">${availabilitySummary.busy}</div></div>
               <div class="rounded-lg border border-blue-200 bg-blue-50 px-2 py-1 text-center font-semibold text-blue-700"><div>Tildelt</div><div class="text-sm">${availabilitySummary.assigned}</div></div>
             </div>
-
-            <div class="mb-2 grid grid-cols-[1fr_auto] gap-2">
-              <input id="projectInspectorSearchInput" type="text" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs" placeholder="Søk navn, gruppe, rolle eller status" value="${escapeHtml(state.projectInspectorSearch || "")}" />
-              <select id="projectInspectorGroupFilter" class="rounded-xl border border-slate-300 px-2 py-2 text-xs">${groupOptions}</select>
-            </div>
-            <div class="rounded-2xl border border-slate-200 bg-white">
-              <div class="grid grid-cols-[1fr_auto] border-b border-slate-200 px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                <span>Tilgjengelige / øvrige</span><span>Status</span>
-              </div>
-              ${employees.length ? employees.map(employee => `
-                <div class="grid grid-cols-[1fr_auto] items-center gap-2 border-b border-slate-100 px-3 py-2 last:border-b-0">
-                  <div class="flex min-w-0 items-center gap-2">
-                    ${getEmployeeGroupIconHtml(employee.normalizedGroup, "inline-flex h-5 w-5 items-center justify-center text-slate-500 shrink-0 opacity-90") || `<span class="inline-flex h-5 w-5 shrink-0 items-center justify-center text-slate-400">•</span>`}
-                    <div class="min-w-0">
-                      <div class="truncate text-xs font-medium text-slate-900">${escapeHtml(employee.name)}</div>
-                      <div class="truncate text-[11px] text-slate-500">${escapeHtml(employee.title || "Tittel ikke satt")}</div>
-                    </div>
-                  </div>
-                  <div class="flex items-center justify-end gap-2">
-                    <span class="text-xs font-medium ${employee.availability.tone}">${escapeHtml(employee.availability.label)}</span>
-                    <button data-calendar-panel-add-employee="${escapeHtml(employee.name)}" data-calendar-panel-add-role="${escapeHtml(preferredRole)}" type="button" class="border border-slate-300 bg-white px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50" title="Legg til i bemanning">+</button>
-                  </div>
-                </div>
-              `).join("") : `<div class="px-3 py-4 text-xs text-slate-500">Ingen treff i tilgjengelig-listen.</div>`}
-            </div>
-            ${filteredEmployees.length > employees.length ? `<div class="mt-2 text-[11px] text-slate-500">Viser ${employees.length} av ${filteredEmployees.length}. Bruk søk eller gruppefilter for å snevre inn.</div>` : ""}
           </section>
 
-          <section>
-            <h3 class="mb-2 font-semibold text-slate-900">Tildelte (${assigned}${required ? `/${required}` : ""})</h3>
-            <div class="space-y-2">
-              ${assignedEntries.length ? assignedEntries.slice(0, 8).map(entry => `
-                <div class="grid grid-cols-[1fr_auto] items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2">
-                  <div class="min-w-0">
-                    <div class="truncate text-xs font-medium text-slate-900">${escapeHtml(entry.employee_name)}</div>
-                    <div class="text-[11px] text-slate-500">${escapeHtml(entry.role || "Rolle ikke satt")} · ${escapeHtml(formatDate(entry.start_date))} – ${escapeHtml(formatDate(entry.end_date))}</div>
-                  </div>
-                  <div class="flex items-center gap-2">
-                    <button data-project-entry-edit-id="${escapeHtml(entry.id)}" type="button" class="border border-slate-300 bg-white px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50">Rediger</button>
-                    <button data-project-entry-delete-id="${escapeHtml(entry.id)}" type="button" class="px-2 py-1 text-slate-400 hover:text-red-600">×</button>
-                  </div>
-                </div>
-              `).join("") : `<div class="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-3 py-3 text-xs text-slate-500">Ingen tildelte ressurser.</div>`}
-            </div>
-          </section>
+          ${assignedHtml}
+          ${availableHtml}
         </div>
 
         <div class="grid grid-cols-2 gap-2 border-t border-slate-200 p-4">
@@ -4325,6 +4347,14 @@ async function deleteEditedEntry() {
       renderCalendarPanel();
       renderCalendar();
     });
+
+    const changeCrewBtn = document.getElementById("projectInspectorChangeCrewBtn");
+    if (changeCrewBtn) {
+      changeCrewBtn.addEventListener("click", () => {
+        state.projectInspectorShowAvailable = !state.projectInspectorShowAvailable;
+        rerenderPanel(false);
+      });
+    }
 
     const searchInput = document.getElementById("projectInspectorSearchInput");
     if (searchInput) {
