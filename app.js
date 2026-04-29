@@ -4190,6 +4190,8 @@ async function deleteEditedEntry() {
     const assigned = assignedEntries.length;
     const required = Number(project.headcount_required || 0);
     const isFullyStaffed = required > 0 && assigned >= required;
+    const needsStaffing = required > 0 && assigned < required;
+    const missingStaffCount = Math.max(required - assigned, 0);
     const shouldShowAvailable = !isFullyStaffed || state.projectInspectorShowAvailable === true;
     const staffing = getProjectStaffingLabel(project.id, required);
     const periods = getProjectInspectorPeriods(project);
@@ -4274,6 +4276,22 @@ async function deleteEditedEntry() {
       </section>
     ` : "";
 
+    const fillStaffingHtml = needsStaffing ? `
+      <section>
+        <button
+          id="projectInspectorAddStaffBtn"
+          type="button"
+          class="project-add-staff-slot"
+          style="display:flex !important;align-items:center !important;justify-content:center !important;gap:8px !important;width:100% !important;min-height:48px !important;border:1px dashed rgba(132,204,222,0.55) !important;background:rgba(255,255,255,0.07) !important;color:#f8fbfd !important;border-radius:4px !important;font-size:13px !important;font-weight:700 !important;cursor:pointer !important;"
+          title="Legg til ansatt på dette prosjektet"
+        >
+          <span style="font-size:18px !important;line-height:1 !important;">+</span>
+          <span>Legg til ansatt</span>
+          <span style="font-size:11px !important;font-weight:600 !important;color:rgba(232,244,248,0.72) !important;">${missingStaffCount} mangler</span>
+        </button>
+      </section>
+    ` : "";
+
     const fullStaffedCrewActionHtml = isFullyStaffed ? `
       <section>
         <button id="projectInspectorChangeCrewBtn" type="button" class="w-full rounded-xl border border-cyan-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-800 hover:bg-slate-50">
@@ -4329,6 +4347,7 @@ async function deleteEditedEntry() {
           </section>
 
           ${assignedHtml}
+          ${fillStaffingHtml}
           ${fullStaffedCrewActionHtml}
           ${availableHtml}
         </div>
@@ -4370,6 +4389,11 @@ async function deleteEditedEntry() {
     };
     wireChangeCrewButton(document.getElementById("projectInspectorChangeCrewBtn"));
     wireChangeCrewButton(document.getElementById("projectInspectorChangeCrewHeaderBtn"));
+
+    const addStaffBtn = document.getElementById("projectInspectorAddStaffBtn");
+    if (addStaffBtn) {
+      addStaffBtn.addEventListener("click", () => startProjectStaffing(project.id));
+    }
 
     const searchInput = document.getElementById("projectInspectorSearchInput");
     if (searchInput) {
