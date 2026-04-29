@@ -4214,24 +4214,26 @@ async function deleteEditedEntry() {
         </div>
         <div class="space-y-2">
           ${assignedEntries.length ? assignedEntries.slice(0, 10).map(entry => `
-            <div
-              class="project-assigned-row"
-              data-project-assigned-row="${escapeHtml(entry.id)}"
-              style="display:flex !important;align-items:center !important;justify-content:space-between !important;gap:10px !important;width:100% !important;min-height:56px !important;box-sizing:border-box !important;border:1px solid rgba(148, 187, 199, 0.26) !important;background:rgba(255,255,255,0.10) !important;padding:10px 12px !important;border-radius:4px !important;overflow:visible !important;"
-            >
-              <div style="min-width:0 !important;flex:1 1 auto !important;overflow:hidden !important;">
-                <div style="font-size:12px !important;font-weight:700 !important;line-height:1.25 !important;color:#f8fbfd !important;white-space:nowrap !important;overflow:hidden !important;text-overflow:ellipsis !important;">${escapeHtml(entry.employee_name)}</div>
-                <div style="margin-top:4px !important;font-size:11px !important;line-height:1.25 !important;color:rgba(232,244,248,0.78) !important;white-space:nowrap !important;overflow:hidden !important;text-overflow:ellipsis !important;">${escapeHtml(entry.role || "Rolle ikke satt")}</div>
+            <div class="grid grid-cols-[1fr_auto] items-center gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-2">
+              <div class="min-w-0">
+                <div class="truncate text-xs font-semibold text-slate-900">${escapeHtml(entry.employee_name)}</div>
+                <div class="mt-1 truncate text-[11px] text-slate-500">${escapeHtml(entry.role || "Rolle ikke satt")}</div>
               </div>
-              <div style="display:flex !important;align-items:center !important;justify-content:flex-end !important;gap:6px !important;flex:0 0 auto !important;visibility:visible !important;opacity:1 !important;">
+              <div class="flex shrink-0 items-center gap-2">
                 <button
                   data-project-entry-edit-id="${escapeHtml(entry.id)}"
                   type="button"
-                  class="project-assigned-edit-pencil-btn"
-                  style="display:inline-flex !important;align-items:center !important;justify-content:center !important;width:30px !important;height:30px !important;border:1px solid rgba(132,204,222,0.32) !important;background:rgba(255,255,255,0.06) !important;color:rgba(248,251,253,0.82) !important;border-radius:4px !important;font-size:14px !important;font-weight:700 !important;line-height:1 !important;cursor:pointer !important;visibility:visible !important;opacity:1 !important;position:relative !important;z-index:5 !important;"
+                  class="project-assigned-edit-btn px-2.5 py-1.5 text-[11px] font-semibold"
+                  style="display:inline-flex;align-items:center;justify-content:center;min-width:52px;border:1px solid rgba(132,204,222,0.45);background:rgba(15,96,124,0.72);color:#f8fbfd;border-radius:4px;"
                   title="Endre tildeling"
-                  aria-label="Endre tildeling"
-                >✎</button>
+                >Endre</button>
+                <button
+                  data-project-entry-delete-id="${escapeHtml(entry.id)}"
+                  type="button"
+                  class="project-assigned-delete-btn px-2 py-1 text-base leading-none"
+                  style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border:1px solid rgba(248,113,113,0.30);background:rgba(127,29,29,0.18);color:#fecaca;border-radius:4px;"
+                  title="Fjern tildeling"
+                >×</button>
               </div>
             </div>
           `).join("") : `<div class="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-3 py-3 text-xs text-slate-500">Ingen tildelte ressurser.</div>`}
@@ -4241,11 +4243,10 @@ async function deleteEditedEntry() {
 
     const availableHtml = shouldShowAvailable ? `
       <section>
-        <div class="mb-2 grid grid-cols-4 gap-1 text-[11px]">
+        <div class="mb-2 grid grid-cols-3 gap-1 text-[11px]">
           <div class="rounded-lg border border-green-200 bg-green-50 px-2 py-1 text-center font-semibold text-green-700"><div>Ledig</div><div class="text-sm">${availabilitySummary.available}</div></div>
           <div class="rounded-lg border border-amber-200 bg-amber-50 px-2 py-1 text-center font-semibold text-amber-700"><div>Delvis</div><div class="text-sm">${availabilitySummary.partial}</div></div>
           <div class="rounded-lg border border-red-200 bg-red-50 px-2 py-1 text-center font-semibold text-red-700"><div>Opptatt</div><div class="text-sm">${availabilitySummary.busy}</div></div>
-          <div class="rounded-lg border border-blue-200 bg-blue-50 px-2 py-1 text-center font-semibold text-blue-700"><div>Tildelt</div><div class="text-sm">${availabilitySummary.assigned}</div></div>
         </div>
         <div class="mb-2 grid grid-cols-[1fr_auto] gap-2">
           <input id="projectInspectorSearchInput" type="text" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs" placeholder="Søk navn, gruppe, tittel eller status" value="${escapeHtml(state.projectInspectorSearch || "")}" />
