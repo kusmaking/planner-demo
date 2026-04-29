@@ -4209,6 +4209,7 @@ async function deleteEditedEntry() {
       <section>
         <div class="mb-2 flex items-center justify-between gap-2">
           <h3 class="font-semibold text-slate-900">Tildelte (${assigned}${required ? `/${required}` : ""})</h3>
+          ${isFullyStaffed ? `<button id="projectInspectorChangeCrewHeaderBtn" type="button" class="border border-cyan-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-800 hover:bg-slate-50">${shouldShowAvailable ? "Skjul analyse" : "Endre crew"}</button>` : ""}
         </div>
         <div class="space-y-2">
           ${assignedEntries.length ? assignedEntries.slice(0, 10).map(entry => `
@@ -4350,13 +4351,15 @@ async function deleteEditedEntry() {
       renderCalendar();
     });
 
-    const changeCrewBtn = document.getElementById("projectInspectorChangeCrewBtn");
-    if (changeCrewBtn) {
-      changeCrewBtn.addEventListener("click", () => {
+    const wireChangeCrewButton = (button) => {
+      if (!button) return;
+      button.addEventListener("click", () => {
         state.projectInspectorShowAvailable = !state.projectInspectorShowAvailable;
         rerenderPanel(false);
       });
-    }
+    };
+    wireChangeCrewButton(document.getElementById("projectInspectorChangeCrewBtn"));
+    wireChangeCrewButton(document.getElementById("projectInspectorChangeCrewHeaderBtn"));
 
     const searchInput = document.getElementById("projectInspectorSearchInput");
     if (searchInput) {
