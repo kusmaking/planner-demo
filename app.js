@@ -4227,17 +4227,11 @@ async function deleteEditedEntry() {
                 <button
                   data-project-entry-edit-id="${escapeHtml(entry.id)}"
                   type="button"
-                  class="project-assigned-edit-btn"
-                  style="display:inline-flex !important;align-items:center !important;justify-content:center !important;min-width:54px !important;height:30px !important;padding:0 10px !important;border:1px solid rgba(132,204,222,0.55) !important;background:rgba(15,96,124,0.72) !important;color:#f8fbfd !important;border-radius:4px !important;font-size:11px !important;font-weight:700 !important;line-height:1 !important;cursor:pointer !important;visibility:visible !important;opacity:1 !important;position:relative !important;z-index:5 !important;"
+                  class="project-assigned-edit-pencil-btn"
+                  style="display:inline-flex !important;align-items:center !important;justify-content:center !important;width:30px !important;height:30px !important;border:1px solid rgba(132,204,222,0.32) !important;background:rgba(255,255,255,0.06) !important;color:rgba(248,251,253,0.82) !important;border-radius:4px !important;font-size:14px !important;font-weight:700 !important;line-height:1 !important;cursor:pointer !important;visibility:visible !important;opacity:1 !important;position:relative !important;z-index:5 !important;"
                   title="Endre tildeling"
-                >Endre</button>
-                <button
-                  data-project-entry-delete-id="${escapeHtml(entry.id)}"
-                  type="button"
-                  class="project-assigned-delete-btn"
-                  style="display:inline-flex !important;align-items:center !important;justify-content:center !important;width:30px !important;height:30px !important;border:1px solid rgba(248,113,113,0.35) !important;background:rgba(127,29,29,0.18) !important;color:#fecaca !important;border-radius:4px !important;font-size:18px !important;font-weight:700 !important;line-height:1 !important;cursor:pointer !important;visibility:visible !important;opacity:1 !important;position:relative !important;z-index:5 !important;"
-                  title="Fjern tildeling"
-                >×</button>
+                  aria-label="Endre tildeling"
+                >✎</button>
               </div>
             </div>
           `).join("") : `<div class="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-3 py-3 text-xs text-slate-500">Ingen tildelte ressurser.</div>`}
