@@ -346,6 +346,24 @@
     return !!date && (date.getDay() === 0 || isNorwegianHoliday(date));
   }
 
+  function isTodayDate(date) {
+    return !!date && toIsoDate(date) === toIsoDate(new Date());
+  }
+
+  // v18.21-ansattplan-today-highlight-safe
+  function getTodayColumnStyle(date, mode = "cell") {
+    if (!isTodayDate(date)) return "";
+    if (mode === "header") {
+      return "background:linear-gradient(180deg, rgba(219,234,254,0.98), rgba(239,246,255,0.98)); color:#1d4ed8; box-shadow:inset 2px 0 0 #3b82f6, inset -2px 0 0 #3b82f6; position:relative; z-index:5;";
+    }
+    return "background:rgba(59,130,246,0.10); box-shadow:inset 2px 0 0 rgba(37,99,235,0.85), inset -2px 0 0 rgba(37,99,235,0.35); z-index:1;";
+  }
+
+  function getTodayHeaderBadgeHtml(date) {
+    if (!isTodayDate(date)) return "";
+    return `<div style="margin:2px auto 0; width:max-content; border-radius:999px; background:#2563eb; color:#ffffff; padding:1px 6px; font-size:9px; font-weight:800; line-height:1.2;">I dag</div>`;
+  }
+
   function getHolidayNamesForYear(year) {
     const easter = getEasterSunday(year);
     return [
@@ -400,7 +418,9 @@
       const nextDay = days[i + 1] || null;
       const monthBoundary = !nextDay || nextDay.getMonth() !== day.getMonth();
       const redDay = isRedDay(day);
-      html += `<div class="border-b ${monthBoundary ? 'border-r-2 border-r-slate-400' : 'border-r border-slate-200'} px-1 py-2 text-center text-[10px] ${redDay ? 'bg-red-50 text-red-700' : 'bg-white text-slate-500'}"><div class="font-medium">${escapeHtml(weekdayShort(day))}</div><div>${day.getDate()}</div><div>${escapeHtml(monthShort(day))}</div></div>`;
+      const today = isTodayDate(day);
+      const todayHeaderStyle = getTodayColumnStyle(day, "header");
+      html += `<div data-today-header="${today ? "true" : "false"}" class="border-b ${monthBoundary ? 'border-r-2 border-r-slate-400' : 'border-r border-slate-200'} px-1 py-2 text-center text-[10px] ${redDay ? 'bg-red-50 text-red-700' : 'bg-white text-slate-500'}" style="${todayHeaderStyle}"><div class="font-medium">${escapeHtml(weekdayShort(day))}</div><div>${day.getDate()}</div><div>${escapeHtml(monthShort(day))}</div>${getTodayHeaderBadgeHtml(day)}</div>`;
     }
 
     return html;
@@ -5456,7 +5476,8 @@ async function deleteEditedEntry() {
           const nextDay = days[i + 1] || null;
           const monthBoundary = !nextDay || nextDay.getMonth() !== day.getMonth();
           const redDay = isRedDay(day);
-          html += `<div data-drop-slot-index="${i}" data-drop-date="${toIsoDate(day)}" class="day-cell ${redDay ? "red-day" : ""}" style="position:absolute; left:${i * colWidth}px; width:${colWidth}px; border-right:${monthBoundary ? "2px solid #94a3b8" : "1px solid #e2e8f0"};"></div>`;
+          const todayCellStyle = getTodayColumnStyle(day, "cell");
+          html += `<div data-drop-slot-index="${i}" data-drop-date="${toIsoDate(day)}" data-today-column="${isTodayDate(day) ? "true" : "false"}" class="day-cell ${redDay ? "red-day" : ""}" style="position:absolute; left:${i * colWidth}px; width:${colWidth}px; border-right:${monthBoundary ? "2px solid #94a3b8" : "1px solid #e2e8f0"}; ${todayCellStyle}"></div>`;
         }
 
         html += `<div style="position:relative; width:${totalWidth}px; min-height:52px;">`;
@@ -5656,7 +5677,8 @@ async function deleteEditedEntry() {
         const nextDay = days[i + 1] || null;
         const monthBoundary = !nextDay || nextDay.getMonth() !== day.getMonth();
         const redDay = isRedDay(day);
-        html += `<div data-drop-slot-index="${i}" data-drop-date="${toIsoDate(day)}" class="day-cell ${redDay ? "red-day" : ""}" style="position:absolute; left:${i * colWidth}px; width:${colWidth}px; border-right:${monthBoundary ? "2px solid #94a3b8" : "1px solid #e2e8f0"};"></div>`;
+        const todayCellStyle = getTodayColumnStyle(day, "cell");
+          html += `<div data-drop-slot-index="${i}" data-drop-date="${toIsoDate(day)}" data-today-column="${isTodayDate(day) ? "true" : "false"}" class="day-cell ${redDay ? "red-day" : ""}" style="position:absolute; left:${i * colWidth}px; width:${colWidth}px; border-right:${monthBoundary ? "2px solid #94a3b8" : "1px solid #e2e8f0"}; ${todayCellStyle}"></div>`;
       }
 
       html += `<div style="position:relative; width:${totalWidth}px; min-height:52px;">`;
