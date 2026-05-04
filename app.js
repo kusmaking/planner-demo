@@ -1,5 +1,5 @@
 (() => {
-  // v18.25c-sandbox-dashboard-entry-field-mapping-safe
+  // v18.25d-sandbox-dashboard-utilization-person-days-safe
   // v18.19-ansattplan-project-focus-toggle-safe
   // v18.11: plain visible available-row render for project inspector.
   const supabaseClient = window.supabase?.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -4162,6 +4162,17 @@ async function deleteEditedEntry() {
       const endKey = makeLocalDateISO(endDate);
       const entriesForPeriod = (state.entries || []).filter(entry => entry && getEntryStartForDashboard(entry) <= endKey && getEntryEndForDashboard(entry) >= startKey);
 
+      function eachDateInRange(callback) {
+        const d = new Date(startDate);
+        d.setHours(0, 0, 0, 0);
+        const end = new Date(endDate);
+        end.setHours(0, 0, 0, 0);
+        while (d <= end) {
+          callback(new Date(d), makeLocalDateISO(d));
+          d.setDate(d.getDate() + 1);
+        }
+      }
+
       return CAPACITY_GROUPS.map(groupDef => {
         const employeesInGroup = activeEmployees.filter(employee => normalizeEmployeeGroup(employee.employee_group || "") === groupDef.value);
         const employeeNames = new Set(employeesInGroup.map(employee => employee.name));
@@ -4195,12 +4206,39 @@ async function deleteEditedEntry() {
           onProjectNames.add(employeeName);
         });
 
+        let capacityPersonDays = 0;
+        let projectPersonDays = 0;
+        let unavailablePersonDays = 0;
+
+        eachDateInRange((_, dateKey) => {
+          employeesInGroup.forEach(employee => {
+            const employeeName = employee.name;
+            const employeeEntriesForDay = entriesForPeriod.filter(entry => (
+              getEntryEmployeeNameForDashboard(entry) === employeeName &&
+              getEntryStartForDashboard(entry) <= dateKey &&
+              getEntryEndForDashboard(entry) >= dateKey
+            ));
+
+            const isUnavailableToday = employeeEntriesForDay.some(entry => isUnavailableEntry(entry));
+            const isOnProjectToday = employeeEntriesForDay.some(entry => isRealProjectEntry(entry));
+
+            if (isUnavailableToday) {
+              unavailablePersonDays += 1;
+              return;
+            }
+
+            capacityPersonDays += 1;
+            if (isOnProjectToday) {
+              projectPersonDays += 1;
+            }
+          });
+        });
+
         const total = employeesInGroup.length;
         const unavailable = unavailableNames.size;
         const onProject = onProjectNames.size;
         const available = Math.max(total - unavailable - onProject, 0);
-        const utilizationBase = Math.max(total - unavailable, 0);
-        const utilization = utilizationBase ? Math.round((onProject / utilizationBase) * 100) : 0;
+        const utilization = capacityPersonDays ? Math.round((projectPersonDays / capacityPersonDays) * 100) : 0;
 
         return {
           group: groupDef.value,
@@ -4209,9 +4247,12 @@ async function deleteEditedEntry() {
           unavailable,
           unavailableByType,
           onProject,
-          present: utilizationBase,
+          present: Math.max(total - unavailable, 0),
           available,
-          utilization
+          utilization,
+          capacityPersonDays,
+          projectPersonDays,
+          unavailablePersonDays
         };
       });
     }
@@ -4336,12 +4377,12 @@ async function deleteEditedEntry() {
             </div>
             <div class="text-right">
               <div class="text-2xl font-semibold text-slate-950">${row.utilization}%</div>
-              <div class="text-xs text-slate-500">periodeutnyttelse</div>
+              <div class="text-xs text-slate-500">utnyttelse person-dager</div>
             </div>
           </div>
           <div class="mt-4 grid grid-cols-4 gap-2 text-center">
             <div><div class="text-xl font-semibold text-slate-950">${row.total}</div><div class="text-[11px] text-slate-500">Totalt</div></div>
-            <div><div class="text-xl font-semibold text-slate-950">${row.onProject}</div><div class="text-[11px] text-slate-500">Prosjekt ±30d</div></div>
+            <div><div class="text-xl font-semibold text-slate-950">${row.onProject}</div><div class="text-[11px] text-slate-500">Personer prosjekt</div></div>
             <div><div class="text-xl font-semibold text-slate-950">${row.unavailable}</div><div class="text-[11px] text-slate-500">Borte</div></div>
             <div><div class="text-xl font-semibold text-slate-950">${row.available}</div><div class="text-[11px] text-slate-500">Ikke brukt</div></div>
           </div>
