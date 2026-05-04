@@ -1048,6 +1048,29 @@
     body.iz-compact-ui #homeDashboard .dash27-donut-inner .text-4xl { font-size: 1.65rem; }
     body.iz-compact-ui #homeDashboard .dash27-list-row { padding-top: 6px; padding-bottom: 6px; }
 
+    /* v18.30b: visible edit action and wider project panel */
+    body.iz-compact-ui #projectInspectorEditProjectVisibleBtn {
+      display: inline-flex !important;
+      visibility: visible !important;
+      opacity: 1 !important;
+      pointer-events: auto !important;
+    }
+    body.iz-compact-ui #calendarPanelCol {
+      width: 460px !important;
+      min-width: 460px !important;
+      max-width: 460px !important;
+    }
+    body.iz-compact-ui #calendarPanelCol.is-open,
+    body.iz-compact-ui #calendarPanelCol:not(.hidden) {
+      width: 460px !important;
+      min-width: 460px !important;
+      max-width: 460px !important;
+    }
+    body.iz-compact-ui #calendarPanelContent {
+      width: 100% !important;
+      min-width: 0 !important;
+    }
+
   </style>
 </head>
 <body class="iz-compact-ui text-slate-900">

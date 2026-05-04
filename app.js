@@ -1,5 +1,5 @@
 (() => {
-  // v18.30a-sandbox-project-edit-access-safe
+  // v18.30b-sandbox-project-edit-visible-wide-panel-safe
   // v18.19-ansattplan-project-focus-toggle-safe
   // v18.11: plain visible available-row render for project inspector.
   const supabaseClient = window.supabase?.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -5109,6 +5109,15 @@ async function deleteEditedEntry() {
         </div>
 
         <div class="min-h-0 flex-1 space-y-4 overflow-auto p-4 text-sm">
+          <div style="display:flex !important;gap:8px !important;align-items:center !important;margin:0 0 10px 0 !important;">
+            <button
+              id="projectInspectorEditProjectVisibleBtn"
+              data-calendar-panel-edit-project="${escapeHtml(project.id)}"
+              type="button"
+              style="display:inline-flex !important;align-items:center !important;justify-content:center !important;border:1px solid rgba(80,240,199,0.65) !important;background:#50f0c7 !important;color:#062531 !important;border-radius:4px !important;padding:9px 12px !important;font-size:12px !important;font-weight:950 !important;line-height:1.1 !important;cursor:pointer !important;visibility:visible !important;opacity:1 !important;position:relative !important;z-index:30 !important;"
+            >Rediger prosjekt</button>
+            <span style="font-size:11px !important;color:rgba(232,244,248,0.72) !important;">Feltperiode · workshop · ressursbehov</span>
+          </div>
           <div class="grid grid-cols-2 gap-2">
             <div class="rounded-2xl border border-slate-200 bg-slate-50 p-3">
               <div class="text-[11px] uppercase tracking-wide text-slate-500">Kategori</div>
@@ -5224,7 +5233,17 @@ async function deleteEditedEntry() {
       });
     }
 
+    const visibleEditBtn = document.getElementById("projectInspectorEditProjectVisibleBtn");
+    if (visibleEditBtn) {
+      visibleEditBtn.addEventListener("click", event => {
+        event.preventDefault();
+        event.stopPropagation();
+        openProjectModal(visibleEditBtn.dataset.calendarPanelEditProject);
+      });
+    }
     els.calendarPanelContent.querySelectorAll("[data-calendar-panel-edit-project]").forEach(btn => {
+      if (btn.dataset.boundProjectEdit === "true") return;
+      btn.dataset.boundProjectEdit = "true";
       btn.addEventListener("click", () => openProjectModal(btn.dataset.calendarPanelEditProject));
     });
     els.calendarPanelContent.querySelectorAll("[data-calendar-panel-staff-project]").forEach(btn => {
