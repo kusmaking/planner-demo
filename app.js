@@ -1,5 +1,5 @@
 (() => {
-  // v18.23b-startscreen-safe-base
+  // v18.23c-startscreen-login-safe
   // v18.11: plain visible available-row render for project inspector.
   const supabaseClient = window.supabase?.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -63,7 +63,7 @@
       previewEndDate: "",
       originalValueSnapshot: null
     },
-    activeTab: "home",
+    activeTab: "calendar",
     calendarPanelOpen: false,
     projectListFilter: "all",
     projectFilterCategory: "all",
@@ -214,6 +214,7 @@
     persistUiState();
 
     await loadAuthUser();
+    if (canPlanApp()) state.activeTab = "home";
 
     if (supabaseClient?.auth) {
       supabaseClient.auth.onAuthStateChange((event) => {
@@ -977,7 +978,7 @@
     const allowedTabs = canPlan ? ["home", "calendar", "projects", "employees", "admin"] : ["calendar"];
 
     if (!allowedTabs.includes(state.activeTab)) {
-      state.activeTab = canPlan ? "home" : "calendar";
+      state.activeTab = "calendar";
     }
 
     const buttons = {
@@ -1016,6 +1017,12 @@
       section.style.display = active ? "" : "none";
       section.classList.toggle("hidden", !active);
     });
+
+    if (els.statsRow) {
+      const showStats = state.activeTab !== "home";
+      els.statsRow.style.display = showStats ? "grid" : "none";
+      els.statsRow.classList.toggle("hidden", !showStats);
+    }
   }
 
 
@@ -3930,6 +3937,7 @@ async function deleteEditedEntry() {
   function renderAll() {
     populateDynamicSelects();
     renderStats();
+    renderHomeSummary();
     renderLegend();
     renderCalendarPanel();
     renderProjects();
@@ -3998,9 +4006,19 @@ async function deleteEditedEntry() {
       .filter(project => projectOverlapsRange(project, range.start, range.end));
   }
 
+  function renderStats() {
+    const visibleProjects = getVisibleProjects();
+    const unstaffedProjects = getUnstaffedProjectsForCurrentCalendarRange();
+
+    if (els.statsRow) {
+      els.statsRow.innerHTML = "";
+    }
+
+    updateProjectQuickControls(visibleProjects.length, unstaffedProjects.length);
+  }
 
   function renderHomeSummary() {
-    if (!els.tabHomeSection) return;
+    if (!els.tabHomeSection || !canPlanApp()) return;
 
     const today = new Date();
     const todayKey = formatDateISO(today);
@@ -4010,20 +4028,19 @@ async function deleteEditedEntry() {
     const busyNames = new Set();
 
     (state.entries || []).forEach(entry => {
-      if (!entry || !entry.employeeName) return;
+      if (!entry) return;
       if (entry.start > todayKey || entry.end < todayKey) return;
       const project = getProjectById(entry.projectId);
       if (!project || isSystemPersonalProject(project) || isCancelledProject(project)) return;
-      busyNames.add(entry.employeeName);
+      if (entry.employeeName) busyNames.add(entry.employeeName);
     });
 
     const busyCount = Array.from(busyNames).filter(name => employeeNameMap.has(name)).length;
     const availableCount = Math.max(totalEmployees - busyCount, 0);
     const utilizationPct = totalEmployees ? Math.round((busyCount / totalEmployees) * 100) : 0;
-    const activeProjects = getVisibleProjects().filter(project => !isCancelledProject(project));
-    const unstaffedProjects = getUnstaffedProjectsForCurrentCalendarRange();
+    const displayName = String(getAccountDisplayName() || state.currentUser || "Planlegger").trim();
+    const firstName = displayName.split(/\s+/)[0] || "Planlegger";
 
-    const firstName = String(getAccountDisplayName() || state.currentUser || "").trim().split(/\s+/)[0] || "Planlegger";
     if (els.homeGreeting) els.homeGreeting.textContent = `God morgen, ${firstName}`;
     if (els.homeUtilPct) els.homeUtilPct.textContent = `${utilizationPct}%`;
     if (els.homeUtilDonut) els.homeUtilDonut.style.background = `conic-gradient(#34d3bf 0 ${utilizationPct}%, #e5e7eb ${utilizationPct}% 100%)`;
@@ -4032,8 +4049,8 @@ async function deleteEditedEntry() {
     if (els.homeTotalEmployees) els.homeTotalEmployees.textContent = String(totalEmployees);
     if (els.homeGroupTotal) els.homeGroupTotal.textContent = `Totalt ${totalEmployees}`;
     if (els.homeTodayDate) els.homeTodayDate.textContent = formatDate(today);
-    if (els.homeActiveProjects) els.homeActiveProjects.textContent = String(activeProjects.length);
-    if (els.homeUnstaffedProjects) els.homeUnstaffedProjects.textContent = String(unstaffedProjects.length);
+    if (els.homeActiveProjects) els.homeActiveProjects.textContent = String(getVisibleProjects().filter(project => !isCancelledProject(project)).length);
+    if (els.homeUnstaffedProjects) els.homeUnstaffedProjects.textContent = String(getUnstaffedProjectsForCurrentCalendarRange().length);
     if (els.homeAvailableEmployeesMetric) els.homeAvailableEmployeesMetric.textContent = String(availableCount);
 
     if (els.homeGroupList) {
@@ -4050,20 +4067,8 @@ async function deleteEditedEntry() {
           </div>
           <span class="text-2xl font-semibold text-slate-900">${escapeHtml(String(row.count))}</span>
         </div>
-      `).join("") : `<div class="py-8 text-sm text-slate-500">Ingen ansatte tilgjengelig.</div>`;
+      `).join("") : '<div class="py-6 text-sm text-slate-500">Ingen ansatte tilgjengelig.</div>';
     }
-  }
-
-  function renderStats() {
-    const visibleProjects = getVisibleProjects();
-    const unstaffedProjects = getUnstaffedProjectsForCurrentCalendarRange();
-
-    if (els.statsRow) {
-      els.statsRow.innerHTML = "";
-    }
-
-    updateProjectQuickControls(visibleProjects.length, unstaffedProjects.length);
-    renderHomeSummary();
   }
 
   function updateProjectQuickControls(projectCount = null, unstaffedCount = null) {
