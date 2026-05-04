@@ -1,5 +1,5 @@
 (() => {
-  // v18.28-sandbox-project-color-mapping-safe
+  // v18.29-sandbox-workshop-default-phase-safe
   // v18.19-ansattplan-project-focus-toggle-safe
   // v18.11: plain visible available-row render for project inspector.
   const supabaseClient = window.supabase?.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -112,7 +112,7 @@
     },
     {
       value: "Onshore arbeider",
-      label: "Onshore",
+      label: "Workshop technician",
       icon: "tools",
       order: 2,
       aliases: ["Onshore", "Onshore arbeider"],
@@ -1346,7 +1346,7 @@
   }
 
   function setupStaticOptions() {
-    fillSelect(els.projectCategory, CATEGORY_OPTIONS);
+    fillSelect(els.projectCategory, [{ id: "Offshore", name: "Feltoppdrag" }], "Offshore", "name", "id");
     fillSelect(els.projectStatus, PROJECT_STATUS_OPTIONS, "Planlagt");
     fillSelect(els.editRole, ROLE_OPTIONS, "Supervisor");
     fillSelect(els.personalBlockType, getPersonalBlockTypeOptions());
@@ -3510,6 +3510,48 @@ async function deleteEditedEntry() {
     return [];
   }
 
+  function getDefaultWorkshopPeriodForProject(project, fieldPeriods = null) {
+    if (!project || isSystemPersonalProject(project) || isCancelledProject(project)) return null;
+    const periods = (fieldPeriods || getProjectTimelinePeriods(project) || [])
+      .filter(period => period?.start && period?.end)
+      .slice()
+      .sort((a, b) => String(a.start).localeCompare(String(b.start)));
+
+    if (!periods.length) return null;
+
+    const fieldStart = asLocalDate(periods[0].start);
+    if (!fieldStart) return null;
+
+    const workshopEndDate = addDays(fieldStart, -1);
+    const workshopStartDate = addDays(fieldStart, -14);
+
+    if (!workshopStartDate || !workshopEndDate || workshopStartDate > workshopEndDate) return null;
+
+    return {
+      id: `${project.id}__workshop_default`,
+      start: toIsoDate(workshopStartDate),
+      end: toIsoDate(workshopEndDate),
+      phase: "workshop",
+      phaseLabel: "Workshop / mobilisering",
+      required: 2,
+      generated: true
+    };
+  }
+
+  function getProjectTimelinePeriodsWithWorkshop(project) {
+    const fieldPeriods = getProjectTimelinePeriods(project).map(period => ({
+      ...period,
+      phase: "field",
+      phaseLabel: "Feltoppdrag"
+    }));
+    const workshopPeriod = getDefaultWorkshopPeriodForProject(project, fieldPeriods);
+    return [
+      ...(workshopPeriod ? [workshopPeriod] : []),
+      ...fieldPeriods
+    ].filter(period => period.start && period.end)
+      .sort((a, b) => String(a.start).localeCompare(String(b.start)) || String(a.end).localeCompare(String(b.end)));
+  }
+
 
   function createEmptyProjectPeriod() {
     return {
@@ -3596,7 +3638,7 @@ async function deleteEditedEntry() {
 
     els.projectModalTitle.textContent = project ? "Rediger prosjekt" : "Nytt prosjekt";
     els.projectName.value = project?.name || "";
-    fillSelect(els.projectCategory, CATEGORY_OPTIONS, project?.category || "Offshore");
+    fillSelect(els.projectCategory, [{ id: "Offshore", name: "Feltoppdrag" }], "Offshore", "name", "id");
     fillSelect(els.projectStatus, PROJECT_STATUS_OPTIONS, normalizeProjectStatus(project?.status || "Planlagt"));
     els.projectPlannedStart.value = project?.planned_start_date || "";
     els.projectPlannedEnd.value = project?.planned_end_date || "";
@@ -3626,7 +3668,7 @@ async function deleteEditedEntry() {
   async function saveProjectFromModal() {
     if (!canEditApp()) return;
     const name = els.projectName.value.trim();
-    const category = els.projectCategory.value;
+    const category = "Offshore";
     const status = normalizeProjectStatus(els.projectStatus.value);
     const singlePlannedStart = els.projectPlannedStart.value;
     const singlePlannedEnd = els.projectPlannedEnd.value;
@@ -4400,10 +4442,13 @@ async function deleteEditedEntry() {
 
 
   function renderLegend() {
-    const projectCategoryHtml = ["Offshore", "Onshore"].map(name => `
+    const projectCategoryHtml = [
+      { name: "Feltoppdrag", color: "bg-red-600" },
+      { name: "Workshop / mobilisering", color: "bg-green-600" }
+    ].map(item => `
       <div class="flex items-center gap-2">
-        <span class="inline-block w-4 h-4 rounded ${getLegendDotClasses(name)}"></span>
-        <span>${escapeHtml(name === "Onshore" ? "Verksted / Onshore" : name)}</span>
+        <span class="inline-block w-4 h-4 rounded ${item.color}"></span>
+        <span>${escapeHtml(item.name)}</span>
       </div>
     `).join("");
 
@@ -6038,14 +6083,14 @@ async function deleteEditedEntry() {
       const assigned = getProjectAssignedCount(project.id);
       const required = Number(project.headcount_required || 0);
       const staffing = getProjectStaffingLabel(project.id, required);
-      const projectPeriods = getProjectTimelinePeriods(project);
+      const projectPeriods = getProjectTimelinePeriodsWithWorkshop(project);
 
       html += `
         <button type="button" data-project-list-row-id="${escapeHtml(project.id)}" class="sticky-col border-r border-b border-slate-200 px-3 py-2 text-left ${project.id === state.focusProjectId ? "bg-blue-50 ring-2 ring-blue-200" : isClosedProject(project) ? "bg-slate-100" : "bg-white"}">
           <div class="font-medium">${escapeHtml(project.name)}</div>
           <div class="text-xs text-slate-500">${escapeHtml(project.location || "")}</div>
           <div class="text-xs ${staffing.variant} mt-1">${escapeHtml(staffing.text)}${required ? ` (${assigned}/${required})` : ""}</div>
-          ${project.has_multiple_periods && projectPeriods.length ? `<div class="text-[11px] text-slate-400 mt-1">${projectPeriods.length} perioder</div>` : ""}
+          ${project.has_multiple_periods && getProjectTimelinePeriods(project).length ? `<div class="text-[11px] text-slate-400 mt-1">${getProjectTimelinePeriods(project).length} feltperioder + workshop</div>` : ""}
         </button>
       `;
 
@@ -6068,14 +6113,17 @@ async function deleteEditedEntry() {
         const spanDays = diffDays(clipped.start, clipped.end) + 1;
         const left = startIndex * colWidth + 2;
         const width = Math.max(spanDays * colWidth - 4, 40);
-        const periodLabel = project.has_multiple_periods && projectPeriods.length > 1 ? `${formatDate(period.start)} – ${formatDate(period.end)}` : staffing.text;
+        const periodLabel = period.phase === "workshop"
+          ? `Workshop / mobilisering · behov 2`
+          : (project.has_multiple_periods && projectPeriods.filter(item => item.phase !== "workshop").length > 1 ? `${formatDate(period.start)} – ${formatDate(period.end)}` : staffing.text);
+        const periodClasses = getProjectPeriodBarClasses(project, period);
 
         html += `
           <div
-            class="entry-bar ${getProjectBarClasses(project)} ${project.id === state.focusProjectId ? 'ring-2 ring-blue-300 ring-offset-1' : ''}"
+            class="entry-bar ${periodClasses} ${project.id === state.focusProjectId ? 'ring-2 ring-blue-300 ring-offset-1' : ''}"
             style="left:${left}px; width:${width}px;"
             data-project-row-id="${escapeHtml(project.id)}"
-            title="${escapeHtml(`${project.name} | ${formatDate(period.start)} – ${formatDate(period.end)} | ${staffing.text}`)}"
+            title="${escapeHtml(`${project.name} | ${period.phaseLabel || "Feltoppdrag"} | ${formatDate(period.start)} – ${formatDate(period.end)} | ${period.phase === "workshop" ? "Workshopbehov 2" : staffing.text}`)}"
           >
             <div class="font-semibold">${escapeHtml(project.name)}</div>
             <div class="text-[11px] opacity-90">${escapeHtml(periodLabel)}</div>
@@ -6138,25 +6186,28 @@ async function deleteEditedEntry() {
 
       html += `<div style="position:relative; width:${totalWidth}px; min-height:56px;">`;
 
-      if (project.planned_start_date && project.planned_end_date) {
-        const start = asLocalDate(project.planned_start_date);
-        const end = asLocalDate(project.planned_end_date);
+      const yearPeriods = getProjectTimelinePeriodsWithWorkshop(project).filter(period => overlaps(period.start, period.end, new Date(year, 0, 1), new Date(year, 11, 31)));
+      for (const period of yearPeriods) {
+        const start = asLocalDate(period.start);
+        const end = asLocalDate(period.end);
+        if (!start || !end) continue;
         const startMonth = Math.max(0, start.getFullYear() < year ? 0 : start.getMonth());
         const endMonth = Math.min(11, end.getFullYear() > year ? 11 : end.getMonth());
         const spanMonths = (endMonth - startMonth) + 1;
         const left = startMonth * monthWidth + 2;
         const width = Math.max(spanMonths * monthWidth - 4, 40);
+        const periodLabel = period.phase === "workshop" ? "Workshop / mobilisering · behov 2" : staffing.text;
 
         html += `
           <div
-            class="entry-bar ${getProjectBarClasses(project)} ${project.id === state.focusProjectId ? 'ring-2 ring-blue-300 ring-offset-1' : ''}"
+            class="entry-bar ${getProjectPeriodBarClasses(project, period)} ${project.id === state.focusProjectId ? 'ring-2 ring-blue-300 ring-offset-1' : ''}"
             style="left:${left}px; width:${width}px;"
             data-project-row-id="${escapeHtml(project.id)}"
-            title="${escapeHtml(`${project.name} | ${formatProjectDateRange(project)} | ${staffing.text}`)}"
+            title="${escapeHtml(`${project.name} | ${period.phaseLabel || "Feltoppdrag"} | ${formatDate(period.start)} – ${formatDate(period.end)} | ${period.phase === "workshop" ? "Workshopbehov 2" : staffing.text}`)}"
           >
             <div class="font-semibold">${escapeHtml(project.name)}</div>
-            <div class="text-[11px] opacity-90">${escapeHtml(staffing.text)}</div>
-            <div data-resize-handle data-resize-type="project" data-target-id="${escapeHtml(project.id)}" title="Dra for å endre sluttdato" style="position:absolute; top:0; right:0; bottom:0; width:12px; cursor:ew-resize; border-left:1px solid rgba(255,255,255,0.35); background:linear-gradient(to left, rgba(255,255,255,0.35), rgba(255,255,255,0));"></div>
+            <div class="text-[11px] opacity-90">${escapeHtml(periodLabel)}</div>
+            ${period.phase !== "workshop" ? `<div data-resize-handle data-resize-type="project" data-target-id="${escapeHtml(project.id)}" title="Dra for å endre sluttdato" style="position:absolute; top:0; right:0; bottom:0; width:12px; cursor:ew-resize; border-left:1px solid rgba(255,255,255,0.35); background:linear-gradient(to left, rgba(255,255,255,0.35), rgba(255,255,255,0));"></div>` : ""}
           </div>
         `;
       }
@@ -6774,7 +6825,7 @@ function getDashboardAnalysisRange() {
   }
 
   function projectOverlapsRange(project, rangeStart, rangeEnd) {
-    const periods = getProjectTimelinePeriods(project);
+    const periods = getProjectTimelinePeriodsWithWorkshop(project);
     if (!periods.length) return false;
     return periods.some(period => overlaps(period.start, period.end, rangeStart, rangeEnd));
   }
@@ -7073,10 +7124,6 @@ function getDashboardAnalysisRange() {
   function getCategoryColorClasses(category) {
     const value = String(category || "").trim();
     switch (value) {
-      case "Onshore":
-        return "bg-green-600 border-green-700 text-white";
-      case "Offshore":
-        return "bg-red-600 border-red-700 text-white";
       case "Syk":
         return "bg-red-900 border-red-950 text-white";
       case "Kurs":
@@ -7087,17 +7134,22 @@ function getDashboardAnalysisRange() {
         return "bg-yellow-300 border-yellow-400 text-slate-900";
       case "Travel":
         return "bg-sky-500 border-sky-600 text-white";
+      case "Offshore":
+      case "Onshore":
+      case "Feltoppdrag":
       default:
-        return "bg-slate-500 border-slate-600 text-white";
+        return "bg-red-600 border-red-700 text-white";
     }
   }
 
   function getLegendDotClasses(category) {
     const value = String(category || "").trim();
     switch (value) {
-      case "Onshore":
+      case "Workshop / mobilisering":
         return "bg-green-600";
+      case "Onshore":
       case "Offshore":
+      case "Feltoppdrag":
         return "bg-red-600";
       case "Syk":
         return "bg-red-900";
@@ -7112,6 +7164,13 @@ function getDashboardAnalysisRange() {
       default:
         return "bg-slate-400";
     }
+  }
+
+  function getProjectPeriodBarClasses(project, period = null) {
+    if (period?.phase === "workshop") {
+      return "bg-green-600 border-green-700 text-white";
+    }
+    return getProjectBarClasses(project);
   }
 
   function getEntryBarClasses(project, role, entry = null) {
