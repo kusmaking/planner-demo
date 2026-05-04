@@ -1048,7 +1048,8 @@
     body.iz-compact-ui #homeDashboard .dash27-donut-inner .text-4xl { font-size: 1.65rem; }
     body.iz-compact-ui #homeDashboard .dash27-list-row { padding-top: 6px; padding-bottom: 6px; }
 
-    /* v18.30d: wider project panel */
+
+    /* v18.30e: robust project edit button */
     body.iz-compact-ui #calendarPanelCol {
       width: 560px !important;
       min-width: 560px !important;
@@ -1065,25 +1066,40 @@
       min-width: 0 !important;
     }
     body.iz-compact-ui .project-panel-edit-btn {
-      display: inline-flex !important;
-      align-items: center !important;
+      display: flex !important;
+      flex-direction: column !important;
+      align-items: flex-start !important;
       justify-content: center !important;
       width: 100% !important;
-      border: 1px solid rgba(132, 204, 222, 0.38) !important;
-      background: rgba(255,255,255,0.08) !important;
+      min-height: 58px !important;
+      margin: 2px 0 0 0 !important;
+      border: 1px solid rgba(80, 240, 199, 0.42) !important;
+      background: rgba(80, 240, 199, 0.14) !important;
       color: #f8fbfd !important;
       border-radius: 4px !important;
-      padding: 10px 12px !important;
+      padding: 11px 13px !important;
       font-size: 13px !important;
-      font-weight: 850 !important;
-      line-height: 1.1 !important;
+      font-weight: 900 !important;
+      line-height: 1.15 !important;
       cursor: pointer !important;
       box-shadow: none !important;
-      text-align: center !important;
+      text-align: left !important;
+      visibility: visible !important;
+      opacity: 1 !important;
+      pointer-events: auto !important;
+      position: relative !important;
+      z-index: 20 !important;
+    }
+    body.iz-compact-ui .project-panel-edit-btn span {
+      display: block !important;
+      margin-top: 4px !important;
+      font-size: 11px !important;
+      font-weight: 650 !important;
+      color: rgba(235, 248, 250, 0.72) !important;
     }
     body.iz-compact-ui .project-panel-edit-btn:hover {
-      background: rgba(255,255,255,0.14) !important;
-      border-color: rgba(80,240,199,0.55) !important;
+      background: rgba(80, 240, 199, 0.22) !important;
+      border-color: rgba(80, 240, 199, 0.75) !important;
     }
 
   </style>

@@ -1,5 +1,5 @@
 (() => {
-  // v18.30d-sandbox-wider-project-panel-safe
+  // v18.30e-sandbox-restore-project-edit-button-safe
   // v18.19-ansattplan-project-focus-toggle-safe
   // v18.11: plain visible available-row render for project inspector.
   const supabaseClient = window.supabase?.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -5103,20 +5103,11 @@ async function deleteEditedEntry() {
             <div class="mt-1 text-xs font-medium ${staffingTone}">${escapeHtml(staffing.text)}${required ? ` (${assigned}/${required})` : ""}</div>
           </div>
           <div class="flex items-center gap-2 shrink-0">
-            <button data-calendar-panel-edit-project="${escapeHtml(project.id)}" type="button" class="rounded-xl border border-slate-300 bg-slate-900 px-3 py-1.5 text-sm font-semibold text-white hover:bg-slate-800">Rediger prosjekt</button>
             <button id="calendarProjectPanelCloseBtn" type="button" class="rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50">×</button>
           </div>
         </div>
 
         <div class="min-h-0 flex-1 space-y-4 overflow-auto p-4 text-sm">
-          <div class="mb-3">
-            <button
-              id="projectInspectorEditProjectVisibleBtn"
-              data-calendar-panel-edit-project="${escapeHtml(project.id)}"
-              type="button"
-              class="project-panel-edit-btn"
-            >Rediger prosjekt</button>
-          </div>
           <div class="grid grid-cols-2 gap-2">
             <div class="rounded-2xl border border-slate-200 bg-slate-50 p-3">
               <div class="text-[11px] uppercase tracking-wide text-slate-500">Kategori</div>
@@ -5127,6 +5118,16 @@ async function deleteEditedEntry() {
               <div class="mt-1 font-semibold text-slate-900">${required || 0} personer</div>
             </div>
           </div>
+
+          <button
+            id="projectInspectorEditProjectVisibleBtn"
+            data-calendar-panel-edit-project="${escapeHtml(project.id)}"
+            type="button"
+            class="project-panel-edit-btn"
+          >
+            Rediger prosjekt
+            <span>Workshop · feltperiode · ressursbehov</span>
+          </button>
 
           <section>
             <div class="mb-2 flex items-center justify-between gap-2">
