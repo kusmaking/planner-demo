@@ -1,12 +1,10 @@
-v18.27d sandbox dashboard capacity readability safe
-- Basert på v18.27c.
-- Bytter vanskelig kapasitetslinje/graf til tydelig 14-dagers dag-for-dag kapasitetsoversikt.
-- Viser ledig kapasitet per gruppe per dag, med P = på prosjekt og B = borte/fravær.
-- Lav kapasitet bruker egne terskler per gruppe:
-  Offshore/Onshore: lav <=4, kritisk <=2.
-  Engineering: lav 1, kritisk 0.
-  3 parts innleie: lav <=2, kritisk 0.
-- Lav kapasitet viser nå korte årsakslinjer med ledig/på prosjekt/borte.
+v18.27e sandbox dashboard layout cleanup safe
+- Basert på v18.27d.
+- Strammer inn dashboard-layout for å få mer på én skjerm.
+- Reduserer tekstmengde, padding og mellomrom.
+- Bruker mer bredde i dashboardet og tidligere side-ved-side layout allerede på xl-bredde.
+- Kapasitetsfelt og lav-kapasitet-felt er komprimert for bedre lesbarhet.
+- Ingen logikkendring i analyseperioden (fortsatt i dag + 14 dager).
 - Izomax-logo/header er ikke endret.
 - Ingen Supabase/datamodell-endring.
 - Ingen endring i login/auth, prosjektpanel, personalblokk-popup, spotlight eller gruppe/ikon/expand-collapse.

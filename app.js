@@ -1,5 +1,5 @@
 (() => {
-  // v18.27d-sandbox-dashboard-capacity-readability-safe
+  // v18.27e-sandbox-dashboard-layout-cleanup-safe
   // v18.19-ansattplan-project-focus-toggle-safe
   // v18.11: plain visible available-row render for project inspector.
   const supabaseClient = window.supabase?.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -4200,11 +4200,11 @@ async function deleteEditedEntry() {
     };
 
     const shortcuts = [
-      { key: "calendar", title: "Ansattplan", text: "Planlegg bemanning og kapasitet.", action: "personal" },
-      { key: "project", title: "Prosjektplan", text: "Planlegg prosjekter og tildel oppdrag.", action: "project" },
-      { key: "warning", title: "Uten bemanning", text: "Se prosjekter som mangler bemanning.", action: "unstaffed" },
-      { key: "gear", title: "Prosjektadmin", text: "Administrer prosjekter, faser og oppdrag.", action: "projects" },
-      { key: "people", title: "Ansattadmin", text: "Legg til og oppdater ansatte og kompetanse.", action: "employees" }
+      { key: "calendar", title: "Ansattplan", text: "Bemanning og kapasitet.", action: "personal" },
+      { key: "project", title: "Prosjektplan", text: "Prosjekter og tildeling.", action: "project" },
+      { key: "warning", title: "Uten bemanning", text: "Prosjekter uten bemanning.", action: "unstaffed" },
+      { key: "gear", title: "Prosjektadmin", text: "Prosjektoppsett.", action: "projects" },
+      { key: "people", title: "Ansattadmin", text: "Ansattoppsett.", action: "employees" }
     ];
 
     const displayName = String(getAccountDisplayName() || state.currentUser || "Planlegger").trim();
@@ -4220,9 +4220,9 @@ async function deleteEditedEntry() {
 
     const kpiCards = [
       { label: "På prosjekt", value: totalProjectPeople, icon: "people", color: "#2dd4bf", text: `${overallUtilization}% neste 14 dager`, action: "dash-on-project", actionText: "Vis disse" },
-      { label: "Tilgjengelige", value: totalAvailable, icon: "check", color: "#86efac", text: "ikke brukt i perioden", action: "dash-available", actionText: "Vis disse" },
-      { label: "Borte / fravær", value: totalUnavailable, icon: "bag", color: "#fb923c", text: "ferie, syk, kurs, travel", action: "dash-away", actionText: "Vis disse" },
-      { label: "Uten bemanning", value: unstaffedCount, icon: "warning", color: "#fb7185", text: `${unstaffedCount} prosjekter berørt`, action: "unstaffed", actionText: "Se prosjekter" }
+      { label: "Tilgjengelige", value: totalAvailable, icon: "check", color: "#86efac", text: "ledig i perioden", action: "dash-available", actionText: "Vis disse" },
+      { label: "Borte / fravær", value: totalUnavailable, icon: "bag", color: "#fb923c", text: "fravær / blokk", action: "dash-away", actionText: "Vis disse" },
+      { label: "Uten bemanning", value: unstaffedCount, icon: "warning", color: "#fb7185", text: `${unstaffedCount} prosjekter`, action: "unstaffed", actionText: "Se prosjekter" }
     ].map(card => `
       <button type="button" data-home-action="${card.action}" class="dash27-kpi text-left w-full">
         <span class="dash27-kpi-icon" style="color:${card.color}">${actionIcon(card.icon)}</span>
@@ -4337,21 +4337,21 @@ async function deleteEditedEntry() {
     ].map(row => `<div class="dash27-list-row flex items-center justify-between gap-3 py-3 px-2"><div class="flex items-center gap-2"><span class="inline-flex h-5 w-5 rounded-full border" style="border-color:${row[2]}; background:${row[2]}22"></span><span class="${row[0] === "Uten bemanning" ? "text-red-300 font-bold" : ""}">${escapeHtml(row[0])}</span></div><strong class="text-xl">${row[1]}</strong></div>`).join("");
 
     els.homeDashboard.innerHTML = `
-      <div class="dash27-shell space-y-4">
-        <div><h2 class="dash27-title">Oppstart</h2><p class="dash27-subtitle">Operativ oversikt for dagens dato og de neste 14 dagene.</p></div>
-        <div class="grid grid-cols-1 xl:grid-cols-[320px_1fr] gap-4">
-          <div class="dash27-panel p-5 flex items-center gap-4"><span class="inline-flex h-16 w-16 items-center justify-center rounded-full bg-cyan-400/10 text-cyan-300 border border-cyan-300/20 shrink-0">${actionIcon("sun")}</span><div><div class="text-xl font-extrabold">God morgen, ${escapeHtml(firstName)}!</div><div class="mt-2 text-sm dash27-muted">Her er hvem som er opptatt og tilgjengelig de neste 14 dagene.</div><div class="mt-3 text-xs dash27-muted">Oppdatert ${escapeHtml(today.toLocaleDateString("no-NO"))}</div></div></div>
-          <div class="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-5 gap-3">${shortcutHtml}</div>
+      <div class="dash27-shell space-y-3">
+        <div><h2 class="dash27-title">Oppstart</h2><p class="dash27-subtitle">Operativ oversikt neste 14 dager.</p></div>
+        <div class="grid grid-cols-1 xl:grid-cols-[280px_1fr] gap-3">
+          <div class="dash27-panel p-4 flex items-center gap-3"><span class="inline-flex h-16 w-16 items-center justify-center rounded-full bg-cyan-400/10 text-cyan-300 border border-cyan-300/20 shrink-0">${actionIcon("sun")}</span><div><div class="text-xl font-extrabold">God morgen, ${escapeHtml(firstName)}!</div><div class="mt-1 text-sm dash27-muted">Bemanning og kapasitet neste 14 dager.</div><div class="mt-2 text-xs dash27-muted">${escapeHtml(today.toLocaleDateString("no-NO"))}</div></div></div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-3">${shortcutHtml}</div>
         </div>
         <div class="dash27-panel overflow-hidden"><div class="px-5 pt-4 text-xl font-extrabold">Operativ status – neste 14 dager</div><div class="grid grid-cols-1 lg:grid-cols-4">${kpiCards}</div></div>
-        <div class="grid grid-cols-1 2xl:grid-cols-[1.25fr_.75fr] gap-4">
-          <div class="dash27-panel p-5"><div class="flex items-center justify-between gap-3 mb-4"><div class="dash27-card-title">Kapasitet dag for dag – neste 14 dager <span class="dash27-info">i</span></div><div class="text-sm dash27-muted">Ledig kapasitet · P = prosjekt · B = borte</div></div>${capacityOverviewHtml}<div class="mt-3 text-xs dash27-muted">Viser antall ledige per gruppe per dag. Farge følger egne terskler per gruppe, slik at Engineering ikke vurderes likt som Offshore/Onshore.</div></div>
-          <div class="dash27-panel p-5"><div class="flex items-center justify-between gap-3 mb-4"><div class="dash27-card-title">Lav kapasitet – neste uke <span class="dash27-info">i</span></div><button type="button" data-home-action="project" class="text-cyan-300 text-sm font-bold">Se detaljer →</button></div>${heatmapHtml}<div class="mt-4 pt-4 border-t border-white/10 text-sm"><span class="text-orange-300 font-bold">⚠</span> Totalt ${lowSituations} lav-kapasitetssituasjoner i kommende uke</div>${lowSituationSummaryHtml}</div>
+        <div class="grid grid-cols-1 xl:grid-cols-[1.45fr_.85fr] gap-3">
+          <div class="dash27-panel p-4"><div class="flex items-center justify-between gap-3 mb-3"><div class="dash27-card-title">Kapasitet neste 14 dager <span class="dash27-info">i</span></div><div class="text-xs dash27-muted">Ledig · P prosjekt · B borte</div></div>${capacityOverviewHtml}<div class="mt-2 text-[11px] dash27-muted">Egne terskler per gruppe.</div></div>
+          <div class="dash27-panel p-4"><div class="flex items-center justify-between gap-3 mb-3"><div class="dash27-card-title">Lav kapasitet – neste uke <span class="dash27-info">i</span></div><button type="button" data-home-action="project" class="text-cyan-300 text-sm font-bold">Prosjekter →</button></div>${heatmapHtml}<div class="mt-3 pt-3 border-t border-white/10 text-sm"><span class="text-orange-300 font-bold">⚠</span> ${lowSituations} varsler</div>${lowSituationSummaryHtml}</div>
         </div>
-        <div class="grid grid-cols-1 xl:grid-cols-3 gap-4">
-          <div class="dash27-panel p-5"><div class="dash27-card-title mb-4">Prosjektfordeling pr gruppe <span class="dash27-info">i</span></div><div class="grid grid-cols-1 md:grid-cols-[190px_1fr] gap-5 items-center"><div class="dash27-donut mx-auto" style="background:${donutBg}"><div class="dash27-donut-inner"><div class="text-sm dash27-muted">Totalt</div><div class="text-4xl font-black">${totalProjectPeople}</div><div class="text-xs dash27-muted">personer</div></div></div><div>${distLegend}</div></div></div>
-          <div class="dash27-panel p-5"><div class="dash27-card-title mb-4">Ansatte pr gruppe <span class="dash27-info">i</span></div><div class="grid grid-cols-[150px_1fr_52px_48px] gap-3 pb-2 text-xs uppercase tracking-wider dash27-muted"><div>Gruppe</div><div></div><div class="text-right">Antall</div><div class="text-right">Endr.</div></div>${employeesBars}<div class="flex items-center justify-between pt-4 font-black"><span>Totalt</span><span>${metrics.reduce((sum, row) => sum + row.total, 0)}</span></div></div>
-          <div class="dash27-panel p-5 grid grid-cols-1 md:grid-cols-[1fr_150px] gap-4 items-center"><div><div class="dash27-card-title mb-4">Prosjektoversikt <span class="dash27-info">i</span></div>${projectRows}</div><div class="dash27-donut mx-auto" style="width:140px;height:140px;background:conic-gradient(#2dd4bf 0 ${completedPct}%, rgba(148,163,184,.38) ${completedPct}% 100%)"><div class="dash27-donut-inner"><div class="text-4xl font-black">${completedPct}%</div><div class="text-[11px] font-bold tracking-wider">AVSLUTTET</div><div class="text-xs dash27-muted">${projectTotals.completed} prosjekter</div></div></div></div>
+        <div class="grid grid-cols-1 xl:grid-cols-[1.05fr_1.05fr_.9fr] gap-3">
+          <div class="dash27-panel p-4"><div class="dash27-card-title mb-3">Prosjektfordeling <span class="dash27-info">i</span></div><div class="grid grid-cols-1 md:grid-cols-[190px_1fr] gap-5 items-center"><div class="dash27-donut mx-auto" style="background:${donutBg}"><div class="dash27-donut-inner"><div class="text-sm dash27-muted">Totalt</div><div class="text-4xl font-black">${totalProjectPeople}</div><div class="text-xs dash27-muted">personer</div></div></div><div>${distLegend}</div></div></div>
+          <div class="dash27-panel p-4"><div class="dash27-card-title mb-3">Ansatte pr gruppe <span class="dash27-info">i</span></div><div class="grid grid-cols-[150px_1fr_52px_48px] gap-3 pb-2 text-xs uppercase tracking-wider dash27-muted"><div>Gruppe</div><div></div><div class="text-right">Antall</div><div class="text-right">Endr.</div></div>${employeesBars}<div class="flex items-center justify-between pt-4 font-black"><span>Totalt</span><span>${metrics.reduce((sum, row) => sum + row.total, 0)}</span></div></div>
+          <div class="dash27-panel p-4 grid grid-cols-1 md:grid-cols-[1fr_138px] gap-3 items-center"><div><div class="dash27-card-title mb-3">Prosjektoversikt <span class="dash27-info">i</span></div>${projectRows}</div><div class="dash27-donut mx-auto" style="width:140px;height:140px;background:conic-gradient(#2dd4bf 0 ${completedPct}%, rgba(148,163,184,.38) ${completedPct}% 100%)"><div class="dash27-donut-inner"><div class="text-4xl font-black">${completedPct}%</div><div class="text-[11px] font-bold tracking-wider">AVSLUTTET</div><div class="text-xs dash27-muted">${projectTotals.completed} prosjekter</div></div></div></div>
         </div>
       </div>
     `;
