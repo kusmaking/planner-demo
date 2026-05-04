@@ -4416,6 +4416,7 @@ async function deleteEditedEntry() {
           </div>
           <span style="display:inline-flex !important;align-items:center !important;justify-content:center !important;border:1px solid rgba(132,204,222,0.28) !important;background:rgba(255,255,255,0.06) !important;color:#f8fbfd !important;border-radius:4px !important;padding:5px 8px !important;font-size:11px !important;font-weight:900 !important;">${escapeHtml(addCandidate.availability?.label || "Valgt")}</span>
         </div>
+        <button id="projectInspectorAddConfirmTopBtn" data-project-inspector-confirm-add="1" data-project-inspector-confirm-employee="${escapeHtml(addCandidate.name)}" type="button" style="display:flex !important;align-items:center !important;justify-content:center !important;width:100% !important;box-sizing:border-box !important;border:1px solid rgba(34,197,94,0.45) !important;background:#16a34a !important;color:#ffffff !important;border-radius:4px !important;padding:11px 12px !important;margin:0 0 10px 0 !important;font-size:13px !important;font-weight:950 !important;line-height:1.1 !important;cursor:pointer !important;visibility:visible !important;opacity:1 !important;position:relative !important;z-index:20 !important;">Legg til prosjekt</button>
         <div style="display:grid !important;gap:10px !important;">
           <label style="display:grid !important;gap:5px !important;font-size:11px !important;font-weight:800 !important;text-transform:uppercase !important;letter-spacing:.04em !important;color:rgba(232,244,248,0.76) !important;">
             Rolle
@@ -4562,7 +4563,7 @@ async function deleteEditedEntry() {
     ` : "";
 
     els.calendarPanelContent.innerHTML = `
-      <!-- v18.16-add-box-visible-under-assigned -->
+      <!-- v18.17-confirm-button-visible-top v18.16-add-box-visible-under-assigned -->
       <div class="flex h-full flex-col">
         <div class="flex items-start justify-between gap-3 border-b border-slate-200 p-4">
           <div class="min-w-0">
@@ -4787,34 +4788,36 @@ async function deleteEditedEntry() {
     document.getElementById("projectInspectorCustomEndInput")?.addEventListener("change", event => {
       state.projectInspectorAddCustomEnd = event.target.value || "";
     });
-    const confirmBtn = document.getElementById("projectInspectorAddConfirmBtn");
-    projectPanelDebug("wire confirm button", { exists: !!confirmBtn });
-    confirmBtn?.addEventListener("click", event => {
-      event.preventDefault();
-      event.stopPropagation();
-      projectPanelDebug("confirm button clicked", {
-        stateCandidateBefore: state.projectInspectorAddCandidateName,
-        buttonEmployee: event.currentTarget?.dataset?.projectInspectorConfirmEmployee || ""
+    const confirmButtons = Array.from(els.calendarPanelContent.querySelectorAll("[data-project-inspector-confirm-add]"));
+    projectPanelDebug("wire confirm buttons", { count: confirmButtons.length });
+    confirmButtons.forEach(confirmBtn => {
+      confirmBtn.addEventListener("click", event => {
+        event.preventDefault();
+        event.stopPropagation();
+        projectPanelDebug("confirm button clicked", {
+          stateCandidateBefore: state.projectInspectorAddCandidateName,
+          buttonEmployee: event.currentTarget?.dataset?.projectInspectorConfirmEmployee || ""
+        });
+        const btn = event.currentTarget;
+        const employeeName = btn?.dataset?.projectInspectorConfirmEmployee || state.projectInspectorAddCandidateName || "";
+        if (employeeName && state.projectInspectorAddCandidateName !== employeeName) {
+          primeProjectInspectorCandidate(project, employeeName, state.projectInspectorAddRole || getDefaultRoleForIndex(0));
+        }
+        const roleSelect = document.getElementById("projectInspectorAddRoleSelect");
+        if (roleSelect) state.projectInspectorAddRole = roleSelect.value || state.projectInspectorAddRole || getDefaultRoleForIndex(0);
+        const customStart = document.getElementById("projectInspectorCustomStartInput");
+        const customEnd = document.getElementById("projectInspectorCustomEndInput");
+        if (customStart && !customStart.disabled) state.projectInspectorAddCustomStart = customStart.value || state.projectInspectorAddCustomStart;
+        if (customEnd && !customEnd.disabled) state.projectInspectorAddCustomEnd = customEnd.value || state.projectInspectorAddCustomEnd;
+        projectPanelDebug("before createProjectInspectorAssignment", {
+          candidate: state.projectInspectorAddCandidateName,
+          role: state.projectInspectorAddRole,
+          useCustomRange: state.projectInspectorAddUseCustomRange,
+          customStart: state.projectInspectorAddCustomStart,
+          customEnd: state.projectInspectorAddCustomEnd
+        });
+        void createProjectInspectorAssignment(project.id);
       });
-      const btn = event.currentTarget;
-      const employeeName = btn?.dataset?.projectInspectorConfirmEmployee || state.projectInspectorAddCandidateName || "";
-      if (employeeName && state.projectInspectorAddCandidateName !== employeeName) {
-        primeProjectInspectorCandidate(project, employeeName, state.projectInspectorAddRole || getDefaultRoleForIndex(0));
-      }
-      const roleSelect = document.getElementById("projectInspectorAddRoleSelect");
-      if (roleSelect) state.projectInspectorAddRole = roleSelect.value || state.projectInspectorAddRole || getDefaultRoleForIndex(0);
-      const customStart = document.getElementById("projectInspectorCustomStartInput");
-      const customEnd = document.getElementById("projectInspectorCustomEndInput");
-      if (customStart && !customStart.disabled) state.projectInspectorAddCustomStart = customStart.value || state.projectInspectorAddCustomStart;
-      if (customEnd && !customEnd.disabled) state.projectInspectorAddCustomEnd = customEnd.value || state.projectInspectorAddCustomEnd;
-      projectPanelDebug("before createProjectInspectorAssignment", {
-        candidate: state.projectInspectorAddCandidateName,
-        role: state.projectInspectorAddRole,
-        useCustomRange: state.projectInspectorAddUseCustomRange,
-        customStart: state.projectInspectorAddCustomStart,
-        customEnd: state.projectInspectorAddCustomEnd
-      });
-      void createProjectInspectorAssignment(project.id);
     });
     els.calendarPanelContent.querySelectorAll("[data-project-entry-edit-id]").forEach(btn => {
       btn.addEventListener("click", () => openEditModal(btn.dataset.projectEntryEditId));
