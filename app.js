@@ -1,5 +1,5 @@
 (() => {
-  // v18.24a-sandbox-dashboard-layout-cleanup-safe
+  // v18.25-sandbox-dashboard-capacity-logic-safe
   // v18.19-ansattplan-project-focus-toggle-safe
   // v18.11: plain visible available-row render for project inspector.
   const supabaseClient = window.supabase?.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -4046,34 +4046,163 @@ async function deleteEditedEntry() {
       return;
     }
 
-    const today = new Date();
-    const todayKey = makeLocalDateISO(today);
+    const CAPACITY_GROUPS = [
+      { value: "Offshore arbeider", label: "Offshore" },
+      { value: "Onshore arbeider", label: "Onshore" }
+    ];
+    const UNAVAILABLE_TYPES = ["Ferie", "Syk", "Avspasering", "Kurs", "Travel"];
+    const LOW_CAPACITY_THRESHOLD = 3;
+
     const activeEmployees = (state.employees || []).filter(employee => employee && employee.active !== false);
-    const employeeByName = new Map(activeEmployees.map(employee => [employee.name, employee]));
-    const assignedNamesToday = new Set();
+    const activeEmployeeByName = new Map(activeEmployees.map(employee => [employee.name, employee]));
+    const realProjects = getVisibleProjects().filter(project => !isCancelledProject(project));
+    const realProjectIds = new Set(realProjects.map(project => project.id));
 
-    (state.entries || []).forEach(entry => {
-      if (!entry || !entry.employeeName) return;
-      if (entry.start > todayKey || entry.end < todayKey) return;
-      const project = getProjectById(entry.projectId);
-      if (!project || isSystemPersonalProject(project) || isCancelledProject(project)) return;
-      assignedNamesToday.add(entry.employeeName);
-    });
+    function addDaysLocal(date, days) {
+      const d = new Date(date);
+      d.setDate(d.getDate() + days);
+      return d;
+    }
 
-    const assignedToday = Array.from(assignedNamesToday).filter(name => employeeByName.has(name)).length;
-    const totalEmployees = activeEmployees.length;
-    const availableToday = Math.max(totalEmployees - assignedToday, 0);
-    const utilization = totalEmployees ? Math.round((assignedToday / totalEmployees) * 100) : 0;
+    function entryOverlapsDate(entry, dateKey) {
+      return !!entry && entry.start <= dateKey && entry.end >= dateKey;
+    }
 
-    const visibleProjects = getVisibleProjects().filter(project => !isCancelledProject(project));
-    const unstaffedProjects = getUnstaffedProjectsForCurrentCalendarRange();
+    function getProjectForEntry(entry) {
+      return getProjectById(entry?.projectId || "");
+    }
 
-    const groupRows = getOrderedEmployeeGroups()
+    function isRealProjectEntry(entry) {
+      const project = getProjectForEntry(entry);
+      return !!project && realProjectIds.has(project.id) && !isSystemPersonalProject(project) && !isCancelledProject(project);
+    }
+
+    function isUnavailableEntry(entry) {
+      const project = getProjectForEntry(entry);
+      if (!project) return false;
+      return isSystemPersonalProject(project) && UNAVAILABLE_TYPES.includes(project.category);
+    }
+
+    function getUnavailableType(entry) {
+      const project = getProjectForEntry(entry);
+      return UNAVAILABLE_TYPES.includes(project?.category) ? project.category : "";
+    }
+
+    function getCapacityMetricsForDate(date) {
+      const dateKey = makeLocalDateISO(date);
+      const entriesForDate = (state.entries || []).filter(entry => entryOverlapsDate(entry, dateKey));
+
+      return CAPACITY_GROUPS.map(groupDef => {
+        const employeesInGroup = activeEmployees.filter(employee => normalizeEmployeeGroup(employee.employee_group || "") === groupDef.value);
+        const employeeNames = new Set(employeesInGroup.map(employee => employee.name));
+
+        const unavailableNames = new Set();
+        const unavailableByType = Object.fromEntries(UNAVAILABLE_TYPES.map(type => [type, 0]));
+        const unavailableTypeByName = new Map();
+
+        entriesForDate.forEach(entry => {
+          if (!entry?.employeeName || !employeeNames.has(entry.employeeName)) return;
+          if (!isUnavailableEntry(entry)) return;
+          const type = getUnavailableType(entry);
+          if (!type) return;
+          unavailableNames.add(entry.employeeName);
+          if (!unavailableTypeByName.has(entry.employeeName)) unavailableTypeByName.set(entry.employeeName, new Set());
+          unavailableTypeByName.get(entry.employeeName).add(type);
+        });
+
+        unavailableTypeByName.forEach(types => {
+          types.forEach(type => {
+            unavailableByType[type] = (unavailableByType[type] || 0) + 1;
+          });
+        });
+
+        const onProjectNames = new Set();
+        entriesForDate.forEach(entry => {
+          if (!entry?.employeeName || !employeeNames.has(entry.employeeName)) return;
+          if (unavailableNames.has(entry.employeeName)) return;
+          if (!isRealProjectEntry(entry)) return;
+          onProjectNames.add(entry.employeeName);
+        });
+
+        const total = employeesInGroup.length;
+        const unavailable = unavailableNames.size;
+        const onProject = onProjectNames.size;
+        const present = Math.max(total - unavailable, 0);
+        const available = Math.max(present - onProject, 0);
+        const utilization = present ? Math.round((onProject / present) * 100) : 0;
+
+        return {
+          group: groupDef.value,
+          label: groupDef.label,
+          total,
+          unavailable,
+          unavailableByType,
+          onProject,
+          present,
+          available,
+          utilization
+        };
+      });
+    }
+
+    function getCapacityForecast(daysAhead = 30) {
+      const today = new Date();
+      return CAPACITY_GROUPS.map(groupDef => {
+        let minPresent = null;
+        let minPresentDate = null;
+        let minAvailable = null;
+        let minAvailableDate = null;
+
+        for (let i = 0; i <= daysAhead; i += 1) {
+          const date = addDaysLocal(today, i);
+          const metrics = getCapacityMetricsForDate(date).find(row => row.group === groupDef.value);
+          if (!metrics) continue;
+
+          if (minPresent === null || metrics.present < minPresent) {
+            minPresent = metrics.present;
+            minPresentDate = date;
+          }
+
+          if (minAvailable === null || metrics.available < minAvailable) {
+            minAvailable = metrics.available;
+            minAvailableDate = date;
+          }
+        }
+
+        return {
+          group: groupDef.value,
+          label: groupDef.label,
+          minPresent: minPresent ?? 0,
+          minPresentDate,
+          minAvailable: minAvailable ?? 0,
+          minAvailableDate
+        };
+      });
+    }
+
+    const today = new Date();
+    const todayMetrics = getCapacityMetricsForDate(today);
+    const forecast = getCapacityForecast(30);
+    const capacityTotals = todayMetrics.reduce((acc, row) => {
+      acc.total += row.total;
+      acc.present += row.present;
+      acc.unavailable += row.unavailable;
+      acc.onProject += row.onProject;
+      acc.available += row.available;
+      return acc;
+    }, { total: 0, present: 0, unavailable: 0, onProject: 0, available: 0 });
+    const capacityUtilization = capacityTotals.present ? Math.round((capacityTotals.onProject / capacityTotals.present) * 100) : 0;
+
+    const nonCapacityGroups = getOrderedEmployeeGroups()
+      .filter(group => !CAPACITY_GROUPS.some(capacityGroup => capacityGroup.value === group))
       .map(group => {
         const count = activeEmployees.filter(employee => normalizeEmployeeGroup(employee.employee_group || "") === group).length;
         return { group, count, label: getEmployeeGroupLabel(group) };
       })
       .filter(row => row.count > 0);
+
+    const activeProjectCount = realProjects.length;
+    const unstaffedProjectCount = getUnstaffedProjectsForCurrentCalendarRange().length;
 
     const actionIcon = (key) => {
       const attrs = 'viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"';
@@ -4099,28 +4228,81 @@ async function deleteEditedEntry() {
     const displayName = String(getAccountDisplayName() || state.currentUser || "Planlegger").trim();
     const firstName = displayName && displayName !== "Ikke innlogget" ? displayName.split(/\s+/)[0] : "Planlegger";
 
-    const groupRowsHtml = groupRows.length ? groupRows.map(row => `
+    const capacityRowsHtml = todayMetrics.map(row => {
+      const forecastRow = forecast.find(item => item.group === row.group);
+      const lowClass = forecastRow && forecastRow.minPresent < LOW_CAPACITY_THRESHOLD ? "text-red-700" : "text-slate-700";
+      const absenceDetails = UNAVAILABLE_TYPES.map(type => `${type}: ${row.unavailableByType[type] || 0}`).join(" · ");
+      return `
+        <div class="rounded-xl border border-slate-200 bg-slate-50/70 p-4">
+          <div class="flex items-start justify-between gap-3">
+            <div>
+              <div class="text-lg font-semibold text-slate-950">${escapeHtml(row.label)}</div>
+              <div class="mt-1 text-xs text-slate-500">${escapeHtml(absenceDetails)}</div>
+            </div>
+            <div class="text-right">
+              <div class="text-2xl font-semibold text-slate-950">${row.utilization}%</div>
+              <div class="text-xs text-slate-500">utnyttelse</div>
+            </div>
+          </div>
+          <div class="mt-4 grid grid-cols-4 gap-2 text-center">
+            <div><div class="text-xl font-semibold text-slate-950">${row.total}</div><div class="text-[11px] text-slate-500">Totalt</div></div>
+            <div><div class="text-xl font-semibold text-slate-950">${row.onProject}</div><div class="text-[11px] text-slate-500">Prosjekt</div></div>
+            <div><div class="text-xl font-semibold text-slate-950">${row.unavailable}</div><div class="text-[11px] text-slate-500">Borte</div></div>
+            <div><div class="text-xl font-semibold text-slate-950">${row.available}</div><div class="text-[11px] text-slate-500">Ledig</div></div>
+          </div>
+          <div class="mt-3 text-xs ${lowClass}">
+            Lavest til stede neste 30 dager: <strong>${forecastRow?.minPresent ?? 0}</strong>${forecastRow?.minPresentDate ? ` (${escapeHtml(forecastRow.minPresentDate.toLocaleDateString("no-NO"))})` : ""}
+          </div>
+        </div>
+      `;
+    }).join("");
+
+    const allGroupRowsHtml = [
+      ...todayMetrics.map(row => ({ label: row.label, count: row.total, capacity: true, group: row.group })),
+      ...nonCapacityGroups.map(row => ({ label: row.label, count: row.count, capacity: false, group: row.group }))
+    ].map(row => `
       <div class="flex items-center justify-between gap-3 py-3 border-b border-slate-200 last:border-b-0">
         <div class="flex items-center gap-3 min-w-0">
-          <span class="inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-slate-50 text-slate-700 shrink-0">${getEmployeeGroupIconHtml(row.group, "inline-flex h-5 w-5 items-center justify-center text-slate-600 shrink-0")}</span>
-          <span class="font-medium text-slate-800">${escapeHtml(row.label)}</span>
+          <span class="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-slate-50 text-slate-700 shrink-0">${getEmployeeGroupIconHtml(row.group, "inline-flex h-5 w-5 items-center justify-center text-slate-600 shrink-0")}</span>
+          <div class="min-w-0">
+            <div class="font-medium text-slate-800">${escapeHtml(row.label)}</div>
+            <div class="text-[11px] ${row.capacity ? "text-emerald-700" : "text-slate-400"}">${row.capacity ? "Teller i kapasitet" : "Info – teller ikke i kapasitet"}</div>
+          </div>
         </div>
         <span class="text-2xl font-semibold text-slate-950">${escapeHtml(String(row.count))}</span>
       </div>
-    `).join("") : `<div class="py-8 text-sm text-slate-500">Ingen ansatte tilgjengelig.</div>`;
+    `).join("");
+
+    const lowCapacityHtml = forecast.map(row => {
+      const lowPresent = row.minPresent < LOW_CAPACITY_THRESHOLD;
+      return `
+        <div class="flex items-center justify-between gap-3 py-3 border-b border-slate-200 last:border-b-0">
+          <div>
+            <div class="font-medium text-slate-800">${escapeHtml(row.label)}</div>
+            <div class="text-xs ${lowPresent ? "text-red-700" : "text-slate-500"}">
+              Lavest til stede: ${row.minPresent}${row.minPresentDate ? ` den ${escapeHtml(row.minPresentDate.toLocaleDateString("no-NO"))}` : ""}
+            </div>
+            <div class="text-xs text-slate-500">
+              Lavest ledig: ${row.minAvailable}${row.minAvailableDate ? ` den ${escapeHtml(row.minAvailableDate.toLocaleDateString("no-NO"))}` : ""}
+            </div>
+          </div>
+          <span class="text-3xl font-semibold ${lowPresent ? "text-red-700" : "text-slate-950"}">${row.minPresent}</span>
+        </div>
+      `;
+    }).join("");
 
     els.homeDashboard.innerHTML = `
       <div class="dashboard-shell space-y-4">
         <div>
           <h2 class="dashboard-title">Oppstart</h2>
-          <p class="dashboard-subtitle">Velg hvor du vil starte arbeidsdagen</p>
+          <p class="dashboard-subtitle">Kapasitet for Offshore og Onshore er basert på prosjekter og direkteblokker</p>
         </div>
 
         <div class="dashboard-card dashboard-welcome rounded-[28px] bg-white border border-slate-200 shadow-sm flex items-center gap-4">
           <span class="inline-flex h-14 w-14 items-center justify-center rounded-full bg-cyan-50 text-cyan-700 shrink-0">${actionIcon("sun")}</span>
           <div>
             <div class="text-[20px] font-semibold text-slate-950">God morgen, ${escapeHtml(firstName)}</div>
-            <div class="mt-1 text-sm text-slate-600">Her er en rask oversikt og snarveier til det viktigste du jobber med.</div>
+            <div class="mt-1 text-sm text-slate-600">Dagens dashboard viser kun Offshore og Onshore i kapasitet/utnyttelse. Øvrige grupper vises som informasjon.</div>
           </div>
         </div>
 
@@ -4136,43 +4318,32 @@ async function deleteEditedEntry() {
         </div>
 
         <div class="grid grid-cols-1 xl:grid-cols-12 gap-3">
-          <div class="dashboard-card dashboard-metric-card xl:col-span-4 rounded-[28px] bg-white border border-slate-200 shadow-sm">
+          <div class="dashboard-card dashboard-metric-card xl:col-span-5 rounded-[28px] bg-white border border-slate-200 shadow-sm">
             <div class="flex items-center justify-between gap-3">
-              <h3 class="text-[20px] font-semibold text-slate-950">Utnyttelse</h3>
-              <span class="text-sm text-slate-400">I dag</span>
+              <h3 class="text-[20px] font-semibold text-slate-950">Kapasitet Offshore / Onshore</h3>
+              <span class="text-sm text-slate-400">I dag · samlet ${capacityUtilization}%</span>
             </div>
-            <div class="mt-5 flex items-center gap-5">
-              <div class="relative h-28 w-28 shrink-0 rounded-full" style="background: conic-gradient(#34d3bf 0 ${utilization}%, #e5e7eb ${utilization}% 100%);">
-                <div class="absolute inset-[13px] rounded-full bg-white flex flex-col items-center justify-center text-center">
-                  <div class="text-3xl font-semibold text-slate-950">${utilization}%</div>
-                  <div class="mt-1 text-xs text-slate-600">Total utnyttelse</div>
-                </div>
-              </div>
-              <div class="space-y-2 text-sm text-slate-700">
-                <div><span class="font-semibold text-slate-950">På oppdrag:</span> ${assignedToday} ansatte</div>
-                <div><span class="font-semibold text-slate-950">Tilgjengelig:</span> ${availableToday} ansatte</div>
-                <div><span class="font-semibold text-slate-950">Totalt:</span> ${totalEmployees} ansatte</div>
-              </div>
-            </div>
+            <div class="mt-4 space-y-3">${capacityRowsHtml}</div>
           </div>
 
-          <div class="dashboard-card dashboard-metric-card xl:col-span-4 rounded-[28px] bg-white border border-slate-200 shadow-sm">
+          <div class="dashboard-card dashboard-metric-card xl:col-span-3 rounded-[28px] bg-white border border-slate-200 shadow-sm">
             <div class="flex items-center justify-between gap-3">
               <h3 class="text-[20px] font-semibold text-slate-950">Ansatte pr gruppe</h3>
-              <span class="text-sm text-slate-400">Totalt ${totalEmployees}</span>
+              <span class="text-sm text-slate-400">Aktive</span>
             </div>
-            <div class="mt-4">${groupRowsHtml}</div>
+            <div class="mt-3">${allGroupRowsHtml || '<div class="py-8 text-sm text-slate-500">Ingen ansatte tilgjengelig.</div>'}</div>
           </div>
 
           <div class="dashboard-card dashboard-metric-card xl:col-span-4 rounded-[28px] bg-white border border-slate-200 shadow-sm">
             <div class="flex items-center justify-between gap-3">
-              <h3 class="text-[20px] font-semibold text-slate-950">Dagens oversikt</h3>
-              <span class="text-sm text-slate-400">${escapeHtml(today.toLocaleDateString("no-NO"))}</span>
+              <h3 class="text-[20px] font-semibold text-slate-950">Lav kapasitet</h3>
+              <span class="text-sm text-slate-400">Neste 30 dager</span>
             </div>
-            <div class="mt-3 divide-y divide-slate-200">
-              <div class="flex items-center justify-between gap-3 py-3"><span class="text-base text-slate-700">Aktive prosjekter</span><span class="text-3xl font-semibold text-slate-950">${visibleProjects.length}</span></div>
-              <div class="flex items-center justify-between gap-3 py-3"><span class="text-base text-slate-700">Prosjekter uten bemanning</span><span class="text-3xl font-semibold text-slate-950">${unstaffedProjects.length}</span></div>
-              <div class="flex items-center justify-between gap-3 py-3"><span class="text-base text-slate-700">Tilgjengelige ansatte</span><span class="text-3xl font-semibold text-slate-950">${availableToday}</span></div>
+            <div class="mt-3">${lowCapacityHtml}</div>
+            <div class="mt-4 divide-y divide-slate-200">
+              <div class="flex items-center justify-between gap-3 py-3"><span class="text-sm text-slate-700">Aktive prosjekter</span><span class="text-3xl font-semibold text-slate-950">${activeProjectCount}</span></div>
+              <div class="flex items-center justify-between gap-3 py-3"><span class="text-sm text-slate-700">Prosjekter uten bemanning</span><span class="text-3xl font-semibold text-slate-950">${unstaffedProjectCount}</span></div>
+              <div class="flex items-center justify-between gap-3 py-3"><span class="text-sm text-slate-700">Terskel lav kapasitet</span><span class="text-3xl font-semibold text-slate-950">&lt;${LOW_CAPACITY_THRESHOLD}</span></div>
             </div>
           </div>
         </div>
