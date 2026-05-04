@@ -1,13 +1,12 @@
-v18.29 sandbox workshop default phase safe
-- Basert på v18.28/v18.27d.
-- Prøveversjon uten Supabase/datamodell-endring.
-- Alle vanlige prosjekt/feltoppdrag vises rødt, uavhengig av tidligere Offshore/Onshore-kategori.
-- Prosjektkategori i prosjektmodal vises som Feltoppdrag og lagres fortsatt som eksisterende kategori-verdi for å unngå datamodellendring.
-- Automatisk workshopfase vises grønt i prosjektplanen:
-  standard start = 14 dager før feltstart,
-  standard slutt = dagen før feltstart,
-  standard behov = 2 ressurser.
-- Workshopfasen er foreløpig beregnet/visuell og lagres ikke permanent.
-- Onshore-gruppen vises som Workshop technician, men intern verdi beholdes som Onshore arbeider.
-- Personalblokker beholdes: Syk blodrød, Kurs grå, Ferie rosa, Avspasering gul, Travel blålig.
-- Ingen endring i login/auth, Supabase/datamodell, spotlight, personalblokk-popup eller gruppe/ikon/expand-collapse.
+v18.30 sandbox workshop persistence safe
+- Basert på Locked-v18.29.
+- Krever at SQL-feltene workshop_enabled, workshop_start_date, workshop_end_date og workshop_headcount_required er lagt til i planner_projects.
+- Appen leser og skriver lagrede workshopfelt.
+- Prosjektmodalen har nå Workshop / mobilisering-seksjon:
+  aktivert/deaktivert, startdato, sluttdato og ressursbehov.
+- Nye/eksisterende prosjekter får default workshopverdier fra databasen eller forslag:
+  14 dager før feltstart, slutt dagen før feltstart, ressursbehov 2.
+- Prosjektplan viser workshopfase grønn basert på lagrede verdier.
+- Feltoppdrag/prosjektets hovedperiode vises rød.
+- Ingen drag/resize av workshopfase ennå; dette tas først etter at lagring er verifisert.
+- Ingen endring i login/auth, spotlight, personalblokk-popup eller gruppe/ikon/expand-collapse.

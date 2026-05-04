@@ -1,5 +1,5 @@
 (() => {
-  // v18.29-sandbox-workshop-default-phase-safe
+  // v18.30-sandbox-workshop-persistence-safe
   // v18.19-ansattplan-project-focus-toggle-safe
   // v18.11: plain visible available-row render for project inspector.
   const supabaseClient = window.supabase?.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -245,6 +245,7 @@
       "saveEditBtn", "deleteEditBtn", "storageBadge", "resetDemoBtn", "systemStatus", "rangeTitle",
       "saveStatus", "plannerTabs", "tabHomeBtn", "tabProjectPlanBtn", "tabUnstaffedBtn", "tabCalendarBtn", "tabProjectsBtn", "tabEmployeesBtn", "tabAdminBtn", "tabHomeSection", "homeDashboard", "tabCalendarSection", "tabProjectsSection", "tabEmployeesSection", "tabAdminSection", "calendarMainCol", "calendarPanelCol", "calendarPanelHandleBtn", "calendarPanelCloseBtn", "calendarPanelContent", "newProjectBtn", "projectModal", "projectModalTitle", "closeProjectModalBtn",
       "projectName", "projectCategory", "projectStatus", "projectPlannedStart", "projectPlannedEnd", "projectHasMultiplePeriods", "projectPeriodsSection", "projectPeriodsList", "addProjectPeriodBtn",
+      "projectWorkshopEnabled", "projectWorkshopStart", "projectWorkshopEnd", "projectWorkshopHeadcount",
       "projectLocation", "projectHeadcount", "projectNotes", "saveProjectBtn", "deleteProjectBtn",
       "newEmployeeBtn", "employeeModal", "employeeModalTitle", "closeEmployeeModalBtn",
       "employeeName", "employeeEmail", "employeePhone", "employeeTitle", "employeeGroup", "employeeActive", "saveEmployeeBtn", "deleteEmployeeBtn",
@@ -1877,6 +1878,9 @@
         renderProjectPeriodsEditor();
       });
     }
+    if (els.projectPlannedStart) {
+      els.projectPlannedStart.addEventListener("change", () => applyDefaultWorkshopDraft(false));
+    }
     if (els.addProjectPeriodBtn) {
       els.addProjectPeriodBtn.addEventListener("click", addProjectPeriodDraft);
     }
@@ -2132,7 +2136,11 @@
       category: project?.category === "Project" ? "Offshore" : project?.category,
       status: normalizeProjectStatus(project?.status || "Planlagt"),
       has_multiple_periods: Boolean(project?.has_multiple_periods),
-      project_periods_json: normalizeProjectPeriods(project?.project_periods_json || [])
+      project_periods_json: normalizeProjectPeriods(project?.project_periods_json || []),
+      workshop_enabled: project?.workshop_enabled !== false,
+      workshop_start_date: project?.workshop_start_date || null,
+      workshop_end_date: project?.workshop_end_date || null,
+      workshop_headcount_required: Number(project?.workshop_headcount_required || 2)
     }));
   }
 
@@ -3512,29 +3520,36 @@ async function deleteEditedEntry() {
 
   function getDefaultWorkshopPeriodForProject(project, fieldPeriods = null) {
     if (!project || isSystemPersonalProject(project) || isCancelledProject(project)) return null;
+    if (project.workshop_enabled === false) return null;
+
     const periods = (fieldPeriods || getProjectTimelinePeriods(project) || [])
       .filter(period => period?.start && period?.end)
       .slice()
       .sort((a, b) => String(a.start).localeCompare(String(b.start)));
 
-    if (!periods.length) return null;
+    const storedStart = project.workshop_start_date || "";
+    const storedEnd = project.workshop_end_date || "";
+    let workshopStart = storedStart;
+    let workshopEnd = storedEnd;
 
-    const fieldStart = asLocalDate(periods[0].start);
-    if (!fieldStart) return null;
+    if (!workshopStart || !workshopEnd) {
+      if (!periods.length) return null;
+      const fieldStart = asLocalDate(periods[0].start);
+      if (!fieldStart) return null;
+      workshopStart = toIsoDate(addDays(fieldStart, -14));
+      workshopEnd = toIsoDate(addDays(fieldStart, -1));
+    }
 
-    const workshopEndDate = addDays(fieldStart, -1);
-    const workshopStartDate = addDays(fieldStart, -14);
-
-    if (!workshopStartDate || !workshopEndDate || workshopStartDate > workshopEndDate) return null;
+    if (!workshopStart || !workshopEnd || workshopStart > workshopEnd) return null;
 
     return {
-      id: `${project.id}__workshop_default`,
-      start: toIsoDate(workshopStartDate),
-      end: toIsoDate(workshopEndDate),
+      id: `${project.id}__workshop`,
+      start: workshopStart,
+      end: workshopEnd,
       phase: "workshop",
       phaseLabel: "Workshop / mobilisering",
-      required: 2,
-      generated: true
+      required: Number(project.workshop_headcount_required || 2),
+      generated: !storedStart || !storedEnd
     };
   }
 
@@ -3550,6 +3565,28 @@ async function deleteEditedEntry() {
       ...fieldPeriods
     ].filter(period => period.start && period.end)
       .sort((a, b) => String(a.start).localeCompare(String(b.start)) || String(a.end).localeCompare(String(b.end)));
+  }
+
+  function getDefaultWorkshopDraftFromFieldStart(fieldStartValue) {
+    if (!fieldStartValue) return { start: "", end: "", headcount: 2 };
+    const fieldStart = asLocalDate(fieldStartValue);
+    if (!fieldStart) return { start: "", end: "", headcount: 2 };
+    return {
+      start: toIsoDate(addDays(fieldStart, -14)),
+      end: toIsoDate(addDays(fieldStart, -1)),
+      headcount: 2
+    };
+  }
+
+  function applyDefaultWorkshopDraft(force = false) {
+    if (!els.projectWorkshopStart || !els.projectWorkshopEnd || !els.projectWorkshopHeadcount) return;
+    if (!force && (els.projectWorkshopStart.value || els.projectWorkshopEnd.value)) return;
+    const draft = getDefaultWorkshopDraftFromFieldStart(els.projectPlannedStart?.value || "");
+    els.projectWorkshopStart.value = draft.start || "";
+    els.projectWorkshopEnd.value = draft.end || "";
+    if (!els.projectWorkshopHeadcount.value || force) {
+      els.projectWorkshopHeadcount.value = String(draft.headcount || 2);
+    }
   }
 
 
@@ -3645,6 +3682,13 @@ async function deleteEditedEntry() {
     if (els.projectHasMultiplePeriods) {
       els.projectHasMultiplePeriods.checked = Boolean(project?.has_multiple_periods);
     }
+    if (els.projectWorkshopEnabled) {
+      els.projectWorkshopEnabled.checked = project?.workshop_enabled !== false;
+    }
+    const workshopDraft = getDefaultWorkshopDraftFromFieldStart(project?.planned_start_date || "");
+    if (els.projectWorkshopStart) els.projectWorkshopStart.value = project?.workshop_start_date || workshopDraft.start || "";
+    if (els.projectWorkshopEnd) els.projectWorkshopEnd.value = project?.workshop_end_date || workshopDraft.end || "";
+    if (els.projectWorkshopHeadcount) els.projectWorkshopHeadcount.value = project?.workshop_headcount_required ?? 2;
     state.projectModalPeriods = normalizeProjectPeriods(project?.project_periods_json || []);
     els.projectLocation.value = project?.location || "";
     els.projectHeadcount.value = project?.headcount_required ?? "";
@@ -3675,11 +3719,30 @@ async function deleteEditedEntry() {
     const hasMultiplePeriods = Boolean(els.projectHasMultiplePeriods?.checked);
     const location = els.projectLocation.value.trim();
     const headcountRequired = Number(els.projectHeadcount.value || 0);
+    const workshopEnabled = els.projectWorkshopEnabled ? Boolean(els.projectWorkshopEnabled.checked) : true;
+    const workshopStartDate = els.projectWorkshopStart?.value || "";
+    const workshopEndDate = els.projectWorkshopEnd?.value || "";
+    const workshopHeadcountRequired = Number(els.projectWorkshopHeadcount?.value || 2);
     const notes = els.projectNotes.value.trim();
 
     if (!name) {
       alert("Legg inn prosjektnavn.");
       return;
+    }
+
+    if (workshopEnabled) {
+      if (!workshopStartDate || !workshopEndDate) {
+        alert("Legg inn start/slutt for workshopfasen, eller deaktiver workshopfasen.");
+        return;
+      }
+      if (workshopStartDate > workshopEndDate) {
+        alert("Workshop start kan ikke være etter workshop slutt.");
+        return;
+      }
+      if (workshopHeadcountRequired < 0) {
+        alert("Workshop ressursbehov kan ikke være negativt.");
+        return;
+      }
     }
 
     let plannedStart = singlePlannedStart;
@@ -3732,6 +3795,10 @@ async function deleteEditedEntry() {
       project.project_periods_json = hasMultiplePeriods ? projectPeriods : [];
       project.location = location;
       project.headcount_required = headcountRequired;
+      project.workshop_enabled = workshopEnabled;
+      project.workshop_start_date = workshopEnabled ? (workshopStartDate || null) : null;
+      project.workshop_end_date = workshopEnabled ? (workshopEndDate || null) : null;
+      project.workshop_headcount_required = workshopEnabled ? workshopHeadcountRequired : 0;
       project.notes = notes;
     } else {
       project = {
@@ -3745,6 +3812,10 @@ async function deleteEditedEntry() {
         project_periods_json: hasMultiplePeriods ? projectPeriods : [],
         location,
         headcount_required: headcountRequired,
+        workshop_enabled: workshopEnabled,
+        workshop_start_date: workshopEnabled ? (workshopStartDate || null) : null,
+        workshop_end_date: workshopEnabled ? (workshopEndDate || null) : null,
+        workshop_headcount_required: workshopEnabled ? workshopHeadcountRequired : 0,
         notes
       };
       state.projects.push(project);
@@ -6114,7 +6185,7 @@ async function deleteEditedEntry() {
         const left = startIndex * colWidth + 2;
         const width = Math.max(spanDays * colWidth - 4, 40);
         const periodLabel = period.phase === "workshop"
-          ? `Workshop / mobilisering · behov 2`
+          ? `Workshop / mobilisering · behov ${period.required || 2}`
           : (project.has_multiple_periods && projectPeriods.filter(item => item.phase !== "workshop").length > 1 ? `${formatDate(period.start)} – ${formatDate(period.end)}` : staffing.text);
         const periodClasses = getProjectPeriodBarClasses(project, period);
 
@@ -6123,7 +6194,7 @@ async function deleteEditedEntry() {
             class="entry-bar ${periodClasses} ${project.id === state.focusProjectId ? 'ring-2 ring-blue-300 ring-offset-1' : ''}"
             style="left:${left}px; width:${width}px;"
             data-project-row-id="${escapeHtml(project.id)}"
-            title="${escapeHtml(`${project.name} | ${period.phaseLabel || "Feltoppdrag"} | ${formatDate(period.start)} – ${formatDate(period.end)} | ${period.phase === "workshop" ? "Workshopbehov 2" : staffing.text}`)}"
+            title="${escapeHtml(`${project.name} | ${period.phaseLabel || "Feltoppdrag"} | ${formatDate(period.start)} – ${formatDate(period.end)} | ${period.phase === "workshop" ? `Workshopbehov ${period.required || 2}` : staffing.text}`)}"
           >
             <div class="font-semibold">${escapeHtml(project.name)}</div>
             <div class="text-[11px] opacity-90">${escapeHtml(periodLabel)}</div>
@@ -6196,14 +6267,14 @@ async function deleteEditedEntry() {
         const spanMonths = (endMonth - startMonth) + 1;
         const left = startMonth * monthWidth + 2;
         const width = Math.max(spanMonths * monthWidth - 4, 40);
-        const periodLabel = period.phase === "workshop" ? "Workshop / mobilisering · behov 2" : staffing.text;
+        const periodLabel = period.phase === "workshop" ? `Workshop / mobilisering · behov ${period.required || 2}` : staffing.text;
 
         html += `
           <div
             class="entry-bar ${getProjectPeriodBarClasses(project, period)} ${project.id === state.focusProjectId ? 'ring-2 ring-blue-300 ring-offset-1' : ''}"
             style="left:${left}px; width:${width}px;"
             data-project-row-id="${escapeHtml(project.id)}"
-            title="${escapeHtml(`${project.name} | ${period.phaseLabel || "Feltoppdrag"} | ${formatDate(period.start)} – ${formatDate(period.end)} | ${period.phase === "workshop" ? "Workshopbehov 2" : staffing.text}`)}"
+            title="${escapeHtml(`${project.name} | ${period.phaseLabel || "Feltoppdrag"} | ${formatDate(period.start)} – ${formatDate(period.end)} | ${period.phase === "workshop" ? `Workshopbehov ${period.required || 2}` : staffing.text}`)}"
           >
             <div class="font-semibold">${escapeHtml(project.name)}</div>
             <div class="text-[11px] opacity-90">${escapeHtml(periodLabel)}</div>
