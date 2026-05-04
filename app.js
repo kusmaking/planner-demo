@@ -1,5 +1,5 @@
 (() => {
-  // v18.27f-sandbox-dashboard-single-screen-cleanup-safe
+  // v18.28-sandbox-project-color-mapping-safe
   // v18.19-ansattplan-project-focus-toggle-safe
   // v18.11: plain visible available-row render for project inspector.
   const supabaseClient = window.supabase?.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -4200,11 +4200,11 @@ async function deleteEditedEntry() {
     };
 
     const shortcuts = [
-      { key: "calendar", title: "Ansattplan", text: "Bemanning og kapasitet.", action: "personal" },
-      { key: "project", title: "Prosjektplan", text: "Prosjekter og tildeling.", action: "project" },
-      { key: "warning", title: "Uten bemanning", text: "Prosjekter uten bemanning.", action: "unstaffed" },
-      { key: "gear", title: "Prosjektadmin", text: "Prosjektoppsett.", action: "projects" },
-      { key: "people", title: "Ansattadmin", text: "Ansattoppsett.", action: "employees" }
+      { key: "calendar", title: "Ansattplan", text: "Planlegg bemanning og kapasitet.", action: "personal" },
+      { key: "project", title: "Prosjektplan", text: "Planlegg prosjekter og tildel oppdrag.", action: "project" },
+      { key: "warning", title: "Uten bemanning", text: "Se prosjekter som mangler bemanning.", action: "unstaffed" },
+      { key: "gear", title: "Prosjektadmin", text: "Administrer prosjekter, faser og oppdrag.", action: "projects" },
+      { key: "people", title: "Ansattadmin", text: "Legg til og oppdater ansatte og kompetanse.", action: "employees" }
     ];
 
     const displayName = String(getAccountDisplayName() || state.currentUser || "Planlegger").trim();
@@ -4212,23 +4212,27 @@ async function deleteEditedEntry() {
 
     const shortcutHtml = shortcuts.map(card => `
       <button type="button" data-home-action="${card.action}" class="dash27-white-card dash27-shortcut text-left">
-        <div class="flex items-center justify-between gap-3"><span class="dash27-iconbox">${actionIcon(card.key)}</span><span class="text-xl text-slate-500">→</span></div>
-        <div class="mt-3 text-[16px] font-extrabold text-slate-950">${escapeHtml(card.title)}</div>
+        <div class="flex items-start justify-between gap-4"><span class="dash27-iconbox">${actionIcon(card.key)}</span><span class="text-2xl text-slate-500">→</span></div>
+        <div class="mt-4 text-[17px] font-extrabold text-slate-950">${escapeHtml(card.title)}</div>
+        <div class="mt-2 text-sm leading-6 text-slate-600">${escapeHtml(card.text)}</div>
       </button>
     `).join("");
 
     const kpiCards = [
-      { label: "På prosjekt", value: totalProjectPeople, icon: "people", color: "#2dd4bf", action: "dash-on-project" },
-      { label: "Tilgjengelige", value: totalAvailable, icon: "check", color: "#86efac", action: "dash-available" },
-      { label: "Borte / fravær", value: totalUnavailable, icon: "bag", color: "#fb923c", action: "dash-away" },
-      { label: "Uten bemanning", value: unstaffedCount, icon: "warning", color: "#fb7185", action: "unstaffed" }
+      { label: "På prosjekt", value: totalProjectPeople, icon: "people", color: "#2dd4bf", text: `${overallUtilization}% neste 14 dager`, action: "dash-on-project", actionText: "Vis disse" },
+      { label: "Tilgjengelige", value: totalAvailable, icon: "check", color: "#86efac", text: "ikke brukt i perioden", action: "dash-available", actionText: "Vis disse" },
+      { label: "Borte / fravær", value: totalUnavailable, icon: "bag", color: "#fb923c", text: "ferie, syk, kurs, travel", action: "dash-away", actionText: "Vis disse" },
+      { label: "Uten bemanning", value: unstaffedCount, icon: "warning", color: "#fb7185", text: `${unstaffedCount} prosjekter berørt`, action: "unstaffed", actionText: "Se prosjekter" }
     ].map(card => `
       <button type="button" data-home-action="${card.action}" class="dash27-kpi text-left w-full">
         <span class="dash27-kpi-icon" style="color:${card.color}">${actionIcon(card.icon)}</span>
         <div>
-          <div class="text-sm font-bold" style="color:${card.color}">${escapeHtml(card.label)}</div>
+          <div class="text-xs uppercase font-black tracking-[.16em]" style="color:${card.color}">${escapeHtml(card.label)}</div>
           <div class="mt-1 text-4xl font-black text-white">${card.value}</div>
+          <div class="mt-1 text-sm dash27-muted">${escapeHtml(card.text)}</div>
+          <div class="dash27-kpi-action">${escapeHtml(card.actionText)} <span>→</span></div>
         </div>
+        <div class="text-right"><div class="text-green-300 font-black">↑</div><div class="text-xs dash27-muted">periode</div></div>
       </button>
     `).join("");
 
@@ -4323,7 +4327,7 @@ async function deleteEditedEntry() {
       return `<div class="flex items-center justify-between gap-3 py-2"><div class="flex items-center gap-2"><span class="inline-flex h-3 w-3 rounded-sm" style="background:${row.color}"></span><span class="text-sm">${escapeHtml(row.label)}</span></div><div class="text-right text-sm"><strong>${row.onProject}</strong><span class="dash27-muted ml-3">${pct}%</span></div></div>`;
     }).join("");
     const maxTotal = Math.max(...metrics.map(row => row.total), 1);
-    const employeesBars = metrics.map(row => `<div class="dash27-list-row grid grid-cols-[130px_1fr_44px_52px] gap-2 items-center py-1.5 px-1"><div class="flex items-center gap-2 text-sm"><span class="inline-flex h-6 w-6 items-center justify-center rounded-full border border-white/15" style="color:${row.color}">${getEmployeeGroupIconHtml(row.value, "inline-flex h-3.5 w-3.5")}</span><span>${escapeHtml(row.label)}</span></div><div class="dash27-progress"><span style="width:${Math.round((row.total / maxTotal) * 100)}%; background:${row.color};"></span></div><div class="text-right font-bold">${row.total}</div><div class="text-right text-xs dash27-muted">${row.onProject}</div></div>`).join("");
+    const employeesBars = metrics.map(row => `<div class="dash27-list-row grid grid-cols-[150px_1fr_52px_64px] gap-3 items-center py-2 px-2"><div class="flex items-center gap-2 text-sm"><span class="inline-flex h-7 w-7 items-center justify-center rounded-full border border-white/15" style="color:${row.color}">${getEmployeeGroupIconHtml(row.value, "inline-flex h-4 w-4")}</span><span>${escapeHtml(row.label)}</span></div><div class="dash27-progress"><span style="width:${Math.round((row.total / maxTotal) * 100)}%; background:${row.color};"></span></div><div class="text-right font-bold">${row.total}</div><div class="text-right"><span class="dash27-chip">↑ ${row.onProject}</span></div></div>`).join("");
     const projectRows = [
       ["Totalt", projectTotals.total, "#e2e8f0"],
       ["Avsluttet", projectTotals.completed, "#86efac"],
@@ -4333,21 +4337,21 @@ async function deleteEditedEntry() {
     ].map(row => `<div class="dash27-list-row flex items-center justify-between gap-3 py-3 px-2"><div class="flex items-center gap-2"><span class="inline-flex h-5 w-5 rounded-full border" style="border-color:${row[2]}; background:${row[2]}22"></span><span class="${row[0] === "Uten bemanning" ? "text-red-300 font-bold" : ""}">${escapeHtml(row[0])}</span></div><strong class="text-xl">${row[1]}</strong></div>`).join("");
 
     els.homeDashboard.innerHTML = `
-      <div class="dash27-shell space-y-2">
-        <div><h2 class="dash27-title">Oppstart</h2></div>
-        <div class="grid grid-cols-1 xl:grid-cols-[230px_1fr] gap-2">
-          <div class="dash27-panel p-3 flex items-center gap-3"><span class="inline-flex h-14 w-14 items-center justify-center rounded-full bg-cyan-400/10 text-cyan-300 border border-cyan-300/20 shrink-0">${actionIcon("sun")}</span><div><div class="text-xl font-extrabold">God morgen, ${escapeHtml(firstName)}!</div><div class="mt-1 text-xs dash27-muted">${escapeHtml(today.toLocaleDateString("no-NO"))}</div></div></div>
-          <div class="grid grid-cols-2 xl:grid-cols-5 gap-2">${shortcutHtml}</div>
+      <div class="dash27-shell space-y-4">
+        <div><h2 class="dash27-title">Oppstart</h2><p class="dash27-subtitle">Operativ oversikt for dagens dato og de neste 14 dagene.</p></div>
+        <div class="grid grid-cols-1 xl:grid-cols-[320px_1fr] gap-4">
+          <div class="dash27-panel p-5 flex items-center gap-4"><span class="inline-flex h-16 w-16 items-center justify-center rounded-full bg-cyan-400/10 text-cyan-300 border border-cyan-300/20 shrink-0">${actionIcon("sun")}</span><div><div class="text-xl font-extrabold">God morgen, ${escapeHtml(firstName)}!</div><div class="mt-2 text-sm dash27-muted">Her er hvem som er opptatt og tilgjengelig de neste 14 dagene.</div><div class="mt-3 text-xs dash27-muted">Oppdatert ${escapeHtml(today.toLocaleDateString("no-NO"))}</div></div></div>
+          <div class="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-5 gap-3">${shortcutHtml}</div>
         </div>
-        <div class="dash27-panel overflow-hidden"><div class="px-4 pt-3 text-lg font-extrabold">Operativ status</div><div class="grid grid-cols-2 lg:grid-cols-4">${kpiCards}</div></div>
-        <div class="grid grid-cols-1 xl:grid-cols-[1.55fr_.72fr] gap-2">
-          <div class="dash27-panel p-3"><div class="flex items-center justify-between gap-3 mb-2"><div class="dash27-card-title">Kapasitet neste 14 dager</div></div>${capacityOverviewHtml}</div>
-          <div class="dash27-panel p-3"><div class="flex items-center justify-between gap-3 mb-2"><div class="dash27-card-title">Lav kapasitet</div><button type="button" data-home-action="project" class="text-cyan-300 text-sm font-bold">Prosjekter →</button></div>${heatmapHtml}</div>
+        <div class="dash27-panel overflow-hidden"><div class="px-5 pt-4 text-xl font-extrabold">Operativ status – neste 14 dager</div><div class="grid grid-cols-1 lg:grid-cols-4">${kpiCards}</div></div>
+        <div class="grid grid-cols-1 2xl:grid-cols-[1.25fr_.75fr] gap-4">
+          <div class="dash27-panel p-5"><div class="flex items-center justify-between gap-3 mb-4"><div class="dash27-card-title">Kapasitet dag for dag – neste 14 dager <span class="dash27-info">i</span></div><div class="text-sm dash27-muted">Ledig kapasitet · P = prosjekt · B = borte</div></div>${capacityOverviewHtml}<div class="mt-3 text-xs dash27-muted">Viser antall ledige per gruppe per dag. Farge følger egne terskler per gruppe, slik at Engineering ikke vurderes likt som Offshore/Onshore.</div></div>
+          <div class="dash27-panel p-5"><div class="flex items-center justify-between gap-3 mb-4"><div class="dash27-card-title">Lav kapasitet – neste uke <span class="dash27-info">i</span></div><button type="button" data-home-action="project" class="text-cyan-300 text-sm font-bold">Se detaljer →</button></div>${heatmapHtml}<div class="mt-4 pt-4 border-t border-white/10 text-sm"><span class="text-orange-300 font-bold">⚠</span> Totalt ${lowSituations} lav-kapasitetssituasjoner i kommende uke</div>${lowSituationSummaryHtml}</div>
         </div>
-        <div class="grid grid-cols-1 xl:grid-cols-[.95fr_1.05fr_.9fr] gap-2">
-          <div class="dash27-panel p-3"><div class="dash27-card-title mb-2">Prosjektfordeling</div><div class="grid grid-cols-[150px_1fr] gap-3 items-center"><div class="dash27-donut mx-auto" style="background:${donutBg}"><div class="dash27-donut-inner"><div class="text-4xl font-black">${totalProjectPeople}</div></div></div><div>${distLegend}</div></div></div>
-          <div class="dash27-panel p-3"><div class="dash27-card-title mb-2">Ansatte pr gruppe</div>${employeesBars}<div class="flex items-center justify-between pt-2 font-black"><span>Totalt</span><span>${metrics.reduce((sum, row) => sum + row.total, 0)}</span></div></div>
-          <div class="dash27-panel p-3 grid grid-cols-[1fr_118px] gap-2 items-center"><div><div class="dash27-card-title mb-2">Prosjektoversikt</div>${projectRows}</div><div class="dash27-donut mx-auto" style="width:118px;height:118px;background:conic-gradient(#2dd4bf 0 ${completedPct}%, rgba(148,163,184,.38) ${completedPct}% 100%)"><div class="dash27-donut-inner"><div class="text-3xl font-black">${completedPct}%</div><div class="text-[10px] font-bold tracking-wider">AVSLUTTET</div></div></div></div>
+        <div class="grid grid-cols-1 xl:grid-cols-3 gap-4">
+          <div class="dash27-panel p-5"><div class="dash27-card-title mb-4">Prosjektfordeling pr gruppe <span class="dash27-info">i</span></div><div class="grid grid-cols-1 md:grid-cols-[190px_1fr] gap-5 items-center"><div class="dash27-donut mx-auto" style="background:${donutBg}"><div class="dash27-donut-inner"><div class="text-sm dash27-muted">Totalt</div><div class="text-4xl font-black">${totalProjectPeople}</div><div class="text-xs dash27-muted">personer</div></div></div><div>${distLegend}</div></div></div>
+          <div class="dash27-panel p-5"><div class="dash27-card-title mb-4">Ansatte pr gruppe <span class="dash27-info">i</span></div><div class="grid grid-cols-[150px_1fr_52px_48px] gap-3 pb-2 text-xs uppercase tracking-wider dash27-muted"><div>Gruppe</div><div></div><div class="text-right">Antall</div><div class="text-right">Endr.</div></div>${employeesBars}<div class="flex items-center justify-between pt-4 font-black"><span>Totalt</span><span>${metrics.reduce((sum, row) => sum + row.total, 0)}</span></div></div>
+          <div class="dash27-panel p-5 grid grid-cols-1 md:grid-cols-[1fr_150px] gap-4 items-center"><div><div class="dash27-card-title mb-4">Prosjektoversikt <span class="dash27-info">i</span></div>${projectRows}</div><div class="dash27-donut mx-auto" style="width:140px;height:140px;background:conic-gradient(#2dd4bf 0 ${completedPct}%, rgba(148,163,184,.38) ${completedPct}% 100%)"><div class="dash27-donut-inner"><div class="text-4xl font-black">${completedPct}%</div><div class="text-[11px] font-bold tracking-wider">AVSLUTTET</div><div class="text-xs dash27-muted">${projectTotals.completed} prosjekter</div></div></div></div>
         </div>
       </div>
     `;
@@ -4398,14 +4402,14 @@ async function deleteEditedEntry() {
   function renderLegend() {
     const projectCategoryHtml = ["Offshore", "Onshore"].map(name => `
       <div class="flex items-center gap-2">
-        <span class="inline-block w-4 h-4 rounded ${CATEGORY_COLORS[name] || "bg-slate-400"}"></span>
-        <span>${escapeHtml(name)}</span>
+        <span class="inline-block w-4 h-4 rounded ${getLegendDotClasses(name)}"></span>
+        <span>${escapeHtml(name === "Onshore" ? "Verksted / Onshore" : name)}</span>
       </div>
     `).join("");
 
     const personalCategoryHtml = getVisiblePersonalBlockTypes().map(name => `
       <div class="flex items-center gap-2">
-        <span class="inline-block w-4 h-4 rounded ${CATEGORY_COLORS[name] || "bg-slate-400"}"></span>
+        <span class="inline-block w-4 h-4 rounded ${getLegendDotClasses(name)}"></span>
         <span>${escapeHtml(name)}</span>
       </div>
     `).join("");
@@ -7066,18 +7070,60 @@ function getDashboardAnalysisRange() {
     return isSystemPersonalProject(project) ? project.category : project.name;
   }
 
-  
-function getEntryBarClasses(project, role, entry = null) {
-    const categoryClasses = CATEGORY_COLORS[project.category] || "bg-slate-500 border-slate-600 text-white";
-    const roleClasses = ROLE_CLASSES[role] || "";
+  function getCategoryColorClasses(category) {
+    const value = String(category || "").trim();
+    switch (value) {
+      case "Onshore":
+        return "bg-green-600 border-green-700 text-white";
+      case "Offshore":
+        return "bg-red-600 border-red-700 text-white";
+      case "Syk":
+        return "bg-red-900 border-red-950 text-white";
+      case "Kurs":
+        return "bg-slate-300 border-slate-400 text-slate-900";
+      case "Ferie":
+        return "bg-pink-300 border-pink-400 text-slate-900";
+      case "Avspasering":
+        return "bg-yellow-300 border-yellow-400 text-slate-900";
+      case "Travel":
+        return "bg-sky-500 border-sky-600 text-white";
+      default:
+        return "bg-slate-500 border-slate-600 text-white";
+    }
+  }
+
+  function getLegendDotClasses(category) {
+    const value = String(category || "").trim();
+    switch (value) {
+      case "Onshore":
+        return "bg-green-600";
+      case "Offshore":
+        return "bg-red-600";
+      case "Syk":
+        return "bg-red-900";
+      case "Kurs":
+        return "bg-slate-400";
+      case "Ferie":
+        return "bg-pink-300";
+      case "Avspasering":
+        return "bg-yellow-300";
+      case "Travel":
+        return "bg-sky-500";
+      default:
+        return "bg-slate-400";
+    }
+  }
+
+  function getEntryBarClasses(project, role, entry = null) {
+    const categoryClasses = getCategoryColorClasses(project?.category);
     const cancelledClasses = isCancelledProject(project) ? " bg-red-100 border-red-500 text-red-800 line-through decoration-red-600 decoration-2 opacity-80 grayscale" : "";
     const endedClasses = !cancelledClasses && isCompletedProject(project) ? " opacity-70 grayscale" : "";
     const conflictClasses = entry && entryHasVisibleConflict(entry) ? " overlap-conflict border-2 border-red-700 ring-2 ring-red-300" : "";
-    return `${cancelledClasses || categoryClasses} ${roleClasses}${endedClasses}${conflictClasses}`;
+    return `${cancelledClasses || categoryClasses}${endedClasses}${conflictClasses}`;
   }
 
   function getProjectBarClasses(project) {
-    const categoryClasses = CATEGORY_COLORS[project.category] || "bg-slate-500 border-slate-600 text-white";
+    const categoryClasses = getCategoryColorClasses(project?.category);
     if (isCancelledProject(project)) return "bg-red-100 border-red-500 text-red-800 line-through decoration-red-600 decoration-2 opacity-80 grayscale";
     const endedClasses = isCompletedProject(project) ? " opacity-70 grayscale" : "";
     return `${categoryClasses}${endedClasses}`;
