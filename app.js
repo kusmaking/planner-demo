@@ -1,5 +1,5 @@
 (() => {
-  // v18.25-sandbox-dashboard-capacity-logic-safe
+  // v18.25b-sandbox-dashboard-history-forecast-safe
   // v18.19-ansattplan-project-focus-toggle-safe
   // v18.11: plain visible available-row render for project inspector.
   const supabaseClient = window.supabase?.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -4055,8 +4055,13 @@ async function deleteEditedEntry() {
 
     const activeEmployees = (state.employees || []).filter(employee => employee && employee.active !== false);
     const activeEmployeeByName = new Map(activeEmployees.map(employee => [employee.name, employee]));
-    const realProjects = getVisibleProjects().filter(project => !isCancelledProject(project));
-    const realProjectIds = new Set(realProjects.map(project => project.id));
+    const activeProjectsForDashboard = (state.projects || []).filter(project => (
+      project &&
+      !isSystemPersonalProject(project) &&
+      !isCancelledProject(project) &&
+      normalizeProjectStatus(project.status) !== "Fullført"
+    ));
+    const activeProjectIdsForDashboard = new Set(activeProjectsForDashboard.map(project => project.id));
 
     function addDaysLocal(date, days) {
       const d = new Date(date);
@@ -4074,7 +4079,7 @@ async function deleteEditedEntry() {
 
     function isRealProjectEntry(entry) {
       const project = getProjectForEntry(entry);
-      return !!project && realProjectIds.has(project.id) && !isSystemPersonalProject(project) && !isCancelledProject(project);
+      return !!project && activeProjectIdsForDashboard.has(project.id);
     }
 
     function isUnavailableEntry(entry) {
@@ -4145,6 +4150,67 @@ async function deleteEditedEntry() {
       });
     }
 
+    function getCapacityMetricsForRange(startDate, endDate) {
+      const startKey = makeLocalDateISO(startDate);
+      const endKey = makeLocalDateISO(endDate);
+      const entriesForPeriod = (state.entries || []).filter(entry => entry && entry.start <= endKey && entry.end >= startKey);
+
+      return CAPACITY_GROUPS.map(groupDef => {
+        const employeesInGroup = activeEmployees.filter(employee => normalizeEmployeeGroup(employee.employee_group || "") === groupDef.value);
+        const employeeNames = new Set(employeesInGroup.map(employee => employee.name));
+
+        const unavailableNames = new Set();
+        const unavailableByType = Object.fromEntries(UNAVAILABLE_TYPES.map(type => [type, 0]));
+        const unavailableTypeByName = new Map();
+
+        entriesForPeriod.forEach(entry => {
+          if (!entry?.employeeName || !employeeNames.has(entry.employeeName)) return;
+          if (!isUnavailableEntry(entry)) return;
+          const type = getUnavailableType(entry);
+          if (!type) return;
+          unavailableNames.add(entry.employeeName);
+          if (!unavailableTypeByName.has(entry.employeeName)) unavailableTypeByName.set(entry.employeeName, new Set());
+          unavailableTypeByName.get(entry.employeeName).add(type);
+        });
+
+        unavailableTypeByName.forEach(types => {
+          types.forEach(type => {
+            unavailableByType[type] = (unavailableByType[type] || 0) + 1;
+          });
+        });
+
+        const onProjectNames = new Set();
+        entriesForPeriod.forEach(entry => {
+          if (!entry?.employeeName || !employeeNames.has(entry.employeeName)) return;
+          if (!isRealProjectEntry(entry)) return;
+          onProjectNames.add(entry.employeeName);
+        });
+
+        const total = employeesInGroup.length;
+        const unavailable = unavailableNames.size;
+        const onProject = onProjectNames.size;
+        const available = Math.max(total - unavailable - onProject, 0);
+        const utilizationBase = Math.max(total - unavailable, 0);
+        const utilization = utilizationBase ? Math.round((onProject / utilizationBase) * 100) : 0;
+
+        return {
+          group: groupDef.value,
+          label: groupDef.label,
+          total,
+          unavailable,
+          unavailableByType,
+          onProject,
+          present: utilizationBase,
+          available,
+          utilization
+        };
+      });
+    }
+
+    function getCapacityMetricsForPeriod(startDate, daysAhead = 30) {
+      return getCapacityMetricsForRange(startDate, addDaysLocal(startDate, daysAhead));
+    }
+
     function getCapacityForecast(daysAhead = 30) {
       const today = new Date();
       return CAPACITY_GROUPS.map(groupDef => {
@@ -4181,7 +4247,11 @@ async function deleteEditedEntry() {
     }
 
     const today = new Date();
-    const todayMetrics = getCapacityMetricsForDate(today);
+    const historyStart = addDaysLocal(today, -30);
+    const futureEnd = addDaysLocal(today, 30);
+    const todayMetrics = getCapacityMetricsForRange(historyStart, futureEnd);
+    const pastMetrics = getCapacityMetricsForRange(historyStart, today);
+    const futureMetrics = getCapacityMetricsForRange(today, futureEnd);
     const forecast = getCapacityForecast(30);
     const capacityTotals = todayMetrics.reduce((acc, row) => {
       acc.total += row.total;
@@ -4193,6 +4263,20 @@ async function deleteEditedEntry() {
     }, { total: 0, present: 0, unavailable: 0, onProject: 0, available: 0 });
     const capacityUtilization = capacityTotals.present ? Math.round((capacityTotals.onProject / capacityTotals.present) * 100) : 0;
 
+    const realProjectsAll = (state.projects || []).filter(project => project && !isSystemPersonalProject(project));
+    const projectTotals = realProjectsAll.reduce((acc, project) => {
+      const status = normalizeProjectStatus(project.status);
+      if (isCancelledProject(project)) {
+        acc.cancelled += 1;
+      } else if (status === "Fullført") {
+        acc.completed += 1;
+      } else {
+        acc.remaining += 1;
+      }
+      acc.total += 1;
+      return acc;
+    }, { total: 0, completed: 0, remaining: 0, cancelled: 0 });
+
     const nonCapacityGroups = getOrderedEmployeeGroups()
       .filter(group => !CAPACITY_GROUPS.some(capacityGroup => capacityGroup.value === group))
       .map(group => {
@@ -4201,7 +4285,7 @@ async function deleteEditedEntry() {
       })
       .filter(row => row.count > 0);
 
-    const activeProjectCount = realProjects.length;
+    const activeProjectCount = activeProjectsForDashboard.length;
     const unstaffedProjectCount = getUnstaffedProjectsForCurrentCalendarRange().length;
 
     const actionIcon = (key) => {
@@ -4230,6 +4314,8 @@ async function deleteEditedEntry() {
 
     const capacityRowsHtml = todayMetrics.map(row => {
       const forecastRow = forecast.find(item => item.group === row.group);
+      const pastRow = pastMetrics.find(item => item.group === row.group) || row;
+      const futureRow = futureMetrics.find(item => item.group === row.group) || row;
       const lowClass = forecastRow && forecastRow.minPresent < LOW_CAPACITY_THRESHOLD ? "text-red-700" : "text-slate-700";
       const absenceDetails = UNAVAILABLE_TYPES.map(type => `${type}: ${row.unavailableByType[type] || 0}`).join(" · ");
       return `
@@ -4241,14 +4327,24 @@ async function deleteEditedEntry() {
             </div>
             <div class="text-right">
               <div class="text-2xl font-semibold text-slate-950">${row.utilization}%</div>
-              <div class="text-xs text-slate-500">utnyttelse</div>
+              <div class="text-xs text-slate-500">periodeutnyttelse</div>
             </div>
           </div>
           <div class="mt-4 grid grid-cols-4 gap-2 text-center">
             <div><div class="text-xl font-semibold text-slate-950">${row.total}</div><div class="text-[11px] text-slate-500">Totalt</div></div>
-            <div><div class="text-xl font-semibold text-slate-950">${row.onProject}</div><div class="text-[11px] text-slate-500">Prosjekt</div></div>
+            <div><div class="text-xl font-semibold text-slate-950">${row.onProject}</div><div class="text-[11px] text-slate-500">Prosjekt ±30d</div></div>
             <div><div class="text-xl font-semibold text-slate-950">${row.unavailable}</div><div class="text-[11px] text-slate-500">Borte</div></div>
-            <div><div class="text-xl font-semibold text-slate-950">${row.available}</div><div class="text-[11px] text-slate-500">Ledig</div></div>
+            <div><div class="text-xl font-semibold text-slate-950">${row.available}</div><div class="text-[11px] text-slate-500">Ikke brukt</div></div>
+          </div>
+          <div class="mt-3 grid grid-cols-2 gap-2 text-xs">
+            <div class="rounded-lg border border-slate-200 bg-white px-3 py-2">
+              <div class="text-slate-500">På prosjekt siste 30d</div>
+              <div class="text-lg font-semibold text-slate-950">${pastRow.onProject}</div>
+            </div>
+            <div class="rounded-lg border border-slate-200 bg-white px-3 py-2">
+              <div class="text-slate-500">Satt opp neste 30d</div>
+              <div class="text-lg font-semibold text-slate-950">${futureRow.onProject}</div>
+            </div>
           </div>
           <div class="mt-3 text-xs ${lowClass}">
             Lavest til stede neste 30 dager: <strong>${forecastRow?.minPresent ?? 0}</strong>${forecastRow?.minPresentDate ? ` (${escapeHtml(forecastRow.minPresentDate.toLocaleDateString("no-NO"))})` : ""}
@@ -4295,14 +4391,14 @@ async function deleteEditedEntry() {
       <div class="dashboard-shell space-y-4">
         <div>
           <h2 class="dashboard-title">Oppstart</h2>
-          <p class="dashboard-subtitle">Kapasitet for Offshore og Onshore er basert på prosjekter og direkteblokker</p>
+          <p class="dashboard-subtitle">Kapasitet viser Offshore/Onshore på prosjekter siste 30 og neste 30 dager</p>
         </div>
 
         <div class="dashboard-card dashboard-welcome rounded-[28px] bg-white border border-slate-200 shadow-sm flex items-center gap-4">
           <span class="inline-flex h-14 w-14 items-center justify-center rounded-full bg-cyan-50 text-cyan-700 shrink-0">${actionIcon("sun")}</span>
           <div>
             <div class="text-[20px] font-semibold text-slate-950">God morgen, ${escapeHtml(firstName)}</div>
-            <div class="mt-1 text-sm text-slate-600">Dagens dashboard viser kun Offshore og Onshore i kapasitet/utnyttelse. Øvrige grupper vises som informasjon.</div>
+            <div class="mt-1 text-sm text-slate-600">Dashboardet teller Offshore og Onshore i kapasitet. På prosjekt viser ansatte som har vært eller er satt på aktive oppdrag i perioden.</div>
           </div>
         </div>
 
@@ -4321,7 +4417,7 @@ async function deleteEditedEntry() {
           <div class="dashboard-card dashboard-metric-card xl:col-span-5 rounded-[28px] bg-white border border-slate-200 shadow-sm">
             <div class="flex items-center justify-between gap-3">
               <h3 class="text-[20px] font-semibold text-slate-950">Kapasitet Offshore / Onshore</h3>
-              <span class="text-sm text-slate-400">I dag · samlet ${capacityUtilization}%</span>
+              <span class="text-sm text-slate-400">Siste 30 + neste 30 dager · samlet ${capacityUtilization}%</span>
             </div>
             <div class="mt-4 space-y-3">${capacityRowsHtml}</div>
           </div>
@@ -4341,9 +4437,11 @@ async function deleteEditedEntry() {
             </div>
             <div class="mt-3">${lowCapacityHtml}</div>
             <div class="mt-4 divide-y divide-slate-200">
-              <div class="flex items-center justify-between gap-3 py-3"><span class="text-sm text-slate-700">Aktive prosjekter</span><span class="text-3xl font-semibold text-slate-950">${activeProjectCount}</span></div>
-              <div class="flex items-center justify-between gap-3 py-3"><span class="text-sm text-slate-700">Prosjekter uten bemanning</span><span class="text-3xl font-semibold text-slate-950">${unstaffedProjectCount}</span></div>
-              <div class="flex items-center justify-between gap-3 py-3"><span class="text-sm text-slate-700">Terskel lav kapasitet</span><span class="text-3xl font-semibold text-slate-950">&lt;${LOW_CAPACITY_THRESHOLD}</span></div>
+              <div class="flex items-center justify-between gap-3 py-3"><span class="text-sm text-slate-700">Prosjekter totalt</span><span class="text-3xl font-semibold text-slate-950">${projectTotals.total}</span></div>
+              <div class="flex items-center justify-between gap-3 py-3"><span class="text-sm text-slate-700">Avsluttet</span><span class="text-3xl font-semibold text-slate-950">${projectTotals.completed}</span></div>
+              <div class="flex items-center justify-between gap-3 py-3"><span class="text-sm text-slate-700">Gjenstående</span><span class="text-3xl font-semibold text-slate-950">${projectTotals.remaining}</span></div>
+              <div class="flex items-center justify-between gap-3 py-3"><span class="text-sm text-slate-700">Uten bemanning</span><span class="text-3xl font-semibold text-slate-950">${unstaffedProjectCount}</span></div>
+              <div class="flex items-center justify-between gap-3 py-3"><span class="text-sm text-slate-700">Kansellert</span><span class="text-3xl font-semibold text-slate-950">${projectTotals.cancelled}</span></div>
             </div>
           </div>
         </div>
