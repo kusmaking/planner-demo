@@ -4230,17 +4230,24 @@ async function deleteEditedEntry() {
 
   function getProjectInspectorAddRange(project) {
     const bounds = getProjectInspectorProjectBounds(project);
+    const fallbackStart = bounds.start || String(project?.planned_start_date || "").trim();
+    const fallbackEnd = bounds.end || String(project?.planned_end_date || "").trim();
+    const safeBounds = {
+      start: fallbackStart,
+      end: fallbackEnd
+    };
+
     if (state.projectInspectorAddUseCustomRange) {
       return {
-        start: String(state.projectInspectorAddCustomStart || "").trim(),
-        end: String(state.projectInspectorAddCustomEnd || "").trim(),
-        bounds
+        start: String(state.projectInspectorAddCustomStart || fallbackStart || "").trim(),
+        end: String(state.projectInspectorAddCustomEnd || fallbackEnd || "").trim(),
+        bounds: safeBounds
       };
     }
     return {
-      start: bounds.start || "",
-      end: bounds.end || "",
-      bounds
+      start: fallbackStart || "",
+      end: fallbackEnd || "",
+      bounds: safeBounds
     };
   }
 
@@ -4563,7 +4570,7 @@ async function deleteEditedEntry() {
     ` : "";
 
     els.calendarPanelContent.innerHTML = `
-      <!-- v18.17-confirm-button-visible-top v18.16-add-box-visible-under-assigned -->
+      <!-- v18.18-period-fallback-confirm-safe v18.17-confirm-button-visible-top v18.16-add-box-visible-under-assigned -->
       <div class="flex h-full flex-col">
         <div class="flex items-start justify-between gap-3 border-b border-slate-200 p-4">
           <div class="min-w-0">
@@ -4805,10 +4812,21 @@ async function deleteEditedEntry() {
         }
         const roleSelect = document.getElementById("projectInspectorAddRoleSelect");
         if (roleSelect) state.projectInspectorAddRole = roleSelect.value || state.projectInspectorAddRole || getDefaultRoleForIndex(0);
+        const wholePeriodRadio = document.getElementById("projectInspectorWholePeriodRadio");
+        const customPeriodRadio = document.getElementById("projectInspectorCustomPeriodRadio");
+        const bounds = getProjectInspectorProjectBounds(project);
         const customStart = document.getElementById("projectInspectorCustomStartInput");
         const customEnd = document.getElementById("projectInspectorCustomEndInput");
-        if (customStart && !customStart.disabled) state.projectInspectorAddCustomStart = customStart.value || state.projectInspectorAddCustomStart;
-        if (customEnd && !customEnd.disabled) state.projectInspectorAddCustomEnd = customEnd.value || state.projectInspectorAddCustomEnd;
+        if (customPeriodRadio?.checked) {
+          state.projectInspectorAddUseCustomRange = true;
+          if (customStart) state.projectInspectorAddCustomStart = customStart.value || state.projectInspectorAddCustomStart || bounds.start || "";
+          if (customEnd) state.projectInspectorAddCustomEnd = customEnd.value || state.projectInspectorAddCustomEnd || bounds.end || "";
+        } else {
+          state.projectInspectorAddUseCustomRange = false;
+          state.projectInspectorAddCustomStart = bounds.start || project?.planned_start_date || state.projectInspectorAddCustomStart || "";
+          state.projectInspectorAddCustomEnd = bounds.end || project?.planned_end_date || state.projectInspectorAddCustomEnd || "";
+          if (wholePeriodRadio) wholePeriodRadio.checked = true;
+        }
         projectPanelDebug("before createProjectInspectorAssignment", {
           candidate: state.projectInspectorAddCandidateName,
           role: state.projectInspectorAddRole,
