@@ -1,5 +1,5 @@
 (() => {
-  // v18.25d-sandbox-dashboard-utilization-person-days-safe
+  // v18.26-sandbox-dashboard-piechart-analysis-safe
   // v18.19-ansattplan-project-focus-toggle-safe
   // v18.11: plain visible available-row render for project inspector.
   const supabaseClient = window.supabase?.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -4050,6 +4050,12 @@ async function deleteEditedEntry() {
       { value: "Offshore arbeider", label: "Offshore" },
       { value: "Onshore arbeider", label: "Onshore" }
     ];
+    const ANALYSIS_GROUPS = [
+      { value: "Offshore arbeider", label: "Offshore", color: "#0f766e" },
+      { value: "Onshore arbeider", label: "Onshore", color: "#2563eb" },
+      { value: "Engineering", label: "Engineering", color: "#7c3aed" },
+      { value: "3 parts innleie", label: "3 parts innleie", color: "#ea580c" }
+    ];
     const UNAVAILABLE_TYPES = ["Ferie", "Syk", "Avspasering", "Kurs", "Travel"];
     const LOW_CAPACITY_THRESHOLD = 3;
 
@@ -4261,6 +4267,33 @@ async function deleteEditedEntry() {
       return getCapacityMetricsForRange(startDate, addDaysLocal(startDate, daysAhead));
     }
 
+    function getProjectGroupAnalysisForRange(startDate, endDate) {
+      const startKey = makeLocalDateISO(startDate);
+      const endKey = makeLocalDateISO(endDate);
+      const entriesForPeriod = (state.entries || []).filter(entry => entry && getEntryStartForDashboard(entry) <= endKey && getEntryEndForDashboard(entry) >= startKey);
+
+      return ANALYSIS_GROUPS.map(groupDef => {
+        const employeesInGroup = activeEmployees.filter(employee => normalizeEmployeeGroup(employee.employee_group || "") === groupDef.value);
+        const employeeNames = new Set(employeesInGroup.map(employee => employee.name));
+        const onProjectNames = new Set();
+
+        entriesForPeriod.forEach(entry => {
+          const employeeName = getEntryEmployeeNameForDashboard(entry);
+          if (!employeeName || !employeeNames.has(employeeName)) return;
+          if (!isRealProjectEntry(entry)) return;
+          onProjectNames.add(employeeName);
+        });
+
+        return {
+          group: groupDef.value,
+          label: groupDef.label,
+          color: groupDef.color,
+          totalEmployees: employeesInGroup.length,
+          onProject: onProjectNames.size
+        };
+      });
+    }
+
     function getCapacityForecast(daysAhead = 30) {
       const today = new Date();
       return CAPACITY_GROUPS.map(groupDef => {
@@ -4326,6 +4359,65 @@ async function deleteEditedEntry() {
       acc.total += 1;
       return acc;
     }, { total: 0, completed: 0, remaining: 0, cancelled: 0 });
+
+    const projectGroupAnalysis = getProjectGroupAnalysisForRange(historyStart, futureEnd);
+    const totalAnalysisOnProject = projectGroupAnalysis.reduce((sum, row) => sum + row.onProject, 0);
+    const analysisLegendHtml = projectGroupAnalysis.map(row => {
+      const pct = totalAnalysisOnProject ? Math.round((row.onProject / totalAnalysisOnProject) * 100) : 0;
+      return `
+        <div class="flex items-center justify-between gap-3 py-2 border-b border-slate-200 last:border-b-0">
+          <div class="flex items-center gap-3 min-w-0">
+            <span class="inline-flex h-3 w-3 rounded-full shrink-0" style="background:${row.color}"></span>
+            <div class="min-w-0">
+              <div class="text-sm font-medium text-slate-800">${escapeHtml(row.label)}</div>
+              <div class="text-[11px] text-slate-500">${row.totalEmployees} ansatte i gruppen</div>
+            </div>
+          </div>
+          <div class="text-right shrink-0">
+            <div class="text-lg font-semibold text-slate-950">${row.onProject}</div>
+            <div class="text-[11px] text-slate-500">${pct}%</div>
+          </div>
+        </div>
+      `;
+    }).join("");
+
+    let cumulativeDegrees = 0;
+    const pieSegments = projectGroupAnalysis.map(row => {
+      const slice = totalAnalysisOnProject ? (row.onProject / totalAnalysisOnProject) * 360 : 0;
+      const start = cumulativeDegrees;
+      const end = cumulativeDegrees + slice;
+      cumulativeDegrees = end;
+      return `${row.color} ${start.toFixed(2)}deg ${end.toFixed(2)}deg`;
+    });
+    const pieChartBackground = totalAnalysisOnProject
+      ? `conic-gradient(${pieSegments.join(", ")})`
+      : "#e5e7eb";
+
+    const projectAnalysisHtml = `
+      <div class="rounded-xl border border-slate-200 bg-slate-50/70 p-4">
+        <div class="flex items-center justify-between gap-3">
+          <div>
+            <div class="text-sm font-semibold text-slate-950">Pie chart – prosjektfordeling</div>
+            <div class="text-xs text-slate-500">Analyse: Offshore, Onshore, Engineering og 3 parts innleie</div>
+          </div>
+          <div class="text-right">
+            <div class="text-2xl font-semibold text-slate-950">${totalAnalysisOnProject}</div>
+            <div class="text-[11px] text-slate-500">personer på prosjekt ±30d</div>
+          </div>
+        </div>
+        <div class="mt-4 grid grid-cols-1 md:grid-cols-[170px,1fr] gap-4 items-center">
+          <div class="mx-auto relative h-40 w-40 rounded-full border border-slate-200" style="background:${pieChartBackground}">
+            <div class="absolute inset-[24%] rounded-full bg-white border border-slate-100 flex flex-col items-center justify-center text-center px-2">
+              <div class="text-2xl font-semibold text-slate-950">${totalAnalysisOnProject}</div>
+              <div class="text-[11px] leading-4 text-slate-500">på prosjekt<br>siste/neste 30d</div>
+            </div>
+          </div>
+          <div class="min-w-0">
+            ${analysisLegendHtml || '<div class="py-6 text-sm text-slate-500">Ingen prosjektdata i analyseperioden.</div>'}
+          </div>
+        </div>
+      </div>
+    `;
 
     const nonCapacityGroups = getOrderedEmployeeGroups()
       .filter(group => !CAPACITY_GROUPS.some(capacityGroup => capacityGroup.value === group))
@@ -4419,6 +4511,13 @@ async function deleteEditedEntry() {
       </div>
     `).join("");
 
+    const groupPanelHtml = `
+      ${projectAnalysisHtml}
+      <div class="mt-4">
+        ${allGroupRowsHtml || '<div class="py-8 text-sm text-slate-500">Ingen ansatte tilgjengelig.</div>'}
+      </div>
+    `;
+
     const lowCapacityHtml = forecast.map(row => {
       const lowPresent = row.minPresent < LOW_CAPACITY_THRESHOLD;
       return `
@@ -4448,7 +4547,7 @@ async function deleteEditedEntry() {
           <span class="inline-flex h-14 w-14 items-center justify-center rounded-full bg-cyan-50 text-cyan-700 shrink-0">${actionIcon("sun")}</span>
           <div>
             <div class="text-[20px] font-semibold text-slate-950">God morgen, ${escapeHtml(firstName)}</div>
-            <div class="mt-1 text-sm text-slate-600">Dashboardet teller Offshore og Onshore i kapasitet. På prosjekt viser ansatte som har vært eller er satt på aktive oppdrag i perioden.</div>
+            <div class="mt-1 text-sm text-slate-600">Dashboardet teller Offshore og Onshore i kapasitet. Pie chart-analysen viser prosjektfordeling for Offshore, Onshore, Engineering og 3 parts innleie.</div>
           </div>
         </div>
 
@@ -4474,10 +4573,10 @@ async function deleteEditedEntry() {
 
           <div class="dashboard-card dashboard-metric-card xl:col-span-3 rounded-[28px] bg-white border border-slate-200 shadow-sm">
             <div class="flex items-center justify-between gap-3">
-              <h3 class="text-[20px] font-semibold text-slate-950">Ansatte pr gruppe</h3>
+              <h3 class="text-[20px] font-semibold text-slate-950">Ansatte pr gruppe / analyse</h3>
               <span class="text-sm text-slate-400">Aktive</span>
             </div>
-            <div class="mt-3">${allGroupRowsHtml || '<div class="py-8 text-sm text-slate-500">Ingen ansatte tilgjengelig.</div>'}</div>
+            <div class="mt-3">${groupPanelHtml}</div>
           </div>
 
           <div class="dashboard-card dashboard-metric-card xl:col-span-4 rounded-[28px] bg-white border border-slate-200 shadow-sm">
