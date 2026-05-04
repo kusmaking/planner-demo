@@ -1,5 +1,5 @@
 (() => {
-  // v18.26-sandbox-dashboard-piechart-analysis-safe
+  // v18.27-sandbox-dashboard-mockup-layout-safe
   // v18.19-ansattplan-project-focus-toggle-safe
   // v18.11: plain visible available-row render for project inspector.
   const supabaseClient = window.supabase?.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -4046,405 +4046,135 @@ async function deleteEditedEntry() {
       return;
     }
 
-    const CAPACITY_GROUPS = [
-      { value: "Offshore arbeider", label: "Offshore" },
-      { value: "Onshore arbeider", label: "Onshore" }
-    ];
-    const ANALYSIS_GROUPS = [
-      { value: "Offshore arbeider", label: "Offshore", color: "#0f766e" },
-      { value: "Onshore arbeider", label: "Onshore", color: "#2563eb" },
-      { value: "Engineering", label: "Engineering", color: "#7c3aed" },
-      { value: "3 parts innleie", label: "3 parts innleie", color: "#ea580c" }
+    const GROUPS = [
+      { value: "Offshore arbeider", label: "Offshore", color: "#2dd4bf" },
+      { value: "Onshore arbeider", label: "Onshore", color: "#60a5fa" },
+      { value: "Engineering", label: "Engineering", color: "#fb923c" },
+      { value: "3 parts innleie", label: "3 parts innleie", color: "#c084fc" }
     ];
     const UNAVAILABLE_TYPES = ["Ferie", "Syk", "Avspasering", "Kurs", "Travel"];
-    const LOW_CAPACITY_THRESHOLD = 3;
-
     const activeEmployees = (state.employees || []).filter(employee => employee && employee.active !== false);
-    const activeEmployeeByName = new Map(activeEmployees.map(employee => [employee.name, employee]));
-    const activeProjectsForDashboard = (state.projects || []).filter(project => (
-      project &&
-      !isSystemPersonalProject(project) &&
-      !isCancelledProject(project) &&
-      normalizeProjectStatus(project.status) !== "Fullført"
-    ));
-    const activeProjectIdsForDashboard = new Set(activeProjectsForDashboard.map(project => project.id));
+    const activeProjects = (state.projects || []).filter(project => project && !isSystemPersonalProject(project) && !isCancelledProject(project) && normalizeProjectStatus(project.status) !== "Fullført");
+    const activeProjectIds = new Set(activeProjects.map(project => project.id));
+    const getEntryEmployee = (entry) => entry?.employee_name || entry?.employeeName || "";
+    const getEntryProject = (entry) => entry?.project_id || entry?.projectId || "";
+    const getEntryStart = (entry) => entry?.start_date || entry?.start || "";
+    const getEntryEnd = (entry) => entry?.end_date || entry?.end || "";
+    const addDays = (date, days) => { const d = new Date(date); d.setDate(d.getDate() + days); return d; };
+    const dayKey = (date) => makeLocalDateISO(date);
+    const overlaps = (entry, startKey, endKey) => entry && getEntryStart(entry) <= endKey && getEntryEnd(entry) >= startKey;
+    const getProject = (entry) => getProjectById(getEntryProject(entry));
+    const isRealProject = (entry) => activeProjectIds.has(getProject(entry)?.id || "");
+    const isUnavailable = (entry) => {
+      const project = getProject(entry);
+      return !!project && isSystemPersonalProject(project) && UNAVAILABLE_TYPES.includes(project.category);
+    };
 
-    const getEntryEmployeeNameForDashboard = (entry) => entry?.employee_name || entry?.employeeName || "";
-    const getEntryProjectIdForDashboard = (entry) => entry?.project_id || entry?.projectId || "";
-    const getEntryStartForDashboard = (entry) => entry?.start_date || entry?.start || "";
-    const getEntryEndForDashboard = (entry) => entry?.end_date || entry?.end || "";
-
-    function addDaysLocal(date, days) {
-      const d = new Date(date);
-      d.setDate(d.getDate() + days);
-      return d;
+    function entriesForRange(startDate, endDate) {
+      const startKey = dayKey(startDate);
+      const endKey = dayKey(endDate);
+      return (state.entries || []).filter(entry => overlaps(entry, startKey, endKey));
     }
 
-    function entryOverlapsDate(entry, dateKey) {
-      return !!entry && getEntryStartForDashboard(entry) <= dateKey && getEntryEndForDashboard(entry) >= dateKey;
-    }
-
-    function getProjectForEntry(entry) {
-      return getProjectById(getEntryProjectIdForDashboard(entry));
-    }
-
-    function isRealProjectEntry(entry) {
-      const project = getProjectForEntry(entry);
-      return !!project && activeProjectIdsForDashboard.has(project.id);
-    }
-
-    function isUnavailableEntry(entry) {
-      const project = getProjectForEntry(entry);
-      if (!project) return false;
-      return isSystemPersonalProject(project) && UNAVAILABLE_TYPES.includes(project.category);
-    }
-
-    function getUnavailableType(entry) {
-      const project = getProjectForEntry(entry);
-      return UNAVAILABLE_TYPES.includes(project?.category) ? project.category : "";
-    }
-
-    function getCapacityMetricsForDate(date) {
-      const dateKey = makeLocalDateISO(date);
-      const entriesForDate = (state.entries || []).filter(entry => entryOverlapsDate(entry, dateKey));
-
-      return CAPACITY_GROUPS.map(groupDef => {
-        const employeesInGroup = activeEmployees.filter(employee => normalizeEmployeeGroup(employee.employee_group || "") === groupDef.value);
-        const employeeNames = new Set(employeesInGroup.map(employee => employee.name));
-
-        const unavailableNames = new Set();
-        const unavailableByType = Object.fromEntries(UNAVAILABLE_TYPES.map(type => [type, 0]));
-        const unavailableTypeByName = new Map();
-
-        entriesForDate.forEach(entry => {
-          const employeeName = getEntryEmployeeNameForDashboard(entry);
-          if (!employeeName || !employeeNames.has(employeeName)) return;
-          if (!isUnavailableEntry(entry)) return;
-          const type = getUnavailableType(entry);
-          if (!type) return;
-          unavailableNames.add(employeeName);
-          if (!unavailableTypeByName.has(employeeName)) unavailableTypeByName.set(employeeName, new Set());
-          unavailableTypeByName.get(employeeName).add(type);
-        });
-
-        unavailableTypeByName.forEach(types => {
-          types.forEach(type => {
-            unavailableByType[type] = (unavailableByType[type] || 0) + 1;
-          });
-        });
-
-        const onProjectNames = new Set();
-        entriesForDate.forEach(entry => {
-          const employeeName = getEntryEmployeeNameForDashboard(entry);
-          if (!employeeName || !employeeNames.has(employeeName)) return;
-          if (unavailableNames.has(employeeName)) return;
-          if (!isRealProjectEntry(entry)) return;
-          onProjectNames.add(employeeName);
-        });
-
-        const total = employeesInGroup.length;
-        const unavailable = unavailableNames.size;
-        const onProject = onProjectNames.size;
-        const present = Math.max(total - unavailable, 0);
-        const available = Math.max(present - onProject, 0);
-        const utilization = present ? Math.round((onProject / present) * 100) : 0;
-
-        return {
-          group: groupDef.value,
-          label: groupDef.label,
-          total,
-          unavailable,
-          unavailableByType,
-          onProject,
-          present,
-          available,
-          utilization
-        };
-      });
-    }
-
-    function getCapacityMetricsForRange(startDate, endDate) {
-      const startKey = makeLocalDateISO(startDate);
-      const endKey = makeLocalDateISO(endDate);
-      const entriesForPeriod = (state.entries || []).filter(entry => entry && getEntryStartForDashboard(entry) <= endKey && getEntryEndForDashboard(entry) >= startKey);
-
-      function eachDateInRange(callback) {
-        const d = new Date(startDate);
-        d.setHours(0, 0, 0, 0);
-        const end = new Date(endDate);
-        end.setHours(0, 0, 0, 0);
-        while (d <= end) {
-          callback(new Date(d), makeLocalDateISO(d));
-          d.setDate(d.getDate() + 1);
-        }
+    function daysBetween(startDate, endDate) {
+      const days = [];
+      const d = new Date(startDate);
+      d.setHours(0,0,0,0);
+      const end = new Date(endDate);
+      end.setHours(0,0,0,0);
+      while (d <= end) {
+        days.push(new Date(d));
+        d.setDate(d.getDate() + 1);
       }
-
-      return CAPACITY_GROUPS.map(groupDef => {
-        const employeesInGroup = activeEmployees.filter(employee => normalizeEmployeeGroup(employee.employee_group || "") === groupDef.value);
-        const employeeNames = new Set(employeesInGroup.map(employee => employee.name));
-
-        const unavailableNames = new Set();
-        const unavailableByType = Object.fromEntries(UNAVAILABLE_TYPES.map(type => [type, 0]));
-        const unavailableTypeByName = new Map();
-
-        entriesForPeriod.forEach(entry => {
-          const employeeName = getEntryEmployeeNameForDashboard(entry);
-          if (!employeeName || !employeeNames.has(employeeName)) return;
-          if (!isUnavailableEntry(entry)) return;
-          const type = getUnavailableType(entry);
-          if (!type) return;
-          unavailableNames.add(employeeName);
-          if (!unavailableTypeByName.has(employeeName)) unavailableTypeByName.set(employeeName, new Set());
-          unavailableTypeByName.get(employeeName).add(type);
-        });
-
-        unavailableTypeByName.forEach(types => {
-          types.forEach(type => {
-            unavailableByType[type] = (unavailableByType[type] || 0) + 1;
-          });
-        });
-
-        const onProjectNames = new Set();
-        entriesForPeriod.forEach(entry => {
-          const employeeName = getEntryEmployeeNameForDashboard(entry);
-          if (!employeeName || !employeeNames.has(employeeName)) return;
-          if (!isRealProjectEntry(entry)) return;
-          onProjectNames.add(employeeName);
-        });
-
-        let capacityPersonDays = 0;
-        let projectPersonDays = 0;
-        let unavailablePersonDays = 0;
-
-        eachDateInRange((_, dateKey) => {
-          employeesInGroup.forEach(employee => {
-            const employeeName = employee.name;
-            const employeeEntriesForDay = entriesForPeriod.filter(entry => (
-              getEntryEmployeeNameForDashboard(entry) === employeeName &&
-              getEntryStartForDashboard(entry) <= dateKey &&
-              getEntryEndForDashboard(entry) >= dateKey
-            ));
-
-            const isUnavailableToday = employeeEntriesForDay.some(entry => isUnavailableEntry(entry));
-            const isOnProjectToday = employeeEntriesForDay.some(entry => isRealProjectEntry(entry));
-
-            if (isUnavailableToday) {
-              unavailablePersonDays += 1;
-              return;
-            }
-
-            capacityPersonDays += 1;
-            if (isOnProjectToday) {
-              projectPersonDays += 1;
-            }
-          });
-        });
-
-        const total = employeesInGroup.length;
-        const unavailable = unavailableNames.size;
-        const onProject = onProjectNames.size;
-        const available = Math.max(total - unavailable - onProject, 0);
-        const utilization = capacityPersonDays ? Math.round((projectPersonDays / capacityPersonDays) * 100) : 0;
-
-        return {
-          group: groupDef.value,
-          label: groupDef.label,
-          total,
-          unavailable,
-          unavailableByType,
-          onProject,
-          present: Math.max(total - unavailable, 0),
-          available,
-          utilization,
-          capacityPersonDays,
-          projectPersonDays,
-          unavailablePersonDays
-        };
-      });
+      return days;
     }
 
-    function getCapacityMetricsForPeriod(startDate, daysAhead = 30) {
-      return getCapacityMetricsForRange(startDate, addDaysLocal(startDate, daysAhead));
-    }
+    function groupMetrics(group, startDate, endDate) {
+      const employees = activeEmployees.filter(employee => normalizeEmployeeGroup(employee.employee_group || "") === group.value);
+      const names = new Set(employees.map(employee => employee.name));
+      const entries = entriesForRange(startDate, endDate);
+      const onProjectNames = new Set();
+      const unavailableNames = new Set();
+      let projectDays = 0;
+      let capacityDays = 0;
 
-    function getProjectGroupAnalysisForRange(startDate, endDate) {
-      const startKey = makeLocalDateISO(startDate);
-      const endKey = makeLocalDateISO(endDate);
-      const entriesForPeriod = (state.entries || []).filter(entry => entry && getEntryStartForDashboard(entry) <= endKey && getEntryEndForDashboard(entry) >= startKey);
+      entries.forEach(entry => {
+        const name = getEntryEmployee(entry);
+        if (!name || !names.has(name)) return;
+        if (isRealProject(entry)) onProjectNames.add(name);
+        if (isUnavailable(entry)) unavailableNames.add(name);
+      });
 
-      return ANALYSIS_GROUPS.map(groupDef => {
-        const employeesInGroup = activeEmployees.filter(employee => normalizeEmployeeGroup(employee.employee_group || "") === groupDef.value);
-        const employeeNames = new Set(employeesInGroup.map(employee => employee.name));
-        const onProjectNames = new Set();
-
-        entriesForPeriod.forEach(entry => {
-          const employeeName = getEntryEmployeeNameForDashboard(entry);
-          if (!employeeName || !employeeNames.has(employeeName)) return;
-          if (!isRealProjectEntry(entry)) return;
-          onProjectNames.add(employeeName);
+      daysBetween(startDate, endDate).forEach(day => {
+        const key = dayKey(day);
+        employees.forEach(employee => {
+          const employeeEntries = entries.filter(entry => getEntryEmployee(entry) === employee.name && getEntryStart(entry) <= key && getEntryEnd(entry) >= key);
+          const unavailable = employeeEntries.some(isUnavailable);
+          const project = employeeEntries.some(isRealProject);
+          if (unavailable) return;
+          capacityDays += 1;
+          if (project) projectDays += 1;
         });
-
-        return {
-          group: groupDef.value,
-          label: groupDef.label,
-          color: groupDef.color,
-          totalEmployees: employeesInGroup.length,
-          onProject: onProjectNames.size
-        };
       });
+
+      const utilization = capacityDays ? Math.round((projectDays / capacityDays) * 100) : 0;
+      return { ...group, total: employees.length, onProject: onProjectNames.size, unavailable: unavailableNames.size, available: Math.max(employees.length - onProjectNames.size - unavailableNames.size, 0), utilization, projectDays, capacityDays };
     }
 
-    function getCapacityForecast(daysAhead = 30) {
-      const today = new Date();
-      return CAPACITY_GROUPS.map(groupDef => {
-        let minPresent = null;
-        let minPresentDate = null;
-        let minAvailable = null;
-        let minAvailableDate = null;
-
-        for (let i = 0; i <= daysAhead; i += 1) {
-          const date = addDaysLocal(today, i);
-          const metrics = getCapacityMetricsForDate(date).find(row => row.group === groupDef.value);
-          if (!metrics) continue;
-
-          if (minPresent === null || metrics.present < minPresent) {
-            minPresent = metrics.present;
-            minPresentDate = date;
-          }
-
-          if (minAvailable === null || metrics.available < minAvailable) {
-            minAvailable = metrics.available;
-            minAvailableDate = date;
-          }
-        }
-
-        return {
-          group: groupDef.value,
-          label: groupDef.label,
-          minPresent: minPresent ?? 0,
-          minPresentDate,
-          minAvailable: minAvailable ?? 0,
-          minAvailableDate
-        };
+    function dailyGroupMetric(group, date) {
+      const employees = activeEmployees.filter(employee => normalizeEmployeeGroup(employee.employee_group || "") === group.value);
+      const key = dayKey(date);
+      const entries = entriesForRange(date, date);
+      let unavailable = 0;
+      let onProject = 0;
+      employees.forEach(employee => {
+        const employeeEntries = entries.filter(entry => getEntryEmployee(entry) === employee.name && getEntryStart(entry) <= key && getEntryEnd(entry) >= key);
+        if (employeeEntries.some(isUnavailable)) unavailable += 1;
+        else if (employeeEntries.some(isRealProject)) onProject += 1;
       });
+      return { total: employees.length, unavailable, onProject, available: Math.max(employees.length - unavailable - onProject, 0) };
     }
 
     const today = new Date();
-    const historyStart = addDaysLocal(today, -30);
-    const futureEnd = addDaysLocal(today, 30);
-    const todayMetrics = getCapacityMetricsForRange(historyStart, futureEnd);
-    const pastMetrics = getCapacityMetricsForRange(historyStart, today);
-    const futureMetrics = getCapacityMetricsForRange(today, futureEnd);
-    const forecast = getCapacityForecast(30);
-    const capacityTotals = todayMetrics.reduce((acc, row) => {
-      acc.total += row.total;
-      acc.present += row.present;
-      acc.unavailable += row.unavailable;
-      acc.onProject += row.onProject;
-      acc.available += row.available;
-      return acc;
-    }, { total: 0, present: 0, unavailable: 0, onProject: 0, available: 0 });
-    const capacityUtilization = capacityTotals.present ? Math.round((capacityTotals.onProject / capacityTotals.present) * 100) : 0;
+    const historyStart = addDays(today, -30);
+    const futureEnd = addDays(today, 30);
+    const metrics = GROUPS.map(group => groupMetrics(group, historyStart, futureEnd));
+    const totalProjectPeople = metrics.reduce((sum, row) => sum + row.onProject, 0);
+    const totalCapacityDays = metrics.reduce((sum, row) => sum + row.capacityDays, 0);
+    const totalProjectDays = metrics.reduce((sum, row) => sum + row.projectDays, 0);
+    const totalAvailable = metrics.reduce((sum, row) => sum + row.available, 0);
+    const totalUnavailable = metrics.reduce((sum, row) => sum + row.unavailable, 0);
+    const overallUtilization = totalCapacityDays ? Math.round((totalProjectDays / totalCapacityDays) * 100) : 0;
 
-    const realProjectsAll = (state.projects || []).filter(project => project && !isSystemPersonalProject(project));
-    const projectTotals = realProjectsAll.reduce((acc, project) => {
+    const allProjects = (state.projects || []).filter(project => project && !isSystemPersonalProject(project));
+    const projectTotals = allProjects.reduce((acc, project) => {
       const status = normalizeProjectStatus(project.status);
-      if (isCancelledProject(project)) {
-        acc.cancelled += 1;
-      } else if (status === "Fullført") {
-        acc.completed += 1;
-      } else {
-        acc.remaining += 1;
-      }
+      if (isCancelledProject(project)) acc.cancelled += 1;
+      else if (status === "Fullført") acc.completed += 1;
+      else acc.remaining += 1;
       acc.total += 1;
       return acc;
     }, { total: 0, completed: 0, remaining: 0, cancelled: 0 });
-
-    const projectGroupAnalysis = getProjectGroupAnalysisForRange(historyStart, futureEnd);
-    const totalAnalysisOnProject = projectGroupAnalysis.reduce((sum, row) => sum + row.onProject, 0);
-    const analysisLegendHtml = projectGroupAnalysis.map(row => {
-      const pct = totalAnalysisOnProject ? Math.round((row.onProject / totalAnalysisOnProject) * 100) : 0;
-      return `
-        <div class="flex items-center justify-between gap-3 py-2 border-b border-slate-200 last:border-b-0">
-          <div class="flex items-center gap-3 min-w-0">
-            <span class="inline-flex h-3 w-3 rounded-full shrink-0" style="background:${row.color}"></span>
-            <div class="min-w-0">
-              <div class="text-sm font-medium text-slate-800">${escapeHtml(row.label)}</div>
-              <div class="text-[11px] text-slate-500">${row.totalEmployees} ansatte i gruppen</div>
-            </div>
-          </div>
-          <div class="text-right shrink-0">
-            <div class="text-lg font-semibold text-slate-950">${row.onProject}</div>
-            <div class="text-[11px] text-slate-500">${pct}%</div>
-          </div>
-        </div>
-      `;
-    }).join("");
-
-    let cumulativeDegrees = 0;
-    const pieSegments = projectGroupAnalysis.map(row => {
-      const slice = totalAnalysisOnProject ? (row.onProject / totalAnalysisOnProject) * 360 : 0;
-      const start = cumulativeDegrees;
-      const end = cumulativeDegrees + slice;
-      cumulativeDegrees = end;
-      return `${row.color} ${start.toFixed(2)}deg ${end.toFixed(2)}deg`;
-    });
-    const pieChartBackground = totalAnalysisOnProject
-      ? `conic-gradient(${pieSegments.join(", ")})`
-      : "#e5e7eb";
-
-    const projectAnalysisHtml = `
-      <div class="rounded-xl border border-slate-200 bg-slate-50/70 p-4">
-        <div class="flex items-center justify-between gap-3">
-          <div>
-            <div class="text-sm font-semibold text-slate-950">Pie chart – prosjektfordeling</div>
-            <div class="text-xs text-slate-500">Analyse: Offshore, Onshore, Engineering og 3 parts innleie</div>
-          </div>
-          <div class="text-right">
-            <div class="text-2xl font-semibold text-slate-950">${totalAnalysisOnProject}</div>
-            <div class="text-[11px] text-slate-500">personer på prosjekt ±30d</div>
-          </div>
-        </div>
-        <div class="mt-4 grid grid-cols-1 md:grid-cols-[170px,1fr] gap-4 items-center">
-          <div class="mx-auto relative h-40 w-40 rounded-full border border-slate-200" style="background:${pieChartBackground}">
-            <div class="absolute inset-[24%] rounded-full bg-white border border-slate-100 flex flex-col items-center justify-center text-center px-2">
-              <div class="text-2xl font-semibold text-slate-950">${totalAnalysisOnProject}</div>
-              <div class="text-[11px] leading-4 text-slate-500">på prosjekt<br>siste/neste 30d</div>
-            </div>
-          </div>
-          <div class="min-w-0">
-            ${analysisLegendHtml || '<div class="py-6 text-sm text-slate-500">Ingen prosjektdata i analyseperioden.</div>'}
-          </div>
-        </div>
-      </div>
-    `;
-
-    const nonCapacityGroups = getOrderedEmployeeGroups()
-      .filter(group => !CAPACITY_GROUPS.some(capacityGroup => capacityGroup.value === group))
-      .map(group => {
-        const count = activeEmployees.filter(employee => normalizeEmployeeGroup(employee.employee_group || "") === group).length;
-        return { group, count, label: getEmployeeGroupLabel(group) };
-      })
-      .filter(row => row.count > 0);
-
-    const activeProjectCount = activeProjectsForDashboard.length;
-    const unstaffedProjectCount = getUnstaffedProjectsForCurrentCalendarRange().length;
+    const unstaffedCount = getUnstaffedProjectsForCurrentCalendarRange().length;
+    const completedPct = projectTotals.total ? Math.round((projectTotals.completed / projectTotals.total) * 100) : 0;
 
     const actionIcon = (key) => {
       const attrs = 'viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"';
       const icons = {
-        sun: `<svg ${attrs}><path d="M12 4V2"/><path d="M12 22v-2"/><path d="m17.7 6.3 1.4-1.4"/><path d="m4.9 19.1 1.4-1.4"/><path d="M20 12h2"/><path d="M2 12h2"/><path d="m17.7 17.7 1.4 1.4"/><path d="m4.9 4.9 1.4 1.4"/><circle cx="12" cy="12" r="4"/></svg>`,
-        calendar: `<svg ${attrs}><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>`,
+        sun: `<svg ${attrs}><path d="M12 4V2"/><path d="M12 22v-2"/><path d="m17.7 6.3 1.4-1.4"/><path d="m4.9 19.1 1.4-1.4"/><path d="M20 12h2"/><path d="M2 12h2"/><circle cx="12" cy="12" r="4"/></svg>`,
+        calendar: `<svg ${attrs}><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/><path d="M9 16h6"/></svg>`,
         project: `<svg ${attrs}><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M3 12h18"/></svg>`,
         warning: `<svg ${attrs}><path d="M10.3 4.9 2.9 18a1.2 1.2 0 0 0 1.1 1.8h16a1.2 1.2 0 0 0 1.1-1.8L13.7 4.9a1 1 0 0 0-1.7 0Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>`,
         gear: `<svg ${attrs}><path d="M12 15.2a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4Z"/><path d="M19.4 15a1.8 1.8 0 0 0 .36 2l.06.06a2.1 2.1 0 0 1-3 3l-.06-.06a1.8 1.8 0 0 0-2-.36 1.8 1.8 0 0 0-1 1.64V21.4a2.1 2.1 0 0 1-4.2 0v-.1a1.8 1.8 0 0 0-1-1.64 1.8 1.8 0 0 0-2 .36l-.06.06a2.1 2.1 0 0 1-3-3l.06-.06a1.8 1.8 0 0 0 .36-2 1.8 1.8 0 0 0-1.64-1H2.6a2.1 2.1 0 0 1 0-4.2h.1a1.8 1.8 0 0 0 1.64-1 1.8 1.8 0 0 0-.36-2l-.06-.06a2.1 2.1 0 0 1 3-3l.06.06a1.8 1.8 0 0 0 2 .36 1.8 1.8 0 0 0 1-1.64V2.6a2.1 2.1 0 0 1 4.2 0v.1a1.8 1.8 0 0 0 1 1.64 1.8 1.8 0 0 0 2-.36l.06-.06a2.1 2.1 0 0 1 3 3l-.06.06a1.8 1.8 0 0 0-.36 2 1.8 1.8 0 0 0 1.64 1h.1a2.1 2.1 0 0 1 0 4.2h-.1a1.8 1.8 0 0 0-1.64 1Z"/></svg>`,
-        people: `<svg ${attrs}><path d="M16 20v-1.4a3.6 3.6 0 0 0-3.6-3.6H7.6A3.6 3.6 0 0 0 4 18.6V20"/><circle cx="10" cy="7" r="3"/><path d="M20 20v-1.2a3.2 3.2 0 0 0-2.4-3.1"/><path d="M15.5 4.2a3 3 0 0 1 0 5.6"/></svg>`
+        people: `<svg ${attrs}><path d="M16 20v-1.4a3.6 3.6 0 0 0-3.6-3.6H7.6A3.6 3.6 0 0 0 4 18.6V20"/><circle cx="10" cy="7" r="3"/><path d="M20 20v-1.2a3.2 3.2 0 0 0-2.4-3.1"/></svg>`,
+        check: `<svg ${attrs}><circle cx="12" cy="12" r="9"/><path d="m8 12 2.5 2.5L16 9"/></svg>`,
+        bag: `<svg ${attrs}><rect x="5" y="7" width="14" height="13" rx="2"/><path d="M9 7V5a3 3 0 0 1 6 0v2"/></svg>`
       };
       return icons[key] || icons.calendar;
     };
 
     const shortcuts = [
-      { key: "calendar", title: "Ansattplan", text: "Planlegg bemanning og kapasitet for ansatte.", action: "personal" },
+      { key: "calendar", title: "Ansattplan", text: "Planlegg bemanning og kapasitet.", action: "personal" },
       { key: "project", title: "Prosjektplan", text: "Planlegg prosjekter og tildel oppdrag.", action: "project" },
       { key: "warning", title: "Uten bemanning", text: "Se prosjekter som mangler bemanning.", action: "unstaffed" },
       { key: "gear", title: "Prosjektadmin", text: "Administrer prosjekter, faser og oppdrag.", action: "projects" },
@@ -4454,145 +4184,112 @@ async function deleteEditedEntry() {
     const displayName = String(getAccountDisplayName() || state.currentUser || "Planlegger").trim();
     const firstName = displayName && displayName !== "Ikke innlogget" ? displayName.split(/\s+/)[0] : "Planlegger";
 
-    const capacityRowsHtml = todayMetrics.map(row => {
-      const forecastRow = forecast.find(item => item.group === row.group);
-      const pastRow = pastMetrics.find(item => item.group === row.group) || row;
-      const futureRow = futureMetrics.find(item => item.group === row.group) || row;
-      const lowClass = forecastRow && forecastRow.minPresent < LOW_CAPACITY_THRESHOLD ? "text-red-700" : "text-slate-700";
-      const absenceDetails = UNAVAILABLE_TYPES.map(type => `${type}: ${row.unavailableByType[type] || 0}`).join(" · ");
-      return `
-        <div class="rounded-xl border border-slate-200 bg-slate-50/70 p-4">
-          <div class="flex items-start justify-between gap-3">
-            <div>
-              <div class="text-lg font-semibold text-slate-950">${escapeHtml(row.label)}</div>
-              <div class="mt-1 text-xs text-slate-500">${escapeHtml(absenceDetails)}</div>
-            </div>
-            <div class="text-right">
-              <div class="text-2xl font-semibold text-slate-950">${row.utilization}%</div>
-              <div class="text-xs text-slate-500">utnyttelse person-dager</div>
-            </div>
-          </div>
-          <div class="mt-4 grid grid-cols-4 gap-2 text-center">
-            <div><div class="text-xl font-semibold text-slate-950">${row.total}</div><div class="text-[11px] text-slate-500">Totalt</div></div>
-            <div><div class="text-xl font-semibold text-slate-950">${row.onProject}</div><div class="text-[11px] text-slate-500">Personer prosjekt</div></div>
-            <div><div class="text-xl font-semibold text-slate-950">${row.unavailable}</div><div class="text-[11px] text-slate-500">Borte</div></div>
-            <div><div class="text-xl font-semibold text-slate-950">${row.available}</div><div class="text-[11px] text-slate-500">Ikke brukt</div></div>
-          </div>
-          <div class="mt-3 grid grid-cols-2 gap-2 text-xs">
-            <div class="rounded-lg border border-slate-200 bg-white px-3 py-2">
-              <div class="text-slate-500">På prosjekt siste 30d</div>
-              <div class="text-lg font-semibold text-slate-950">${pastRow.onProject}</div>
-            </div>
-            <div class="rounded-lg border border-slate-200 bg-white px-3 py-2">
-              <div class="text-slate-500">Satt opp neste 30d</div>
-              <div class="text-lg font-semibold text-slate-950">${futureRow.onProject}</div>
-            </div>
-          </div>
-          <div class="mt-3 text-xs ${lowClass}">
-            Lavest til stede neste 30 dager: <strong>${forecastRow?.minPresent ?? 0}</strong>${forecastRow?.minPresentDate ? ` (${escapeHtml(forecastRow.minPresentDate.toLocaleDateString("no-NO"))})` : ""}
-          </div>
-        </div>
-      `;
-    }).join("");
+    const shortcutHtml = shortcuts.map(card => `
+      <button type="button" data-home-action="${card.action}" class="dash27-white-card dash27-shortcut text-left">
+        <div class="flex items-start justify-between gap-4"><span class="dash27-iconbox">${actionIcon(card.key)}</span><span class="text-2xl text-slate-500">→</span></div>
+        <div class="mt-4 text-[17px] font-extrabold text-slate-950">${escapeHtml(card.title)}</div>
+        <div class="mt-2 text-sm leading-6 text-slate-600">${escapeHtml(card.text)}</div>
+      </button>
+    `).join("");
 
-    const allGroupRowsHtml = [
-      ...todayMetrics.map(row => ({ label: row.label, count: row.total, capacity: true, group: row.group })),
-      ...nonCapacityGroups.map(row => ({ label: row.label, count: row.count, capacity: false, group: row.group }))
-    ].map(row => `
-      <div class="flex items-center justify-between gap-3 py-3 border-b border-slate-200 last:border-b-0">
-        <div class="flex items-center gap-3 min-w-0">
-          <span class="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-slate-50 text-slate-700 shrink-0">${getEmployeeGroupIconHtml(row.group, "inline-flex h-5 w-5 items-center justify-center text-slate-600 shrink-0")}</span>
-          <div class="min-w-0">
-            <div class="font-medium text-slate-800">${escapeHtml(row.label)}</div>
-            <div class="text-[11px] ${row.capacity ? "text-emerald-700" : "text-slate-400"}">${row.capacity ? "Teller i kapasitet" : "Info – teller ikke i kapasitet"}</div>
-          </div>
-        </div>
-        <span class="text-2xl font-semibold text-slate-950">${escapeHtml(String(row.count))}</span>
+    const kpiCards = [
+      { label: "På prosjekt", value: totalProjectPeople, icon: "people", color: "#2dd4bf", text: `${overallUtilization}% av kapasitetsdager` },
+      { label: "Tilgjengelige", value: totalAvailable, icon: "check", color: "#86efac", text: "ikke brukt i perioden" },
+      { label: "Borte / fravær", value: totalUnavailable, icon: "bag", color: "#fb923c", text: "ferie, syk, kurs, travel" },
+      { label: "Uten bemanning", value: unstaffedCount, icon: "warning", color: "#fb7185", text: `${unstaffedCount} prosjekter berørt` }
+    ].map(card => `
+      <div class="dash27-kpi">
+        <span class="dash27-kpi-icon" style="color:${card.color}">${actionIcon(card.icon)}</span>
+        <div><div class="text-xs uppercase font-black tracking-[.16em]" style="color:${card.color}">${escapeHtml(card.label)}</div><div class="mt-1 text-4xl font-black text-white">${card.value}</div><div class="mt-1 text-sm dash27-muted">${escapeHtml(card.text)}</div></div>
+        <div class="text-right"><div class="text-green-300 font-black">↑</div><div class="text-xs dash27-muted">periode</div></div>
       </div>
     `).join("");
 
-    const groupPanelHtml = `
-      ${projectAnalysisHtml}
-      <div class="mt-4">
-        ${allGroupRowsHtml || '<div class="py-8 text-sm text-slate-500">Ingen ansatte tilgjengelig.</div>'}
+    const weekDays = Array.from({ length: 5 }, (_, i) => addDays(today, i + 1));
+    const heatLevel = (metric) => {
+      if (!metric.total) return "ok";
+      const ratio = metric.available / metric.total;
+      if (metric.available <= 2 || ratio <= 0.18) return "critical";
+      if (metric.available <= 3 || ratio <= 0.30) return "low";
+      return "ok";
+    };
+    const heatClass = (level) => level === "critical" ? "dash27-heat-critical" : level === "low" ? "dash27-heat-low" : "dash27-heat-ok";
+    const heatLabel = (level) => level === "critical" ? "Kritisk" : level === "low" ? "Lav" : "OK";
+    let lowSituations = 0;
+    const heatmapHtml = `
+      <div class="grid grid-cols-[116px_repeat(5,1fr)] gap-2 items-center">
+        <div></div>
+        ${weekDays.map(day => `<div class="text-center text-xs font-bold dash27-muted">${escapeHtml(day.toLocaleDateString("no-NO", { weekday: "short" }).replace(".", ""))}<br><span class="text-[11px]">${escapeHtml(day.toLocaleDateString("no-NO", { day: "numeric", month: "numeric" }))}</span></div>`).join("")}
+        ${GROUPS.map(group => `
+          <div class="text-sm font-bold text-white">${escapeHtml(group.label)}</div>
+          ${weekDays.map(day => {
+            const m = dailyGroupMetric(group, day);
+            const level = heatLevel(m);
+            if (level !== "ok") lowSituations += 1;
+            return `<div class="dash27-heatcell ${heatClass(level)}" title="${escapeHtml(group.label)} ${escapeHtml(day.toLocaleDateString("no-NO"))}: ledig ${m.available}, prosjekt ${m.onProject}, borte ${m.unavailable}">${heatLabel(level)}</div>`;
+          }).join("")}
+        `).join("")}
       </div>
     `;
 
-    const lowCapacityHtml = forecast.map(row => {
-      const lowPresent = row.minPresent < LOW_CAPACITY_THRESHOLD;
-      return `
-        <div class="flex items-center justify-between gap-3 py-3 border-b border-slate-200 last:border-b-0">
-          <div>
-            <div class="font-medium text-slate-800">${escapeHtml(row.label)}</div>
-            <div class="text-xs ${lowPresent ? "text-red-700" : "text-slate-500"}">
-              Lavest til stede: ${row.minPresent}${row.minPresentDate ? ` den ${escapeHtml(row.minPresentDate.toLocaleDateString("no-NO"))}` : ""}
-            </div>
-            <div class="text-xs text-slate-500">
-              Lavest ledig: ${row.minAvailable}${row.minAvailableDate ? ` den ${escapeHtml(row.minAvailableDate.toLocaleDateString("no-NO"))}` : ""}
-            </div>
-          </div>
-          <span class="text-3xl font-semibold ${lowPresent ? "text-red-700" : "text-slate-950"}">${row.minPresent}</span>
-        </div>
-      `;
+    const chartWidth = 760;
+    const chartHeight = 210;
+    const chartDays = Array.from({ length: 14 }, (_, i) => addDays(today, i));
+    const maxAvail = Math.max(...GROUPS.map(group => Math.max(...chartDays.map(day => dailyGroupMetric(group, day).available), 1)), 1);
+    const lines = GROUPS.map(group => {
+      const pts = chartDays.map((day, i) => {
+        const metric = dailyGroupMetric(group, day);
+        const x = 45 + (i * ((chartWidth - 70) / Math.max(chartDays.length - 1, 1)));
+        const y = 168 - ((metric.available / maxAvail) * 125);
+        return `${x.toFixed(1)},${y.toFixed(1)}`;
+      }).join(" ");
+      return `<polyline points="${pts}" fill="none" stroke="${group.color}" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>`;
     }).join("");
+    const labels = chartDays.map((day, i) => {
+      const x = 45 + (i * ((chartWidth - 70) / Math.max(chartDays.length - 1, 1)));
+      return `<text x="${x.toFixed(1)}" y="24" text-anchor="middle" fill="rgba(248,251,253,.72)" font-size="12">${escapeHtml(day.toLocaleDateString("no-NO", { weekday: "short" }).replace(".", ""))}</text><text x="${x.toFixed(1)}" y="40" text-anchor="middle" fill="rgba(248,251,253,.58)" font-size="11">${escapeHtml(day.toLocaleDateString("no-NO", { day: "numeric", month: "numeric" }))}</text>`;
+    }).join("");
+    const chartLegend = metrics.map(row => `<div class="flex items-center justify-between gap-3 text-sm"><span class="flex items-center gap-2"><span class="inline-flex h-2.5 w-2.5 rounded-full" style="background:${row.color}"></span>${escapeHtml(row.label)}</span><strong>${row.available}</strong></div>`).join("");
+
+    let deg = 0;
+    const segments = metrics.map(row => {
+      const slice = totalProjectPeople ? (row.onProject / totalProjectPeople) * 360 : 0;
+      const start = deg;
+      const end = deg + slice;
+      deg = end;
+      return `${row.color} ${start.toFixed(2)}deg ${end.toFixed(2)}deg`;
+    });
+    const donutBg = totalProjectPeople ? `conic-gradient(${segments.join(", ")})` : "#334155";
+    const distLegend = metrics.map(row => {
+      const pct = totalProjectPeople ? Math.round((row.onProject / totalProjectPeople) * 100) : 0;
+      return `<div class="flex items-center justify-between gap-3 py-2"><div class="flex items-center gap-2"><span class="inline-flex h-3 w-3 rounded-sm" style="background:${row.color}"></span><span class="text-sm">${escapeHtml(row.label)}</span></div><div class="text-right text-sm"><strong>${row.onProject}</strong><span class="dash27-muted ml-3">${pct}%</span></div></div>`;
+    }).join("");
+    const maxTotal = Math.max(...metrics.map(row => row.total), 1);
+    const employeesBars = metrics.map(row => `<div class="grid grid-cols-[150px_1fr_52px_48px] gap-3 items-center py-2 dash27-row-line"><div class="flex items-center gap-2 text-sm"><span class="inline-flex h-7 w-7 items-center justify-center rounded-full border border-white/15" style="color:${row.color}">${getEmployeeGroupIconHtml(row.value, "inline-flex h-4 w-4")}</span><span>${escapeHtml(row.label)}</span></div><div class="dash27-progress"><span style="width:${Math.round((row.total / maxTotal) * 100)}%; background:${row.color};"></span></div><div class="text-right font-bold">${row.total}</div><div class="text-right text-green-300 text-sm">↑</div></div>`).join("");
+    const projectRows = [
+      ["Totalt", projectTotals.total, "#e2e8f0"],
+      ["Avsluttet", projectTotals.completed, "#86efac"],
+      ["Gjennomføring", projectTotals.remaining, "#60a5fa"],
+      ["Uten bemanning", unstaffedCount, "#fb7185"],
+      ["Kansellert", projectTotals.cancelled, "#cbd5e1"]
+    ].map(row => `<div class="flex items-center justify-between gap-3 py-3 dash27-row-line"><div class="flex items-center gap-2"><span class="inline-flex h-5 w-5 rounded-full border" style="border-color:${row[2]}"></span><span class="${row[0] === "Uten bemanning" ? "text-red-300 font-bold" : ""}">${escapeHtml(row[0])}</span></div><strong class="text-xl">${row[1]}</strong></div>`).join("");
 
     els.homeDashboard.innerHTML = `
-      <div class="dashboard-shell space-y-4">
-        <div>
-          <h2 class="dashboard-title">Oppstart</h2>
-          <p class="dashboard-subtitle">Kapasitet viser Offshore/Onshore på prosjekter siste 30 og neste 30 dager</p>
+      <div class="dash27-shell space-y-4">
+        <div><h2 class="dash27-title">Oppstart</h2><p class="dash27-subtitle">Operativ oversikt og bemanningsstatus.</p></div>
+        <div class="grid grid-cols-1 xl:grid-cols-[320px_1fr] gap-4">
+          <div class="dash27-panel p-5 flex items-center gap-4"><span class="inline-flex h-16 w-16 items-center justify-center rounded-full bg-cyan-400/10 text-cyan-300 border border-cyan-300/20 shrink-0">${actionIcon("sun")}</span><div><div class="text-xl font-extrabold">God morgen, ${escapeHtml(firstName)}!</div><div class="mt-2 text-sm dash27-muted">Her er din operative status for bemanning og kapasitet.</div><div class="mt-3 text-xs dash27-muted">Oppdatert ${escapeHtml(today.toLocaleDateString("no-NO"))}</div></div></div>
+          <div class="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-5 gap-3">${shortcutHtml}</div>
         </div>
-
-        <div class="dashboard-card dashboard-welcome rounded-[28px] bg-white border border-slate-200 shadow-sm flex items-center gap-4">
-          <span class="inline-flex h-14 w-14 items-center justify-center rounded-full bg-cyan-50 text-cyan-700 shrink-0">${actionIcon("sun")}</span>
-          <div>
-            <div class="text-[20px] font-semibold text-slate-950">God morgen, ${escapeHtml(firstName)}</div>
-            <div class="mt-1 text-sm text-slate-600">Dashboardet teller Offshore og Onshore i kapasitet. Pie chart-analysen viser prosjektfordeling for Offshore, Onshore, Engineering og 3 parts innleie.</div>
-          </div>
+        <div class="dash27-panel overflow-hidden"><div class="px-5 pt-4 text-xl font-extrabold">Operativ status i dag</div><div class="grid grid-cols-1 lg:grid-cols-4">${kpiCards}</div></div>
+        <div class="grid grid-cols-1 2xl:grid-cols-[1.25fr_.75fr] gap-4">
+          <div class="dash27-panel p-5"><div class="flex items-center justify-between gap-3 mb-4"><div class="dash27-card-title">Kapasitetslinje – neste 14 dager <span class="dash27-info">i</span></div><div class="text-sm dash27-muted">Kapasitetsutnyttelse i snitt: ${overallUtilization}%</div></div><div class="grid grid-cols-1 lg:grid-cols-[145px_1fr] gap-4 items-center"><div class="space-y-3">${chartLegend}</div><svg viewBox="0 0 ${chartWidth} ${chartHeight}" class="w-full h-[260px]" role="img" aria-label="Kapasitetslinje"><rect x="42" y="50" width="${chartWidth - 70}" height="132" fill="rgba(45,212,191,.10)" rx="8"></rect>${[0,25,50,75,100].map((tick, idx) => `<line x1="42" x2="${chartWidth - 28}" y1="${180 - idx*32}" y2="${180 - idx*32}" stroke="rgba(226,232,240,.10)" /><text x="16" y="${184 - idx*32}" fill="rgba(248,251,253,.55)" font-size="11">${tick}</text>`).join("")}${labels}${lines}<circle cx="330" cy="108" r="8" fill="#fb7185" stroke="#fff" stroke-width="2"></circle><circle cx="562" cy="118" r="8" fill="#fb7185" stroke="#fff" stroke-width="2"></circle></svg></div><div class="mt-2 text-xs dash27-muted">Linjene viser tilgjengelig kapasitet per gruppe.</div></div>
+          <div class="dash27-panel p-5"><div class="flex items-center justify-between gap-3 mb-4"><div class="dash27-card-title">Lav kapasitet – neste uke <span class="dash27-info">i</span></div><button type="button" data-home-action="project" class="text-cyan-300 text-sm font-bold">Se detaljer →</button></div>${heatmapHtml}<div class="mt-4 pt-4 border-t border-white/10 text-sm"><span class="text-orange-300 font-bold">⚠</span> Totalt ${lowSituations} lav-kapasitetssituasjoner i kommende uke</div></div>
         </div>
-
-        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-3">
-          ${shortcuts.map(card => `
-            <button type="button" data-home-action="${card.action}" class="dashboard-card dashboard-action-card text-left rounded-[28px] bg-white border border-slate-200 shadow-sm hover:border-slate-300 hover:bg-slate-50 transition">
-              <span class="dashboard-action-icon inline-flex items-center justify-center rounded-full bg-slate-50 text-slate-700">${actionIcon(card.key)}</span>
-              <div class="mt-5 text-[17px] font-semibold text-slate-950">${escapeHtml(card.title)}</div>
-              <div class="mt-2 text-sm leading-6 text-slate-600">${escapeHtml(card.text)}</div>
-              <div class="mt-4 text-xl text-slate-500">→</div>
-            </button>
-          `).join("")}
-        </div>
-
-        <div class="grid grid-cols-1 xl:grid-cols-12 gap-3">
-          <div class="dashboard-card dashboard-metric-card xl:col-span-5 rounded-[28px] bg-white border border-slate-200 shadow-sm">
-            <div class="flex items-center justify-between gap-3">
-              <h3 class="text-[20px] font-semibold text-slate-950">Kapasitet Offshore / Onshore</h3>
-              <span class="text-sm text-slate-400">Siste 30 + neste 30 dager · samlet ${capacityUtilization}%</span>
-            </div>
-            <div class="mt-4 space-y-3">${capacityRowsHtml}</div>
-          </div>
-
-          <div class="dashboard-card dashboard-metric-card xl:col-span-3 rounded-[28px] bg-white border border-slate-200 shadow-sm">
-            <div class="flex items-center justify-between gap-3">
-              <h3 class="text-[20px] font-semibold text-slate-950">Ansatte pr gruppe / analyse</h3>
-              <span class="text-sm text-slate-400">Aktive</span>
-            </div>
-            <div class="mt-3">${groupPanelHtml}</div>
-          </div>
-
-          <div class="dashboard-card dashboard-metric-card xl:col-span-4 rounded-[28px] bg-white border border-slate-200 shadow-sm">
-            <div class="flex items-center justify-between gap-3">
-              <h3 class="text-[20px] font-semibold text-slate-950">Lav kapasitet</h3>
-              <span class="text-sm text-slate-400">Neste 30 dager</span>
-            </div>
-            <div class="mt-3">${lowCapacityHtml}</div>
-            <div class="mt-4 divide-y divide-slate-200">
-              <div class="flex items-center justify-between gap-3 py-3"><span class="text-sm text-slate-700">Prosjekter totalt</span><span class="text-3xl font-semibold text-slate-950">${projectTotals.total}</span></div>
-              <div class="flex items-center justify-between gap-3 py-3"><span class="text-sm text-slate-700">Avsluttet</span><span class="text-3xl font-semibold text-slate-950">${projectTotals.completed}</span></div>
-              <div class="flex items-center justify-between gap-3 py-3"><span class="text-sm text-slate-700">Gjenstående</span><span class="text-3xl font-semibold text-slate-950">${projectTotals.remaining}</span></div>
-              <div class="flex items-center justify-between gap-3 py-3"><span class="text-sm text-slate-700">Uten bemanning</span><span class="text-3xl font-semibold text-slate-950">${unstaffedProjectCount}</span></div>
-              <div class="flex items-center justify-between gap-3 py-3"><span class="text-sm text-slate-700">Kansellert</span><span class="text-3xl font-semibold text-slate-950">${projectTotals.cancelled}</span></div>
-            </div>
-          </div>
+        <div class="grid grid-cols-1 xl:grid-cols-3 gap-4">
+          <div class="dash27-panel p-5"><div class="dash27-card-title mb-4">Prosjektfordeling pr gruppe <span class="dash27-info">i</span></div><div class="grid grid-cols-1 md:grid-cols-[190px_1fr] gap-5 items-center"><div class="dash27-donut mx-auto" style="background:${donutBg}"><div class="dash27-donut-inner"><div class="text-sm dash27-muted">Totalt</div><div class="text-4xl font-black">${totalProjectPeople}</div><div class="text-xs dash27-muted">personer</div></div></div><div>${distLegend}</div></div></div>
+          <div class="dash27-panel p-5"><div class="dash27-card-title mb-4">Ansatte pr gruppe <span class="dash27-info">i</span></div><div class="grid grid-cols-[150px_1fr_52px_48px] gap-3 pb-2 text-xs uppercase tracking-wider dash27-muted"><div>Gruppe</div><div></div><div class="text-right">Antall</div><div class="text-right">Endr.</div></div>${employeesBars}<div class="flex items-center justify-between pt-4 font-black"><span>Totalt</span><span>${metrics.reduce((sum, row) => sum + row.total, 0)}</span></div></div>
+          <div class="dash27-panel p-5 grid grid-cols-1 md:grid-cols-[1fr_150px] gap-4 items-center"><div><div class="dash27-card-title mb-4">Prosjektoversikt <span class="dash27-info">i</span></div>${projectRows}</div><div class="dash27-donut mx-auto" style="width:140px;height:140px;background:conic-gradient(#2dd4bf 0 ${completedPct}%, rgba(148,163,184,.38) ${completedPct}% 100%)"><div class="dash27-donut-inner"><div class="text-4xl font-black">${completedPct}%</div><div class="text-[11px] font-bold tracking-wider">AVSLUTTET</div><div class="text-xs dash27-muted">${projectTotals.completed} prosjekter</div></div></div></div>
         </div>
       </div>
     `;
