@@ -1,5 +1,6 @@
 (() => {
-  // v18.23c-startscreen-login-safe
+  // v18.23d-login-repair-from-v18.21-safe
+  // v18.19-ansattplan-project-focus-toggle-safe
   // v18.11: plain visible available-row render for project inspector.
   const supabaseClient = window.supabase?.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -214,7 +215,6 @@
     persistUiState();
 
     await loadAuthUser();
-    if (canPlanApp()) state.activeTab = "home";
 
     if (supabaseClient?.auth) {
       supabaseClient.auth.onAuthStateChange((event) => {
@@ -241,7 +241,7 @@
       "employeeList", "kanbanBoard", "notificationList", "auditList", "editModal", "closeModalBtn",
       "editProject", "editEmployee", "editRole", "editStart", "editEnd", "editNotes",
       "saveEditBtn", "deleteEditBtn", "storageBadge", "resetDemoBtn", "systemStatus", "rangeTitle",
-      "saveStatus", "plannerTabs", "tabHomeBtn", "tabCalendarBtn", "tabProjectsBtn", "tabEmployeesBtn", "tabAdminBtn", "tabHomeSection", "homeGreeting", "homeOpenPersonalPlan", "homeOpenProjectPlan", "homeOpenUnstaffed", "homeOpenProjectAdmin", "homeOpenEmployeeAdmin", "homeUtilDonut", "homeUtilPct", "homeBusyCount", "homeAvailableCount", "homeTotalEmployees", "homeGroupTotal", "homeGroupList", "homeTodayDate", "homeActiveProjects", "homeUnstaffedProjects", "homeAvailableEmployeesMetric", "tabCalendarSection", "tabProjectsSection", "tabEmployeesSection", "tabAdminSection", "calendarMainCol", "calendarPanelCol", "calendarPanelHandleBtn", "calendarPanelCloseBtn", "calendarPanelContent", "newProjectBtn", "projectModal", "projectModalTitle", "closeProjectModalBtn",
+      "saveStatus", "plannerTabs", "tabCalendarBtn", "tabProjectsBtn", "tabEmployeesBtn", "tabAdminBtn", "tabCalendarSection", "tabProjectsSection", "tabEmployeesSection", "tabAdminSection", "calendarMainCol", "calendarPanelCol", "calendarPanelHandleBtn", "calendarPanelCloseBtn", "calendarPanelContent", "newProjectBtn", "projectModal", "projectModalTitle", "closeProjectModalBtn",
       "projectName", "projectCategory", "projectStatus", "projectPlannedStart", "projectPlannedEnd", "projectHasMultiplePeriods", "projectPeriodsSection", "projectPeriodsList", "addProjectPeriodBtn",
       "projectLocation", "projectHeadcount", "projectNotes", "saveProjectBtn", "deleteProjectBtn",
       "newEmployeeBtn", "employeeModal", "employeeModalTitle", "closeEmployeeModalBtn",
@@ -955,17 +955,10 @@
   }
 
   function bindTabEvents() {
-    if (els.tabHomeBtn) els.tabHomeBtn.addEventListener("click", () => setActiveTab("home"));
-    if (els.tabCalendarBtn) els.tabCalendarBtn.addEventListener("click", () => openPersonalCalendarView());
+    if (els.tabCalendarBtn) els.tabCalendarBtn.addEventListener("click", () => setActiveTab("calendar"));
     if (els.tabProjectsBtn) els.tabProjectsBtn.addEventListener("click", () => setActiveTab("projects"));
     if (els.tabEmployeesBtn) els.tabEmployeesBtn.addEventListener("click", () => setActiveTab("employees"));
     if (els.tabAdminBtn) els.tabAdminBtn.addEventListener("click", () => setActiveTab("admin"));
-
-    if (els.homeOpenPersonalPlan) els.homeOpenPersonalPlan.addEventListener("click", () => openPersonalCalendarView());
-    if (els.homeOpenProjectPlan) els.homeOpenProjectPlan.addEventListener("click", () => openProjectCalendarView("all"));
-    if (els.homeOpenUnstaffed) els.homeOpenUnstaffed.addEventListener("click", () => openProjectCalendarView("unstaffed"));
-    if (els.homeOpenProjectAdmin) els.homeOpenProjectAdmin.addEventListener("click", () => setActiveTab("projects"));
-    if (els.homeOpenEmployeeAdmin) els.homeOpenEmployeeAdmin.addEventListener("click", () => setActiveTab("employees"));
   }
 
   function setActiveTab(tabName) {
@@ -975,14 +968,13 @@
 
   function renderLayoutTabs() {
     const canPlan = canPlanApp();
-    const allowedTabs = canPlan ? ["home", "calendar", "projects", "employees", "admin"] : ["calendar"];
+    const allowedTabs = canPlan ? ["calendar", "projects", "employees", "admin"] : ["calendar"];
 
     if (!allowedTabs.includes(state.activeTab)) {
       state.activeTab = "calendar";
     }
 
     const buttons = {
-      home: els.tabHomeBtn,
       calendar: els.tabCalendarBtn,
       projects: els.tabProjectsBtn,
       employees: els.tabEmployeesBtn,
@@ -990,7 +982,6 @@
     };
 
     const sections = {
-      home: els.tabHomeSection,
       calendar: els.tabCalendarSection,
       projects: els.tabProjectsSection,
       employees: els.tabEmployeesSection,
@@ -1017,12 +1008,6 @@
       section.style.display = active ? "" : "none";
       section.classList.toggle("hidden", !active);
     });
-
-    if (els.statsRow) {
-      const showStats = state.activeTab !== "home";
-      els.statsRow.style.display = showStats ? "grid" : "none";
-      els.statsRow.classList.toggle("hidden", !showStats);
-    }
   }
 
 
@@ -3937,7 +3922,6 @@ async function deleteEditedEntry() {
   function renderAll() {
     populateDynamicSelects();
     renderStats();
-    renderHomeSummary();
     renderLegend();
     renderCalendarPanel();
     renderProjects();
@@ -4015,60 +3999,6 @@ async function deleteEditedEntry() {
     }
 
     updateProjectQuickControls(visibleProjects.length, unstaffedProjects.length);
-  }
-
-  function renderHomeSummary() {
-    if (!els.tabHomeSection || !canPlanApp()) return;
-
-    const today = new Date();
-    const todayKey = formatDateISO(today);
-    const employees = (state.employees || []).filter(employee => employee && employee.active !== false);
-    const totalEmployees = employees.length;
-    const employeeNameMap = new Map(employees.map(employee => [employee.name, employee]));
-    const busyNames = new Set();
-
-    (state.entries || []).forEach(entry => {
-      if (!entry) return;
-      if (entry.start > todayKey || entry.end < todayKey) return;
-      const project = getProjectById(entry.projectId);
-      if (!project || isSystemPersonalProject(project) || isCancelledProject(project)) return;
-      if (entry.employeeName) busyNames.add(entry.employeeName);
-    });
-
-    const busyCount = Array.from(busyNames).filter(name => employeeNameMap.has(name)).length;
-    const availableCount = Math.max(totalEmployees - busyCount, 0);
-    const utilizationPct = totalEmployees ? Math.round((busyCount / totalEmployees) * 100) : 0;
-    const displayName = String(getAccountDisplayName() || state.currentUser || "Planlegger").trim();
-    const firstName = displayName.split(/\s+/)[0] || "Planlegger";
-
-    if (els.homeGreeting) els.homeGreeting.textContent = `God morgen, ${firstName}`;
-    if (els.homeUtilPct) els.homeUtilPct.textContent = `${utilizationPct}%`;
-    if (els.homeUtilDonut) els.homeUtilDonut.style.background = `conic-gradient(#34d3bf 0 ${utilizationPct}%, #e5e7eb ${utilizationPct}% 100%)`;
-    if (els.homeBusyCount) els.homeBusyCount.textContent = String(busyCount);
-    if (els.homeAvailableCount) els.homeAvailableCount.textContent = String(availableCount);
-    if (els.homeTotalEmployees) els.homeTotalEmployees.textContent = String(totalEmployees);
-    if (els.homeGroupTotal) els.homeGroupTotal.textContent = `Totalt ${totalEmployees}`;
-    if (els.homeTodayDate) els.homeTodayDate.textContent = formatDate(today);
-    if (els.homeActiveProjects) els.homeActiveProjects.textContent = String(getVisibleProjects().filter(project => !isCancelledProject(project)).length);
-    if (els.homeUnstaffedProjects) els.homeUnstaffedProjects.textContent = String(getUnstaffedProjectsForCurrentCalendarRange().length);
-    if (els.homeAvailableEmployeesMetric) els.homeAvailableEmployeesMetric.textContent = String(availableCount);
-
-    if (els.homeGroupList) {
-      const rows = getOrderedEmployeeGroups().map(group => {
-        const count = employees.filter(employee => normalizeEmployeeGroup(employee.employee_group || "") === group).length;
-        return { group, label: getEmployeeGroupLabel(group), count };
-      }).filter(row => row.count > 0);
-
-      els.homeGroupList.innerHTML = rows.length ? rows.map(row => `
-        <div class="flex items-center justify-between gap-3 py-3 border-b border-slate-200 last:border-b-0">
-          <div class="flex items-center gap-3 min-w-0">
-            <span class="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-slate-50 text-slate-700 shrink-0">${getEmployeeGroupIconHtml(row.group, "inline-flex h-5 w-5 items-center justify-center text-slate-600 shrink-0")}</span>
-            <span class="font-medium text-slate-800">${escapeHtml(row.label)}</span>
-          </div>
-          <span class="text-2xl font-semibold text-slate-900">${escapeHtml(String(row.count))}</span>
-        </div>
-      `).join("") : '<div class="py-6 text-sm text-slate-500">Ingen ansatte tilgjengelig.</div>';
-    }
   }
 
   function updateProjectQuickControls(projectCount = null, unstaffedCount = null) {
