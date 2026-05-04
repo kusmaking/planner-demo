@@ -781,15 +781,22 @@
     <section id="statsRow" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4"></section>
 
     <section id="plannerTabs" class="rounded-2xl bg-white border border-slate-200 shadow-sm p-3">
-      <div class="flex flex-wrap gap-2">
-        <button id="tabCalendarBtn" class="rounded-2xl px-4 py-2 text-sm border border-slate-900 bg-slate-900 text-white" data-tooltip="Kalender" aria-label="Kalender">☷</button>
-        <button id="tabProjectsBtn" class="rounded-2xl px-4 py-2 text-sm border border-slate-300 bg-white text-slate-700" data-tooltip="Prosjekter" aria-label="Prosjekter">♙</button>
-        <button id="tabEmployeesBtn" class="rounded-2xl px-4 py-2 text-sm border border-slate-300 bg-white text-slate-700" data-tooltip="Ansatte" aria-label="Ansatte">◎</button>
-        <button id="tabAdminBtn" class="rounded-2xl px-4 py-2 text-sm border border-slate-300 bg-white text-slate-700" data-tooltip="Admin" aria-label="Admin">⚙</button>
+      <div class="flex flex-wrap gap-2 justify-center">
+        <button id="tabHomeBtn" class="rounded-2xl px-4 py-2 text-sm border border-slate-900 bg-slate-900 text-white" aria-label="Oppstart">Oppstart</button>
+        <button id="tabCalendarBtn" class="rounded-2xl px-4 py-2 text-sm border border-slate-300 bg-white text-slate-700" aria-label="Ansattplan">Ansattplan</button>
+        <button id="tabProjectPlanBtn" class="rounded-2xl px-4 py-2 text-sm border border-slate-300 bg-white text-slate-700" aria-label="Prosjektplan">Prosjektplan</button>
+        <button id="tabUnstaffedBtn" class="rounded-2xl px-4 py-2 text-sm border border-slate-300 bg-white text-slate-700" aria-label="Uten bemanning">Uten bemanning</button>
+        <button id="tabProjectsBtn" class="rounded-2xl px-4 py-2 text-sm border border-slate-300 bg-white text-slate-700" aria-label="Prosjektadmin">Prosjektadmin</button>
+        <button id="tabEmployeesBtn" class="rounded-2xl px-4 py-2 text-sm border border-slate-300 bg-white text-slate-700" aria-label="Ansattadmin">Ansattadmin</button>
+        <button id="tabAdminBtn" class="rounded-2xl px-4 py-2 text-sm border border-slate-300 bg-white text-slate-700" aria-label="Admin">Admin</button>
       </div>
     </section>
 
-    <section id="tabCalendarSection" class="flex flex-col xl:flex-row gap-4 items-start">
+    <section id="tabHomeSection">
+      <div id="homeDashboard"></div>
+    </section>
+
+    <section id="tabCalendarSection" class="flex flex-col xl:flex-row gap-4 items-start" style="display:none;">
       <div id="calendarMainCol" class="min-w-0 flex-1 rounded-2xl bg-white border border-slate-200 shadow-sm">
         <div class="p-4 border-b border-slate-200 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
           <div class="flex flex-wrap gap-2 items-center">
