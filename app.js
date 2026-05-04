@@ -1,5 +1,5 @@
 (() => {
-  // v18.27c-sandbox-dashboard-14-day-forward-safe
+  // v18.27d-sandbox-dashboard-capacity-readability-safe
   // v18.19-ansattplan-project-focus-toggle-safe
   // v18.11: plain visible available-row render for project inspector.
   const supabaseClient = window.supabase?.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -4237,50 +4237,81 @@ async function deleteEditedEntry() {
     `).join("");
 
     const weekDays = Array.from({ length: 5 }, (_, i) => addDays(today, i + 1));
-    const heatLevel = (metric) => {
+    const capacityDays = Array.from({ length: 14 }, (_, i) => addDays(today, i));
+
+    const GROUP_THRESHOLDS = {
+      "Offshore arbeider": { critical: 2, low: 4, note: "Lav ≤4 · Kritisk ≤2" },
+      "Onshore arbeider": { critical: 2, low: 4, note: "Lav ≤4 · Kritisk ≤2" },
+      "Engineering": { critical: 0, low: 1, note: "Lav 1 · Kritisk 0" },
+      "3 parts innleie": { critical: 0, low: 2, note: "Lav ≤2 · Kritisk 0" }
+    };
+
+    const getThreshold = (group) => GROUP_THRESHOLDS[group.value] || { critical: 1, low: 3, note: "Lav terskel" };
+    const heatLevel = (group, metric) => {
+      const threshold = getThreshold(group);
       if (!metric.total) return "ok";
-      const ratio = metric.available / metric.total;
-      if (metric.available <= 2 || ratio <= 0.18) return "critical";
-      if (metric.available <= 3 || ratio <= 0.30) return "low";
+      if (metric.available <= threshold.critical) return "critical";
+      if (metric.available <= threshold.low) return "low";
       return "ok";
     };
     const heatClass = (level) => level === "critical" ? "dash27-heat-critical" : level === "low" ? "dash27-heat-low" : "dash27-heat-ok";
     const heatLabel = (level) => level === "critical" ? "Kritisk" : level === "low" ? "Lav" : "OK";
+
     let lowSituations = 0;
+    const lowSituationRows = [];
     const heatmapHtml = `
       <div class="grid grid-cols-[116px_repeat(5,1fr)] gap-2 items-center">
         <div></div>
         ${weekDays.map(day => `<div class="text-center text-xs font-bold dash27-muted">${escapeHtml(day.toLocaleDateString("no-NO", { weekday: "short" }).replace(".", ""))}<br><span class="text-[11px]">${escapeHtml(day.toLocaleDateString("no-NO", { day: "numeric", month: "numeric" }))}</span></div>`).join("")}
         ${GROUPS.map(group => `
-          <div class="text-sm font-bold text-white">${escapeHtml(group.label)}</div>
+          <div>
+            <div class="text-sm font-bold text-white">${escapeHtml(group.label)}</div>
+            <div class="dash27-threshold-note">${escapeHtml(getThreshold(group).note)}</div>
+          </div>
           ${weekDays.map(day => {
             const m = dailyGroupMetric(group, day);
-            const level = heatLevel(m);
-            if (level !== "ok") lowSituations += 1;
-            return `<div class="dash27-heatcell ${heatClass(level)}" title="${escapeHtml(group.label)} ${escapeHtml(day.toLocaleDateString("no-NO"))}: ledig ${m.available}, prosjekt ${m.onProject}, borte ${m.unavailable}">${heatLabel(level)}</div>`;
+            const level = heatLevel(group, m);
+            if (level !== "ok") {
+              lowSituations += 1;
+              if (lowSituationRows.length < 4) {
+                lowSituationRows.push({ group: group.label, day, metric: m, level });
+              }
+            }
+            return `<div class="dash27-heatcell ${heatClass(level)}" title="${escapeHtml(group.label)} ${escapeHtml(day.toLocaleDateString("no-NO"))}: ledig ${m.available}, prosjekt ${m.onProject}, borte ${m.unavailable}">${m.available}<span class="block text-[10px] font-medium">${heatLabel(level)}</span></div>`;
           }).join("")}
         `).join("")}
       </div>
     `;
 
-    const chartWidth = 760;
-    const chartHeight = 210;
-    const chartDays = Array.from({ length: 14 }, (_, i) => addDays(today, i));
-    const maxAvail = Math.max(...GROUPS.map(group => Math.max(...chartDays.map(day => dailyGroupMetric(group, day).available), 1)), 1);
-    const lines = GROUPS.map(group => {
-      const pts = chartDays.map((day, i) => {
-        const metric = dailyGroupMetric(group, day);
-        const x = 45 + (i * ((chartWidth - 70) / Math.max(chartDays.length - 1, 1)));
-        const y = 168 - ((metric.available / maxAvail) * 125);
-        return `${x.toFixed(1)},${y.toFixed(1)}`;
-      }).join(" ");
-      return `<polyline points="${pts}" fill="none" stroke="${group.color}" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>`;
-    }).join("");
-    const labels = chartDays.map((day, i) => {
-      const x = 45 + (i * ((chartWidth - 70) / Math.max(chartDays.length - 1, 1)));
-      return `<text x="${x.toFixed(1)}" y="24" text-anchor="middle" fill="rgba(248,251,253,.72)" font-size="12">${escapeHtml(day.toLocaleDateString("no-NO", { weekday: "short" }).replace(".", ""))}</text><text x="${x.toFixed(1)}" y="40" text-anchor="middle" fill="rgba(248,251,253,.58)" font-size="11">${escapeHtml(day.toLocaleDateString("no-NO", { day: "numeric", month: "numeric" }))}</text>`;
-    }).join("");
-    const chartLegend = metrics.map(row => `<div class="flex items-center justify-between gap-3 text-sm"><span class="flex items-center gap-2"><span class="inline-flex h-2.5 w-2.5 rounded-full" style="background:${row.color}"></span>${escapeHtml(row.label)}</span><strong>${row.available}</strong></div>`).join("");
+    const capacityOverviewHtml = `
+      <div class="dash27-capacity-scroll">
+        <div class="dash27-capacity-table">
+          <div></div>
+          ${capacityDays.map(day => `<div class="dash27-capacity-head">${escapeHtml(day.toLocaleDateString("no-NO", { weekday: "short" }).replace(".", ""))}<br>${escapeHtml(day.toLocaleDateString("no-NO", { day: "numeric", month: "numeric" }))}</div>`).join("")}
+          ${GROUPS.map(group => `
+            <div class="dash27-capacity-group">
+              <div class="flex items-center gap-2">
+                <span class="inline-flex h-2.5 w-2.5 rounded-full" style="background:${group.color}"></span>
+                <strong>${escapeHtml(group.label)}</strong>
+              </div>
+              <div class="dash27-threshold-note">${escapeHtml(getThreshold(group).note)}</div>
+            </div>
+            ${capacityDays.map(day => {
+              const metric = dailyGroupMetric(group, day);
+              const level = heatLevel(group, metric);
+              return `<div class="dash27-capacity-cell ${heatClass(level)}" title="${escapeHtml(group.label)} ${escapeHtml(day.toLocaleDateString("no-NO"))}: ledig ${metric.available}, på prosjekt ${metric.onProject}, borte ${metric.unavailable}">
+                <strong>${metric.available}</strong>
+                <span>P:${metric.onProject} · B:${metric.unavailable}</span>
+              </div>`;
+            }).join("")}
+          `).join("")}
+        </div>
+      </div>
+    `;
+
+    const lowSituationSummaryHtml = lowSituationRows.length
+      ? `<div class="dash27-why-low">${lowSituationRows.map(item => `<div class="dash27-alert-line"><strong>${escapeHtml(item.group)}</strong> · ${escapeHtml(item.day.toLocaleDateString("no-NO", { weekday: "short", day: "numeric", month: "numeric" }))}: ${item.metric.available} ledig · ${item.metric.onProject} på prosjekt · ${item.metric.unavailable} borte</div>`).join("")}</div>`
+      : `<div class="dash27-why-low"><div class="dash27-alert-line">Ingen lave kapasitetsdager i denne ukevisningen.</div></div>`;
 
     let deg = 0;
     const segments = metrics.map(row => {
@@ -4314,8 +4345,8 @@ async function deleteEditedEntry() {
         </div>
         <div class="dash27-panel overflow-hidden"><div class="px-5 pt-4 text-xl font-extrabold">Operativ status – neste 14 dager</div><div class="grid grid-cols-1 lg:grid-cols-4">${kpiCards}</div></div>
         <div class="grid grid-cols-1 2xl:grid-cols-[1.25fr_.75fr] gap-4">
-          <div class="dash27-panel p-5"><div class="flex items-center justify-between gap-3 mb-4"><div class="dash27-card-title">Kapasitetslinje – neste 14 dager <span class="dash27-info">i</span></div><div class="text-sm dash27-muted">Kapasitetsutnyttelse i snitt: ${overallUtilization}%</div></div><div class="grid grid-cols-1 lg:grid-cols-[145px_1fr] gap-4 items-center"><div class="space-y-3">${chartLegend}</div><svg viewBox="0 0 ${chartWidth} ${chartHeight}" class="w-full h-[260px]" role="img" aria-label="Kapasitetslinje"><rect x="42" y="50" width="${chartWidth - 70}" height="132" fill="rgba(45,212,191,.10)" rx="8"></rect>${[0,25,50,75,100].map((tick, idx) => `<line x1="42" x2="${chartWidth - 28}" y1="${180 - idx*32}" y2="${180 - idx*32}" stroke="rgba(226,232,240,.10)" /><text x="16" y="${184 - idx*32}" fill="rgba(248,251,253,.55)" font-size="11">${tick}</text>`).join("")}${labels}${lines}<circle cx="330" cy="108" r="8" fill="#fb7185" stroke="#fff" stroke-width="2"></circle><circle cx="562" cy="118" r="8" fill="#fb7185" stroke="#fff" stroke-width="2"></circle></svg></div><div class="mt-2 text-xs dash27-muted">Linjene viser tilgjengelig kapasitet per gruppe de neste 14 dagene.</div></div>
-          <div class="dash27-panel p-5"><div class="flex items-center justify-between gap-3 mb-4"><div class="dash27-card-title">Lav kapasitet – neste uke <span class="dash27-info">i</span></div><button type="button" data-home-action="project" class="text-cyan-300 text-sm font-bold">Se detaljer →</button></div>${heatmapHtml}<div class="mt-4 pt-4 border-t border-white/10 text-sm"><span class="text-orange-300 font-bold">⚠</span> Totalt ${lowSituations} lav-kapasitetssituasjoner i kommende uke</div></div>
+          <div class="dash27-panel p-5"><div class="flex items-center justify-between gap-3 mb-4"><div class="dash27-card-title">Kapasitet dag for dag – neste 14 dager <span class="dash27-info">i</span></div><div class="text-sm dash27-muted">Ledig kapasitet · P = prosjekt · B = borte</div></div>${capacityOverviewHtml}<div class="mt-3 text-xs dash27-muted">Viser antall ledige per gruppe per dag. Farge følger egne terskler per gruppe, slik at Engineering ikke vurderes likt som Offshore/Onshore.</div></div>
+          <div class="dash27-panel p-5"><div class="flex items-center justify-between gap-3 mb-4"><div class="dash27-card-title">Lav kapasitet – neste uke <span class="dash27-info">i</span></div><button type="button" data-home-action="project" class="text-cyan-300 text-sm font-bold">Se detaljer →</button></div>${heatmapHtml}<div class="mt-4 pt-4 border-t border-white/10 text-sm"><span class="text-orange-300 font-bold">⚠</span> Totalt ${lowSituations} lav-kapasitetssituasjoner i kommende uke</div>${lowSituationSummaryHtml}</div>
         </div>
         <div class="grid grid-cols-1 xl:grid-cols-3 gap-4">
           <div class="dash27-panel p-5"><div class="dash27-card-title mb-4">Prosjektfordeling pr gruppe <span class="dash27-info">i</span></div><div class="grid grid-cols-1 md:grid-cols-[190px_1fr] gap-5 items-center"><div class="dash27-donut mx-auto" style="background:${donutBg}"><div class="dash27-donut-inner"><div class="text-sm dash27-muted">Totalt</div><div class="text-4xl font-black">${totalProjectPeople}</div><div class="text-xs dash27-muted">personer</div></div></div><div>${distLegend}</div></div></div>

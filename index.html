@@ -920,6 +920,86 @@
       font-weight: 700;
     }
 
+    /* v18.27d capacity readability */
+    body.iz-compact-ui #homeDashboard .dash27-capacity-scroll {
+      overflow-x: auto;
+      padding-bottom: 4px;
+    }
+    body.iz-compact-ui #homeDashboard .dash27-capacity-table {
+      min-width: 1040px;
+      display: grid;
+      grid-template-columns: 156px repeat(14, minmax(64px, 1fr));
+      gap: 8px;
+      align-items: stretch;
+    }
+    body.iz-compact-ui #homeDashboard .dash27-capacity-head {
+      min-height: 42px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      font-size: 11px;
+      font-weight: 800;
+      color: rgba(235,248,250,.70);
+      background: rgba(255,255,255,.035);
+      border: 1px solid rgba(255,255,255,.06);
+      line-height: 1.25;
+    }
+    body.iz-compact-ui #homeDashboard .dash27-capacity-group {
+      min-height: 58px;
+      border-radius: 9px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding: 8px 10px;
+      background: rgba(255,255,255,.055);
+      border: 1px solid rgba(255,255,255,.08);
+    }
+    body.iz-compact-ui #homeDashboard .dash27-capacity-cell {
+      min-height: 58px;
+      border-radius: 9px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      border: 1px solid rgba(255,255,255,.07);
+      color: #fff;
+      padding: 6px 4px;
+    }
+    body.iz-compact-ui #homeDashboard .dash27-capacity-cell strong {
+      font-size: 20px;
+      line-height: 1;
+      font-weight: 900;
+    }
+    body.iz-compact-ui #homeDashboard .dash27-capacity-cell span {
+      font-size: 10px;
+      line-height: 1.25;
+      opacity: .88;
+      margin-top: 4px;
+    }
+    body.iz-compact-ui #homeDashboard .dash27-threshold-note {
+      font-size: 11px;
+      color: rgba(235,248,250,.62);
+      margin-top: 2px;
+    }
+    body.iz-compact-ui #homeDashboard .dash27-why-low {
+      margin-top: 12px;
+      border-top: 1px solid rgba(255,255,255,.10);
+      padding-top: 12px;
+      display: grid;
+      gap: 8px;
+    }
+    body.iz-compact-ui #homeDashboard .dash27-alert-line {
+      border-radius: 9px;
+      background: rgba(255,255,255,.045);
+      border: 1px solid rgba(255,255,255,.075);
+      padding: 9px 10px;
+      font-size: 12px;
+      color: rgba(248,251,253,.92);
+    }
+
   </style>
 </head>
 <body class="iz-compact-ui text-slate-900">
