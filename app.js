@@ -1,5 +1,5 @@
 (() => {
-  // v18.27b-sandbox-dashboard-kpi-filters-safe
+  // v18.27c-sandbox-dashboard-14-day-forward-safe
   // v18.19-ansattplan-project-focus-toggle-safe
   // v18.11: plain visible available-row render for project inspector.
   const supabaseClient = window.supabase?.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -4161,9 +4161,10 @@ async function deleteEditedEntry() {
     }
 
     const today = new Date();
-    const historyStart = addDays(today, -30);
-    const futureEnd = addDays(today, 30);
-    const metrics = GROUPS.map(group => groupMetrics(group, historyStart, futureEnd));
+    const analysisStart = new Date(today);
+    analysisStart.setHours(0, 0, 0, 0);
+    const analysisEnd = addDays(analysisStart, 14);
+    const metrics = GROUPS.map(group => groupMetrics(group, analysisStart, analysisEnd));
     const totalProjectPeople = metrics.reduce((sum, row) => sum + row.onProject, 0);
     const totalCapacityDays = metrics.reduce((sum, row) => sum + row.capacityDays, 0);
     const totalProjectDays = metrics.reduce((sum, row) => sum + row.projectDays, 0);
@@ -4218,7 +4219,7 @@ async function deleteEditedEntry() {
     `).join("");
 
     const kpiCards = [
-      { label: "På prosjekt", value: totalProjectPeople, icon: "people", color: "#2dd4bf", text: `${overallUtilization}% av kapasitetsdager`, action: "dash-on-project", actionText: "Vis disse" },
+      { label: "På prosjekt", value: totalProjectPeople, icon: "people", color: "#2dd4bf", text: `${overallUtilization}% neste 14 dager`, action: "dash-on-project", actionText: "Vis disse" },
       { label: "Tilgjengelige", value: totalAvailable, icon: "check", color: "#86efac", text: "ikke brukt i perioden", action: "dash-available", actionText: "Vis disse" },
       { label: "Borte / fravær", value: totalUnavailable, icon: "bag", color: "#fb923c", text: "ferie, syk, kurs, travel", action: "dash-away", actionText: "Vis disse" },
       { label: "Uten bemanning", value: unstaffedCount, icon: "warning", color: "#fb7185", text: `${unstaffedCount} prosjekter berørt`, action: "unstaffed", actionText: "Se prosjekter" }
@@ -4306,14 +4307,14 @@ async function deleteEditedEntry() {
 
     els.homeDashboard.innerHTML = `
       <div class="dash27-shell space-y-4">
-        <div><h2 class="dash27-title">Oppstart</h2><p class="dash27-subtitle">Operativ oversikt og bemanningsstatus.</p></div>
+        <div><h2 class="dash27-title">Oppstart</h2><p class="dash27-subtitle">Operativ oversikt for dagens dato og de neste 14 dagene.</p></div>
         <div class="grid grid-cols-1 xl:grid-cols-[320px_1fr] gap-4">
-          <div class="dash27-panel p-5 flex items-center gap-4"><span class="inline-flex h-16 w-16 items-center justify-center rounded-full bg-cyan-400/10 text-cyan-300 border border-cyan-300/20 shrink-0">${actionIcon("sun")}</span><div><div class="text-xl font-extrabold">God morgen, ${escapeHtml(firstName)}!</div><div class="mt-2 text-sm dash27-muted">Her er din operative status for bemanning og kapasitet.</div><div class="mt-3 text-xs dash27-muted">Oppdatert ${escapeHtml(today.toLocaleDateString("no-NO"))}</div></div></div>
+          <div class="dash27-panel p-5 flex items-center gap-4"><span class="inline-flex h-16 w-16 items-center justify-center rounded-full bg-cyan-400/10 text-cyan-300 border border-cyan-300/20 shrink-0">${actionIcon("sun")}</span><div><div class="text-xl font-extrabold">God morgen, ${escapeHtml(firstName)}!</div><div class="mt-2 text-sm dash27-muted">Her er hvem som er opptatt og tilgjengelig de neste 14 dagene.</div><div class="mt-3 text-xs dash27-muted">Oppdatert ${escapeHtml(today.toLocaleDateString("no-NO"))}</div></div></div>
           <div class="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-5 gap-3">${shortcutHtml}</div>
         </div>
-        <div class="dash27-panel overflow-hidden"><div class="px-5 pt-4 text-xl font-extrabold">Operativ status i dag</div><div class="grid grid-cols-1 lg:grid-cols-4">${kpiCards}</div></div>
+        <div class="dash27-panel overflow-hidden"><div class="px-5 pt-4 text-xl font-extrabold">Operativ status – neste 14 dager</div><div class="grid grid-cols-1 lg:grid-cols-4">${kpiCards}</div></div>
         <div class="grid grid-cols-1 2xl:grid-cols-[1.25fr_.75fr] gap-4">
-          <div class="dash27-panel p-5"><div class="flex items-center justify-between gap-3 mb-4"><div class="dash27-card-title">Kapasitetslinje – neste 14 dager <span class="dash27-info">i</span></div><div class="text-sm dash27-muted">Kapasitetsutnyttelse i snitt: ${overallUtilization}%</div></div><div class="grid grid-cols-1 lg:grid-cols-[145px_1fr] gap-4 items-center"><div class="space-y-3">${chartLegend}</div><svg viewBox="0 0 ${chartWidth} ${chartHeight}" class="w-full h-[260px]" role="img" aria-label="Kapasitetslinje"><rect x="42" y="50" width="${chartWidth - 70}" height="132" fill="rgba(45,212,191,.10)" rx="8"></rect>${[0,25,50,75,100].map((tick, idx) => `<line x1="42" x2="${chartWidth - 28}" y1="${180 - idx*32}" y2="${180 - idx*32}" stroke="rgba(226,232,240,.10)" /><text x="16" y="${184 - idx*32}" fill="rgba(248,251,253,.55)" font-size="11">${tick}</text>`).join("")}${labels}${lines}<circle cx="330" cy="108" r="8" fill="#fb7185" stroke="#fff" stroke-width="2"></circle><circle cx="562" cy="118" r="8" fill="#fb7185" stroke="#fff" stroke-width="2"></circle></svg></div><div class="mt-2 text-xs dash27-muted">Linjene viser tilgjengelig kapasitet per gruppe.</div></div>
+          <div class="dash27-panel p-5"><div class="flex items-center justify-between gap-3 mb-4"><div class="dash27-card-title">Kapasitetslinje – neste 14 dager <span class="dash27-info">i</span></div><div class="text-sm dash27-muted">Kapasitetsutnyttelse i snitt: ${overallUtilization}%</div></div><div class="grid grid-cols-1 lg:grid-cols-[145px_1fr] gap-4 items-center"><div class="space-y-3">${chartLegend}</div><svg viewBox="0 0 ${chartWidth} ${chartHeight}" class="w-full h-[260px]" role="img" aria-label="Kapasitetslinje"><rect x="42" y="50" width="${chartWidth - 70}" height="132" fill="rgba(45,212,191,.10)" rx="8"></rect>${[0,25,50,75,100].map((tick, idx) => `<line x1="42" x2="${chartWidth - 28}" y1="${180 - idx*32}" y2="${180 - idx*32}" stroke="rgba(226,232,240,.10)" /><text x="16" y="${184 - idx*32}" fill="rgba(248,251,253,.55)" font-size="11">${tick}</text>`).join("")}${labels}${lines}<circle cx="330" cy="108" r="8" fill="#fb7185" stroke="#fff" stroke-width="2"></circle><circle cx="562" cy="118" r="8" fill="#fb7185" stroke="#fff" stroke-width="2"></circle></svg></div><div class="mt-2 text-xs dash27-muted">Linjene viser tilgjengelig kapasitet per gruppe de neste 14 dagene.</div></div>
           <div class="dash27-panel p-5"><div class="flex items-center justify-between gap-3 mb-4"><div class="dash27-card-title">Lav kapasitet – neste uke <span class="dash27-info">i</span></div><button type="button" data-home-action="project" class="text-cyan-300 text-sm font-bold">Se detaljer →</button></div>${heatmapHtml}<div class="mt-4 pt-4 border-t border-white/10 text-sm"><span class="text-orange-300 font-bold">⚠</span> Totalt ${lowSituations} lav-kapasitetssituasjoner i kommende uke</div></div>
         </div>
         <div class="grid grid-cols-1 xl:grid-cols-3 gap-4">
@@ -5772,7 +5773,7 @@ async function deleteEditedEntry() {
     const employeeGroups = getCalendarEmployeeGroups(employees);
 
     const dashboardFilterBanner = state.dashboardEmployeeFilter
-      ? `<div id="dashboardEmployeeFilterBanner"><div><strong>Dashboard-filter:</strong> ${escapeHtml(state.dashboardEmployeeFilterLabel || "Utvalg")} · viser ${employees.length} ansatte i valgt periode</div><button type="button" id="clearDashboardEmployeeFilterBtn">Vis alle ansatte</button></div>`
+      ? `<div id="dashboardEmployeeFilterBanner"><div><strong>Dashboard-filter:</strong> ${escapeHtml(state.dashboardEmployeeFilterLabel || "Utvalg")} · viser ${employees.length} ansatte · ${escapeHtml(getDashboardAnalysisPeriodLabel())}</div><button type="button" id="clearDashboardEmployeeFilterBtn">Vis alle ansatte</button></div>`
       : "";
 
     const stickyWidth = 238;
@@ -6578,11 +6579,23 @@ async function moveEntryByDrop(entryId, targetEmployeeName, dropMeta = null) {
   void addAudit(`Flyttet tildeling: ${displayProjectName(project) || "Ukjent prosjekt"} fra ${previous.employee_name} (${previous.start_date}–${previous.end_date}) til ${entry.employee_name} (${entry.start_date}–${entry.end_date})`);
 }
 
-function getDashboardEmployeeFilterNames() {
+function getDashboardAnalysisRange() {
+    const start = new Date();
+    start.setHours(0, 0, 0, 0);
+    const end = addDays(start, 14);
+    return { start, end };
+  }
+
+  function getDashboardAnalysisPeriodLabel() {
+    const range = getDashboardAnalysisRange();
+    return `${formatDate(range.start)} – ${formatDate(range.end)}`;
+  }
+
+  function getDashboardEmployeeFilterNames() {
     const filterType = state.dashboardEmployeeFilter || "";
     if (!filterType) return null;
 
-    const range = getCurrentRange();
+    const range = getDashboardAnalysisRange();
     const startKey = makeLocalDateISO(range.start);
     const endKey = makeLocalDateISO(range.end);
     const activeNames = new Set((state.employees || []).filter(emp => emp.active !== false).map(emp => emp.name));
