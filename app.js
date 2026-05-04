@@ -94,6 +94,7 @@
   const PERSONAL_BLOCK_TYPES = ["Kurs", "Ferie", "Syk", "Avspasering", "Travel"];
   const PROJECT_STATUS_OPTIONS = ["Planlagt", "Pågår", "Avventer", "Fullført", "Kansellert"];
   const PERSONAL_PROJECT_MARKER = "__personal_block_system_project__";
+  // v18.20-personalblock-modal-click-guard-safe
   const EMPLOYEE_GROUP_DEFINITIONS = [
     {
       value: "Offshore arbeider",
@@ -1361,6 +1362,10 @@
     if (event.target?.closest?.(".entry-bar")) return false;
     if (event.target?.closest?.("[data-resize-handle]")) return false;
     if (event.target?.closest?.("#calendarContextMenu")) return false;
+    // v18.20: Ikke åpne direkteblokk-popup når et modalvindu er aktivt, eller når brukeren klikker inni et modal.
+    // Dette hindrer at Lukk/Lagre/Fjern i Rediger tildeling åpner "Legg til direkte blokk" på kalenderen bak.
+    if (event.target?.closest?.("#editModal, #projectModal, #employeeModal, #loginModal")) return false;
+    if (hasOpenEditorModal()) return false;
 
     // Når prosjekt-spotlight er aktiv, skal tomme kalenderfelt ikke åpne
     // ferie/syk/kurs/avspasering. Bruk Nullstill fokus først.
@@ -1785,7 +1790,12 @@
       els.contextMenuAddBtn.addEventListener("click", createContextMenuPersonalBlockEntry);
     }
     if (els.contextMenuCloseBtn) {
-      els.contextMenuCloseBtn.addEventListener("click", hideCalendarContextMenu);
+      els.contextMenuCloseBtn.addEventListener("click", event => {
+        event.preventDefault();
+        event.stopPropagation();
+        if (typeof event.stopImmediatePropagation === "function") event.stopImmediatePropagation();
+        hideCalendarContextMenu();
+      });
     }
     document.addEventListener("click", handleGlobalPointerClose, true);
     window.addEventListener("resize", hideCalendarContextMenu);
@@ -1798,7 +1808,12 @@
       els.resetDemoBtn.style.display = "none";
     }
 
-    els.closeModalBtn.addEventListener("click", closeEditModal);
+    els.closeModalBtn.addEventListener("click", event => {
+      event.preventDefault();
+      event.stopPropagation();
+      if (typeof event.stopImmediatePropagation === "function") event.stopImmediatePropagation();
+      closeEditModal();
+    });
     els.saveEditBtn.addEventListener("click", saveEditedEntry);
     els.deleteEditBtn.addEventListener("click", deleteEditedEntry);
 
