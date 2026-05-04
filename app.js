@@ -1,5 +1,5 @@
 (() => {
-  // v18.30-sandbox-workshop-persistence-safe
+  // v18.30a-sandbox-project-edit-access-safe
   // v18.19-ansattplan-project-focus-toggle-safe
   // v18.11: plain visible available-row render for project inspector.
   const supabaseClient = window.supabase?.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -5102,7 +5102,10 @@ async function deleteEditedEntry() {
             <div class="mt-1 truncate text-sm font-medium text-slate-800">${escapeHtml(project.name)}</div>
             <div class="mt-1 text-xs font-medium ${staffingTone}">${escapeHtml(staffing.text)}${required ? ` (${assigned}/${required})` : ""}</div>
           </div>
-          <button id="calendarProjectPanelCloseBtn" type="button" class="rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50">×</button>
+          <div class="flex items-center gap-2 shrink-0">
+            <button data-calendar-panel-edit-project="${escapeHtml(project.id)}" type="button" class="rounded-xl border border-slate-300 bg-slate-900 px-3 py-1.5 text-sm font-semibold text-white hover:bg-slate-800">Rediger prosjekt</button>
+            <button id="calendarProjectPanelCloseBtn" type="button" class="rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50">×</button>
+          </div>
         </div>
 
         <div class="min-h-0 flex-1 space-y-4 overflow-auto p-4 text-sm">
@@ -5120,7 +5123,7 @@ async function deleteEditedEntry() {
           <section>
             <div class="mb-2 flex items-center justify-between gap-2">
               <h3 class="font-semibold text-slate-900">Perioder</h3>
-              <button data-calendar-panel-edit-project="${escapeHtml(project.id)}" type="button" class="rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50">+ Del opp / legg til periode</button>
+              <button data-calendar-panel-edit-project="${escapeHtml(project.id)}" type="button" class="rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50">Rediger perioder</button>
             </div>
             <div class="space-y-2">
               ${periods.length ? periods.map((period, index) => `
