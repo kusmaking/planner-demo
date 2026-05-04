@@ -1,5 +1,5 @@
 (() => {
-  // v18.30f-sandbox-force-project-edit-button-safe
+  // v18.30g-sandbox-restyle-existing-project-edit-button-safe
   // v18.19-ansattplan-project-focus-toggle-safe
   // v18.11: plain visible available-row render for project inspector.
   const supabaseClient = window.supabase?.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -4891,37 +4891,6 @@ async function deleteEditedEntry() {
     void addNotification(employee.name, project.name);
   }
 
-  function injectProjectPanelEditButton(project) {
-    if (!project || !els.calendarPanelContent) return;
-
-    const existing = document.getElementById("projectInspectorEditProjectForceBtn");
-    if (existing) existing.remove();
-
-    const button = document.createElement("button");
-    button.id = "projectInspectorEditProjectForceBtn";
-    button.type = "button";
-    button.className = "project-panel-edit-force-btn";
-    button.dataset.calendarPanelEditProject = project.id;
-    button.innerHTML = `<span>Rediger prosjekt</span><small>Workshop · feltperiode · ressursbehov</small>`;
-    button.addEventListener("click", event => {
-      event.preventDefault();
-      event.stopPropagation();
-      openProjectModal(project.id);
-    });
-
-    const contentRoot = els.calendarPanelContent.querySelector(".min-h-0.flex-1") || els.calendarPanelContent.firstElementChild || els.calendarPanelContent;
-    if (contentRoot && contentRoot !== els.calendarPanelContent) {
-      const firstInner = contentRoot.querySelector(":scope > div, :scope > section");
-      if (firstInner) {
-        contentRoot.insertBefore(button, firstInner);
-      } else {
-        contentRoot.prepend(button);
-      }
-    } else {
-      els.calendarPanelContent.prepend(button);
-    }
-  }
-
   function renderProjectInspectorPanel(project) {
     // v17.8: Assigned rows render visible Endre and remove buttons directly in this panel.
     if (!els.calendarPanelContent || !project) return;
@@ -5134,11 +5103,23 @@ async function deleteEditedEntry() {
             <div class="mt-1 text-xs font-medium ${staffingTone}">${escapeHtml(staffing.text)}${required ? ` (${assigned}/${required})` : ""}</div>
           </div>
           <div class="flex items-center gap-2 shrink-0">
+            <button data-calendar-panel-edit-project="${escapeHtml(project.id)}" type="button" class="rounded-xl border border-slate-300 bg-slate-900 px-3 py-1.5 text-sm font-semibold text-white hover:bg-slate-800">Rediger prosjekt</button>
             <button id="calendarProjectPanelCloseBtn" type="button" class="rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50">×</button>
           </div>
         </div>
 
         <div class="min-h-0 flex-1 space-y-4 overflow-auto p-4 text-sm">
+          <div style="display:block !important;margin:0 0 12px 0 !important;width:100% !important;">
+            <button
+              id="projectInspectorEditProjectVisibleBtn"
+              data-calendar-panel-edit-project="${escapeHtml(project.id)}"
+              type="button"
+              style="display:flex !important;flex-direction:column !important;align-items:flex-start !important;justify-content:center !important;width:100% !important;min-height:52px !important;box-sizing:border-box !important;border:1px solid rgba(132,204,222,0.38) !important;background:rgba(255,255,255,0.08) !important;color:#f8fbfd !important;border-radius:4px !important;padding:10px 12px !important;font-size:13px !important;font-weight:900 !important;line-height:1.15 !important;cursor:pointer !important;visibility:visible !important;opacity:1 !important;position:relative !important;z-index:30 !important;text-align:left !important;"
+            >
+              <span style="display:block !important;font-size:13px !important;font-weight:900 !important;color:#f8fbfd !important;">Rediger prosjekt</span>
+              <span style="display:block !important;margin-top:4px !important;font-size:11px !important;font-weight:650 !important;color:rgba(232,244,248,0.72) !important;">Feltperiode · workshop · ressursbehov</span>
+            </button>
+          </div>
           <div class="grid grid-cols-2 gap-2">
             <div class="rounded-2xl border border-slate-200 bg-slate-50 p-3">
               <div class="text-[11px] uppercase tracking-wide text-slate-500">Kategori</div>
@@ -5149,16 +5130,6 @@ async function deleteEditedEntry() {
               <div class="mt-1 font-semibold text-slate-900">${required || 0} personer</div>
             </div>
           </div>
-
-          <button
-            id="projectInspectorEditProjectVisibleBtn"
-            data-calendar-panel-edit-project="${escapeHtml(project.id)}"
-            type="button"
-            class="project-panel-edit-btn"
-          >
-            Rediger prosjekt
-            <span>Workshop · feltperiode · ressursbehov</span>
-          </button>
 
           <section>
             <div class="mb-2 flex items-center justify-between gap-2">
@@ -5201,8 +5172,6 @@ async function deleteEditedEntry() {
       selectButtons: els.calendarPanelContent.querySelectorAll("[data-project-inspector-select-employee]").length,
       availableRows: els.calendarPanelContent.querySelectorAll("[data-project-available-person-row]").length
     });
-
-    injectProjectPanelEditButton(project);
 
     const rerenderPanel = (focusSearch = false) => {
       projectPanelDebug("rerenderPanel called", { focusSearch });
