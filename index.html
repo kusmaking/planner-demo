@@ -1048,27 +1048,42 @@
     body.iz-compact-ui #homeDashboard .dash27-donut-inner .text-4xl { font-size: 1.65rem; }
     body.iz-compact-ui #homeDashboard .dash27-list-row { padding-top: 6px; padding-bottom: 6px; }
 
-    /* v18.30b: visible edit action and wider project panel */
-    body.iz-compact-ui #projectInspectorEditProjectVisibleBtn {
-      display: inline-flex !important;
-      visibility: visible !important;
-      opacity: 1 !important;
-      pointer-events: auto !important;
-    }
+    /* v18.30d: wider project panel */
     body.iz-compact-ui #calendarPanelCol {
-      width: 460px !important;
-      min-width: 460px !important;
-      max-width: 460px !important;
+      width: 560px !important;
+      min-width: 560px !important;
+      max-width: 560px !important;
     }
     body.iz-compact-ui #calendarPanelCol.is-open,
     body.iz-compact-ui #calendarPanelCol:not(.hidden) {
-      width: 460px !important;
-      min-width: 460px !important;
-      max-width: 460px !important;
+      width: 560px !important;
+      min-width: 560px !important;
+      max-width: 560px !important;
     }
     body.iz-compact-ui #calendarPanelContent {
       width: 100% !important;
       min-width: 0 !important;
+    }
+    body.iz-compact-ui .project-panel-edit-btn {
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      width: 100% !important;
+      border: 1px solid rgba(132, 204, 222, 0.38) !important;
+      background: rgba(255,255,255,0.08) !important;
+      color: #f8fbfd !important;
+      border-radius: 4px !important;
+      padding: 10px 12px !important;
+      font-size: 13px !important;
+      font-weight: 850 !important;
+      line-height: 1.1 !important;
+      cursor: pointer !important;
+      box-shadow: none !important;
+      text-align: center !important;
+    }
+    body.iz-compact-ui .project-panel-edit-btn:hover {
+      background: rgba(255,255,255,0.14) !important;
+      border-color: rgba(80,240,199,0.55) !important;
     }
 
   </style>

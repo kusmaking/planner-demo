@@ -1,7 +1,7 @@
-v18.30b sandbox project edit visible wide panel safe
-- Basert på v18.30a.
-- Legger inn en ekstra tydelig Rediger prosjekt-knapp inne i selve prosjektpanelets innhold, slik at den vises i dark panel-renderen.
-- Gjør prosjektpanelet bredere, ca. 460px, for bedre plass til redigering og prosjektinformasjon.
-- Knappen åpner eksisterende prosjektmodal med workshopfeltene.
+v18.30d sandbox wider project panel safe
+- Basert på v18.30c.
+- Gjør prosjektpanelet bredere, ca. 560px, siden panelet kan lukkes.
+- Gir bedre plass til prosjektinfo, Rediger prosjekt-knapp, bemanning og tilgjengelige ansatte.
+- Beholder eksisterende lukk/panel-funksjon.
 - Ingen Supabase/datamodell-endring.
-- Ingen endring i bemanningslogikk, login/auth, spotlight, personalblokk-popup eller grupper/ikoner/expand-collapse.
+- Ingen endring i workshoplogikk, bemanningslogikk, login/auth, spotlight, personalblokk-popup eller grupper/ikoner/expand-collapse.
