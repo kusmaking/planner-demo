@@ -4246,7 +4246,8 @@ async function deleteEditedEntry() {
 
   function projectPanelDebug(label, payload = {}) {
     try {
-      console.log(`[PROJECT PANEL DEBUG v18.15] ${label}`, payload);
+      // v18.16: debug logging disabled after locating flow issue.
+      // console.log(`[PROJECT PANEL DEBUG v18.16] ${label}`, payload);
     } catch (_) {}
   }
 
@@ -4407,7 +4408,7 @@ async function deleteEditedEntry() {
       stableAddBoxShouldRender: !!addCandidate
     });
     const selectedAddPanelHtml = addCandidate ? `
-      <div id="projectInspectorStableAddBox" data-project-inspector-stable-add-box="1" style="display:block !important;width:100% !important;box-sizing:border-box !important;border:1px solid rgba(132,204,222,0.38) !important;background:rgba(15,23,42,0.92) !important;color:#f8fbfd !important;border-radius:4px !important;padding:12px !important;margin-top:10px !important;visibility:visible !important;opacity:1 !important;">
+      <div id="projectInspectorStableAddBox" data-project-inspector-stable-add-box="1" data-v1816-add-box-visible="1" style="display:block !important;width:100% !important;box-sizing:border-box !important;border:1px solid rgba(132,204,222,0.38) !important;background:rgba(15,23,42,0.92) !important;color:#f8fbfd !important;border-radius:4px !important;padding:12px !important;margin-top:10px !important;visibility:visible !important;opacity:1 !important;">
         <div style="display:flex !important;align-items:flex-start !important;justify-content:space-between !important;gap:10px !important;margin-bottom:10px !important;">
           <div style="min-width:0 !important;">
             <div style="font-size:13px !important;font-weight:900 !important;line-height:1.25 !important;color:#f8fbfd !important;">Legg til ${escapeHtml(addCandidate.name)}</div>
@@ -4495,7 +4496,7 @@ async function deleteEditedEntry() {
       </section>
     `;
 
-    const availableHtml = shouldShowAvailable ? `<!-- v18.14-stable-add-box --><!-- v18.13-add-flow-event-fix --><!-- v18.12-dark-available-cards -->
+    const availableHtml = shouldShowAvailable ? `<!-- v18.16-add-box-moved-up --><!-- v18.12-dark-available-cards -->
       <section>
         <div class="mb-2 grid grid-cols-3 gap-1 text-[11px]">
           <div class="rounded-lg border border-green-200 bg-green-50 px-2 py-1 text-center font-semibold text-green-700"><div>Ledig</div><div class="text-sm">${availabilitySummary.available}</div></div>
@@ -4547,7 +4548,6 @@ async function deleteEditedEntry() {
             `;
           }).join("") : `<div class="px-3 py-4 text-xs text-slate-500">Ingen treff i tilgjengelig-listen.</div>`}
         </div>
-        ${selectedAddPanelHtml}
         ${filteredEmployees.length > employees.length ? `<div class="mt-2 text-[11px] text-slate-500">Viser ${employees.length} av ${filteredEmployees.length}. Bruk søk eller gruppefilter for å snevre inn.</div>` : ""}
       </section>
     ` : "";
@@ -4562,7 +4562,7 @@ async function deleteEditedEntry() {
     ` : "";
 
     els.calendarPanelContent.innerHTML = `
-      <!-- v18.15-debug-projectpanel-add-flow -->
+      <!-- v18.16-add-box-visible-under-assigned -->
       <div class="flex h-full flex-col">
         <div class="flex items-start justify-between gap-3 border-b border-slate-200 p-4">
           <div class="min-w-0">
@@ -4608,6 +4608,7 @@ async function deleteEditedEntry() {
           </section>
 
           ${assignedHtml}
+          ${selectedAddPanelHtml}
           ${fullStaffedCrewActionHtml}
           ${availableHtml}
         </div>
@@ -4722,6 +4723,12 @@ async function deleteEditedEntry() {
       });
       state.projectInspectorShowAvailable = true;
       rerenderPanel(false);
+      requestAnimationFrame(() => {
+        const addBox = document.getElementById("projectInspectorStableAddBox");
+        if (addBox && typeof addBox.scrollIntoView === "function") {
+          addBox.scrollIntoView({ block: "nearest", behavior: "smooth" });
+        }
+      });
     };
 
     els.calendarPanelContent.querySelectorAll("[data-project-available-person-row]").forEach(row => {
