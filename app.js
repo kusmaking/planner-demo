@@ -4244,29 +4244,59 @@ async function deleteEditedEntry() {
     };
   }
 
+  function projectPanelDebug(label, payload = {}) {
+    try {
+      console.log(`[PROJECT PANEL DEBUG v18.15] ${label}`, payload);
+    } catch (_) {}
+  }
+
   async function createProjectInspectorAssignment(projectId) {
-    if (!canEditApp()) return;
+    projectPanelDebug("createProjectInspectorAssignment called", {
+      projectId,
+      selectedCandidateName: state.projectInspectorAddCandidateName,
+      selectedRole: state.projectInspectorAddRole,
+      useCustomRange: state.projectInspectorAddUseCustomRange,
+      customStart: state.projectInspectorAddCustomStart,
+      customEnd: state.projectInspectorAddCustomEnd,
+      canEdit: canEditApp()
+    });
+    if (!canEditApp()) {
+      projectPanelDebug("create blocked: canEditApp false");
+      return;
+    }
     const project = getProjectById(projectId);
-    if (!project) return;
+    if (!project) {
+      projectPanelDebug("create blocked: project not found", { projectId });
+      return;
+    }
 
     const assigned = state.entries.filter(entry => entry.project_id === project.id).length;
     const required = Math.max(Number(project.headcount_required || 0), 0);
     if (required > 0 && assigned >= required) {
+      projectPanelDebug("create blocked: project fully staffed", { assigned, required });
       alert("Prosjektet er allerede fullbemannet.");
       return;
     }
 
     const employee = getProjectInspectorAddCandidate(project);
+    projectPanelDebug("create candidate resolved", {
+      candidateName: state.projectInspectorAddCandidateName,
+      found: !!employee,
+      employeeName: employee?.name || "",
+      availability: employee?.availability?.label || ""
+    });
     if (!employee) {
       alert("Velg en ansatt fra listen først.");
       return;
     }
     if (employee.availability?.label === "Opptatt") {
+      projectPanelDebug("create blocked: employee busy", { employee: employee.name });
       alert("Denne personen er opptatt i prosjektperioden.");
       return;
     }
 
     const range = getProjectInspectorAddRange(project);
+    projectPanelDebug("create range resolved", range);
     if (!range.start || !range.end) {
       alert("Velg en gyldig periode.");
       return;
@@ -4297,10 +4327,12 @@ async function deleteEditedEntry() {
 
     const conflicts = getEntryOverlapConflicts(entry);
     if (conflicts.length) {
+      projectPanelDebug("create blocked: conflicts", { conflictCount: conflicts.length, conflicts });
       alert(getEntryConflictSummary(entry, conflicts));
       return;
     }
 
+    projectPanelDebug("create pushing entry", entry);
     state.entries.push(entry);
     state.projectInspectorAddCandidateName = "";
     state.projectInspectorAddRole = "";
@@ -4311,6 +4343,7 @@ async function deleteEditedEntry() {
     renderAll();
 
     const result = await saveRow("planner_entries", entry);
+    projectPanelDebug("saveRow result", { ok: result?.ok, error: result?.error?.message || result?.error || null });
     if (!result.ok) {
       state.entries = state.entries.filter(item => item.id !== entry.id);
       rebuildDerivedState();
@@ -4359,6 +4392,20 @@ async function deleteEditedEntry() {
     const projectBounds = getProjectInspectorProjectBounds(project);
     const addRange = getProjectInspectorAddRange(project);
     const showAddFromList = needsStaffing && shouldShowAvailable;
+    projectPanelDebug("renderProjectInspectorPanel", {
+      projectId: project.id,
+      projectName: project.name,
+      assigned,
+      required,
+      needsStaffing,
+      shouldShowAvailable,
+      selectedCandidateName: state.projectInspectorAddCandidateName,
+      addCandidateFound: !!addCandidate,
+      addCandidateName: addCandidate?.name || "",
+      employeesShown: employees.length,
+      filteredEmployees: filteredEmployees.length,
+      stableAddBoxShouldRender: !!addCandidate
+    });
     const selectedAddPanelHtml = addCandidate ? `
       <div id="projectInspectorStableAddBox" data-project-inspector-stable-add-box="1" style="display:block !important;width:100% !important;box-sizing:border-box !important;border:1px solid rgba(132,204,222,0.38) !important;background:rgba(15,23,42,0.92) !important;color:#f8fbfd !important;border-radius:4px !important;padding:12px !important;margin-top:10px !important;visibility:visible !important;opacity:1 !important;">
         <div style="display:flex !important;align-items:flex-start !important;justify-content:space-between !important;gap:10px !important;margin-bottom:10px !important;">
@@ -4515,6 +4562,7 @@ async function deleteEditedEntry() {
     ` : "";
 
     els.calendarPanelContent.innerHTML = `
+      <!-- v18.15-debug-projectpanel-add-flow -->
       <div class="flex h-full flex-col">
         <div class="flex items-start justify-between gap-3 border-b border-slate-200 p-4">
           <div class="min-w-0">
@@ -4571,7 +4619,15 @@ async function deleteEditedEntry() {
       </div>
     `;
 
+    projectPanelDebug("after innerHTML", {
+      stableAddBoxExists: !!document.getElementById("projectInspectorStableAddBox"),
+      confirmButtonExists: !!document.getElementById("projectInspectorAddConfirmBtn"),
+      selectButtons: els.calendarPanelContent.querySelectorAll("[data-project-inspector-select-employee]").length,
+      availableRows: els.calendarPanelContent.querySelectorAll("[data-project-available-person-row]").length
+    });
+
     const rerenderPanel = (focusSearch = false) => {
+      projectPanelDebug("rerenderPanel called", { focusSearch });
       renderProjectInspectorPanel(project);
       if (focusSearch) {
         const input = document.getElementById("projectInspectorSearchInput");
@@ -4605,6 +4661,7 @@ async function deleteEditedEntry() {
     const addStaffBtn = document.getElementById("projectInspectorAddStaffBtn");
     if (addStaffBtn) {
       addStaffBtn.addEventListener("click", () => {
+        projectPanelDebug("add staff slot clicked");
         state.projectInspectorShowAvailable = true;
         state.projectInspectorAddCandidateName = "";
         state.projectInspectorAddRole = "";
@@ -4638,8 +4695,18 @@ async function deleteEditedEntry() {
       btn.addEventListener("click", () => startProjectStaffing(btn.dataset.calendarPanelStaffProject));
     });
     const selectProjectInspectorCandidate = (employeeName, suggestedRole = "", options = {}) => {
-      if (!employeeName) return;
+      projectPanelDebug("selectProjectInspectorCandidate called", {
+        employeeName,
+        suggestedRole,
+        options,
+        previousCandidate: state.projectInspectorAddCandidateName
+      });
+      if (!employeeName) {
+        projectPanelDebug("select blocked: empty employeeName");
+        return;
+      }
       if (options.toggle && state.projectInspectorAddCandidateName === employeeName) {
+        projectPanelDebug("select toggled off", { employeeName });
         state.projectInspectorAddCandidateName = "";
         state.projectInspectorAddRole = "";
         state.projectInspectorAddUseCustomRange = false;
@@ -4647,12 +4714,22 @@ async function deleteEditedEntry() {
         return;
       }
       primeProjectInspectorCandidate(project, employeeName, suggestedRole || getDefaultRoleForIndex(0));
+      projectPanelDebug("candidate primed", {
+        selectedCandidateName: state.projectInspectorAddCandidateName,
+        selectedRole: state.projectInspectorAddRole,
+        customStart: state.projectInspectorAddCustomStart,
+        customEnd: state.projectInspectorAddCustomEnd
+      });
       state.projectInspectorShowAvailable = true;
       rerenderPanel(false);
     };
 
     els.calendarPanelContent.querySelectorAll("[data-project-available-person-row]").forEach(row => {
       row.addEventListener("click", event => {
+        projectPanelDebug("available row clicked", {
+          employeeName: row.dataset.projectAvailablePersonRow || "",
+          ignoredTarget: !!event.target?.closest?.("button, input, select, textarea, label")
+        });
         if (event.target?.closest?.("button, input, select, textarea, label")) return;
         selectProjectInspectorCandidate(row.dataset.projectAvailablePersonRow || "", row.dataset.projectInspectorRowRole || getDefaultRoleForIndex(0), { toggle: true });
       });
@@ -4662,6 +4739,10 @@ async function deleteEditedEntry() {
       btn.addEventListener("click", event => {
         event.preventDefault();
         event.stopPropagation();
+        projectPanelDebug("select button clicked", {
+          employeeName: btn.dataset.projectInspectorSelectEmployee || "",
+          role: btn.dataset.projectInspectorSelectRole || ""
+        });
         selectProjectInspectorCandidate(btn.dataset.projectInspectorSelectEmployee || "", btn.dataset.projectInspectorSelectRole || getDefaultRoleForIndex(0), { toggle: true });
       });
     });
@@ -4675,6 +4756,7 @@ async function deleteEditedEntry() {
     });
     document.getElementById("projectInspectorAddRoleSelect")?.addEventListener("change", event => {
       state.projectInspectorAddRole = event.target.value || "";
+      projectPanelDebug("role changed", { role: state.projectInspectorAddRole });
     });
     document.getElementById("projectInspectorWholePeriodRadio")?.addEventListener("change", () => {
       state.projectInspectorAddUseCustomRange = false;
@@ -4698,9 +4780,15 @@ async function deleteEditedEntry() {
     document.getElementById("projectInspectorCustomEndInput")?.addEventListener("change", event => {
       state.projectInspectorAddCustomEnd = event.target.value || "";
     });
-    document.getElementById("projectInspectorAddConfirmBtn")?.addEventListener("click", event => {
+    const confirmBtn = document.getElementById("projectInspectorAddConfirmBtn");
+    projectPanelDebug("wire confirm button", { exists: !!confirmBtn });
+    confirmBtn?.addEventListener("click", event => {
       event.preventDefault();
       event.stopPropagation();
+      projectPanelDebug("confirm button clicked", {
+        stateCandidateBefore: state.projectInspectorAddCandidateName,
+        buttonEmployee: event.currentTarget?.dataset?.projectInspectorConfirmEmployee || ""
+      });
       const btn = event.currentTarget;
       const employeeName = btn?.dataset?.projectInspectorConfirmEmployee || state.projectInspectorAddCandidateName || "";
       if (employeeName && state.projectInspectorAddCandidateName !== employeeName) {
@@ -4712,6 +4800,13 @@ async function deleteEditedEntry() {
       const customEnd = document.getElementById("projectInspectorCustomEndInput");
       if (customStart && !customStart.disabled) state.projectInspectorAddCustomStart = customStart.value || state.projectInspectorAddCustomStart;
       if (customEnd && !customEnd.disabled) state.projectInspectorAddCustomEnd = customEnd.value || state.projectInspectorAddCustomEnd;
+      projectPanelDebug("before createProjectInspectorAssignment", {
+        candidate: state.projectInspectorAddCandidateName,
+        role: state.projectInspectorAddRole,
+        useCustomRange: state.projectInspectorAddUseCustomRange,
+        customStart: state.projectInspectorAddCustomStart,
+        customEnd: state.projectInspectorAddCustomEnd
+      });
       void createProjectInspectorAssignment(project.id);
     });
     els.calendarPanelContent.querySelectorAll("[data-project-entry-edit-id]").forEach(btn => {
