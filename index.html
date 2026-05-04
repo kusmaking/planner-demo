@@ -849,6 +849,54 @@
     body.iz-compact-ui #homeDashboard .dash27-donut:after{content:"";position:absolute;inset:42px;border-radius:999px;background:#062131;border:1px solid rgba(255,255,255,.10)}
     body.iz-compact-ui #homeDashboard .dash27-donut-inner{position:absolute;z-index:2;inset:0;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center}
 
+    /* v18.27a dashboard clickable status/list polish */
+    body.iz-compact-ui #homeDashboard .dash27-kpi {
+      cursor: pointer;
+      position: relative;
+      transition: background .14s ease, transform .14s ease, box-shadow .14s ease;
+    }
+    body.iz-compact-ui #homeDashboard .dash27-kpi:hover {
+      background: rgba(255,255,255,.045);
+      transform: translateY(-1px);
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,.08);
+    }
+    body.iz-compact-ui #homeDashboard .dash27-kpi:focus-visible {
+      outline: 2px solid rgba(45,212,191,.75);
+      outline-offset: -2px;
+    }
+    body.iz-compact-ui #homeDashboard .dash27-kpi-action {
+      margin-top: 6px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      font-weight: 800;
+      color: rgba(103,232,249,.92);
+      text-transform: uppercase;
+      letter-spacing: .08em;
+    }
+    body.iz-compact-ui #homeDashboard .dash27-list-row {
+      border-bottom: 1px solid rgba(172,219,230,.16);
+      border-radius: 9px;
+      transition: background .14s ease, transform .14s ease;
+    }
+    body.iz-compact-ui #homeDashboard .dash27-list-row:hover {
+      background: rgba(255,255,255,.045);
+      transform: translateX(2px);
+    }
+    body.iz-compact-ui #homeDashboard .dash27-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 3px 8px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 800;
+      background: rgba(255,255,255,.075);
+      border: 1px solid rgba(255,255,255,.10);
+      color: rgba(235,248,250,.86);
+    }
+
   </style>
 </head>
 <body class="iz-compact-ui text-slate-900">

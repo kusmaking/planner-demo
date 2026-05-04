@@ -1,5 +1,5 @@
 (() => {
-  // v18.27-sandbox-dashboard-mockup-layout-safe
+  // v18.27a-sandbox-dashboard-clickable-status-safe
   // v18.19-ansattplan-project-focus-toggle-safe
   // v18.11: plain visible available-row render for project inspector.
   const supabaseClient = window.supabase?.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -4193,16 +4193,21 @@ async function deleteEditedEntry() {
     `).join("");
 
     const kpiCards = [
-      { label: "På prosjekt", value: totalProjectPeople, icon: "people", color: "#2dd4bf", text: `${overallUtilization}% av kapasitetsdager` },
-      { label: "Tilgjengelige", value: totalAvailable, icon: "check", color: "#86efac", text: "ikke brukt i perioden" },
-      { label: "Borte / fravær", value: totalUnavailable, icon: "bag", color: "#fb923c", text: "ferie, syk, kurs, travel" },
-      { label: "Uten bemanning", value: unstaffedCount, icon: "warning", color: "#fb7185", text: `${unstaffedCount} prosjekter berørt` }
+      { label: "På prosjekt", value: totalProjectPeople, icon: "people", color: "#2dd4bf", text: `${overallUtilization}% av kapasitetsdager`, action: "personal", actionText: "Åpne ansattplan" },
+      { label: "Tilgjengelige", value: totalAvailable, icon: "check", color: "#86efac", text: "ikke brukt i perioden", action: "personal", actionText: "Se kapasitet" },
+      { label: "Borte / fravær", value: totalUnavailable, icon: "bag", color: "#fb923c", text: "ferie, syk, kurs, travel", action: "personal", actionText: "Se fravær" },
+      { label: "Uten bemanning", value: unstaffedCount, icon: "warning", color: "#fb7185", text: `${unstaffedCount} prosjekter berørt`, action: "unstaffed", actionText: "Se prosjekter" }
     ].map(card => `
-      <div class="dash27-kpi">
+      <button type="button" data-home-action="${card.action}" class="dash27-kpi text-left w-full">
         <span class="dash27-kpi-icon" style="color:${card.color}">${actionIcon(card.icon)}</span>
-        <div><div class="text-xs uppercase font-black tracking-[.16em]" style="color:${card.color}">${escapeHtml(card.label)}</div><div class="mt-1 text-4xl font-black text-white">${card.value}</div><div class="mt-1 text-sm dash27-muted">${escapeHtml(card.text)}</div></div>
+        <div>
+          <div class="text-xs uppercase font-black tracking-[.16em]" style="color:${card.color}">${escapeHtml(card.label)}</div>
+          <div class="mt-1 text-4xl font-black text-white">${card.value}</div>
+          <div class="mt-1 text-sm dash27-muted">${escapeHtml(card.text)}</div>
+          <div class="dash27-kpi-action">${escapeHtml(card.actionText)} <span>→</span></div>
+        </div>
         <div class="text-right"><div class="text-green-300 font-black">↑</div><div class="text-xs dash27-muted">periode</div></div>
-      </div>
+      </button>
     `).join("");
 
     const weekDays = Array.from({ length: 5 }, (_, i) => addDays(today, i + 1));
@@ -4265,14 +4270,14 @@ async function deleteEditedEntry() {
       return `<div class="flex items-center justify-between gap-3 py-2"><div class="flex items-center gap-2"><span class="inline-flex h-3 w-3 rounded-sm" style="background:${row.color}"></span><span class="text-sm">${escapeHtml(row.label)}</span></div><div class="text-right text-sm"><strong>${row.onProject}</strong><span class="dash27-muted ml-3">${pct}%</span></div></div>`;
     }).join("");
     const maxTotal = Math.max(...metrics.map(row => row.total), 1);
-    const employeesBars = metrics.map(row => `<div class="grid grid-cols-[150px_1fr_52px_48px] gap-3 items-center py-2 dash27-row-line"><div class="flex items-center gap-2 text-sm"><span class="inline-flex h-7 w-7 items-center justify-center rounded-full border border-white/15" style="color:${row.color}">${getEmployeeGroupIconHtml(row.value, "inline-flex h-4 w-4")}</span><span>${escapeHtml(row.label)}</span></div><div class="dash27-progress"><span style="width:${Math.round((row.total / maxTotal) * 100)}%; background:${row.color};"></span></div><div class="text-right font-bold">${row.total}</div><div class="text-right text-green-300 text-sm">↑</div></div>`).join("");
+    const employeesBars = metrics.map(row => `<div class="dash27-list-row grid grid-cols-[150px_1fr_52px_64px] gap-3 items-center py-2 px-2"><div class="flex items-center gap-2 text-sm"><span class="inline-flex h-7 w-7 items-center justify-center rounded-full border border-white/15" style="color:${row.color}">${getEmployeeGroupIconHtml(row.value, "inline-flex h-4 w-4")}</span><span>${escapeHtml(row.label)}</span></div><div class="dash27-progress"><span style="width:${Math.round((row.total / maxTotal) * 100)}%; background:${row.color};"></span></div><div class="text-right font-bold">${row.total}</div><div class="text-right"><span class="dash27-chip">↑ ${row.onProject}</span></div></div>`).join("");
     const projectRows = [
       ["Totalt", projectTotals.total, "#e2e8f0"],
       ["Avsluttet", projectTotals.completed, "#86efac"],
       ["Gjennomføring", projectTotals.remaining, "#60a5fa"],
       ["Uten bemanning", unstaffedCount, "#fb7185"],
       ["Kansellert", projectTotals.cancelled, "#cbd5e1"]
-    ].map(row => `<div class="flex items-center justify-between gap-3 py-3 dash27-row-line"><div class="flex items-center gap-2"><span class="inline-flex h-5 w-5 rounded-full border" style="border-color:${row[2]}"></span><span class="${row[0] === "Uten bemanning" ? "text-red-300 font-bold" : ""}">${escapeHtml(row[0])}</span></div><strong class="text-xl">${row[1]}</strong></div>`).join("");
+    ].map(row => `<div class="dash27-list-row flex items-center justify-between gap-3 py-3 px-2"><div class="flex items-center gap-2"><span class="inline-flex h-5 w-5 rounded-full border" style="border-color:${row[2]}; background:${row[2]}22"></span><span class="${row[0] === "Uten bemanning" ? "text-red-300 font-bold" : ""}">${escapeHtml(row[0])}</span></div><strong class="text-xl">${row[1]}</strong></div>`).join("");
 
     els.homeDashboard.innerHTML = `
       <div class="dash27-shell space-y-4">
