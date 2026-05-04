@@ -1,5 +1,5 @@
 (() => {
-  // v18.25b-sandbox-dashboard-history-forecast-safe
+  // v18.25c-sandbox-dashboard-entry-field-mapping-safe
   // v18.19-ansattplan-project-focus-toggle-safe
   // v18.11: plain visible available-row render for project inspector.
   const supabaseClient = window.supabase?.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -4063,6 +4063,11 @@ async function deleteEditedEntry() {
     ));
     const activeProjectIdsForDashboard = new Set(activeProjectsForDashboard.map(project => project.id));
 
+    const getEntryEmployeeNameForDashboard = (entry) => entry?.employee_name || entry?.employeeName || "";
+    const getEntryProjectIdForDashboard = (entry) => entry?.project_id || entry?.projectId || "";
+    const getEntryStartForDashboard = (entry) => entry?.start_date || entry?.start || "";
+    const getEntryEndForDashboard = (entry) => entry?.end_date || entry?.end || "";
+
     function addDaysLocal(date, days) {
       const d = new Date(date);
       d.setDate(d.getDate() + days);
@@ -4070,11 +4075,11 @@ async function deleteEditedEntry() {
     }
 
     function entryOverlapsDate(entry, dateKey) {
-      return !!entry && entry.start <= dateKey && entry.end >= dateKey;
+      return !!entry && getEntryStartForDashboard(entry) <= dateKey && getEntryEndForDashboard(entry) >= dateKey;
     }
 
     function getProjectForEntry(entry) {
-      return getProjectById(entry?.projectId || "");
+      return getProjectById(getEntryProjectIdForDashboard(entry));
     }
 
     function isRealProjectEntry(entry) {
@@ -4106,13 +4111,14 @@ async function deleteEditedEntry() {
         const unavailableTypeByName = new Map();
 
         entriesForDate.forEach(entry => {
-          if (!entry?.employeeName || !employeeNames.has(entry.employeeName)) return;
+          const employeeName = getEntryEmployeeNameForDashboard(entry);
+          if (!employeeName || !employeeNames.has(employeeName)) return;
           if (!isUnavailableEntry(entry)) return;
           const type = getUnavailableType(entry);
           if (!type) return;
-          unavailableNames.add(entry.employeeName);
-          if (!unavailableTypeByName.has(entry.employeeName)) unavailableTypeByName.set(entry.employeeName, new Set());
-          unavailableTypeByName.get(entry.employeeName).add(type);
+          unavailableNames.add(employeeName);
+          if (!unavailableTypeByName.has(employeeName)) unavailableTypeByName.set(employeeName, new Set());
+          unavailableTypeByName.get(employeeName).add(type);
         });
 
         unavailableTypeByName.forEach(types => {
@@ -4123,10 +4129,11 @@ async function deleteEditedEntry() {
 
         const onProjectNames = new Set();
         entriesForDate.forEach(entry => {
-          if (!entry?.employeeName || !employeeNames.has(entry.employeeName)) return;
-          if (unavailableNames.has(entry.employeeName)) return;
+          const employeeName = getEntryEmployeeNameForDashboard(entry);
+          if (!employeeName || !employeeNames.has(employeeName)) return;
+          if (unavailableNames.has(employeeName)) return;
           if (!isRealProjectEntry(entry)) return;
-          onProjectNames.add(entry.employeeName);
+          onProjectNames.add(employeeName);
         });
 
         const total = employeesInGroup.length;
@@ -4153,7 +4160,7 @@ async function deleteEditedEntry() {
     function getCapacityMetricsForRange(startDate, endDate) {
       const startKey = makeLocalDateISO(startDate);
       const endKey = makeLocalDateISO(endDate);
-      const entriesForPeriod = (state.entries || []).filter(entry => entry && entry.start <= endKey && entry.end >= startKey);
+      const entriesForPeriod = (state.entries || []).filter(entry => entry && getEntryStartForDashboard(entry) <= endKey && getEntryEndForDashboard(entry) >= startKey);
 
       return CAPACITY_GROUPS.map(groupDef => {
         const employeesInGroup = activeEmployees.filter(employee => normalizeEmployeeGroup(employee.employee_group || "") === groupDef.value);
@@ -4164,13 +4171,14 @@ async function deleteEditedEntry() {
         const unavailableTypeByName = new Map();
 
         entriesForPeriod.forEach(entry => {
-          if (!entry?.employeeName || !employeeNames.has(entry.employeeName)) return;
+          const employeeName = getEntryEmployeeNameForDashboard(entry);
+          if (!employeeName || !employeeNames.has(employeeName)) return;
           if (!isUnavailableEntry(entry)) return;
           const type = getUnavailableType(entry);
           if (!type) return;
-          unavailableNames.add(entry.employeeName);
-          if (!unavailableTypeByName.has(entry.employeeName)) unavailableTypeByName.set(entry.employeeName, new Set());
-          unavailableTypeByName.get(entry.employeeName).add(type);
+          unavailableNames.add(employeeName);
+          if (!unavailableTypeByName.has(employeeName)) unavailableTypeByName.set(employeeName, new Set());
+          unavailableTypeByName.get(employeeName).add(type);
         });
 
         unavailableTypeByName.forEach(types => {
@@ -4181,9 +4189,10 @@ async function deleteEditedEntry() {
 
         const onProjectNames = new Set();
         entriesForPeriod.forEach(entry => {
-          if (!entry?.employeeName || !employeeNames.has(entry.employeeName)) return;
+          const employeeName = getEntryEmployeeNameForDashboard(entry);
+          if (!employeeName || !employeeNames.has(employeeName)) return;
           if (!isRealProjectEntry(entry)) return;
-          onProjectNames.add(entry.employeeName);
+          onProjectNames.add(employeeName);
         });
 
         const total = employeesInGroup.length;
