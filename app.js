@@ -1,5 +1,5 @@
 (() => {
-  // v18.23d-login-repair-from-v18.21-safe
+  // v18.24-sandbox-startscreen-dashboard-safe
   // v18.19-ansattplan-project-focus-toggle-safe
   // v18.11: plain visible available-row render for project inspector.
   const supabaseClient = window.supabase?.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -64,7 +64,7 @@
       previewEndDate: "",
       originalValueSnapshot: null
     },
-    activeTab: "calendar",
+    activeTab: "home",
     calendarPanelOpen: false,
     projectListFilter: "all",
     projectFilterCategory: "all",
@@ -241,7 +241,7 @@
       "employeeList", "kanbanBoard", "notificationList", "auditList", "editModal", "closeModalBtn",
       "editProject", "editEmployee", "editRole", "editStart", "editEnd", "editNotes",
       "saveEditBtn", "deleteEditBtn", "storageBadge", "resetDemoBtn", "systemStatus", "rangeTitle",
-      "saveStatus", "plannerTabs", "tabCalendarBtn", "tabProjectsBtn", "tabEmployeesBtn", "tabAdminBtn", "tabCalendarSection", "tabProjectsSection", "tabEmployeesSection", "tabAdminSection", "calendarMainCol", "calendarPanelCol", "calendarPanelHandleBtn", "calendarPanelCloseBtn", "calendarPanelContent", "newProjectBtn", "projectModal", "projectModalTitle", "closeProjectModalBtn",
+      "saveStatus", "plannerTabs", "tabHomeBtn", "tabProjectPlanBtn", "tabUnstaffedBtn", "tabCalendarBtn", "tabProjectsBtn", "tabEmployeesBtn", "tabAdminBtn", "tabHomeSection", "homeDashboard", "tabCalendarSection", "tabProjectsSection", "tabEmployeesSection", "tabAdminSection", "calendarMainCol", "calendarPanelCol", "calendarPanelHandleBtn", "calendarPanelCloseBtn", "calendarPanelContent", "newProjectBtn", "projectModal", "projectModalTitle", "closeProjectModalBtn",
       "projectName", "projectCategory", "projectStatus", "projectPlannedStart", "projectPlannedEnd", "projectHasMultiplePeriods", "projectPeriodsSection", "projectPeriodsList", "addProjectPeriodBtn",
       "projectLocation", "projectHeadcount", "projectNotes", "saveProjectBtn", "deleteProjectBtn",
       "newEmployeeBtn", "employeeModal", "employeeModalTitle", "closeEmployeeModalBtn",
@@ -955,7 +955,10 @@
   }
 
   function bindTabEvents() {
-    if (els.tabCalendarBtn) els.tabCalendarBtn.addEventListener("click", () => setActiveTab("calendar"));
+    if (els.tabHomeBtn) els.tabHomeBtn.addEventListener("click", () => setActiveTab("home"));
+    if (els.tabCalendarBtn) els.tabCalendarBtn.addEventListener("click", () => openPersonalCalendarView());
+    if (els.tabProjectPlanBtn) els.tabProjectPlanBtn.addEventListener("click", () => openProjectCalendarView("all"));
+    if (els.tabUnstaffedBtn) els.tabUnstaffedBtn.addEventListener("click", () => openProjectCalendarView("unstaffed"));
     if (els.tabProjectsBtn) els.tabProjectsBtn.addEventListener("click", () => setActiveTab("projects"));
     if (els.tabEmployeesBtn) els.tabEmployeesBtn.addEventListener("click", () => setActiveTab("employees"));
     if (els.tabAdminBtn) els.tabAdminBtn.addEventListener("click", () => setActiveTab("admin"));
@@ -966,41 +969,59 @@
     renderLayoutTabs();
   }
 
+  function getActiveNavigationKey() {
+    if (state.activeTab === "home") return "home";
+    if (state.activeTab === "projects") return "projects";
+    if (state.activeTab === "employees") return "employees";
+    if (state.activeTab === "admin") return "admin";
+    if (state.activeTab === "calendar" && state.calendarMode === "project" && state.projectListFilter === "unstaffed") return "unstaffed";
+    if (state.activeTab === "calendar" && state.calendarMode === "project") return "projectplan";
+    return "calendar";
+  }
+
   function renderLayoutTabs() {
     const canPlan = canPlanApp();
-    const allowedTabs = canPlan ? ["calendar", "projects", "employees", "admin"] : ["calendar"];
+    const allowedTabs = canPlan ? ["home", "calendar", "projects", "employees", "admin"] : ["calendar"];
 
     if (!allowedTabs.includes(state.activeTab)) {
-      state.activeTab = "calendar";
+      state.activeTab = canPlan ? "home" : "calendar";
     }
 
+    const activeKey = getActiveNavigationKey();
+
     const buttons = {
+      home: els.tabHomeBtn,
       calendar: els.tabCalendarBtn,
+      projectplan: els.tabProjectPlanBtn,
+      unstaffed: els.tabUnstaffedBtn,
       projects: els.tabProjectsBtn,
       employees: els.tabEmployeesBtn,
       admin: els.tabAdminBtn
     };
 
+    const hiddenForGuests = new Set(["home", "projectplan", "unstaffed", "projects", "employees", "admin"]);
+
+    Object.entries(buttons).forEach(([name, btn]) => {
+      if (!btn) return;
+      const visible = canPlan || !hiddenForGuests.has(name);
+      btn.style.display = visible ? "" : "none";
+      if (activeKey === name) btn.setAttribute("aria-current", "page");
+      else btn.removeAttribute("aria-current");
+      btn.className = [
+        "rounded-2xl px-4 py-2 text-sm border transition",
+        activeKey === name
+          ? "border-slate-900 bg-slate-900 text-white"
+          : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+      ].join(" ");
+    });
+
     const sections = {
+      home: els.tabHomeSection,
       calendar: els.tabCalendarSection,
       projects: els.tabProjectsSection,
       employees: els.tabEmployeesSection,
       admin: els.tabAdminSection
     };
-
-    Object.entries(buttons).forEach(([name, btn]) => {
-      if (!btn) return;
-      const visible = allowedTabs.includes(name);
-      btn.style.display = visible ? "" : "none";
-      if (state.activeTab === name) btn.setAttribute("aria-current", "page");
-      else btn.removeAttribute("aria-current");
-      btn.className = [
-        "rounded-2xl px-4 py-2 text-sm border transition",
-        state.activeTab === name
-          ? "border-slate-900 bg-slate-900 text-white"
-          : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
-      ].join(" ");
-    });
 
     Object.entries(sections).forEach(([name, section]) => {
       if (!section) return;
@@ -1008,6 +1029,12 @@
       section.style.display = active ? "" : "none";
       section.classList.toggle("hidden", !active);
     });
+
+    if (els.statsRow) {
+      const showStats = state.activeTab !== "home";
+      els.statsRow.style.display = showStats ? "grid" : "none";
+      els.statsRow.classList.toggle("hidden", !showStats);
+    }
   }
 
 
@@ -3922,6 +3949,7 @@ async function deleteEditedEntry() {
   function renderAll() {
     populateDynamicSelects();
     renderStats();
+    renderHomeDashboard();
     renderLegend();
     renderCalendarPanel();
     renderProjects();
@@ -4000,6 +4028,169 @@ async function deleteEditedEntry() {
 
     updateProjectQuickControls(visibleProjects.length, unstaffedProjects.length);
   }
+
+  function makeLocalDateISO(date) {
+    const d = new Date(date);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+  }
+
+  function renderHomeDashboard() {
+    if (!els.homeDashboard) return;
+
+    const canPlan = canPlanApp();
+    if (!canPlan) {
+      els.homeDashboard.innerHTML = "";
+      return;
+    }
+
+    const today = new Date();
+    const todayKey = makeLocalDateISO(today);
+    const activeEmployees = (state.employees || []).filter(employee => employee && employee.active !== false);
+    const employeeByName = new Map(activeEmployees.map(employee => [employee.name, employee]));
+    const assignedNamesToday = new Set();
+
+    (state.entries || []).forEach(entry => {
+      if (!entry || !entry.employeeName) return;
+      if (entry.start > todayKey || entry.end < todayKey) return;
+      const project = getProjectById(entry.projectId);
+      if (!project || isSystemPersonalProject(project) || isCancelledProject(project)) return;
+      assignedNamesToday.add(entry.employeeName);
+    });
+
+    const assignedToday = Array.from(assignedNamesToday).filter(name => employeeByName.has(name)).length;
+    const totalEmployees = activeEmployees.length;
+    const availableToday = Math.max(totalEmployees - assignedToday, 0);
+    const utilization = totalEmployees ? Math.round((assignedToday / totalEmployees) * 100) : 0;
+
+    const visibleProjects = getVisibleProjects().filter(project => !isCancelledProject(project));
+    const unstaffedProjects = getUnstaffedProjectsForCurrentCalendarRange();
+
+    const groupRows = getOrderedEmployeeGroups()
+      .map(group => {
+        const count = activeEmployees.filter(employee => normalizeEmployeeGroup(employee.employee_group || "") === group).length;
+        return { group, count, label: getEmployeeGroupLabel(group) };
+      })
+      .filter(row => row.count > 0);
+
+    const actionIcon = (key) => {
+      const attrs = 'viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"';
+      const icons = {
+        sun: `<svg ${attrs}><path d="M12 4V2"/><path d="M12 22v-2"/><path d="m17.7 6.3 1.4-1.4"/><path d="m4.9 19.1 1.4-1.4"/><path d="M20 12h2"/><path d="M2 12h2"/><path d="m17.7 17.7 1.4 1.4"/><path d="m4.9 4.9 1.4 1.4"/><circle cx="12" cy="12" r="4"/></svg>`,
+        calendar: `<svg ${attrs}><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>`,
+        project: `<svg ${attrs}><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M3 12h18"/></svg>`,
+        warning: `<svg ${attrs}><path d="M10.3 4.9 2.9 18a1.2 1.2 0 0 0 1.1 1.8h16a1.2 1.2 0 0 0 1.1-1.8L13.7 4.9a1 1 0 0 0-1.7 0Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>`,
+        gear: `<svg ${attrs}><path d="M12 15.2a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4Z"/><path d="M19.4 15a1.8 1.8 0 0 0 .36 2l.06.06a2.1 2.1 0 0 1-3 3l-.06-.06a1.8 1.8 0 0 0-2-.36 1.8 1.8 0 0 0-1 1.64V21.4a2.1 2.1 0 0 1-4.2 0v-.1a1.8 1.8 0 0 0-1-1.64 1.8 1.8 0 0 0-2 .36l-.06.06a2.1 2.1 0 0 1-3-3l.06-.06a1.8 1.8 0 0 0 .36-2 1.8 1.8 0 0 0-1.64-1H2.6a2.1 2.1 0 0 1 0-4.2h.1a1.8 1.8 0 0 0 1.64-1 1.8 1.8 0 0 0-.36-2l-.06-.06a2.1 2.1 0 0 1 3-3l.06.06a1.8 1.8 0 0 0 2 .36 1.8 1.8 0 0 0 1-1.64V2.6a2.1 2.1 0 0 1 4.2 0v.1a1.8 1.8 0 0 0 1 1.64 1.8 1.8 0 0 0 2-.36l.06-.06a2.1 2.1 0 0 1 3 3l-.06.06a1.8 1.8 0 0 0-.36 2 1.8 1.8 0 0 0 1.64 1h.1a2.1 2.1 0 0 1 0 4.2h-.1a1.8 1.8 0 0 0-1.64 1Z"/></svg>`,
+        people: `<svg ${attrs}><path d="M16 20v-1.4a3.6 3.6 0 0 0-3.6-3.6H7.6A3.6 3.6 0 0 0 4 18.6V20"/><circle cx="10" cy="7" r="3"/><path d="M20 20v-1.2a3.2 3.2 0 0 0-2.4-3.1"/><path d="M15.5 4.2a3 3 0 0 1 0 5.6"/></svg>`
+      };
+      return icons[key] || icons.calendar;
+    };
+
+    const shortcuts = [
+      { key: "calendar", title: "Ansattplan", text: "Planlegg bemanning og kapasitet for ansatte.", action: "personal" },
+      { key: "project", title: "Prosjektplan", text: "Planlegg prosjekter og tildel oppdrag.", action: "project" },
+      { key: "warning", title: "Uten bemanning", text: "Se prosjekter som mangler bemanning.", action: "unstaffed" },
+      { key: "gear", title: "Prosjektadmin", text: "Administrer prosjekter, faser og oppdrag.", action: "projects" },
+      { key: "people", title: "Ansattadmin", text: "Legg til og oppdater ansatte og kompetanse.", action: "employees" }
+    ];
+
+    const displayName = String(getAccountDisplayName() || state.currentUser || "Planlegger").trim();
+    const firstName = displayName && displayName !== "Ikke innlogget" ? displayName.split(/\s+/)[0] : "Planlegger";
+
+    const groupRowsHtml = groupRows.length ? groupRows.map(row => `
+      <div class="flex items-center justify-between gap-3 py-3 border-b border-slate-200 last:border-b-0">
+        <div class="flex items-center gap-3 min-w-0">
+          <span class="inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-slate-50 text-slate-700 shrink-0">${getEmployeeGroupIconHtml(row.group, "inline-flex h-5 w-5 items-center justify-center text-slate-600 shrink-0")}</span>
+          <span class="font-medium text-slate-800">${escapeHtml(row.label)}</span>
+        </div>
+        <span class="text-2xl font-semibold text-slate-950">${escapeHtml(String(row.count))}</span>
+      </div>
+    `).join("") : `<div class="py-8 text-sm text-slate-500">Ingen ansatte tilgjengelig.</div>`;
+
+    els.homeDashboard.innerHTML = `
+      <div class="space-y-5">
+        <div>
+          <h2 class="text-4xl font-semibold tracking-tight text-slate-950">Oppstart</h2>
+          <p class="mt-2 text-lg text-slate-600">Velg hvor du vil starte arbeidsdagen</p>
+        </div>
+
+        <div class="rounded-[28px] bg-white border border-slate-200 shadow-sm p-6 flex items-center gap-5">
+          <span class="inline-flex h-20 w-20 items-center justify-center rounded-full bg-cyan-50 text-cyan-700 shrink-0">${actionIcon("sun")}</span>
+          <div>
+            <div class="text-[20px] font-semibold text-slate-950">God morgen, ${escapeHtml(firstName)}</div>
+            <div class="mt-2 text-base text-slate-600">Her er en rask oversikt og snarveier til det viktigste du jobber med.</div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
+          ${shortcuts.map(card => `
+            <button type="button" data-home-action="${card.action}" class="text-left rounded-[28px] bg-white border border-slate-200 shadow-sm p-6 min-h-[220px] hover:border-slate-300 hover:bg-slate-50 transition">
+              <span class="inline-flex h-16 w-16 items-center justify-center rounded-full bg-slate-50 text-slate-700">${actionIcon(card.key)}</span>
+              <div class="mt-8 text-[18px] font-semibold text-slate-950">${escapeHtml(card.title)}</div>
+              <div class="mt-3 text-base leading-7 text-slate-600">${escapeHtml(card.text)}</div>
+              <div class="mt-8 text-2xl text-slate-500">→</div>
+            </button>
+          `).join("")}
+        </div>
+
+        <div class="grid grid-cols-1 xl:grid-cols-12 gap-4">
+          <div class="xl:col-span-4 rounded-[28px] bg-white border border-slate-200 shadow-sm p-5">
+            <div class="flex items-center justify-between gap-3">
+              <h3 class="text-[20px] font-semibold text-slate-950">Utnyttelse</h3>
+              <span class="text-sm text-slate-400">I dag</span>
+            </div>
+            <div class="mt-6 flex items-center gap-6">
+              <div class="relative h-40 w-40 shrink-0 rounded-full" style="background: conic-gradient(#34d3bf 0 ${utilization}%, #e5e7eb ${utilization}% 100%);">
+                <div class="absolute inset-[18px] rounded-full bg-white flex flex-col items-center justify-center text-center">
+                  <div class="text-5xl font-semibold text-slate-950">${utilization}%</div>
+                  <div class="mt-2 text-base text-slate-600">Total utnyttelse</div>
+                </div>
+              </div>
+              <div class="space-y-3 text-base text-slate-700">
+                <div><span class="font-semibold text-slate-950">På oppdrag:</span> ${assignedToday} ansatte</div>
+                <div><span class="font-semibold text-slate-950">Tilgjengelig:</span> ${availableToday} ansatte</div>
+                <div><span class="font-semibold text-slate-950">Totalt:</span> ${totalEmployees} ansatte</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="xl:col-span-4 rounded-[28px] bg-white border border-slate-200 shadow-sm p-5">
+            <div class="flex items-center justify-between gap-3">
+              <h3 class="text-[20px] font-semibold text-slate-950">Ansatte pr gruppe</h3>
+              <span class="text-sm text-slate-400">Totalt ${totalEmployees}</span>
+            </div>
+            <div class="mt-4">${groupRowsHtml}</div>
+          </div>
+
+          <div class="xl:col-span-4 rounded-[28px] bg-white border border-slate-200 shadow-sm p-5">
+            <div class="flex items-center justify-between gap-3">
+              <h3 class="text-[20px] font-semibold text-slate-950">Dagens oversikt</h3>
+              <span class="text-sm text-slate-400">${escapeHtml(today.toLocaleDateString("no-NO"))}</span>
+            </div>
+            <div class="mt-4 divide-y divide-slate-200">
+              <div class="flex items-center justify-between gap-3 py-4"><span class="text-base text-slate-700">Aktive prosjekter</span><span class="text-4xl font-semibold text-slate-950">${visibleProjects.length}</span></div>
+              <div class="flex items-center justify-between gap-3 py-4"><span class="text-base text-slate-700">Prosjekter uten bemanning</span><span class="text-4xl font-semibold text-slate-950">${unstaffedProjects.length}</span></div>
+              <div class="flex items-center justify-between gap-3 py-4"><span class="text-base text-slate-700">Tilgjengelige ansatte</span><span class="text-4xl font-semibold text-slate-950">${availableToday}</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+
+    els.homeDashboard.querySelectorAll("[data-home-action]").forEach(button => {
+      button.addEventListener("click", () => {
+        const action = button.getAttribute("data-home-action");
+        if (action === "personal") return openPersonalCalendarView();
+        if (action === "project") return openProjectCalendarView("all");
+        if (action === "unstaffed") return openProjectCalendarView("unstaffed");
+        if (action === "projects") return setActiveTab("projects");
+        if (action === "employees") return setActiveTab("employees");
+      });
+    });
+  }
+
 
   function updateProjectQuickControls(projectCount = null, unstaffedCount = null) {
     const totalProjects = projectCount ?? getVisibleProjects().length;
