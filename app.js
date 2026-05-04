@@ -1,4 +1,5 @@
 (() => {
+  // v18.19-ansattplan-project-focus-toggle-safe
   // v18.11: plain visible available-row render for project inspector.
   const supabaseClient = window.supabase?.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -5322,6 +5323,13 @@ async function deleteEditedEntry() {
   function setProjectSpotlight(projectId) {
     const project = getProjectById(projectId);
     if (!project || isSystemPersonalProject(project)) return;
+
+    if (state.projectSpotlightId === project.id) {
+      state.projectSpotlightId = "";
+      renderCalendar();
+      return;
+    }
+
     state.projectSpotlightId = project.id;
     expandEmployeeGroupsForProject(project.id);
     renderCalendar();
