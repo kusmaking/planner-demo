@@ -1,5 +1,5 @@
 (() => {
-  // v18.30e-sandbox-restore-project-edit-button-safe
+  // v18.30f-sandbox-force-project-edit-button-safe
   // v18.19-ansattplan-project-focus-toggle-safe
   // v18.11: plain visible available-row render for project inspector.
   const supabaseClient = window.supabase?.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -4891,6 +4891,37 @@ async function deleteEditedEntry() {
     void addNotification(employee.name, project.name);
   }
 
+  function injectProjectPanelEditButton(project) {
+    if (!project || !els.calendarPanelContent) return;
+
+    const existing = document.getElementById("projectInspectorEditProjectForceBtn");
+    if (existing) existing.remove();
+
+    const button = document.createElement("button");
+    button.id = "projectInspectorEditProjectForceBtn";
+    button.type = "button";
+    button.className = "project-panel-edit-force-btn";
+    button.dataset.calendarPanelEditProject = project.id;
+    button.innerHTML = `<span>Rediger prosjekt</span><small>Workshop · feltperiode · ressursbehov</small>`;
+    button.addEventListener("click", event => {
+      event.preventDefault();
+      event.stopPropagation();
+      openProjectModal(project.id);
+    });
+
+    const contentRoot = els.calendarPanelContent.querySelector(".min-h-0.flex-1") || els.calendarPanelContent.firstElementChild || els.calendarPanelContent;
+    if (contentRoot && contentRoot !== els.calendarPanelContent) {
+      const firstInner = contentRoot.querySelector(":scope > div, :scope > section");
+      if (firstInner) {
+        contentRoot.insertBefore(button, firstInner);
+      } else {
+        contentRoot.prepend(button);
+      }
+    } else {
+      els.calendarPanelContent.prepend(button);
+    }
+  }
+
   function renderProjectInspectorPanel(project) {
     // v17.8: Assigned rows render visible Endre and remove buttons directly in this panel.
     if (!els.calendarPanelContent || !project) return;
@@ -5170,6 +5201,8 @@ async function deleteEditedEntry() {
       selectButtons: els.calendarPanelContent.querySelectorAll("[data-project-inspector-select-employee]").length,
       availableRows: els.calendarPanelContent.querySelectorAll("[data-project-available-person-row]").length
     });
+
+    injectProjectPanelEditButton(project);
 
     const rerenderPanel = (focusSearch = false) => {
       projectPanelDebug("rerenderPanel called", { focusSearch });
