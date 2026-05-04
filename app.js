@@ -1,5 +1,5 @@
 (() => {
-  // v18.27a-sandbox-dashboard-clickable-status-safe
+  // v18.27b-sandbox-dashboard-kpi-filters-safe
   // v18.19-ansattplan-project-focus-toggle-safe
   // v18.11: plain visible available-row render for project inspector.
   const supabaseClient = window.supabase?.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -68,6 +68,8 @@
     calendarPanelOpen: false,
     projectListFilter: "all",
     projectFilterCategory: "all",
+    dashboardEmployeeFilter: "",
+    dashboardEmployeeFilterLabel: "",
     projectInspectorSearch: "",
     projectInspectorGroup: "all",
     projectInspectorShowAvailable: false,
@@ -3118,7 +3120,30 @@
     renderCalendar();
   }
 
+  function clearDashboardEmployeeFilter() {
+    state.dashboardEmployeeFilter = "";
+    state.dashboardEmployeeFilterLabel = "";
+    renderCalendar();
+  }
+
+  function openDashboardEmployeeFilter(filterType, label) {
+    state.dashboardEmployeeFilter = filterType;
+    state.dashboardEmployeeFilterLabel = label || "";
+    state.calendarMode = "personal";
+    state.projectListFilter = "all";
+    state.calendarPanelOpen = false;
+    if (els.calendarMode) els.calendarMode.value = "personal";
+    updateCalendarSearchControls();
+    persistUiState();
+    setActiveTab("calendar");
+    renderStats();
+    renderCalendarPanel();
+    renderCalendar();
+  }
+
   function openPersonalCalendarView() {
+    state.dashboardEmployeeFilter = "";
+    state.dashboardEmployeeFilterLabel = "";
     state.calendarMode = "personal";
     state.projectListFilter = "all";
     state.calendarPanelOpen = false;
@@ -4193,9 +4218,9 @@ async function deleteEditedEntry() {
     `).join("");
 
     const kpiCards = [
-      { label: "På prosjekt", value: totalProjectPeople, icon: "people", color: "#2dd4bf", text: `${overallUtilization}% av kapasitetsdager`, action: "personal", actionText: "Åpne ansattplan" },
-      { label: "Tilgjengelige", value: totalAvailable, icon: "check", color: "#86efac", text: "ikke brukt i perioden", action: "personal", actionText: "Se kapasitet" },
-      { label: "Borte / fravær", value: totalUnavailable, icon: "bag", color: "#fb923c", text: "ferie, syk, kurs, travel", action: "personal", actionText: "Se fravær" },
+      { label: "På prosjekt", value: totalProjectPeople, icon: "people", color: "#2dd4bf", text: `${overallUtilization}% av kapasitetsdager`, action: "dash-on-project", actionText: "Vis disse" },
+      { label: "Tilgjengelige", value: totalAvailable, icon: "check", color: "#86efac", text: "ikke brukt i perioden", action: "dash-available", actionText: "Vis disse" },
+      { label: "Borte / fravær", value: totalUnavailable, icon: "bag", color: "#fb923c", text: "ferie, syk, kurs, travel", action: "dash-away", actionText: "Vis disse" },
       { label: "Uten bemanning", value: unstaffedCount, icon: "warning", color: "#fb7185", text: `${unstaffedCount} prosjekter berørt`, action: "unstaffed", actionText: "Se prosjekter" }
     ].map(card => `
       <button type="button" data-home-action="${card.action}" class="dash27-kpi text-left w-full">
@@ -4302,6 +4327,9 @@ async function deleteEditedEntry() {
     els.homeDashboard.querySelectorAll("[data-home-action]").forEach(button => {
       button.addEventListener("click", () => {
         const action = button.getAttribute("data-home-action");
+        if (action === "dash-on-project") return openDashboardEmployeeFilter("on_project", "På prosjekt");
+        if (action === "dash-available") return openDashboardEmployeeFilter("available", "Tilgjengelige");
+        if (action === "dash-away") return openDashboardEmployeeFilter("away", "Borte / fravær");
         if (action === "personal") return openPersonalCalendarView();
         if (action === "project") return openProjectCalendarView("all");
         if (action === "unstaffed") return openProjectCalendarView("unstaffed");
@@ -5743,11 +5771,16 @@ async function deleteEditedEntry() {
     const employees = getFilteredEmployees();
     const employeeGroups = getCalendarEmployeeGroups(employees);
 
+    const dashboardFilterBanner = state.dashboardEmployeeFilter
+      ? `<div id="dashboardEmployeeFilterBanner"><div><strong>Dashboard-filter:</strong> ${escapeHtml(state.dashboardEmployeeFilterLabel || "Utvalg")} · viser ${employees.length} ansatte i valgt periode</div><button type="button" id="clearDashboardEmployeeFilterBtn">Vis alle ansatte</button></div>`
+      : "";
+
     const stickyWidth = 238;
     const colWidth = Math.max(28, state.viewMode === "Uke" ? 38 : 32);
     const totalWidth = colWidth * days.length;
 
-    let html = `<div class="calendar-shell" style="width:${stickyWidth + totalWidth}px; min-width:${stickyWidth + totalWidth}px;">`;
+    let html = dashboardFilterBanner;
+    html += `<div class="calendar-shell" style="width:${stickyWidth + totalWidth}px; min-width:${stickyWidth + totalWidth}px;">`;
     html += `<div class="day-grid border border-slate-200 rounded-2xl overflow-visible" style="grid-template-columns:${stickyWidth}px repeat(${days.length}, ${colWidth}px);">`;
     html += renderTimelineHeaderRows(days, "Ansatt");
 
@@ -5836,6 +5869,8 @@ async function deleteEditedEntry() {
 
     html += `</div></div>`;
     els.calendarWrap.innerHTML = html;
+    const clearDashboardBtn = document.getElementById("clearDashboardEmployeeFilterBtn");
+    if (clearDashboardBtn) clearDashboardBtn.addEventListener("click", clearDashboardEmployeeFilter);
     bindEmployeeGroupCollapseButtons();
     bindEntryClicks();
     bindResizeHandles();
@@ -6543,9 +6578,51 @@ async function moveEntryByDrop(entryId, targetEmployeeName, dropMeta = null) {
   void addAudit(`Flyttet tildeling: ${displayProjectName(project) || "Ukjent prosjekt"} fra ${previous.employee_name} (${previous.start_date}–${previous.end_date}) til ${entry.employee_name} (${entry.start_date}–${entry.end_date})`);
 }
 
-function getFilteredEmployees() {
+function getDashboardEmployeeFilterNames() {
+    const filterType = state.dashboardEmployeeFilter || "";
+    if (!filterType) return null;
+
+    const range = getCurrentRange();
+    const startKey = makeLocalDateISO(range.start);
+    const endKey = makeLocalDateISO(range.end);
+    const activeNames = new Set((state.employees || []).filter(emp => emp.active !== false).map(emp => emp.name));
+    const names = new Set();
+    const personalTypes = new Set(["Ferie", "Syk", "Avspasering", "Kurs", "Travel"]);
+    const entriesByName = new Map();
+
+    (state.entries || []).forEach(entry => {
+      const employeeName = entry.employee_name || entry.employeeName || "";
+      if (!employeeName || !activeNames.has(employeeName)) return;
+      const entryStart = entry.start_date || entry.start || "";
+      const entryEnd = entry.end_date || entry.end || "";
+      if (!entryStart || !entryEnd || entryStart > endKey || entryEnd < startKey) return;
+      if (!entriesByName.has(employeeName)) entriesByName.set(employeeName, []);
+      entriesByName.get(employeeName).push(entry);
+    });
+
+    activeNames.forEach(employeeName => {
+      const entries = entriesByName.get(employeeName) || [];
+      const away = entries.some(entry => {
+        const project = getProjectById(entry.project_id || entry.projectId || "");
+        return !!project && isSystemPersonalProject(project) && personalTypes.has(project.category);
+      });
+      const onProject = entries.some(entry => {
+        const project = getProjectById(entry.project_id || entry.projectId || "");
+        return !!project && !isSystemPersonalProject(project) && !isCancelledProject(project) && normalizeProjectStatus(project.status) !== "Fullført";
+      });
+
+      if (filterType === "on_project" && onProject) names.add(employeeName);
+      if (filterType === "away" && away) names.add(employeeName);
+      if (filterType === "available" && !onProject && !away) names.add(employeeName);
+    });
+
+    return names;
+  }
+
+  function getFilteredEmployees() {
     const selectedGroups = state.selectedEmployeeGroups || [];
     const useGroupFilterControl = !!els.groupFilterControl;
+    const dashboardNames = getDashboardEmployeeFilterNames();
 
     return state.employees
       .filter(emp => {
@@ -6554,8 +6631,9 @@ function getFilteredEmployees() {
         const employeeGroup = normalizeEmployeeGroup(emp.employee_group || "");
         const matchesGroupFilter = !selectedGroups.length || selectedGroups.includes(employeeGroup);
         const matchesSearch = !state.search || emp.name.toLowerCase().includes(state.search);
+        const matchesDashboardFilter = !dashboardNames || dashboardNames.has(emp.name);
         const matchesFilter = useGroupFilterControl ? matchesGroupFilter : matchesLegacyFilter;
-        return isActive && matchesFilter && matchesSearch;
+        return isActive && matchesFilter && matchesSearch && matchesDashboardFilter;
       })
       .sort((a, b) => {
         const groupDiff = getEmployeeGroupSortIndex(a.employee_group) - getEmployeeGroupSortIndex(b.employee_group);
