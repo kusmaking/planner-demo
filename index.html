@@ -759,6 +759,69 @@
       }
     }
 
+    /* v18.24a dashboard cleanup: isolate Oppstart from fixed icon menu and make cards compact. */
+    body.iz-compact-ui #tabHomeSection {
+      margin-left: 72px !important;
+      margin-right: 0 !important;
+      color: #0f172a;
+    }
+
+    body.iz-compact-ui #homeDashboard {
+      max-width: 1680px;
+      margin: 0 auto;
+    }
+
+    body.iz-compact-ui .dashboard-shell {
+      padding-top: 4px;
+    }
+
+    body.iz-compact-ui .dashboard-title {
+      color: #f8fbfd;
+      font-size: 28px;
+      line-height: 1.1;
+      font-weight: 800;
+      letter-spacing: -0.025em;
+      margin: 0;
+    }
+
+    body.iz-compact-ui .dashboard-subtitle {
+      color: rgba(229, 238, 241, 0.72);
+      font-size: 13px;
+      margin-top: 6px;
+    }
+
+    body.iz-compact-ui .dashboard-card {
+      border-radius: 8px !important;
+      border: 1px solid rgba(172, 219, 230, 0.22) !important;
+      box-shadow: none !important;
+    }
+
+    body.iz-compact-ui .dashboard-welcome {
+      min-height: 74px;
+      padding: 16px 18px !important;
+    }
+
+    body.iz-compact-ui .dashboard-action-card {
+      min-height: 142px !important;
+      padding: 18px !important;
+    }
+
+    body.iz-compact-ui .dashboard-action-icon {
+      width: 42px !important;
+      height: 42px !important;
+    }
+
+    body.iz-compact-ui .dashboard-metric-card {
+      min-height: 260px;
+      padding: 18px !important;
+    }
+
+    @media (max-width: 1279px) {
+      body.iz-compact-ui #tabHomeSection {
+        margin-left: 0 !important;
+      }
+    }
+
   </style>
 </head>
 <body class="iz-compact-ui text-slate-900">
@@ -782,13 +845,13 @@
 
     <section id="plannerTabs" class="rounded-2xl bg-white border border-slate-200 shadow-sm p-3">
       <div class="flex flex-wrap gap-2">
-        <button id="tabHomeBtn" class="rounded-2xl px-4 py-2 text-sm border border-slate-300 bg-white text-slate-700" data-tooltip="Oppstart" aria-label="Oppstart">Oppstart</button>
-        <button id="tabCalendarBtn" class="rounded-2xl px-4 py-2 text-sm border border-slate-900 bg-slate-900 text-white" data-tooltip="Ansattplan" aria-label="Ansattplan">Ansattplan</button>
-        <button id="tabProjectPlanBtn" class="rounded-2xl px-4 py-2 text-sm border border-slate-300 bg-white text-slate-700" data-tooltip="Prosjektplan" aria-label="Prosjektplan">Prosjektplan</button>
-        <button id="tabUnstaffedBtn" class="rounded-2xl px-4 py-2 text-sm border border-slate-300 bg-white text-slate-700" data-tooltip="Uten bemanning" aria-label="Uten bemanning">Uten bemanning</button>
-        <button id="tabProjectsBtn" class="rounded-2xl px-4 py-2 text-sm border border-slate-300 bg-white text-slate-700" data-tooltip="Prosjektadmin" aria-label="Prosjektadmin">Prosjektadmin</button>
-        <button id="tabEmployeesBtn" class="rounded-2xl px-4 py-2 text-sm border border-slate-300 bg-white text-slate-700" data-tooltip="Ansattadmin" aria-label="Ansattadmin">Ansattadmin</button>
-        <button id="tabAdminBtn" class="rounded-2xl px-4 py-2 text-sm border border-slate-300 bg-white text-slate-700" data-tooltip="Admin" aria-label="Admin">Admin</button>
+        <button id="tabHomeBtn" class="rounded-2xl px-4 py-2 text-sm border border-slate-300 bg-white text-slate-700" data-tooltip="Oppstart" aria-label="Oppstart">⌂</button>
+        <button id="tabCalendarBtn" class="rounded-2xl px-4 py-2 text-sm border border-slate-900 bg-slate-900 text-white" data-tooltip="Ansattplan" aria-label="Ansattplan">☷</button>
+        <button id="tabProjectPlanBtn" class="rounded-2xl px-4 py-2 text-sm border border-slate-300 bg-white text-slate-700" data-tooltip="Prosjektplan" aria-label="Prosjektplan">▦</button>
+        <button id="tabUnstaffedBtn" class="rounded-2xl px-4 py-2 text-sm border border-slate-300 bg-white text-slate-700" data-tooltip="Uten bemanning" aria-label="Uten bemanning">!</button>
+        <button id="tabProjectsBtn" class="rounded-2xl px-4 py-2 text-sm border border-slate-300 bg-white text-slate-700" data-tooltip="Prosjektadmin" aria-label="Prosjektadmin">♙</button>
+        <button id="tabEmployeesBtn" class="rounded-2xl px-4 py-2 text-sm border border-slate-300 bg-white text-slate-700" data-tooltip="Ansattadmin" aria-label="Ansattadmin">◎</button>
+        <button id="tabAdminBtn" class="rounded-2xl px-4 py-2 text-sm border border-slate-300 bg-white text-slate-700" data-tooltip="Admin" aria-label="Admin">⚙</button>
       </div>
     </section>
 

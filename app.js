@@ -1,5 +1,5 @@
 (() => {
-  // v18.24-sandbox-startscreen-dashboard-safe
+  // v18.24a-sandbox-dashboard-layout-cleanup-safe
   // v18.19-ansattplan-project-focus-toggle-safe
   // v18.11: plain visible available-row render for project inspector.
   const supabaseClient = window.supabase?.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -4110,45 +4110,45 @@ async function deleteEditedEntry() {
     `).join("") : `<div class="py-8 text-sm text-slate-500">Ingen ansatte tilgjengelig.</div>`;
 
     els.homeDashboard.innerHTML = `
-      <div class="space-y-5">
+      <div class="dashboard-shell space-y-4">
         <div>
-          <h2 class="text-4xl font-semibold tracking-tight text-slate-950">Oppstart</h2>
-          <p class="mt-2 text-lg text-slate-600">Velg hvor du vil starte arbeidsdagen</p>
+          <h2 class="dashboard-title">Oppstart</h2>
+          <p class="dashboard-subtitle">Velg hvor du vil starte arbeidsdagen</p>
         </div>
 
-        <div class="rounded-[28px] bg-white border border-slate-200 shadow-sm p-6 flex items-center gap-5">
-          <span class="inline-flex h-20 w-20 items-center justify-center rounded-full bg-cyan-50 text-cyan-700 shrink-0">${actionIcon("sun")}</span>
+        <div class="dashboard-card dashboard-welcome rounded-[28px] bg-white border border-slate-200 shadow-sm flex items-center gap-4">
+          <span class="inline-flex h-14 w-14 items-center justify-center rounded-full bg-cyan-50 text-cyan-700 shrink-0">${actionIcon("sun")}</span>
           <div>
             <div class="text-[20px] font-semibold text-slate-950">God morgen, ${escapeHtml(firstName)}</div>
-            <div class="mt-2 text-base text-slate-600">Her er en rask oversikt og snarveier til det viktigste du jobber med.</div>
+            <div class="mt-1 text-sm text-slate-600">Her er en rask oversikt og snarveier til det viktigste du jobber med.</div>
           </div>
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
+        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-3">
           ${shortcuts.map(card => `
-            <button type="button" data-home-action="${card.action}" class="text-left rounded-[28px] bg-white border border-slate-200 shadow-sm p-6 min-h-[220px] hover:border-slate-300 hover:bg-slate-50 transition">
-              <span class="inline-flex h-16 w-16 items-center justify-center rounded-full bg-slate-50 text-slate-700">${actionIcon(card.key)}</span>
-              <div class="mt-8 text-[18px] font-semibold text-slate-950">${escapeHtml(card.title)}</div>
-              <div class="mt-3 text-base leading-7 text-slate-600">${escapeHtml(card.text)}</div>
-              <div class="mt-8 text-2xl text-slate-500">→</div>
+            <button type="button" data-home-action="${card.action}" class="dashboard-card dashboard-action-card text-left rounded-[28px] bg-white border border-slate-200 shadow-sm hover:border-slate-300 hover:bg-slate-50 transition">
+              <span class="dashboard-action-icon inline-flex items-center justify-center rounded-full bg-slate-50 text-slate-700">${actionIcon(card.key)}</span>
+              <div class="mt-5 text-[17px] font-semibold text-slate-950">${escapeHtml(card.title)}</div>
+              <div class="mt-2 text-sm leading-6 text-slate-600">${escapeHtml(card.text)}</div>
+              <div class="mt-4 text-xl text-slate-500">→</div>
             </button>
           `).join("")}
         </div>
 
-        <div class="grid grid-cols-1 xl:grid-cols-12 gap-4">
-          <div class="xl:col-span-4 rounded-[28px] bg-white border border-slate-200 shadow-sm p-5">
+        <div class="grid grid-cols-1 xl:grid-cols-12 gap-3">
+          <div class="dashboard-card dashboard-metric-card xl:col-span-4 rounded-[28px] bg-white border border-slate-200 shadow-sm">
             <div class="flex items-center justify-between gap-3">
               <h3 class="text-[20px] font-semibold text-slate-950">Utnyttelse</h3>
               <span class="text-sm text-slate-400">I dag</span>
             </div>
-            <div class="mt-6 flex items-center gap-6">
-              <div class="relative h-40 w-40 shrink-0 rounded-full" style="background: conic-gradient(#34d3bf 0 ${utilization}%, #e5e7eb ${utilization}% 100%);">
-                <div class="absolute inset-[18px] rounded-full bg-white flex flex-col items-center justify-center text-center">
-                  <div class="text-5xl font-semibold text-slate-950">${utilization}%</div>
-                  <div class="mt-2 text-base text-slate-600">Total utnyttelse</div>
+            <div class="mt-5 flex items-center gap-5">
+              <div class="relative h-28 w-28 shrink-0 rounded-full" style="background: conic-gradient(#34d3bf 0 ${utilization}%, #e5e7eb ${utilization}% 100%);">
+                <div class="absolute inset-[13px] rounded-full bg-white flex flex-col items-center justify-center text-center">
+                  <div class="text-3xl font-semibold text-slate-950">${utilization}%</div>
+                  <div class="mt-1 text-xs text-slate-600">Total utnyttelse</div>
                 </div>
               </div>
-              <div class="space-y-3 text-base text-slate-700">
+              <div class="space-y-2 text-sm text-slate-700">
                 <div><span class="font-semibold text-slate-950">På oppdrag:</span> ${assignedToday} ansatte</div>
                 <div><span class="font-semibold text-slate-950">Tilgjengelig:</span> ${availableToday} ansatte</div>
                 <div><span class="font-semibold text-slate-950">Totalt:</span> ${totalEmployees} ansatte</div>
@@ -4156,7 +4156,7 @@ async function deleteEditedEntry() {
             </div>
           </div>
 
-          <div class="xl:col-span-4 rounded-[28px] bg-white border border-slate-200 shadow-sm p-5">
+          <div class="dashboard-card dashboard-metric-card xl:col-span-4 rounded-[28px] bg-white border border-slate-200 shadow-sm">
             <div class="flex items-center justify-between gap-3">
               <h3 class="text-[20px] font-semibold text-slate-950">Ansatte pr gruppe</h3>
               <span class="text-sm text-slate-400">Totalt ${totalEmployees}</span>
@@ -4164,15 +4164,15 @@ async function deleteEditedEntry() {
             <div class="mt-4">${groupRowsHtml}</div>
           </div>
 
-          <div class="xl:col-span-4 rounded-[28px] bg-white border border-slate-200 shadow-sm p-5">
+          <div class="dashboard-card dashboard-metric-card xl:col-span-4 rounded-[28px] bg-white border border-slate-200 shadow-sm">
             <div class="flex items-center justify-between gap-3">
               <h3 class="text-[20px] font-semibold text-slate-950">Dagens oversikt</h3>
               <span class="text-sm text-slate-400">${escapeHtml(today.toLocaleDateString("no-NO"))}</span>
             </div>
-            <div class="mt-4 divide-y divide-slate-200">
-              <div class="flex items-center justify-between gap-3 py-4"><span class="text-base text-slate-700">Aktive prosjekter</span><span class="text-4xl font-semibold text-slate-950">${visibleProjects.length}</span></div>
-              <div class="flex items-center justify-between gap-3 py-4"><span class="text-base text-slate-700">Prosjekter uten bemanning</span><span class="text-4xl font-semibold text-slate-950">${unstaffedProjects.length}</span></div>
-              <div class="flex items-center justify-between gap-3 py-4"><span class="text-base text-slate-700">Tilgjengelige ansatte</span><span class="text-4xl font-semibold text-slate-950">${availableToday}</span></div>
+            <div class="mt-3 divide-y divide-slate-200">
+              <div class="flex items-center justify-between gap-3 py-3"><span class="text-base text-slate-700">Aktive prosjekter</span><span class="text-3xl font-semibold text-slate-950">${visibleProjects.length}</span></div>
+              <div class="flex items-center justify-between gap-3 py-3"><span class="text-base text-slate-700">Prosjekter uten bemanning</span><span class="text-3xl font-semibold text-slate-950">${unstaffedProjects.length}</span></div>
+              <div class="flex items-center justify-between gap-3 py-3"><span class="text-base text-slate-700">Tilgjengelige ansatte</span><span class="text-3xl font-semibold text-slate-950">${availableToday}</span></div>
             </div>
           </div>
         </div>
