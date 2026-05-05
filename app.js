@@ -1,5 +1,5 @@
 (() => {
-  // v18.31c-sandbox-resize-project-workshop-end-safe
+  // v18.30f-sandbox-force-project-edit-button-safe
   // v18.19-ansattplan-project-focus-toggle-safe
   // v18.11: plain visible available-row render for project inspector.
   const supabaseClient = window.supabase?.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -49,7 +49,6 @@
       entryCountByProject: new Map()
     },
     dragEntryId: null,
-    dragWorkshopProjectId: null,
     justDraggedEntryId: null,
     dragAnchor: {
       timeUnit: "day",
@@ -267,15 +266,8 @@
     els.searchInput.setAttribute("autocorrect", "off");
     els.searchInput.setAttribute("autocapitalize", "none");
     els.searchInput.setAttribute("spellcheck", "false");
-    els.searchInput.setAttribute("name", "planner_search_filter_no_autofill");
+    els.searchInput.setAttribute("name", "planner_search_filter");
     els.searchInput.setAttribute("data-lpignore", "true");
-    els.searchInput.addEventListener("focus", () => {
-      const currentSearchValue = String(els.searchInput.value || "").trim();
-      if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(currentSearchValue)) {
-        els.searchInput.value = "";
-        state.search = "";
-      }
-    });
   }
 
   function startOfWeekMonday(date) {
@@ -520,20 +512,7 @@
     const isProjectMode = state.calendarMode === "project";
     els.searchInput.placeholder = isProjectMode ? "Søk prosjekt" : "Søk ansatt";
     els.searchInput.setAttribute("aria-label", isProjectMode ? "Søk prosjekt" : "Søk ansatt");
-    els.searchInput.setAttribute("name", isProjectMode ? "planner_project_search_filter_no_autofill" : "planner_search_filter_no_autofill");
-    els.searchInput.setAttribute("autocomplete", "off");
-    els.searchInput.setAttribute("autocorrect", "off");
-    els.searchInput.setAttribute("autocapitalize", "none");
-    els.searchInput.setAttribute("spellcheck", "false");
-    els.searchInput.setAttribute("data-lpignore", "true");
-
-    const currentSearchValue = String(els.searchInput.value || "").trim();
-    const looksLikeAutofilledEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(currentSearchValue);
-    if (isProjectMode && (looksLikeAutofilledEmail || currentSearchValue === String(state.currentUser?.email || "").trim())) {
-      els.searchInput.value = "";
-      state.search = "";
-    }
-
+    els.searchInput.setAttribute("name", isProjectMode ? "planner_project_search_filter" : "planner_search_filter");
     if (els.groupFilterControl) els.groupFilterControl.classList.toggle("hidden", isProjectMode);
     if (els.projectFilterControl) els.projectFilterControl.classList.toggle("hidden", !isProjectMode);
     if (els.calendarNewProjectBtn) els.calendarNewProjectBtn.classList.toggle("hidden", !isProjectMode);
@@ -4912,6 +4891,37 @@ async function deleteEditedEntry() {
     void addNotification(employee.name, project.name);
   }
 
+  function injectProjectPanelEditButton(project) {
+    if (!project || !els.calendarPanelContent) return;
+
+    const existing = document.getElementById("projectInspectorEditProjectForceBtn");
+    if (existing) existing.remove();
+
+    const button = document.createElement("button");
+    button.id = "projectInspectorEditProjectForceBtn";
+    button.type = "button";
+    button.className = "project-panel-edit-force-btn";
+    button.dataset.calendarPanelEditProject = project.id;
+    button.innerHTML = `<span>Rediger prosjekt</span><small>Workshop · feltperiode · ressursbehov</small>`;
+    button.addEventListener("click", event => {
+      event.preventDefault();
+      event.stopPropagation();
+      openProjectModal(project.id);
+    });
+
+    const contentRoot = els.calendarPanelContent.querySelector(".min-h-0.flex-1") || els.calendarPanelContent.firstElementChild || els.calendarPanelContent;
+    if (contentRoot && contentRoot !== els.calendarPanelContent) {
+      const firstInner = contentRoot.querySelector(":scope > div, :scope > section");
+      if (firstInner) {
+        contentRoot.insertBefore(button, firstInner);
+      } else {
+        contentRoot.prepend(button);
+      }
+    } else {
+      els.calendarPanelContent.prepend(button);
+    }
+  }
+
   function renderProjectInspectorPanel(project) {
     // v17.8: Assigned rows render visible Endre and remove buttons directly in this panel.
     if (!els.calendarPanelContent || !project) return;
@@ -5124,29 +5134,11 @@ async function deleteEditedEntry() {
             <div class="mt-1 text-xs font-medium ${staffingTone}">${escapeHtml(staffing.text)}${required ? ` (${assigned}/${required})` : ""}</div>
           </div>
           <div class="flex items-center gap-2 shrink-0">
-            <button data-calendar-panel-edit-project="${escapeHtml(project.id)}" type="button" class="rounded-xl border border-slate-300 bg-slate-900 px-3 py-1.5 text-sm font-semibold text-white hover:bg-slate-800">Rediger prosjekt</button>
             <button id="calendarProjectPanelCloseBtn" type="button" class="rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50">×</button>
           </div>
         </div>
 
         <div class="min-h-0 flex-1 space-y-4 overflow-auto p-4 text-sm">
-          <div style="display:block !important;margin:0 0 14px 0 !important;width:100% !important;">
-            <button
-              id="projectInspectorEditProjectVisibleBtn"
-              data-calendar-panel-edit-project="${escapeHtml(project.id)}"
-              type="button"
-              style="display:flex !important;align-items:center !important;justify-content:space-between !important;gap:12px !important;width:100% !important;min-height:58px !important;box-sizing:border-box !important;border:1px solid rgba(80,240,199,0.58) !important;background:linear-gradient(180deg, rgba(80,240,199,0.20) 0%, rgba(80,240,199,0.12) 100%) !important;color:#f8fbfd !important;border-radius:6px !important;padding:12px 14px !important;font-size:13px !important;font-weight:900 !important;line-height:1.15 !important;cursor:pointer !important;visibility:visible !important;opacity:1 !important;position:relative !important;z-index:30 !important;text-align:left !important;box-shadow:0 0 0 1px rgba(80,240,199,0.10) inset !important;"
-            >
-              <span style="display:flex !important;align-items:center !important;gap:12px !important;min-width:0 !important;">
-                <span style="display:inline-flex !important;align-items:center !important;justify-content:center !important;width:32px !important;height:32px !important;border-radius:6px !important;background:rgba(255,255,255,0.12) !important;border:1px solid rgba(255,255,255,0.16) !important;font-size:16px !important;font-weight:900 !important;color:#50f0c7 !important;flex:0 0 auto !important;">✎</span>
-                <span style="display:block !important;min-width:0 !important;">
-                  <span style="display:block !important;font-size:14px !important;font-weight:900 !important;color:#f8fbfd !important;">Rediger prosjekt</span>
-                  <span style="display:block !important;margin-top:4px !important;font-size:11px !important;font-weight:650 !important;color:rgba(232,244,248,0.76) !important;">Feltperiode · workshop · ressursbehov</span>
-                </span>
-              </span>
-              <span style="display:inline-flex !important;align-items:center !important;justify-content:center !important;color:#50f0c7 !important;font-size:16px !important;font-weight:900 !important;flex:0 0 auto !important;">→</span>
-            </button>
-          </div>
           <div class="grid grid-cols-2 gap-2">
             <div class="rounded-2xl border border-slate-200 bg-slate-50 p-3">
               <div class="text-[11px] uppercase tracking-wide text-slate-500">Kategori</div>
@@ -5157,6 +5149,16 @@ async function deleteEditedEntry() {
               <div class="mt-1 font-semibold text-slate-900">${required || 0} personer</div>
             </div>
           </div>
+
+          <button
+            id="projectInspectorEditProjectVisibleBtn"
+            data-calendar-panel-edit-project="${escapeHtml(project.id)}"
+            type="button"
+            class="project-panel-edit-btn"
+          >
+            Rediger prosjekt
+            <span>Workshop · feltperiode · ressursbehov</span>
+          </button>
 
           <section>
             <div class="mb-2 flex items-center justify-between gap-2">
@@ -5199,6 +5201,8 @@ async function deleteEditedEntry() {
       selectButtons: els.calendarPanelContent.querySelectorAll("[data-project-inspector-select-employee]").length,
       availableRows: els.calendarPanelContent.querySelectorAll("[data-project-available-person-row]").length
     });
+
+    injectProjectPanelEditButton(project);
 
     const rerenderPanel = (focusSearch = false) => {
       projectPanelDebug("rerenderPanel called", { focusSearch });
@@ -6024,7 +6028,7 @@ async function deleteEditedEntry() {
           html += `<div data-drop-slot-index="${i}" data-drop-date="${toIsoDate(day)}" data-today-column="${isTodayDate(day) ? "true" : "false"}" class="day-cell ${redDay ? "red-day" : ""}" style="position:absolute; left:${i * colWidth}px; width:${colWidth}px; border-right:${monthBoundary ? "2px solid #94a3b8" : "1px solid #e2e8f0"}; ${todayCellStyle}"></div>`;
         }
 
-        html += `<div style="position:relative; width:${totalWidth}px; min-height:40px;">`;
+        html += `<div style="position:relative; width:${totalWidth}px; min-height:52px;">`;
 
         for (const entry of employeeEntries) {
           const project = getProjectById(entry.project_id);
@@ -6193,7 +6197,7 @@ async function deleteEditedEntry() {
     const days = getDaysBetween(range.start, range.end);
     const projects = getProjectCalendarItems().filter(project => projectOverlapsRange(project, range.start, range.end));
 
-    const stickyWidth = 380;
+    const stickyWidth = 300;
     const colWidth = Math.max(28, state.viewMode === "Uke" ? 38 : 32);
     const totalWidth = colWidth * days.length;
 
@@ -6208,17 +6212,15 @@ async function deleteEditedEntry() {
       const projectPeriods = getProjectTimelinePeriodsWithWorkshop(project);
 
       html += `
-        <button type="button" data-project-list-row-id="${escapeHtml(project.id)}" class="sticky-col project-plan-name-cell border-r border-b border-slate-200 px-3 py-1.5 text-left ${project.id === state.focusProjectId ? "bg-blue-50 ring-2 ring-blue-200" : isClosedProject(project) ? "bg-slate-100" : "bg-white"}">
-          <div class="project-plan-title">${escapeHtml(project.name)}</div>
-          <div class="project-plan-meta">
-            <span class="${staffing.variant}">${escapeHtml(staffing.text)}${required ? ` (${assigned}/${required})` : ""}</span>
-            ${project.location ? `<span class="text-slate-400">·</span><span>${escapeHtml(project.location)}</span>` : ""}
-            ${project.has_multiple_periods && getProjectTimelinePeriods(project).length ? `<span class="text-slate-400">·</span><span>${getProjectTimelinePeriods(project).length} feltperioder + workshop</span>` : ""}
-          </div>
+        <button type="button" data-project-list-row-id="${escapeHtml(project.id)}" class="sticky-col border-r border-b border-slate-200 px-3 py-2 text-left ${project.id === state.focusProjectId ? "bg-blue-50 ring-2 ring-blue-200" : isClosedProject(project) ? "bg-slate-100" : "bg-white"}">
+          <div class="font-medium">${escapeHtml(project.name)}</div>
+          <div class="text-xs text-slate-500">${escapeHtml(project.location || "")}</div>
+          <div class="text-xs ${staffing.variant} mt-1">${escapeHtml(staffing.text)}${required ? ` (${assigned}/${required})` : ""}</div>
+          ${project.has_multiple_periods && getProjectTimelinePeriods(project).length ? `<div class="text-[11px] text-slate-400 mt-1">${getProjectTimelinePeriods(project).length} feltperioder + workshop</div>` : ""}
         </button>
       `;
 
-      html += `<div class="row-overlay border-b border-slate-200 project-workshop-drop-row" data-project-drop-row-id="${escapeHtml(project.id)}" data-range-start="${toIsoDate(range.start)}" data-col-width="${colWidth}" data-total-cols="${days.length}" data-time-unit="day" style="grid-column: span ${days.length}; width:${totalWidth}px;">`;
+      html += `<div class="row-overlay border-b border-slate-200" data-range-start="${toIsoDate(range.start)}" data-col-width="${colWidth}" data-total-cols="${days.length}" data-time-unit="day" style="grid-column: span ${days.length}; width:${totalWidth}px;">`;
 
       for (let i = 0; i < days.length; i++) {
         const day = days[i];
@@ -6244,22 +6246,13 @@ async function deleteEditedEntry() {
 
         html += `
           <div
-            class="entry-bar ${periodClasses} ${period.phase === "workshop" ? "cursor-move" : ""} ${project.id === state.focusProjectId ? 'ring-2 ring-blue-300 ring-offset-1' : ''}"
+            class="entry-bar ${periodClasses} ${project.id === state.focusProjectId ? 'ring-2 ring-blue-300 ring-offset-1' : ''}"
             style="left:${left}px; width:${width}px;"
             data-project-row-id="${escapeHtml(project.id)}"
-            data-project-period-phase="${escapeHtml(period.phase || "field")}"
-            ${period.phase === "workshop" ? `data-workshop-project-id="${escapeHtml(project.id)}" draggable="true"` : ""}
             title="${escapeHtml(`${project.name} | ${period.phaseLabel || "Feltoppdrag"} | ${formatDate(period.start)} – ${formatDate(period.end)} | ${period.phase === "workshop" ? `Workshopbehov ${period.required || 2}` : staffing.text}`)}"
           >
             <div class="font-semibold">${escapeHtml(project.name)}</div>
             <div class="text-[11px] opacity-90">${escapeHtml(periodLabel)}</div>
-            <div
-              data-resize-handle
-              data-resize-type="${period.phase === "workshop" ? "workshop" : "project"}"
-              data-target-id="${escapeHtml(project.id)}"
-              title="${period.phase === "workshop" ? "Dra for å endre workshop-sluttdato" : "Dra for å endre prosjektsluttdato"}"
-              style="position:absolute; top:0; right:0; bottom:0; width:14px; cursor:ew-resize; border-left:1px solid rgba(255,255,255,0.42); background:linear-gradient(to left, rgba(255,255,255,0.42), rgba(255,255,255,0));"
-            ></div>
           </div>
         `;
       }
@@ -6276,8 +6269,6 @@ async function deleteEditedEntry() {
     els.calendarWrap.querySelectorAll("[data-project-list-row-id]").forEach(el => {
       el.addEventListener("click", () => selectProjectInCalendar(el.dataset.projectListRowId));
     });
-    bindWorkshopPhaseDrag();
-    bindResizeHandles();
     renderWarnings(uniqueArray(warnings));
   }
 
@@ -6473,119 +6464,6 @@ async function deleteEditedEntry() {
     });
   }
 
-  function bindWorkshopPhaseDrag() {
-    if (!canEditApp()) return;
-
-    els.calendarWrap.querySelectorAll("[data-workshop-project-id]").forEach(el => {
-      el.addEventListener("click", event => {
-        if (state.dragWorkshopProjectId) return;
-      });
-
-      el.addEventListener("dragstart", event => {
-        const projectId = el.dataset.workshopProjectId || "";
-        if (!projectId) return;
-        state.dragWorkshopProjectId = projectId;
-        const row = el.closest(".row-overlay");
-        state.dragAnchor = getDragAnchorFromPointer(el, row, event.clientX);
-        event.dataTransfer.effectAllowed = "move";
-        event.dataTransfer.setData("text/workshop-project-id", projectId);
-        event.dataTransfer.setData("text/plain", `workshop:${projectId}`);
-        requestAnimationFrame(() => {
-          el.classList.add("opacity-60");
-        });
-      });
-
-      el.addEventListener("dragend", () => {
-        el.classList.remove("opacity-60");
-        state.dragWorkshopProjectId = null;
-        state.dragAnchor = { timeUnit: "day", slotOffset: 0 };
-      });
-    });
-
-    els.calendarWrap.querySelectorAll("[data-project-drop-row-id]").forEach(row => {
-      row.addEventListener("dragover", event => {
-        if (!state.dragWorkshopProjectId) return;
-        event.preventDefault();
-        event.dataTransfer.dropEffect = "move";
-        row.classList.add("ring-2", "ring-green-300", "ring-inset");
-      });
-
-      row.addEventListener("dragleave", () => {
-        row.classList.remove("ring-2", "ring-green-300", "ring-inset");
-      });
-
-      row.addEventListener("drop", async event => {
-        if (!state.dragWorkshopProjectId) return;
-        event.preventDefault();
-        row.classList.remove("ring-2", "ring-green-300", "ring-inset");
-
-        const projectId = event.dataTransfer.getData("text/workshop-project-id") || state.dragWorkshopProjectId;
-        const targetProjectId = row.dataset.projectDropRowId || "";
-        if (!projectId || !targetProjectId || projectId !== targetProjectId) return;
-
-        const dropMeta = getDropMetaFromRow(row, event);
-        await moveWorkshopPhaseByDrop(projectId, dropMeta);
-      });
-    });
-  }
-
-  async function moveWorkshopPhaseByDrop(projectId, dropMeta = null) {
-    if (!canEditApp()) return;
-    const project = getProjectById(projectId);
-    if (!project || project.workshop_enabled === false) return;
-
-    const currentStart = project.workshop_start_date;
-    const currentEnd = project.workshop_end_date;
-    if (!currentStart || !currentEnd) {
-      alert("Workshopfasen mangler start/slutt. Rediger prosjektet og lagre workshopdatoer først.");
-      return;
-    }
-
-    const original = {
-      workshop_start_date: currentStart,
-      workshop_end_date: currentEnd
-    };
-
-    let newStart = null;
-    const durationDays = Math.max(0, diffDays(asLocalDate(currentStart), asLocalDate(currentEnd)));
-
-    if (dropMeta?.timeUnit === "day" && dropMeta.rangeStart && Number.isFinite(dropMeta.colIndex)) {
-      const pointerBaseDate = dropMeta.dropDate
-        ? parseIsoDateLocal(dropMeta.dropDate)
-        : addDays(parseIsoDateLocal(dropMeta.rangeStart), dropMeta.colIndex);
-      const anchorOffset = Math.max(0, Number(state.dragAnchor?.slotOffset || 0));
-      newStart = addDays(pointerBaseDate, -anchorOffset);
-    }
-
-    if (!newStart || Number.isNaN(newStart.getTime())) return;
-
-    const newEnd = addDays(newStart, durationDays);
-    const newStartIso = toIsoDate(newStart);
-    const newEndIso = toIsoDate(newEnd);
-
-    if (newStartIso === currentStart && newEndIso === currentEnd) return;
-
-    project.workshop_start_date = newStartIso;
-    project.workshop_end_date = newEndIso;
-
-    rebuildDerivedState();
-    saveAllLocal();
-    renderAll();
-
-    const result = await saveRow("planner_projects", project);
-    if (!result.ok) {
-      project.workshop_start_date = original.workshop_start_date;
-      project.workshop_end_date = original.workshop_end_date;
-      rebuildDerivedState();
-      saveAllLocal();
-      renderAll();
-      alert("Kunne ikke lagre flytting av workshopfasen. Endringen er rullet tilbake.");
-      return;
-    }
-
-    void addAudit(`Flyttet workshopfase: ${project.name} (${newStartIso} – ${newEndIso})`);
-  }
-
   async function moveEntryToEmployee(entryId, targetEmployeeName) {
     return moveEntryByDrop(entryId, targetEmployeeName, null);
   }
@@ -6649,16 +6527,6 @@ async function deleteEditedEntry() {
         project,
         originalEndDate: project.planned_end_date || project.planned_start_date || '',
         originalStartDate: project.planned_start_date || ''
-      };
-    }
-
-    if (type === 'workshop') {
-      const project = state.projects.find(item => item.id === targetId);
-      if (!project) return null;
-      return {
-        project,
-        originalEndDate: project.workshop_end_date || project.workshop_start_date || '',
-        originalStartDate: project.workshop_start_date || ''
       };
     }
 
@@ -6815,22 +6683,6 @@ if (resizeState.type === 'entry' && snapshot.entry) {
         return;
       }
       void addAudit(`Endret prosjektsluttdato: ${project.name} til ${nextEndDate}`);
-    }
-
-    if (resizeState.type === 'workshop' && snapshot.project) {
-      const project = snapshot.project;
-      const originalEndDate = project.workshop_end_date;
-      project.workshop_end_date = nextEndDate;
-      rebuildDerivedState();
-      renderAll();
-      const result = await saveRow('planner_projects', project);
-      if (!result.ok) {
-        project.workshop_end_date = originalEndDate;
-        rebuildDerivedState();
-        renderAll();
-        return;
-      }
-      void addAudit(`Endret workshop-sluttdato: ${project.name} til ${nextEndDate}`);
     }
 
     flushPendingRemoteRefresh();

@@ -1048,96 +1048,62 @@
     body.iz-compact-ui #homeDashboard .dash27-donut-inner .text-4xl { font-size: 1.65rem; }
     body.iz-compact-ui #homeDashboard .dash27-list-row { padding-top: 6px; padding-bottom: 6px; }
 
-    /* v18.30g: restyled existing edit button and wider project panel */
-    body.iz-compact-ui #projectInspectorEditProjectVisibleBtn {
-      display: inline-flex !important;
-      visibility: visible !important;
-      opacity: 1 !important;
-      pointer-events: auto !important;
-    }
+
+
+    /* v18.30f: forced visible project edit button */
     body.iz-compact-ui #calendarPanelCol {
-      width: 460px !important;
-      min-width: 460px !important;
-      max-width: 460px !important;
+      width: 560px !important;
+      min-width: 560px !important;
+      max-width: 560px !important;
     }
     body.iz-compact-ui #calendarPanelCol.is-open,
     body.iz-compact-ui #calendarPanelCol:not(.hidden) {
-      width: 460px !important;
-      min-width: 460px !important;
-      max-width: 460px !important;
+      width: 560px !important;
+      min-width: 560px !important;
+      max-width: 560px !important;
     }
     body.iz-compact-ui #calendarPanelContent {
       width: 100% !important;
       min-width: 0 !important;
     }
-
-    /* v18.31a: workshop phase drag cue */
-    body.iz-compact-ui [data-workshop-project-id] {
-      cursor: move !important;
-    }
-    body.iz-compact-ui [data-workshop-project-id]:hover {
-      filter: brightness(1.08);
-      box-shadow: 0 0 0 2px rgba(80, 240, 199, 0.28) inset !important;
-    }
-
-    /* v18.31b: compact project plan rows and search autofill cleanup */
-    body.iz-compact-ui .project-plan-name-cell {
-      min-height: 40px !important;
-      padding-top: 6px !important;
-      padding-bottom: 5px !important;
-      line-height: 1.15 !important;
-    }
-    body.iz-compact-ui .project-plan-title {
-      font-size: 12px !important;
-      font-weight: 800 !important;
-      color: #0f172a !important;
-      line-height: 1.18 !important;
-      white-space: normal !important;
-      overflow: hidden !important;
-      display: -webkit-box !important;
-      -webkit-line-clamp: 2 !important;
-      -webkit-box-orient: vertical !important;
-    }
-    body.iz-compact-ui .project-plan-meta {
-      margin-top: 2px !important;
+    body.iz-compact-ui #projectInspectorEditProjectForceBtn,
+    body.iz-compact-ui .project-panel-edit-force-btn {
       display: flex !important;
-      align-items: center !important;
-      gap: 4px !important;
-      flex-wrap: wrap !important;
-      font-size: 10px !important;
+      flex-direction: column !important;
+      align-items: flex-start !important;
+      justify-content: center !important;
+      width: calc(100% - 32px) !important;
+      min-height: 58px !important;
+      margin: 12px 16px 12px 16px !important;
+      border: 1px solid rgba(80, 240, 199, 0.58) !important;
+      background: rgba(80, 240, 199, 0.17) !important;
+      color: #f8fbfd !important;
+      border-radius: 4px !important;
+      padding: 11px 13px !important;
+      font-size: 13px !important;
+      font-weight: 950 !important;
       line-height: 1.15 !important;
-      color: #64748b !important;
+      cursor: pointer !important;
+      box-shadow: none !important;
+      text-align: left !important;
+      visibility: visible !important;
+      opacity: 1 !important;
+      pointer-events: auto !important;
+      position: relative !important;
+      z-index: 999 !important;
     }
-    body.iz-compact-ui .project-workshop-drop-row {
-      min-height: 40px !important;
+    body.iz-compact-ui #projectInspectorEditProjectForceBtn small,
+    body.iz-compact-ui .project-panel-edit-force-btn small {
+      display: block !important;
+      margin-top: 4px !important;
+      font-size: 11px !important;
+      font-weight: 650 !important;
+      color: rgba(235, 248, 250, 0.72) !important;
     }
-    body.iz-compact-ui .project-workshop-drop-row > div:last-child {
-      min-height: 40px !important;
-    }
-    body.iz-compact-ui .project-workshop-drop-row .entry-bar {
-      top: 4px !important;
-      bottom: 4px !important;
-      padding-top: 4px !important;
-      padding-bottom: 4px !important;
-    }
-    body.iz-compact-ui .project-workshop-drop-row .entry-bar .font-semibold {
-      font-size: 12px !important;
-      line-height: 1.15 !important;
-    }
-    body.iz-compact-ui .project-workshop-drop-row .entry-bar .text-\[11px\] {
-      font-size: 10px !important;
-      line-height: 1.1 !important;
-    }
-
-    /* v18.31c: project/workshop end resize cue */
-    body.iz-compact-ui [data-resize-type="workshop"],
-    body.iz-compact-ui [data-resize-type="project"] {
-      opacity: 0.8;
-    }
-    body.iz-compact-ui [data-resize-type="workshop"]:hover,
-    body.iz-compact-ui [data-resize-type="project"]:hover {
-      opacity: 1;
-      background: rgba(255,255,255,0.35) !important;
+    body.iz-compact-ui #projectInspectorEditProjectForceBtn:hover,
+    body.iz-compact-ui .project-panel-edit-force-btn:hover {
+      background: rgba(80, 240, 199, 0.26) !important;
+      border-color: rgba(80, 240, 199, 0.85) !important;
     }
 
   </style>
