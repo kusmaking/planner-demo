@@ -1503,6 +1503,57 @@
       color: rgba(235,248,250,0.72) !important;
     }
 
+  
+    .iz-language-current {
+      display: block;
+      margin-top: 8px;
+      font-size: 11px;
+      color: #64748b;
+      line-height: 1.35;
+    }
+
+    .iz-language-inline-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-top: 8px;
+    }
+
+    .iz-language-lock-badge {
+      font-size: 11px;
+      color: #64748b;
+      white-space: nowrap;
+      line-height: 1.2;
+    }
+
+    body.iz-compact-ui #accountMenuDropdown .iz-language-current,
+    body.iz-compact-ui #accountMenuDropdown .iz-language-lock-badge {
+      color: rgba(235,248,250,0.72) !important;
+    }
+
+    body.iz-compact-ui #accountMenuDropdown .iz-language-menu {
+      padding-top: 12px !important;
+      padding-bottom: 12px !important;
+    }
+
+    body.iz-compact-ui #accountMenuDropdown .iz-language-options {
+      display: inline-flex !important;
+      align-items: center;
+      gap: 6px;
+    }
+
+  
+    /* v18.34e: profile language selector highlight only */
+    body.iz-compact-ui #accountMenuDropdown .iz-language-inline-row {
+      justify-content: flex-start !important;
+    }
+
+    body.iz-compact-ui #accountMenuDropdown .iz-language-lock-badge,
+    body.iz-compact-ui #accountMenuDropdown .iz-language-current {
+      display: none !important;
+    }
+
   </style>
 </head>
 <body class="iz-compact-ui text-slate-900">
@@ -1962,6 +2013,8 @@
           currentLanguagePrefix: "Valgt språk:",
           currentLanguageNo: "Norsk",
           currentLanguageEn: "English",
+          languageActiveNo: "Norsk valgt",
+          languageActiveEn: "English valgt",
           title: "Izomax Personalplanlegger"
         },
         en: {
@@ -2014,6 +2067,8 @@
           currentLanguagePrefix: "Selected language:",
           currentLanguageNo: "Norwegian",
           currentLanguageEn: "English",
+          languageActiveNo: "Norwegian selected",
+          languageActiveEn: "English selected",
           title: "Izomax Personnel Planner"
         }
       };
@@ -2058,7 +2113,9 @@
         setText("ixLanguageLabel", t.language);
         setText("ixLanguageLockedStart", t.languageLocked);
         const currentLanguageText = `${t.currentLanguagePrefix} ${next === "en" ? t.currentLanguageEn : t.currentLanguageNo}`;
+        const activeLanguageText = next === "en" ? t.languageActiveEn : t.languageActiveNo;
         setText("ixAccountLanguageCurrent", currentLanguageText);
+        setText("ixAccountLanguageLock", activeLanguageText);
 
         setText("ixAppTitle", t.appTitle);
         setText("ixAppSubtitle", t.appSubtitle);
