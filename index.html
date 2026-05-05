@@ -1071,6 +1071,15 @@
       min-width: 0 !important;
     }
 
+    /* v18.31a: workshop phase drag cue */
+    body.iz-compact-ui [data-workshop-project-id] {
+      cursor: move !important;
+    }
+    body.iz-compact-ui [data-workshop-project-id]:hover {
+      filter: brightness(1.08);
+      box-shadow: 0 0 0 2px rgba(80, 240, 199, 0.28) inset !important;
+    }
+
   </style>
 </head>
 <body class="iz-compact-ui text-slate-900">

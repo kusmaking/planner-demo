@@ -1,8 +1,9 @@
-v18.30h sandbox project edit button emphasis safe
-- Basert på v18.30g.
-- Beholder samme fungerende plassering for Rediger prosjekt-knappen i prosjektpanelet.
-- Endrer kun styling for å gjøre knappen tydeligere og mer naturlig som primær handling.
-- Knappen har nå tydeligere kontrast, penn-symbol og pil, og står mer ut i panelet.
-- Beholder bredere prosjektpanel.
-- Ingen Supabase/datamodell-endring.
-- Ingen endring i workshoplogikk, bemanningslogikk, login/auth, spotlight, personalblokk-popup eller grupper/ikoner/expand-collapse.
+v18.31a sandbox drag workshop phase safe
+- Basert på v18.30h.
+- Første kontrollerte drag-steg for prosjektplanen.
+- Grønn workshopfase kan nå dras horisontalt i Prosjektplan.
+- Flytting beholder samme varighet og oppdaterer workshop_start_date og workshop_end_date.
+- Endringen lagres i planner_projects og skal være bevart etter refresh.
+- Gjelder foreløpig kun workshopfase i dag-/månedskalenderen, ikke resize og ikke år-visning.
+- Rød feltoppdragsblokk er ikke endret.
+- Ingen endring i bemanningslogikk, login/auth, dashboard, spotlight, personalblokk-popup eller grupper/ikoner/expand-collapse.

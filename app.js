@@ -1,5 +1,5 @@
 (() => {
-  // v18.30h-sandbox-project-edit-button-emphasis-safe
+  // v18.31a-sandbox-drag-workshop-phase-safe
   // v18.19-ansattplan-project-focus-toggle-safe
   // v18.11: plain visible available-row render for project inspector.
   const supabaseClient = window.supabase?.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -49,6 +49,7 @@
       entryCountByProject: new Map()
     },
     dragEntryId: null,
+    dragWorkshopProjectId: null,
     justDraggedEntryId: null,
     dragAnchor: {
       timeUnit: "day",
@@ -6195,7 +6196,7 @@ async function deleteEditedEntry() {
         </button>
       `;
 
-      html += `<div class="row-overlay border-b border-slate-200" data-range-start="${toIsoDate(range.start)}" data-col-width="${colWidth}" data-total-cols="${days.length}" data-time-unit="day" style="grid-column: span ${days.length}; width:${totalWidth}px;">`;
+      html += `<div class="row-overlay border-b border-slate-200 project-workshop-drop-row" data-project-drop-row-id="${escapeHtml(project.id)}" data-range-start="${toIsoDate(range.start)}" data-col-width="${colWidth}" data-total-cols="${days.length}" data-time-unit="day" style="grid-column: span ${days.length}; width:${totalWidth}px;">`;
 
       for (let i = 0; i < days.length; i++) {
         const day = days[i];
@@ -6221,9 +6222,11 @@ async function deleteEditedEntry() {
 
         html += `
           <div
-            class="entry-bar ${periodClasses} ${project.id === state.focusProjectId ? 'ring-2 ring-blue-300 ring-offset-1' : ''}"
+            class="entry-bar ${periodClasses} ${period.phase === "workshop" ? "cursor-move" : ""} ${project.id === state.focusProjectId ? 'ring-2 ring-blue-300 ring-offset-1' : ''}"
             style="left:${left}px; width:${width}px;"
             data-project-row-id="${escapeHtml(project.id)}"
+            data-project-period-phase="${escapeHtml(period.phase || "field")}"
+            ${period.phase === "workshop" ? `data-workshop-project-id="${escapeHtml(project.id)}" draggable="true"` : ""}
             title="${escapeHtml(`${project.name} | ${period.phaseLabel || "Feltoppdrag"} | ${formatDate(period.start)} – ${formatDate(period.end)} | ${period.phase === "workshop" ? `Workshopbehov ${period.required || 2}` : staffing.text}`)}"
           >
             <div class="font-semibold">${escapeHtml(project.name)}</div>
@@ -6244,6 +6247,7 @@ async function deleteEditedEntry() {
     els.calendarWrap.querySelectorAll("[data-project-list-row-id]").forEach(el => {
       el.addEventListener("click", () => selectProjectInCalendar(el.dataset.projectListRowId));
     });
+    bindWorkshopPhaseDrag();
     renderWarnings(uniqueArray(warnings));
   }
 
@@ -6437,6 +6441,119 @@ async function deleteEditedEntry() {
         await moveEntryByDrop(entryId, targetEmployeeName, dropMeta);
       });
     });
+  }
+
+  function bindWorkshopPhaseDrag() {
+    if (!canEditApp()) return;
+
+    els.calendarWrap.querySelectorAll("[data-workshop-project-id]").forEach(el => {
+      el.addEventListener("click", event => {
+        if (state.dragWorkshopProjectId) return;
+      });
+
+      el.addEventListener("dragstart", event => {
+        const projectId = el.dataset.workshopProjectId || "";
+        if (!projectId) return;
+        state.dragWorkshopProjectId = projectId;
+        const row = el.closest(".row-overlay");
+        state.dragAnchor = getDragAnchorFromPointer(el, row, event.clientX);
+        event.dataTransfer.effectAllowed = "move";
+        event.dataTransfer.setData("text/workshop-project-id", projectId);
+        event.dataTransfer.setData("text/plain", `workshop:${projectId}`);
+        requestAnimationFrame(() => {
+          el.classList.add("opacity-60");
+        });
+      });
+
+      el.addEventListener("dragend", () => {
+        el.classList.remove("opacity-60");
+        state.dragWorkshopProjectId = null;
+        state.dragAnchor = { timeUnit: "day", slotOffset: 0 };
+      });
+    });
+
+    els.calendarWrap.querySelectorAll("[data-project-drop-row-id]").forEach(row => {
+      row.addEventListener("dragover", event => {
+        if (!state.dragWorkshopProjectId) return;
+        event.preventDefault();
+        event.dataTransfer.dropEffect = "move";
+        row.classList.add("ring-2", "ring-green-300", "ring-inset");
+      });
+
+      row.addEventListener("dragleave", () => {
+        row.classList.remove("ring-2", "ring-green-300", "ring-inset");
+      });
+
+      row.addEventListener("drop", async event => {
+        if (!state.dragWorkshopProjectId) return;
+        event.preventDefault();
+        row.classList.remove("ring-2", "ring-green-300", "ring-inset");
+
+        const projectId = event.dataTransfer.getData("text/workshop-project-id") || state.dragWorkshopProjectId;
+        const targetProjectId = row.dataset.projectDropRowId || "";
+        if (!projectId || !targetProjectId || projectId !== targetProjectId) return;
+
+        const dropMeta = getDropMetaFromRow(row, event);
+        await moveWorkshopPhaseByDrop(projectId, dropMeta);
+      });
+    });
+  }
+
+  async function moveWorkshopPhaseByDrop(projectId, dropMeta = null) {
+    if (!canEditApp()) return;
+    const project = getProjectById(projectId);
+    if (!project || project.workshop_enabled === false) return;
+
+    const currentStart = project.workshop_start_date;
+    const currentEnd = project.workshop_end_date;
+    if (!currentStart || !currentEnd) {
+      alert("Workshopfasen mangler start/slutt. Rediger prosjektet og lagre workshopdatoer først.");
+      return;
+    }
+
+    const original = {
+      workshop_start_date: currentStart,
+      workshop_end_date: currentEnd
+    };
+
+    let newStart = null;
+    const durationDays = Math.max(0, diffDays(asLocalDate(currentStart), asLocalDate(currentEnd)));
+
+    if (dropMeta?.timeUnit === "day" && dropMeta.rangeStart && Number.isFinite(dropMeta.colIndex)) {
+      const pointerBaseDate = dropMeta.dropDate
+        ? parseIsoDateLocal(dropMeta.dropDate)
+        : addDays(parseIsoDateLocal(dropMeta.rangeStart), dropMeta.colIndex);
+      const anchorOffset = Math.max(0, Number(state.dragAnchor?.slotOffset || 0));
+      newStart = addDays(pointerBaseDate, -anchorOffset);
+    }
+
+    if (!newStart || Number.isNaN(newStart.getTime())) return;
+
+    const newEnd = addDays(newStart, durationDays);
+    const newStartIso = toIsoDate(newStart);
+    const newEndIso = toIsoDate(newEnd);
+
+    if (newStartIso === currentStart && newEndIso === currentEnd) return;
+
+    project.workshop_start_date = newStartIso;
+    project.workshop_end_date = newEndIso;
+
+    rebuildDerivedState();
+    saveAllLocal();
+    renderAll();
+
+    const result = await saveRow("planner_projects", project);
+    if (!result.ok) {
+      project.workshop_start_date = original.workshop_start_date;
+      project.workshop_end_date = original.workshop_end_date;
+      rebuildDerivedState();
+      saveAllLocal();
+      renderAll();
+      alert("Kunne ikke lagre flytting av workshopfasen. Endringen er rullet tilbake.");
+      return;
+    }
+
+    void addAudit(`Flyttet workshopfase: ${project.name} (${newStartIso} – ${newEndIso})`);
   }
 
   async function moveEntryToEmployee(entryId, targetEmployeeName) {
