@@ -5836,7 +5836,247 @@ async function deleteEditedEntry() {
   }
 
 
+
+  function renderProjectImportInlineCards() {
+    if (!els.tabProjectsSection) return;
+
+    els.tabProjectsSection.innerHTML = `
+      <div class="xl:col-span-12">
+        <div class="rounded-[28px] bg-white border border-slate-200 shadow-sm overflow-hidden">
+          <div class="p-5 border-b border-slate-200 bg-slate-50/80">
+            <h2 class="font-semibold text-lg text-slate-900">Prosjektimport</h2>
+            <p class="text-sm text-slate-500 mt-1">Enkel CSV-preview. Ingen data lagres eller importeres ennå.</p>
+          </div>
+
+          <div class="p-5 grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <div class="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-5">
+              <div class="text-sm font-semibold text-slate-900">1. Last opp fil</div>
+              <p class="mt-2 text-sm text-slate-600">Velg CSV-fil fra PC. Første versjon bruker kun lokal preview i nettleseren.</p>
+              <input id="projectImportInlineFile" type="file" accept=".csv,text/csv" class="mt-4 block w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm" />
+              <div id="projectImportInlineFileStatus" class="mt-3 text-xs text-slate-500">Ingen fil valgt.</div>
+              <button id="projectImportInlineClearBtn" type="button" class="mt-3 rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700">Nullstill</button>
+            </div>
+
+            <div class="rounded-2xl border border-slate-200 bg-white p-5">
+              <div class="text-sm font-semibold text-slate-900">2. Forhåndsvisning</div>
+              <p class="mt-2 text-sm text-slate-600">Oppsummering vises her etter opplasting.</p>
+              <div id="projectImportInlineSummary" class="mt-4 grid grid-cols-2 gap-2 text-sm">
+                ${renderProjectImportInlineSummaryCards({ total: 0, newCount: 0, existing: 0, mismatch: 0, missing: 0 })}
+              </div>
+              <div id="projectImportInlineDetails" class="mt-4 text-xs text-slate-500">Ingen preview kjørt.</div>
+            </div>
+
+            <div class="rounded-2xl border border-slate-200 bg-slate-50 p-5">
+              <div class="text-sm font-semibold text-slate-900">3. Opprett prosjekter</div>
+              <p class="mt-2 text-sm text-slate-600">Import/lagring bygges først etter at preview og mapping er godkjent.</p>
+              <button type="button" disabled class="mt-4 w-full rounded-xl bg-slate-200 px-3 py-2 text-sm font-semibold text-slate-500 cursor-not-allowed">Import ikke aktiv ennå</button>
+              <div class="mt-3 text-xs text-slate-500">Neste steg kan bli filter/valg av hvilke prosjekter som skal importeres.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+
+    bindProjectImportInlineControls();
+  }
+
+  function renderProjectImportInlineSummaryCards(counts = {}) {
+    const cards = [
+      ["Totalt", counts.total || 0],
+      ["Ny", counts.newCount || 0],
+      ["Eksisterer", counts.existing || 0],
+      ["Datoavvik", counts.mismatch || 0],
+      ["Mangler dato/navn", counts.missing || 0]
+    ];
+    return cards.map(([label, value]) => `
+      <div class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+        <div class="text-[11px] uppercase tracking-wide text-slate-500 font-semibold">${escapeHtml(label)}</div>
+        <div class="text-lg font-black text-slate-950">${escapeHtml(String(value))}</div>
+      </div>
+    `).join("");
+  }
+
+  function bindProjectImportInlineControls() {
+    const input = document.getElementById("projectImportInlineFile");
+    const clearBtn = document.getElementById("projectImportInlineClearBtn");
+
+    if (input && !input.dataset.boundProjectImportInline) {
+      input.dataset.boundProjectImportInline = "true";
+      input.addEventListener("change", event => {
+        const file = event.target.files && event.target.files[0];
+        if (!file) return;
+        readProjectImportInlineCsv(file);
+      });
+    }
+
+    if (clearBtn && !clearBtn.dataset.boundProjectImportInlineClear) {
+      clearBtn.dataset.boundProjectImportInlineClear = "true";
+      clearBtn.addEventListener("click", () => {
+        if (input) input.value = "";
+        renderProjectImportInlineResult([], "");
+      });
+    }
+  }
+
+  function readProjectImportInlineCsv(file) {
+    const status = document.getElementById("projectImportInlineFileStatus");
+    if (status) status.textContent = `Leser ${file.name}...`;
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const rows = parseProjectImportInlineCsv(String(reader.result || ""));
+        renderProjectImportInlineResult(rows, file.name);
+      } catch (error) {
+        if (status) status.textContent = `Kunne ikke lese CSV: ${error?.message || error}`;
+      }
+    };
+    reader.onerror = () => {
+      if (status) status.textContent = "Kunne ikke lese filen.";
+    };
+    reader.readAsText(file, "utf-8");
+  }
+
+  function parseProjectImportInlineCsv(text) {
+    const rows = [];
+    let current = [];
+    let field = "";
+    let inQuotes = false;
+
+    for (let i = 0; i < text.length; i++) {
+      const char = text[i];
+      const next = text[i + 1];
+
+      if (char === '"') {
+        if (inQuotes && next === '"') {
+          field += '"';
+          i += 1;
+        } else {
+          inQuotes = !inQuotes;
+        }
+        continue;
+      }
+
+      if (char === "," && !inQuotes) {
+        current.push(field);
+        field = "";
+        continue;
+      }
+
+      if ((char === "\n" || char === "\r") && !inQuotes) {
+        if (char === "\r" && next === "\n") i += 1;
+        current.push(field);
+        field = "";
+        if (current.some(value => String(value || "").trim() !== "")) rows.push(current);
+        current = [];
+        continue;
+      }
+
+      field += char;
+    }
+
+    current.push(field);
+    if (current.some(value => String(value || "").trim() !== "")) rows.push(current);
+
+    if (!rows.length) return [];
+
+    const headers = rows[0].map(header => String(header || "").replace(/^\uFEFF/, "").trim().replace(/\s+/g, " "));
+    return rows.slice(1).map(rawRow => {
+      const obj = {};
+      headers.forEach((header, index) => {
+        obj[header] = String(rawRow[index] || "").trim();
+      });
+      return obj;
+    }).filter(row => Object.values(row).some(value => String(value || "").trim() !== ""));
+  }
+
+  function parseProjectImportInlineDate(value) {
+    const raw = String(value || "").trim();
+    if (!raw) return "";
+    const ddmmyyyy = raw.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
+    if (ddmmyyyy) {
+      return `${ddmmyyyy[3]}-${ddmmyyyy[2].padStart(2, "0")}-${ddmmyyyy[1].padStart(2, "0")}`;
+    }
+    if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+    return "";
+  }
+
+  function normalizeProjectImportInlineName(value) {
+    return String(value || "").trim().replace(/\s+/g, " ").toLowerCase();
+  }
+
+  function renderProjectImportInlineResult(rows, fileName = "") {
+    const status = document.getElementById("projectImportInlineFileStatus");
+    const summary = document.getElementById("projectImportInlineSummary");
+    const details = document.getElementById("projectImportInlineDetails");
+
+    if (!rows.length) {
+      if (status) status.textContent = "Ingen fil valgt.";
+      if (summary) summary.innerHTML = renderProjectImportInlineSummaryCards({ total: 0, newCount: 0, existing: 0, mismatch: 0, missing: 0 });
+      if (details) details.textContent = "Ingen preview kjørt.";
+      return;
+    }
+
+    const existingByName = new Map(
+      state.projects.map(project => [normalizeProjectImportInlineName(project.name), project])
+    );
+
+    const counts = { total: rows.length, newCount: 0, existing: 0, mismatch: 0, missing: 0 };
+    const examples = {
+      newCount: [],
+      existing: [],
+      mismatch: [],
+      missing: []
+    };
+
+    rows.forEach(row => {
+      const name = row["Project Name"] || row["Project"] || row["Name"] || "";
+      const operationStart = parseProjectImportInlineDate(row["Operation start"]);
+      const operationStop = parseProjectImportInlineDate(row["Operation stop"]);
+      const existing = existingByName.get(normalizeProjectImportInlineName(name));
+
+      if (!name || !operationStart || !operationStop) {
+        counts.missing += 1;
+        if (examples.missing.length < 3) examples.missing.push(name || "Uten navn");
+        return;
+      }
+
+      if (existing) {
+        const mismatch = String(existing.planned_start_date || "") !== operationStart || String(existing.planned_end_date || "") !== operationStop;
+        if (mismatch) {
+          counts.mismatch += 1;
+          if (examples.mismatch.length < 3) examples.mismatch.push(name);
+        } else {
+          counts.existing += 1;
+          if (examples.existing.length < 3) examples.existing.push(name);
+        }
+        return;
+      }
+
+      counts.newCount += 1;
+      if (examples.newCount.length < 3) examples.newCount.push(name);
+    });
+
+    if (status) status.textContent = `${fileName || "CSV"} lest. ${rows.length} rader funnet. Ingen data er lagret.`;
+    if (summary) summary.innerHTML = renderProjectImportInlineSummaryCards(counts);
+
+    if (details) {
+      const lines = [];
+      if (examples.newCount.length) lines.push(`Nye eksempler: ${examples.newCount.join(", ")}`);
+      if (examples.existing.length) lines.push(`Eksisterer: ${examples.existing.join(", ")}`);
+      if (examples.mismatch.length) lines.push(`Datoavvik: ${examples.mismatch.join(", ")}`);
+      if (examples.missing.length) lines.push(`Mangler dato/navn: ${examples.missing.join(", ")}`);
+      details.innerHTML = lines.length
+        ? lines.map(line => `<div class="mb-1">${escapeHtml(line)}</div>`).join("")
+        : "CSV lest, men ingen rader kunne klassifiseres.";
+    }
+  }
+
+
   function renderProjects() {
+    renderProjectImportInlineCards();
+    return;
+
     const allActiveProjects = getActiveProjectsForWorkspace();
     const activeProjects = state.projectListFilter === "unstaffed"
       ? allActiveProjects.filter(project => projectNeedsStaffing(project))
