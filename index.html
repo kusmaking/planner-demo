@@ -1871,7 +1871,7 @@
           <div class="flex items-center justify-between gap-3">
             <div>
               <div id="ixProjectPeriodsTitle" class="font-medium text-sm text-slate-800">Prosjektperioder</div>
-              <div class="text-xs text-slate-500 mt-1">Legg inn én eller flere separate perioder for samme prosjekt.</div>
+              <div id="ixProjectPeriodsSectionHelp" class="text-xs text-slate-500 mt-1">Legg inn én eller flere separate perioder for samme prosjekt.</div>
             </div>
             <button id="addProjectPeriodBtn" type="button" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm">Legg til periode</button>
           </div>
@@ -1880,13 +1880,13 @@
         <div class="rounded-2xl border border-red-200 bg-red-50/60 p-3 space-y-3">
           <div class="flex items-start justify-between gap-3">
             <div>
-              <div class="text-sm font-semibold text-red-950">Feltoppdrag</div>
-              <div class="text-xs text-red-800 mt-1">Ressursbehov for selve prosjektperioden i felt.</div>
+              <div id="ixProjectFieldTitle" class="text-sm font-semibold text-red-950">Feltoppdrag</div>
+              <div id="ixProjectFieldHelp" class="text-xs text-red-800 mt-1">Ressursbehov for selve prosjektperioden i felt.</div>
             </div>
           </div>
           <input id="projectLocation" class="w-full rounded-2xl border border-red-200 bg-white px-3 py-2" placeholder="Lokasjon / feltoppdrag" />
           <label class="block">
-            <span class="block text-xs text-red-800 mb-1">Behov for antall personer i felt</span>
+            <span id="ixProjectFieldHeadcountLabel" class="block text-xs text-red-800 mb-1">Behov for antall personer i felt</span>
             <input id="projectHeadcount" type="number" min="0" class="w-full rounded-2xl border border-red-200 bg-white px-3 py-2" placeholder="F.eks. 2" />
           </label>
         </div>
@@ -1900,8 +1900,8 @@
               </span>
             </label>
             <div class="flex gap-2 shrink-0">
-              <button id="projectWorkshopAddBtn" type="button" class="rounded-xl border border-green-300 bg-white px-3 py-1.5 text-xs font-semibold text-green-900">Legg til</button>
-              <button id="projectWorkshopRemoveBtn" type="button" class="rounded-xl border border-red-200 bg-white px-3 py-1.5 text-xs font-semibold text-red-700">Fjern</button>
+              <button id="projectWorkshopAddBtn" type="button" class="rounded-xl border border-green-300 bg-white px-3 py-1.5 text-xs font-semibold text-green-900"><span id="ixProjectWorkshopAddBtnText">Legg til</span></button>
+              <button id="projectWorkshopRemoveBtn" type="button" class="rounded-xl border border-red-200 bg-white px-3 py-1.5 text-xs font-semibold text-red-700"><span id="ixProjectWorkshopRemoveBtnText">Fjern</span></button>
             </div>
           </div>
           <div class="grid grid-cols-2 gap-2">
@@ -1915,10 +1915,10 @@
             </div>
           </div>
           <label class="block">
-            <span class="block text-xs text-green-800 mb-1">Workshop ressursbehov</span>
+            <span id="ixProjectWorkshopHeadcountLabel" class="block text-xs text-green-800 mb-1">Workshop ressursbehov</span>
             <input id="projectWorkshopHeadcount" type="number" min="0" class="w-full rounded-2xl border border-green-200 bg-white px-3 py-2" placeholder="F.eks. 2" />
           </label>
-          <div class="text-xs text-green-800">Default: 2 ressurser, 14 dager før feltstart. Fjern-knappen skjuler grønn workshopblokk i Prosjektplan.</div>
+          <div id="ixProjectWorkshopDefaultHelp" class="text-xs text-green-800">Default: 2 ressurser, 14 dager før feltstart. Fjern-knappen skjuler grønn workshopblokk i Prosjektplan.</div>
         </div>
         <textarea id="projectNotes" class="w-full rounded-2xl border border-slate-300 px-3 py-2" rows="3" placeholder="Notater"></textarea>
         <div class="sticky bottom-0 z-10 -mx-4 -mb-4 flex gap-2 border-t border-slate-200 bg-white/95 p-4 backdrop-blur">
@@ -2088,6 +2088,18 @@
           currentLanguageEn: "English",
           languageActiveNo: "Norsk valgt",
           languageActiveEn: "English valgt",
+          fieldAssignmentHelp: "Ressursbehov for selve prosjektperioden i felt.",
+          fieldLocationPlaceholder: "Lokasjon / feltoppdrag",
+          fieldHeadcountLabel: "Behov for antall personer i felt",
+          exampleTwo: "F.eks. 2",
+          workshopHelp: "Kan fjernes hvis prosjektet ikke trenger workshopforberedelse.",
+          addButton: "Legg til",
+          removeButton: "Fjern",
+          workshopStart: "Workshop start",
+          workshopEnd: "Workshop slutt",
+          workshopHeadcount: "Workshop ressursbehov",
+          workshopDefaultHelp: "Default: 2 ressurser, 14 dager før feltstart. Fjern-knappen skjuler grønn workshopblokk i Prosjektplan.",
+          projectPeriodsSectionHelp: "Legg inn én eller flere separate perioder for samme prosjekt.",
           title: "Izomax Personalplanlegger"
         },
         en: {
@@ -2315,6 +2327,23 @@
         setPlaceholder("projectNotes", t.projectNotes);
         setText("saveProjectBtn", t.save);
         setText("deleteProjectBtn", t.delete);
+        setText("ixProjectPeriodsSectionHelp", t.projectPeriodsSectionHelp);
+        setText("ixProjectFieldTitle", t.fieldAssignmentSection);
+        setText("ixProjectFieldHelp", t.fieldAssignmentHelp);
+        setPlaceholder("projectLocation", t.fieldLocationPlaceholder);
+        setText("ixProjectFieldHeadcountLabel", t.fieldHeadcountLabel);
+        const projectHeadcount = document.getElementById("projectHeadcount");
+        if (projectHeadcount) projectHeadcount.setAttribute("placeholder", t.exampleTwo);
+        setText("ixProjectWorkshopTitle", t.workshopSection);
+        setText("ixProjectWorkshopHelp", t.workshopHelp);
+        setText("ixProjectWorkshopAddBtnText", t.addButton);
+        setText("ixProjectWorkshopRemoveBtnText", t.removeButton);
+        setText("ixProjectWorkshopStartLabel", t.workshopStart);
+        setText("ixProjectWorkshopEndLabel", t.workshopEnd);
+        setText("ixProjectWorkshopHeadcountLabel", t.workshopHeadcount);
+        const workshopHeadcount = document.getElementById("projectWorkshopHeadcount");
+        if (workshopHeadcount) workshopHeadcount.setAttribute("placeholder", t.exampleTwo);
+        setText("ixProjectWorkshopDefaultHelp", t.workshopDefaultHelp);
 
         const pass = document.getElementById("startLoginPassword");
         if (pass) pass.placeholder = t.password;
