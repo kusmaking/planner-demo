@@ -1,23 +1,20 @@
-Izomax personalplanlegger - v18.32a before-login startpage
+Izomax personalplanlegger - v18.32b final startpage sandbox
 
 Endring:
-- Ny oppstartsside vises før innlogging.
-- Ingen prosjektdata, ansattdata, kalenderdata eller adminfunksjoner vises før innlogging.
-- Innlogging skjer direkte fra oppstartssiden med eksisterende Supabase Auth.
-- Etter innlogging åpnes eksisterende planner-app som før.
+- Ny ren oppstartsside før innlogging.
+- Unødvendige informasjonsfelter er fjernet.
+- Izomax worker-bilde er lagt inn som bakgrunn/watermark bak login-området.
+- Myk gradientovergang fra venstre mørk flate til bilde.
+- Login-formen er beholdt og koblet til eksisterende Supabase Auth-flyt.
 
-Avgrensning:
-- Planner/Superadmin-startskjermen er ikke endret.
-- Supabase/datamodell er ikke endret.
-- data.js er ikke endret.
-- Eksisterende prosjektplan, ansattplan, rediger prosjekt, workshop/feltlogikk og direkte blokker er ikke bevisst endret.
+Ikke endret:
+- Supabase/datamodell/RLS.
+- data.js.
+- Planner/Superadmin-startskjerm etter innlogging.
+- Ansattplan.
+- Prosjektplan.
+- Rediger prosjekt-modal.
+- Workshop/feltlogikk.
+- Direkte blokk på ansatt.
 
-Filer endret:
-- index.html
-- app.js
-
-Test i sandbox:
-1. Åpne sandbox i inkognito/logget ut: skal vise kun oppstartsside/login.
-2. Logg inn som planner/superadmin: skal åpne eksisterende planner.
-3. Test Ansattplan, Prosjektplan, Rediger prosjekt og direkte blokk.
-4. Sjekk at project-gk88f production ikke røres før PR/merge senere.
+Test i sandbox før PR til main.
