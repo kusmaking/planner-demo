@@ -4296,19 +4296,106 @@ async function deleteEditedEntry() {
     state.derived.entryCountByProject = entryCountByProject;
   }
 
+
+  function renderProjectImportPlaceholder() {
+    if (!els.tabProjectsSection) return;
+    els.tabProjectsSection.innerHTML = `
+      <div class="xl:col-span-12">
+        <div class="rounded-[28px] bg-white border border-slate-200 shadow-sm overflow-hidden">
+          <div class="p-6 border-b border-slate-200 bg-slate-50/80">
+            <h2 class="text-xl font-semibold text-slate-950">Prosjektimport</h2>
+            <p class="mt-2 text-sm text-slate-600">Denne siden ryddes og klargjøres for fremtidig import av prosjekter fra CSV/Excel eller annet system.</p>
+          </div>
+          <div class="p-6 grid gap-4 md:grid-cols-3">
+            <div class="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-5">
+              <div class="text-sm font-semibold text-slate-900">1. Last opp fil</div>
+              <p class="mt-2 text-sm text-slate-600">Fremtidig funksjon for CSV/Excel-upload.</p>
+            </div>
+            <div class="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-5">
+              <div class="text-sm font-semibold text-slate-900">2. Forhåndsvisning</div>
+              <p class="mt-2 text-sm text-slate-600">Kontroller kolonner og prosjektdata før import.</p>
+            </div>
+            <div class="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-5">
+              <div class="text-sm font-semibold text-slate-900">3. Opprett prosjekter</div>
+              <p class="mt-2 text-sm text-slate-600">Prosjekter kan senere valideres og opprettes samlet.</p>
+            </div>
+          </div>
+          <div class="px-6 pb-6">
+            <div class="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+              Importfunksjonen er ikke aktiv ennå. Prosjekter administreres foreløpig videre fra Prosjektplan.
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  function renderEmployeeAdminPlaceholder() {
+    if (!els.tabEmployeesSection) return;
+    els.tabEmployeesSection.innerHTML = `
+      <div class="xl:col-span-4">
+        <div class="rounded-[28px] bg-white border border-slate-200 shadow-sm overflow-hidden">
+          <div class="p-6 border-b border-slate-200 bg-slate-50/80">
+            <h2 class="text-xl font-semibold text-slate-950">Ansattadministrasjon</h2>
+            <p class="mt-2 text-sm text-slate-600">Denne siden skal ryddes og designes på nytt før videre utvikling.</p>
+          </div>
+          <div class="p-6 grid gap-4 md:grid-cols-3">
+            <div class="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-5">
+              <div class="text-sm font-semibold text-slate-900">Ansattoversikt</div>
+              <p class="mt-2 text-sm text-slate-600">Fremtidig oversikt for ansatte og status.</p>
+            </div>
+            <div class="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-5">
+              <div class="text-sm font-semibold text-slate-900">Grupper og roller</div>
+              <p class="mt-2 text-sm text-slate-600">Offshore, Workshop, Engineering, 3rd party osv.</p>
+            </div>
+            <div class="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-5">
+              <div class="text-sm font-semibold text-slate-900">Aktiv / inaktiv</div>
+              <p class="mt-2 text-sm text-slate-600">Fremtidig kontroll for ansattstatus.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  function renderAdminPlaceholder() {
+    if (!els.tabAdminSection) return;
+    els.tabAdminSection.innerHTML = `
+      <div class="xl:col-span-3">
+        <div class="rounded-[28px] bg-white border border-slate-200 shadow-sm overflow-hidden">
+          <div class="p-6 border-b border-slate-200 bg-slate-50/80">
+            <h2 class="text-xl font-semibold text-slate-950">Admin</h2>
+            <p class="mt-2 text-sm text-slate-600">Admin-siden skal ryddes og bygges opp på nytt med relevant systemoversikt.</p>
+          </div>
+          <div class="p-6 grid gap-4 md:grid-cols-3">
+            <div class="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-5">
+              <div class="text-sm font-semibold text-slate-900">Brukere og roller</div>
+              <p class="mt-2 text-sm text-slate-600">Fremtidig oversikt for tilgang og roller.</p>
+            </div>
+            <div class="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-5">
+              <div class="text-sm font-semibold text-slate-900">Systemstatus</div>
+              <p class="mt-2 text-sm text-slate-600">Supabase, sync og systemhelse.</p>
+            </div>
+            <div class="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-5">
+              <div class="text-sm font-semibold text-slate-900">Importhistorikk</div>
+              <p class="mt-2 text-sm text-slate-600">Fremtidig logg for prosjektimport.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
   function renderAll() {
     populateDynamicSelects();
     renderStats();
     renderHomeDashboard();
     renderLegend();
     renderCalendarPanel();
-    renderProjects();
-    renderEmployees();
+    renderProjectImportPlaceholder();
+    renderEmployeeAdminPlaceholder();
     renderCalendar();
-    renderKanban();
-    renderNotifications();
-    renderAudit();
-    renderSystemStatus();
+    renderAdminPlaceholder();
     updateBadge();
     updateAvailabilityAnalysis();
     applyRoleChrome();
@@ -4528,9 +4615,7 @@ async function deleteEditedEntry() {
     const shortcuts = [
       { key: "calendar", title: "Ansattplan", text: "Planlegg bemanning og kapasitet.", action: "personal" },
       { key: "project", title: "Prosjektplan", text: "Planlegg prosjekter og tildel oppdrag.", action: "project" },
-      { key: "warning", title: "Uten bemanning", text: "Se prosjekter som mangler bemanning.", action: "unstaffed" },
-      { key: "gear", title: "Prosjektadmin", text: "Administrer prosjekter, faser og oppdrag.", action: "projects" },
-      { key: "people", title: "Ansattadmin", text: "Legg til og oppdater ansatte og kompetanse.", action: "employees" }
+      { key: "warning", title: "Uten bemanning", text: "Se prosjekter som mangler bemanning.", action: "unstaffed" }
     ];
 
     const displayName = String(getAccountDisplayName() || state.currentUser || "Planlegger").trim();
@@ -5837,6 +5922,8 @@ async function deleteEditedEntry() {
 
 
   function renderProjects() {
+    renderProjectImportPlaceholder();
+    return;
     const allActiveProjects = getActiveProjectsForWorkspace();
     const activeProjects = state.projectListFilter === "unstaffed"
       ? allActiveProjects.filter(project => projectNeedsStaffing(project))
@@ -5923,6 +6010,8 @@ async function deleteEditedEntry() {
 
 
   function startProjectStaffing(projectId, preselectEmployeeName = "", preselectRole = "") {
+    // Legacy Prosjektadmin staffing form is disabled. Staffing should happen from Prosjektplan.
+    return;
     if (!els.assignProject) return;
     const nextProjectId = projectId || "";
     if (state.focusProjectId !== nextProjectId) resetProjectInspectorFilters();
@@ -5968,6 +6057,8 @@ async function deleteEditedEntry() {
   }
 
   function renderEmployees() {
+    renderEmployeeAdminPlaceholder();
+    return;
     const sortedEmployees = state.employees.slice().sort((a, b) => {
       const groupDiff = getEmployeeGroupSortIndex(a.employee_group) - getEmployeeGroupSortIndex(b.employee_group);
       if (groupDiff !== 0) return groupDiff;
@@ -5999,6 +6090,8 @@ async function deleteEditedEntry() {
   }
 
   function renderKanban() {
+    renderAdminPlaceholder();
+    return;
     const groups = PROJECT_STATUS_OPTIONS.map(status => ({
       status,
       projects: getVisibleProjects().filter(p => p.status === status)
@@ -6022,6 +6115,7 @@ async function deleteEditedEntry() {
   }
 
   function renderNotifications() {
+    if (!els.notificationList) return;
     els.notificationList.innerHTML = state.notificationLog.slice(0, 30).map(row => `
       <div class="rounded-xl border border-slate-200 p-3">
         <div class="font-medium">${escapeHtml(row.type)}</div>
@@ -6032,6 +6126,7 @@ async function deleteEditedEntry() {
   }
 
   function renderAudit() {
+    if (!els.auditList) return;
     els.auditList.innerHTML = state.auditLog.slice(0, 30).map(row => `
       <div class="rounded-xl border border-slate-200 p-3">
         <div class="font-medium">${escapeHtml(row.user_name || "System")}</div>
