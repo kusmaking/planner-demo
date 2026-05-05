@@ -5283,19 +5283,18 @@ async function deleteEditedEntry() {
                   data-project-inspector-select-employee="${escapeHtml(employee.name)}"
                   data-project-inspector-select-role="${escapeHtml(getDefaultRoleForIndex(0))}"
                   type="button"
-                  style="display:inline-flex !important;align-items:center !important;justify-content:center !important;min-width:72px !important;height:32px !important;padding:0 12px !important;border-radius:8px !important;border:1px solid ${isSelected ? '#16a34a' : '#cbd5e1'} !important;background:${isSelected ? '#dcfce7' : '#ffffff'} !important;color:${isSelected ? '#166534' : '#0f172a'} !important;font-size:12px !important;font-weight:700 !important;line-height:1 !important;white-space:nowrap !important;overflow:visible !important;opacity:1 !important;"
+                  style="display:inline-flex !important;align-items:center !important;justify-content:center !important;min-width:34px !important;width:34px !important;height:32px !important;padding:0 !important;border-radius:8px !important;border:1px solid ${isSelected ? '#16a34a' : '#cbd5e1'} !important;background:${isSelected ? '#dcfce7' : '#ffffff'} !important;color:${isSelected ? '#166534' : '#0f172a'} !important;font-size:12px !important;font-weight:700 !important;line-height:1 !important;white-space:nowrap !important;overflow:visible !important;opacity:1 !important;"
                   aria-label="${(isSelected ? (window.izomaxTranslateKey?.('selected') || 'Selected') : (window.izomaxTranslateKey?.('add') || 'Add'))} ${escapeHtml(employee.name)}"
-                >${isSelected ? (window.izomaxTranslateKey?.("selected") || "Selected") : (window.izomaxTranslateKey?.("add") || "Add")}</button>` : `<span style="display:inline-flex !important;align-items:center !important;justify-content:center !important;border:1px solid #e2e8f0 !important;background:#f8fafc !important;color:#64748b !important;border-radius:4px !important;padding:6px 9px !important;font-size:11px !important;font-weight:900 !important;visibility:visible !important;opacity:1 !important;">${window.izomaxTranslateKey?.("busy") || "Opptatt"}</span>`}
+                >${isSelected ? "✓" : "+"}</button>` : `<span style="display:inline-flex !important;align-items:center !important;justify-content:center !important;border:1px solid #e2e8f0 !important;background:#f8fafc !important;color:#64748b !important;border-radius:4px !important;padding:6px 9px !important;font-size:11px !important;font-weight:900 !important;visibility:visible !important;opacity:1 !important;">${window.izomaxTranslateKey?.("busy") || "Opptatt"}</span>`}
                   </div>
                 </div>
                 <button
                   data-project-inspector-select-employee="${escapeHtml(employee.name)}"
                   data-project-inspector-select-role="${escapeHtml(getDefaultRoleForIndex(0))}"
                   type="button"
-                  style="display:block !important;width:100% !important;height:1px !important;min-height:1px !important;padding:0 !important;margin:0 !important;border:0 !important;background:transparent !important;color:transparent !important;overflow:hidden !important;"
-                  aria-label="Velg ${escapeHtml(employee.name)}"
-                  tabindex="-1"
-                ></button>
+                  style="display:flex !important;align-items:center !important;justify-content:center !important;width:calc(100% - 24px) !important;min-height:34px !important;margin:0 12px 10px 12px !important;padding:0 12px !important;border-radius:8px !important;border:1px solid ${isSelected ? '#16a34a' : 'rgba(132,204,222,0.42)'} !important;background:${isSelected ? 'rgba(22,163,74,0.18)' : 'rgba(255,255,255,0.10)'} !important;color:#f8fbfd !important;font-size:12px !important;font-weight:900 !important;letter-spacing:.01em !important;white-space:nowrap !important;overflow:visible !important;visibility:visible !important;opacity:1 !important;cursor:pointer !important;"
+                  aria-label="${(isSelected ? (window.izomaxTranslateKey?.('selected') || 'Selected') : (window.izomaxTranslateKey?.('add') || 'Add'))} ${escapeHtml(employee.name)}"
+                >${isSelected ? (window.izomaxTranslateKey?.("selected") || "Selected") : (window.izomaxTranslateKey?.("add") || "Add")}</button>
                 ${expandedHtml}
               </div>
             `;

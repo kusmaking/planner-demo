@@ -182,3 +182,27 @@ Neste naturlige steg:
 - Ikke push til main før sandbox er testet og godkjent.
 - Ved stabil versjon bør sandbox låses/tagges før neste større endring.
 - Main skal fortsatt være stabil production.
+
+
+## v18.35f – Restore visible available selection button
+
+### Fikset
+Available-listen i prosjektpanelet hadde mistet den tydelige valgknappen etter forrige justering.
+
+Endring:
+- Valgknappen er lagt tydelig tilbake som en fullbreddeknapp nederst i hver tilgjengelig-person-rad.
+- På engelsk vises:
+  - Add
+  - Selected
+- På norsk vises:
+  - Legg til
+  - Valgt
+- Den lille knappen til høyre er redusert til en kompakt + / ✓-indikator, slik at teksten ikke kuttes i smal høyrepanelvisning.
+
+### Ikke endret
+- Supabase / database / RLS
+- data.js
+- prosjektdata/fritekst
+- prosjektlogikk
+- drag/resize
+- workshop/feltlogikk
