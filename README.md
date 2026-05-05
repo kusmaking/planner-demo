@@ -1,8 +1,8 @@
-v18.30g sandbox restyle existing project edit button safe
-- Basert direkte på v18.30b, hvor Rediger prosjekt-knappen faktisk var synlig.
-- Beholder knappen på samme fungerende plassering i prosjektpanelet.
-- Endrer kun styling på knappen til normal fullbredde dark-panel-knapp.
-- Beholder bredere prosjektpanel på ca. 560px fra v18.30b.
-- Knappen åpner eksisterende prosjektmodal med workshop/feltperiode/ressursbehov.
+v18.30h sandbox project edit button emphasis safe
+- Basert på v18.30g.
+- Beholder samme fungerende plassering for Rediger prosjekt-knappen i prosjektpanelet.
+- Endrer kun styling for å gjøre knappen tydeligere og mer naturlig som primær handling.
+- Knappen har nå tydeligere kontrast, penn-symbol og pil, og står mer ut i panelet.
+- Beholder bredere prosjektpanel.
 - Ingen Supabase/datamodell-endring.
 - Ingen endring i workshoplogikk, bemanningslogikk, login/auth, spotlight, personalblokk-popup eller grupper/ikoner/expand-collapse.

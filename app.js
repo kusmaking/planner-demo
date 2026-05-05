@@ -1,5 +1,5 @@
 (() => {
-  // v18.30g-sandbox-restyle-existing-project-edit-button-safe
+  // v18.30h-sandbox-project-edit-button-emphasis-safe
   // v18.19-ansattplan-project-focus-toggle-safe
   // v18.11: plain visible available-row render for project inspector.
   const supabaseClient = window.supabase?.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -5109,15 +5109,21 @@ async function deleteEditedEntry() {
         </div>
 
         <div class="min-h-0 flex-1 space-y-4 overflow-auto p-4 text-sm">
-          <div style="display:block !important;margin:0 0 12px 0 !important;width:100% !important;">
+          <div style="display:block !important;margin:0 0 14px 0 !important;width:100% !important;">
             <button
               id="projectInspectorEditProjectVisibleBtn"
               data-calendar-panel-edit-project="${escapeHtml(project.id)}"
               type="button"
-              style="display:flex !important;flex-direction:column !important;align-items:flex-start !important;justify-content:center !important;width:100% !important;min-height:52px !important;box-sizing:border-box !important;border:1px solid rgba(132,204,222,0.38) !important;background:rgba(255,255,255,0.08) !important;color:#f8fbfd !important;border-radius:4px !important;padding:10px 12px !important;font-size:13px !important;font-weight:900 !important;line-height:1.15 !important;cursor:pointer !important;visibility:visible !important;opacity:1 !important;position:relative !important;z-index:30 !important;text-align:left !important;"
+              style="display:flex !important;align-items:center !important;justify-content:space-between !important;gap:12px !important;width:100% !important;min-height:58px !important;box-sizing:border-box !important;border:1px solid rgba(80,240,199,0.58) !important;background:linear-gradient(180deg, rgba(80,240,199,0.20) 0%, rgba(80,240,199,0.12) 100%) !important;color:#f8fbfd !important;border-radius:6px !important;padding:12px 14px !important;font-size:13px !important;font-weight:900 !important;line-height:1.15 !important;cursor:pointer !important;visibility:visible !important;opacity:1 !important;position:relative !important;z-index:30 !important;text-align:left !important;box-shadow:0 0 0 1px rgba(80,240,199,0.10) inset !important;"
             >
-              <span style="display:block !important;font-size:13px !important;font-weight:900 !important;color:#f8fbfd !important;">Rediger prosjekt</span>
-              <span style="display:block !important;margin-top:4px !important;font-size:11px !important;font-weight:650 !important;color:rgba(232,244,248,0.72) !important;">Feltperiode · workshop · ressursbehov</span>
+              <span style="display:flex !important;align-items:center !important;gap:12px !important;min-width:0 !important;">
+                <span style="display:inline-flex !important;align-items:center !important;justify-content:center !important;width:32px !important;height:32px !important;border-radius:6px !important;background:rgba(255,255,255,0.12) !important;border:1px solid rgba(255,255,255,0.16) !important;font-size:16px !important;font-weight:900 !important;color:#50f0c7 !important;flex:0 0 auto !important;">✎</span>
+                <span style="display:block !important;min-width:0 !important;">
+                  <span style="display:block !important;font-size:14px !important;font-weight:900 !important;color:#f8fbfd !important;">Rediger prosjekt</span>
+                  <span style="display:block !important;margin-top:4px !important;font-size:11px !important;font-weight:650 !important;color:rgba(232,244,248,0.76) !important;">Feltperiode · workshop · ressursbehov</span>
+                </span>
+              </span>
+              <span style="display:inline-flex !important;align-items:center !important;justify-content:center !important;color:#50f0c7 !important;font-size:16px !important;font-weight:900 !important;flex:0 0 auto !important;">→</span>
             </button>
           </div>
           <div class="grid grid-cols-2 gap-2">
