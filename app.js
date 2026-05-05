@@ -1,5 +1,5 @@
 (() => {
-  // v18.31e-sandbox-fix-employee-plan-panel-regression-safe
+  // v18.31f-sandbox-workshop-resource-toggle-safe
   // v18.19-ansattplan-project-focus-toggle-safe
   // v18.11: plain visible available-row render for project inspector.
   const supabaseClient = window.supabase?.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -247,7 +247,7 @@
       "saveEditBtn", "deleteEditBtn", "storageBadge", "resetDemoBtn", "systemStatus", "rangeTitle",
       "saveStatus", "plannerTabs", "tabHomeBtn", "tabProjectPlanBtn", "tabUnstaffedBtn", "tabCalendarBtn", "tabProjectsBtn", "tabEmployeesBtn", "tabAdminBtn", "tabHomeSection", "homeDashboard", "tabCalendarSection", "tabProjectsSection", "tabEmployeesSection", "tabAdminSection", "calendarMainCol", "calendarPanelCol", "calendarPanelHandleBtn", "calendarPanelCloseBtn", "calendarPanelContent", "newProjectBtn", "projectModal", "projectModalTitle", "closeProjectModalBtn",
       "projectName", "projectCategory", "projectStatus", "projectPlannedStart", "projectPlannedEnd", "projectHasMultiplePeriods", "projectPeriodsSection", "projectPeriodsList", "addProjectPeriodBtn",
-      "projectWorkshopEnabled", "projectWorkshopStart", "projectWorkshopEnd", "projectWorkshopHeadcount",
+      "projectWorkshopEnabled", "projectWorkshopStart", "projectWorkshopEnd", "projectWorkshopHeadcount", "projectWorkshopAddBtn", "projectWorkshopRemoveBtn",
       "projectLocation", "projectHeadcount", "projectNotes", "saveProjectBtn", "deleteProjectBtn",
       "newEmployeeBtn", "employeeModal", "employeeModalTitle", "closeEmployeeModalBtn",
       "employeeName", "employeeEmail", "employeePhone", "employeeTitle", "employeeGroup", "employeeActive", "saveEmployeeBtn", "deleteEmployeeBtn",
@@ -1907,6 +1907,17 @@
     }
     if (els.projectPlannedStart) {
       els.projectPlannedStart.addEventListener("change", () => applyDefaultWorkshopDraft(false));
+    }
+    if (els.projectWorkshopEnabled) {
+      els.projectWorkshopEnabled.addEventListener("change", () => {
+        setWorkshopModalEnabled(Boolean(els.projectWorkshopEnabled.checked), Boolean(els.projectWorkshopEnabled.checked));
+      });
+    }
+    if (els.projectWorkshopAddBtn) {
+      els.projectWorkshopAddBtn.addEventListener("click", () => setWorkshopModalEnabled(true, true));
+    }
+    if (els.projectWorkshopRemoveBtn) {
+      els.projectWorkshopRemoveBtn.addEventListener("click", () => setWorkshopModalEnabled(false, false));
     }
     if (els.addProjectPeriodBtn) {
       els.addProjectPeriodBtn.addEventListener("click", addProjectPeriodDraft);
@@ -3579,7 +3590,7 @@ async function deleteEditedEntry() {
       end: workshopEnd,
       phase: "workshop",
       phaseLabel: "Workshop / mobilisering",
-      required: Number(project.workshop_headcount_required || 2),
+      required: project.workshop_headcount_required === 0 ? 0 : Number(project.workshop_headcount_required || 2),
       generated: !storedStart || !storedEnd
     };
   }
@@ -3617,6 +3628,30 @@ async function deleteEditedEntry() {
     els.projectWorkshopEnd.value = draft.end || "";
     if (!els.projectWorkshopHeadcount.value || force) {
       els.projectWorkshopHeadcount.value = String(draft.headcount || 2);
+    }
+  }
+
+  function setWorkshopModalEnabled(enabled, applyDefault = false) {
+    const isEnabled = Boolean(enabled);
+    if (els.projectWorkshopEnabled) els.projectWorkshopEnabled.checked = isEnabled;
+
+    if (applyDefault && isEnabled) {
+      applyDefaultWorkshopDraft(true);
+    }
+
+    [els.projectWorkshopStart, els.projectWorkshopEnd, els.projectWorkshopHeadcount].forEach(input => {
+      if (!input) return;
+      input.disabled = !isEnabled;
+      input.classList.toggle("opacity-50", !isEnabled);
+      input.classList.toggle("bg-slate-100", !isEnabled);
+    });
+
+    if (!isEnabled) {
+      if (els.projectWorkshopStart) els.projectWorkshopStart.value = "";
+      if (els.projectWorkshopEnd) els.projectWorkshopEnd.value = "";
+      if (els.projectWorkshopHeadcount) els.projectWorkshopHeadcount.value = "0";
+    } else if (els.projectWorkshopHeadcount && (!els.projectWorkshopHeadcount.value || Number(els.projectWorkshopHeadcount.value) <= 0)) {
+      els.projectWorkshopHeadcount.value = "2";
     }
   }
 
@@ -3720,6 +3755,7 @@ async function deleteEditedEntry() {
     if (els.projectWorkshopStart) els.projectWorkshopStart.value = project?.workshop_start_date || workshopDraft.start || "";
     if (els.projectWorkshopEnd) els.projectWorkshopEnd.value = project?.workshop_end_date || workshopDraft.end || "";
     if (els.projectWorkshopHeadcount) els.projectWorkshopHeadcount.value = project?.workshop_headcount_required ?? 2;
+    setWorkshopModalEnabled(project?.workshop_enabled !== false, false);
     state.projectModalPeriods = normalizeProjectPeriods(project?.project_periods_json || []);
     els.projectLocation.value = project?.location || "";
     els.projectHeadcount.value = project?.headcount_required ?? "";
@@ -3753,11 +3789,16 @@ async function deleteEditedEntry() {
     const workshopEnabled = els.projectWorkshopEnabled ? Boolean(els.projectWorkshopEnabled.checked) : true;
     const workshopStartDate = els.projectWorkshopStart?.value || "";
     const workshopEndDate = els.projectWorkshopEnd?.value || "";
-    const workshopHeadcountRequired = Number(els.projectWorkshopHeadcount?.value || 2);
+    const workshopHeadcountRequired = workshopEnabled ? Number(els.projectWorkshopHeadcount?.value || 0) : 0;
     const notes = els.projectNotes.value.trim();
 
     if (!name) {
       alert("Legg inn prosjektnavn.");
+      return;
+    }
+
+    if (headcountRequired < 0) {
+      alert("Ressursbehov i felt kan ikke være negativt.");
       return;
     }
 
