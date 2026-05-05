@@ -554,7 +554,7 @@
     const categories = Array.from(new Set(getVisibleProjects().map(project => project.category).filter(Boolean)))
       .sort((a, b) => a.localeCompare(b, "no"));
     return [
-      { id: "all", name: "Alle prosjekter / kategorier" },
+      { id: "all", name: window.izomaxTranslateKey?.("allProjectsCategories") || "Alle prosjekter / kategorier" },
       ...categories.map(category => ({ id: category, name: category }))
     ];
   }
@@ -1785,6 +1785,10 @@
     window.addEventListener("izomax-language-changed", () => {
       refreshCalendarModeControls();
       renderLegend();
+      if (state.activeTab === "calendar") {
+        renderCalendarPanel();
+        renderCalendar();
+      }
       window.izomaxApplyLanguage?.();
     });
 
@@ -5152,21 +5156,21 @@ async function deleteEditedEntry() {
       <div id="projectInspectorStableAddBox" data-project-inspector-stable-add-box="1" data-v1816-add-box-visible="1" style="display:block !important;width:100% !important;box-sizing:border-box !important;border:1px solid rgba(132,204,222,0.38) !important;background:rgba(15,23,42,0.92) !important;color:#f8fbfd !important;border-radius:4px !important;padding:12px !important;margin-top:10px !important;visibility:visible !important;opacity:1 !important;">
         <div style="display:flex !important;align-items:flex-start !important;justify-content:space-between !important;gap:10px !important;margin-bottom:10px !important;">
           <div style="min-width:0 !important;">
-            <div style="font-size:13px !important;font-weight:900 !important;line-height:1.25 !important;color:#f8fbfd !important;">Legg til ${escapeHtml(addCandidate.name)}</div>
-            <div style="margin-top:4px !important;font-size:11px !important;font-weight:600 !important;color:rgba(232,244,248,0.72) !important;">Velg rolle og periode, trykk deretter Legg til prosjekt.</div>
+            <div style="font-size:13px !important;font-weight:900 !important;line-height:1.25 !important;color:#f8fbfd !important;">${window.izomaxTranslateKey?.("addProject") || "Legg til prosjekt"}: ${escapeHtml(addCandidate.name)}</div>
+            <div style="margin-top:4px !important;font-size:11px !important;font-weight:600 !important;color:rgba(232,244,248,0.72) !important;">${window.izomaxTranslateKey?.("addProjectDescription") || "Velg rolle og periode, trykk deretter Legg til prosjekt."}</div>
           </div>
           <span style="display:inline-flex !important;align-items:center !important;justify-content:center !important;border:1px solid rgba(132,204,222,0.28) !important;background:rgba(255,255,255,0.06) !important;color:#f8fbfd !important;border-radius:4px !important;padding:5px 8px !important;font-size:11px !important;font-weight:900 !important;">${escapeHtml(addCandidate.availability?.label || "Valgt")}</span>
         </div>
-        <button id="projectInspectorAddConfirmTopBtn" data-project-inspector-confirm-add="1" data-project-inspector-confirm-employee="${escapeHtml(addCandidate.name)}" type="button" style="display:flex !important;align-items:center !important;justify-content:center !important;width:100% !important;box-sizing:border-box !important;border:1px solid rgba(34,197,94,0.45) !important;background:#16a34a !important;color:#ffffff !important;border-radius:4px !important;padding:11px 12px !important;margin:0 0 10px 0 !important;font-size:13px !important;font-weight:950 !important;line-height:1.1 !important;cursor:pointer !important;visibility:visible !important;opacity:1 !important;position:relative !important;z-index:20 !important;">Legg til prosjekt</button>
+        <button id="projectInspectorAddConfirmTopBtn" data-project-inspector-confirm-add="1" data-project-inspector-confirm-employee="${escapeHtml(addCandidate.name)}" type="button" style="display:flex !important;align-items:center !important;justify-content:center !important;width:100% !important;box-sizing:border-box !important;border:1px solid rgba(34,197,94,0.45) !important;background:#16a34a !important;color:#ffffff !important;border-radius:4px !important;padding:11px 12px !important;margin:0 0 10px 0 !important;font-size:13px !important;font-weight:950 !important;line-height:1.1 !important;cursor:pointer !important;visibility:visible !important;opacity:1 !important;position:relative !important;z-index:20 !important;">${window.izomaxTranslateKey?.("addProject") || "Legg til prosjekt"}</button>
         <div style="display:grid !important;gap:10px !important;">
           <label style="display:grid !important;gap:5px !important;font-size:11px !important;font-weight:800 !important;text-transform:uppercase !important;letter-spacing:.04em !important;color:rgba(232,244,248,0.76) !important;">
-            Rolle
+            ${window.izomaxTranslateKey?.("role") || "Rolle"}
             <select id="projectInspectorAddRoleSelect" style="width:100% !important;border:1px solid rgba(132,204,222,0.34) !important;background:#ffffff !important;color:#0f172a !important;border-radius:4px !important;padding:9px !important;font-size:12px !important;">${ROLE_OPTIONS.map(role => `<option value="${escapeHtml(role)}" ${role === addCandidateRole ? "selected" : ""}>${escapeHtml(role)}</option>`).join("")}</select>
           </label>
           <div style="display:grid !important;gap:8px !important;border:1px solid rgba(132,204,222,0.22) !important;background:rgba(255,255,255,0.08) !important;border-radius:4px !important;padding:10px !important;">
             <label style="display:flex !important;align-items:flex-start !important;gap:8px !important;color:#f8fbfd !important;font-size:12px !important;">
               <input id="projectInspectorWholePeriodRadio" type="radio" name="projectInspectorPeriodMode" value="whole" ${state.projectInspectorAddUseCustomRange ? "" : "checked"} style="margin-top:2px !important;" />
-              <span><span style="display:block !important;font-weight:800 !important;color:#f8fbfd !important;">Hele prosjektperioden</span><span style="display:block !important;margin-top:2px !important;font-size:11px !important;color:rgba(232,244,248,0.72) !important;">${escapeHtml(projectBounds.start ? `${formatDate(projectBounds.start)} – ${formatDate(projectBounds.end)}` : "Periode ikke satt")}</span></span>
+              <span><span style="display:block !important;font-weight:800 !important;color:#f8fbfd !important;">Hele prosjektperioden</span><span style="display:block !important;margin-top:2px !important;font-size:11px !important;color:rgba(232,244,248,0.72) !important;">${escapeHtml(projectBounds.start ? `${formatDate(projectBounds.start)} – ${formatDate(projectBounds.end)}` : (window.izomaxTranslateKey?.("periodNotSet") || "Periode ikke satt"))}</span></span>
             </label>
             <label style="display:flex !important;align-items:flex-start !important;gap:8px !important;color:#f8fbfd !important;font-size:12px !important;">
               <input id="projectInspectorCustomPeriodRadio" type="radio" name="projectInspectorPeriodMode" value="custom" ${state.projectInspectorAddUseCustomRange ? "checked" : ""} style="margin-top:2px !important;" />
@@ -5187,7 +5191,7 @@ async function deleteEditedEntry() {
         </div>
         <div style="display:grid !important;grid-template-columns:repeat(2,minmax(0,1fr)) !important;gap:8px !important;margin-top:12px !important;">
           <button id="projectInspectorAddCancelBtn" type="button" style="border:1px solid rgba(132,204,222,0.28) !important;background:rgba(255,255,255,0.06) !important;color:#f8fbfd !important;border-radius:4px !important;padding:9px 10px !important;font-size:12px !important;font-weight:800 !important;cursor:pointer !important;">Avbryt</button>
-          <button id="projectInspectorAddConfirmBtn" data-project-inspector-confirm-add="1" data-project-inspector-confirm-employee="${escapeHtml(addCandidate.name)}" type="button" style="border:1px solid rgba(34,197,94,0.38) !important;background:rgba(22,163,74,0.92) !important;color:#ffffff !important;border-radius:4px !important;padding:10px 10px !important;font-size:12px !important;font-weight:900 !important;cursor:pointer !important;">Legg til prosjekt</button>
+          <button id="projectInspectorAddConfirmBtn" data-project-inspector-confirm-add="1" data-project-inspector-confirm-employee="${escapeHtml(addCandidate.name)}" type="button" style="border:1px solid rgba(34,197,94,0.38) !important;background:rgba(22,163,74,0.92) !important;color:#ffffff !important;border-radius:4px !important;padding:10px 10px !important;font-size:12px !important;font-weight:900 !important;cursor:pointer !important;">${window.izomaxTranslateKey?.("addProject") || "Legg til prosjekt"}</button>
         </div>
       </div>
     ` : "";
@@ -5195,8 +5199,8 @@ async function deleteEditedEntry() {
     const assignedHtml = `
       <section>
         <div class="mb-2 flex items-center justify-between gap-2">
-          <h3 class="font-semibold text-slate-900">Tildelte (${assigned}${required ? `/${required}` : ""})</h3>
-          ${isFullyStaffed ? `<button id="projectInspectorChangeCrewHeaderBtn" type="button" class="border border-cyan-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-800 hover:bg-slate-50">${shouldShowAvailable ? "Skjul analyse" : "Endre crew"}</button>` : ""}
+          <h3 class="font-semibold text-slate-900">${window.izomaxTranslateKey?.("assigned") || "Tildelte"} (${assigned}${required ? `/${required}` : ""})</h3>
+          ${isFullyStaffed ? `<button id="projectInspectorChangeCrewHeaderBtn" type="button" class="border border-cyan-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-800 hover:bg-slate-50">${shouldShowAvailable ? (window.izomaxTranslateKey?.("hideAnalysis") || "Skjul analyse") : (window.izomaxTranslateKey?.("changeCrew") || "Endre crew")}</button>` : ""}
         </div>
         <div class="space-y-2">
           ${assignedEntries.length ? assignedEntries.slice(0, 10).map(entry => `
@@ -5207,7 +5211,7 @@ async function deleteEditedEntry() {
             >
               <div style="min-width:0 !important;flex:1 1 auto !important;overflow:hidden !important;">
                 <div style="font-size:12px !important;font-weight:700 !important;line-height:1.25 !important;color:#f8fbfd !important;white-space:nowrap !important;overflow:hidden !important;text-overflow:ellipsis !important;">${escapeHtml(entry.employee_name)}</div>
-                <div style="margin-top:4px !important;font-size:11px !important;line-height:1.25 !important;color:rgba(232,244,248,0.78) !important;white-space:nowrap !important;overflow:hidden !important;text-overflow:ellipsis !important;">${escapeHtml(entry.role || "Rolle ikke satt")}</div>
+                <div style="margin-top:4px !important;font-size:11px !important;line-height:1.25 !important;color:rgba(232,244,248,0.78) !important;white-space:nowrap !important;overflow:hidden !important;text-overflow:ellipsis !important;">${escapeHtml(entry.role || (window.izomaxTranslateKey?.("roleNotSet") || "Rolle ikke satt"))}</div>
               </div>
               <div style="display:flex !important;align-items:center !important;justify-content:flex-end !important;gap:6px !important;flex:0 0 auto !important;visibility:visible !important;opacity:1 !important;">
                 <button
@@ -5215,22 +5219,22 @@ async function deleteEditedEntry() {
                   type="button"
                   class="project-assigned-edit-pencil-btn"
                   style="display:inline-flex !important;align-items:center !important;justify-content:center !important;width:30px !important;height:30px !important;border:1px solid rgba(132,204,222,0.32) !important;background:rgba(255,255,255,0.06) !important;color:rgba(248,251,253,0.82) !important;border-radius:4px !important;font-size:14px !important;font-weight:700 !important;line-height:1 !important;cursor:pointer !important;visibility:visible !important;opacity:1 !important;position:relative !important;z-index:5 !important;"
-                  title="Endre tildeling"
-                  aria-label="Endre tildeling"
+                  title="${window.izomaxTranslateKey?.("editAssignment") || "Endre tildeling"}"
+                  aria-label="${window.izomaxTranslateKey?.("editAssignment") || "Endre tildeling"}"
                 >✎</button>
               </div>
             </div>
-          `).join("") : `<div class="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-3 py-3 text-xs text-slate-500">Ingen tildelte ressurser.</div>`}
+          `).join("") : `<div class="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-3 py-3 text-xs text-slate-500">${window.izomaxTranslateKey?.("noAssignedResources") || "Ingen tildelte ressurser."}</div>`}
           ${needsStaffing ? `
             <button
               id="projectInspectorAddStaffBtn"
               type="button"
               class="project-add-staff-slot"
               style="display:flex !important;align-items:center !important;justify-content:center !important;gap:8px !important;width:100% !important;min-height:48px !important;box-sizing:border-box !important;border:1px dashed rgba(132,204,222,0.62) !important;background:rgba(255,255,255,0.08) !important;color:#f8fbfd !important;border-radius:4px !important;font-size:13px !important;font-weight:700 !important;cursor:pointer !important;visibility:visible !important;opacity:1 !important;"
-              title="Legg til ansatt på dette prosjektet"
+              title="${window.izomaxTranslateKey?.("addEmployee") || "Legg til ansatt"}"
             >
               <span style="font-size:18px !important;line-height:1 !important;">+</span>
-              <span>Legg til ansatt</span>
+              <span>${window.izomaxTranslateKey?.("addEmployee") || "Legg til ansatt"}</span>
               <span style="font-size:11px !important;font-weight:600 !important;color:rgba(232,244,248,0.72) !important;">Velg fra tilgjengelige personer under · ${missingStaffCount} mangler</span>
             </button>
           ` : ""}
@@ -5251,7 +5255,7 @@ async function deleteEditedEntry() {
         </div>
         <div style="display:grid !important;gap:8px !important;background:transparent !important;border:0 !important;overflow:visible !important;">
           <div style="display:grid !important;grid-template-columns:1fr auto !important;align-items:center !important;padding:0 2px 2px 2px !important;font-size:11px !important;font-weight:800 !important;text-transform:uppercase !important;letter-spacing:.04em !important;color:rgba(232,244,248,0.78) !important;">
-            <span>Tilgjengelige / øvrige</span><span>Status</span>
+            <span>${window.izomaxTranslateKey?.("availableOthers") || "Tilgjengelige / øvrige"}</span><span>${window.izomaxTranslateKey?.("status") || "Status"}</span>
           </div>
           ${employees.length ? employees.map(employee => {
             const isSelected = addCandidate && addCandidate.name === employee.name;
@@ -5288,18 +5292,18 @@ async function deleteEditedEntry() {
                 ${expandedHtml}
               </div>
             `;
-          }).join("") : `<div class="px-3 py-4 text-xs text-slate-500">Ingen treff i tilgjengelig-listen.</div>`}
+          }).join("") : `<div class="px-3 py-4 text-xs text-slate-500">${window.izomaxTranslateKey?.("noAvailableHits") || "Ingen treff i tilgjengelig-listen."}</div>`}
         </div>
-        ${filteredEmployees.length > employees.length ? `<div class="mt-2 text-[11px] text-slate-500">Viser ${employees.length} av ${filteredEmployees.length}. Bruk søk eller gruppefilter for å snevre inn.</div>` : ""}
+        ${filteredEmployees.length > employees.length ? `<div class="mt-2 text-[11px] text-slate-500">Viser ${employees.length} av ${filteredEmployees.length}. ${window.izomaxTranslateKey?.("showingNarrow") || "Bruk søk eller gruppefilter for å snevre inn."}</div>` : ""}
       </section>
     ` : "";
 
     const fullStaffedCrewActionHtml = isFullyStaffed ? `
       <section>
         <button id="projectInspectorChangeCrewBtn" type="button" class="w-full rounded-xl border border-cyan-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-800 hover:bg-slate-50">
-          ${shouldShowAvailable ? "Skjul tilgjengelige / øvrige" : "Endre crew"}
+          ${shouldShowAvailable ? (window.izomaxTranslateKey?.("hideAvailableOthers") || "Skjul tilgjengelige / øvrige") : (window.izomaxTranslateKey?.("changeCrew") || "Endre crew")}
         </button>
-        ${!shouldShowAvailable ? `<div class="mt-2 text-xs text-slate-500">Prosjektet er fullt bemannet. Tilgjengelighetsanalyse vises først når du skal endre crew.</div>` : ""}
+        ${!shouldShowAvailable ? `<div class="mt-2 text-xs text-slate-500">${window.izomaxTranslateKey?.("fullyStaffedHelp") || "Prosjektet er fullt bemannet. Tilgjengelighetsanalyse vises først når du skal endre crew."}</div>` : ""}
       </section>
     ` : "";
 
@@ -5342,30 +5346,30 @@ async function deleteEditedEntry() {
               <div class="mt-1 font-semibold text-slate-900">${escapeHtml(project.category || "Ikke satt")}</div>
             </div>
             <div class="rounded-2xl border border-slate-200 bg-slate-50 p-3">
-              <div class="text-[11px] uppercase tracking-wide text-slate-500">Bemanningsbehov</div>
-              <div class="mt-1 font-semibold text-slate-900">${required || 0} personer</div>
+              <div class="text-[11px] uppercase tracking-wide text-slate-500">${window.izomaxTranslateKey?.("staffingNeed") || "Bemanningsbehov"}</div>
+              <div class="mt-1 font-semibold text-slate-900">${required || 0} ${window.izomaxTranslateKey?.("people") || "personer"}</div>
             </div>
           </div>
 
           <section>
             <div class="mb-2 flex items-center justify-between gap-2">
-              <h3 class="font-semibold text-slate-900">Perioder</h3>
-              <button data-calendar-panel-edit-project="${escapeHtml(project.id)}" type="button" class="rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50">Rediger perioder</button>
+              <h3 class="font-semibold text-slate-900">${window.izomaxTranslateKey?.("periods") || "Perioder"}</h3>
+              <button data-calendar-panel-edit-project="${escapeHtml(project.id)}" type="button" class="rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50">${window.izomaxTranslateKey?.("editPeriods") || "Rediger perioder"}</button>
             </div>
             <div class="space-y-2">
               ${periods.length ? periods.map((period, index) => `
                 <div class="flex items-center justify-between gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2">
-                  <span class="font-medium text-slate-700">Periode ${index + 1}</span>
+                  <span class="font-medium text-slate-700">${window.izomaxTranslateKey?.("period") || "Periode"} ${index + 1}</span>
                   <span class="text-xs text-slate-500">${escapeHtml(formatDate(period.start))} – ${escapeHtml(formatDate(period.end))}</span>
                 </div>
-              `).join("") : `<div class="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-3 py-3 text-xs text-slate-500">Ingen periode satt.</div>`}
+              `).join("") : `<div class="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-3 py-3 text-xs text-slate-500">${window.izomaxTranslateKey?.("noPeriodSet") || "Ingen periode satt."}</div>`}
             </div>
           </section>
 
           <section>
             <div class="mb-2 flex items-center justify-between gap-2">
-              <h3 class="font-semibold text-slate-900">Bemanning</h3>
-              <button data-calendar-panel-staff-project="${escapeHtml(project.id)}" type="button" class="rounded-xl bg-slate-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-slate-800">Bemann prosjekt</button>
+              <h3 class="font-semibold text-slate-900">${window.izomaxTranslateKey?.("staffing") || "Bemanning"}</h3>
+              <button data-calendar-panel-staff-project="${escapeHtml(project.id)}" type="button" class="rounded-xl bg-slate-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-slate-800">${window.izomaxTranslateKey?.("staffProject") || "Bemann prosjekt"}</button>
             </div>
           </section>
 
@@ -5812,7 +5816,7 @@ async function deleteEditedEntry() {
     }
     if (els.projectWorkspaceActions) {
       els.projectWorkspaceActions.innerHTML = `
-        <button data-project-workspace-staff-id="${escapeHtml(project.id)}" class="rounded-2xl bg-slate-900 text-white px-4 py-2.5 text-sm font-medium shadow-sm">Bemann prosjekt</button>
+        <button data-project-workspace-staff-id="${escapeHtml(project.id)}" class="rounded-2xl bg-slate-900 text-white px-4 py-2.5 text-sm font-medium shadow-sm">${window.izomaxTranslateKey?.("staffProject") || "Bemann prosjekt"}</button>
         <button data-project-workspace-edit-id="${escapeHtml(project.id)}" class="rounded-2xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700">Rediger prosjekt</button>
       `;
       const staffBtn = els.projectWorkspaceActions.querySelector('[data-project-workspace-staff-id]');
@@ -6233,7 +6237,7 @@ async function deleteEditedEntry() {
             >
               <div class="font-semibold">${escapeHtml(displayProjectName(project))}</div>
               ${isSystemPersonalProject(project) ? "" : `<div class="text-[11px] opacity-90">${escapeHtml(entry.role)}</div>`}
-              <div data-resize-handle data-resize-type="entry" data-target-id="${escapeHtml(entry.id)}" title="Dra for å endre sluttdato" style="position:absolute; top:0; right:0; bottom:0; width:12px; cursor:ew-resize; border-left:1px solid rgba(255,255,255,0.35); background:linear-gradient(to left, rgba(255,255,255,0.35), rgba(255,255,255,0));"></div>
+              <div data-resize-handle data-resize-type="entry" data-target-id="${escapeHtml(entry.id)}" title="${window.izomaxTranslateKey?.("resizeEndDate") || "Dra for å endre sluttdato"}" style="position:absolute; top:0; right:0; bottom:0; width:12px; cursor:ew-resize; border-left:1px solid rgba(255,255,255,0.35); background:linear-gradient(to left, rgba(255,255,255,0.35), rgba(255,255,255,0));"></div>
             </div>
           `;
 
@@ -6345,7 +6349,7 @@ async function deleteEditedEntry() {
             >
               <div class="font-semibold">${escapeHtml(displayProjectName(project))}</div>
               <div class="text-[11px] opacity-90">${escapeHtml(formatYearBarLabel(entry.start_date, entry.end_date))}</div>
-              <div data-resize-handle data-resize-type="entry" data-target-id="${escapeHtml(entry.id)}" title="Dra for å endre sluttdato" style="position:absolute; top:0; right:0; bottom:0; width:12px; cursor:ew-resize; border-left:1px solid rgba(255,255,255,0.35); background:linear-gradient(to left, rgba(255,255,255,0.35), rgba(255,255,255,0));"></div>
+              <div data-resize-handle data-resize-type="entry" data-target-id="${escapeHtml(entry.id)}" title="${window.izomaxTranslateKey?.("resizeEndDate") || "Dra for å endre sluttdato"}" style="position:absolute; top:0; right:0; bottom:0; width:12px; cursor:ew-resize; border-left:1px solid rgba(255,255,255,0.35); background:linear-gradient(to left, rgba(255,255,255,0.35), rgba(255,255,255,0));"></div>
             </div>
           `;
         }
@@ -6384,7 +6388,7 @@ async function deleteEditedEntry() {
 
     let html = `<div class="calendar-shell" style="width:${stickyWidth + totalWidth}px; min-width:${stickyWidth + totalWidth}px;">`;
     html += `<div class="day-grid border border-slate-200 rounded-2xl overflow-visible" style="grid-template-columns:${stickyWidth}px repeat(${days.length}, ${colWidth}px);">`;
-    html += renderTimelineHeaderRows(days, "Prosjekt");
+    html += renderTimelineHeaderRows(days, window.izomaxTranslateKey?.("projectHeader") || "Prosjekt");
 
     for (const project of projects) {
       const assigned = getProjectAssignedCount(project.id);
@@ -6423,7 +6427,7 @@ async function deleteEditedEntry() {
         const left = startIndex * colWidth + 2;
         const width = Math.max(spanDays * colWidth - 4, 40);
         const periodLabel = period.phase === "workshop"
-          ? `Workshop / mobilisering · behov ${period.required || 2}`
+          ? `${window.izomaxTranslateKey?.("workshopMobilization") || "Workshop / mobilisering"} · ${window.izomaxTranslateKey?.("need") || "behov"} ${period.required || 2}`
           : (project.has_multiple_periods && projectPeriods.filter(item => item.phase !== "workshop").length > 1 ? `${formatDate(period.start)} – ${formatDate(period.end)}` : staffing.text);
         const periodClasses = getProjectPeriodBarClasses(project, period);
 
@@ -6435,7 +6439,7 @@ async function deleteEditedEntry() {
             data-project-period-phase="${escapeHtml(period.phase || "field")}"
             ${period.phase === "workshop" ? `data-workshop-project-id="${escapeHtml(project.id)}" draggable="true"` : ""}
             ${period.phase !== "workshop" && !project.has_multiple_periods ? `data-field-project-id="${escapeHtml(project.id)}" draggable="true"` : ""}
-            title="${escapeHtml(`${project.name} | ${period.phaseLabel || "Feltoppdrag"} | ${formatDate(period.start)} – ${formatDate(period.end)} | ${period.phase === "workshop" ? `Workshopbehov ${period.required || 2}` : staffing.text}`)}"
+            title="${escapeHtml(`${project.name} | ${period.phase === "workshop" ? (window.izomaxTranslateKey?.("workshopMobilization") || "Workshop / mobilisering") : (window.izomaxTranslateKey?.("fieldAssignment") || "Feltoppdrag")} | ${formatDate(period.start)} – ${formatDate(period.end)} | ${period.phase === "workshop" ? `${window.izomaxTranslateKey?.("workshopNeed") || "Workshopbehov"} ${period.required || 2}` : staffing.text}`)}"
           >
             <div class="font-semibold">${escapeHtml(project.name)}</div>
             <div class="text-[11px] opacity-90">${escapeHtml(periodLabel)}</div>
@@ -6443,7 +6447,7 @@ async function deleteEditedEntry() {
               data-resize-handle
               data-resize-type="${period.phase === "workshop" ? "workshop" : "project"}"
               data-target-id="${escapeHtml(project.id)}"
-              title="${period.phase === "workshop" ? "Dra for å endre workshop-sluttdato" : "Dra for å endre prosjektsluttdato"}"
+              title="${period.phase === "workshop" ? (window.izomaxTranslateKey?.("resizeWorkshopEndDate") || "Dra for å endre workshop-sluttdato") : (window.izomaxTranslateKey?.("resizeProjectEndDate") || "Dra for å endre prosjektsluttdato")}"
               style="position:absolute; top:0; right:0; bottom:0; width:14px; cursor:ew-resize; border-left:1px solid rgba(255,255,255,0.42); background:linear-gradient(to left, rgba(255,255,255,0.42), rgba(255,255,255,0));"
             ></div>
           </div>
@@ -6481,7 +6485,7 @@ async function deleteEditedEntry() {
 
     let html = `<div class="calendar-shell" style="width:${stickyWidth + totalWidth}px;">`;
     html += `<div class="month-summary-grid border border-slate-200 rounded-2xl overflow-hidden" style="grid-template-columns:${stickyWidth}px repeat(12, ${monthWidth}px);">`;
-    html += `<div class="sticky-col z-30 border-b border-r border-slate-200 bg-slate-50 px-3 py-3 font-semibold">Prosjekt</div>`;
+    html += `<div class="sticky-col z-30 border-b border-r border-slate-200 bg-slate-50 px-3 py-3 font-semibold">${escapeHtml(window.izomaxTranslateKey?.("projectHeader") || "Prosjekt")}</div>`;
 
     for (const month of months) {
       html += `<div class="border-b border-r border-slate-200 px-2 py-3 text-center text-sm bg-white text-slate-700 font-medium">${escapeHtml(capitalize(monthLong(month)))}</div>`;
@@ -6518,18 +6522,18 @@ async function deleteEditedEntry() {
         const spanMonths = (endMonth - startMonth) + 1;
         const left = startMonth * monthWidth + 2;
         const width = Math.max(spanMonths * monthWidth - 4, 40);
-        const periodLabel = period.phase === "workshop" ? `Workshop / mobilisering · behov ${period.required || 2}` : staffing.text;
+        const periodLabel = period.phase === "workshop" ? `${window.izomaxTranslateKey?.("workshopMobilization") || "Workshop / mobilisering"} · ${window.izomaxTranslateKey?.("need") || "behov"} ${period.required || 2}` : staffing.text;
 
         html += `
           <div
             class="entry-bar ${getProjectPeriodBarClasses(project, period)} ${project.id === state.focusProjectId ? 'ring-2 ring-blue-300 ring-offset-1' : ''}"
             style="left:${left}px; width:${width}px;"
             data-project-row-id="${escapeHtml(project.id)}"
-            title="${escapeHtml(`${project.name} | ${period.phaseLabel || "Feltoppdrag"} | ${formatDate(period.start)} – ${formatDate(period.end)} | ${period.phase === "workshop" ? `Workshopbehov ${period.required || 2}` : staffing.text}`)}"
+            title="${escapeHtml(`${project.name} | ${period.phase === "workshop" ? (window.izomaxTranslateKey?.("workshopMobilization") || "Workshop / mobilisering") : (window.izomaxTranslateKey?.("fieldAssignment") || "Feltoppdrag")} | ${formatDate(period.start)} – ${formatDate(period.end)} | ${period.phase === "workshop" ? `${window.izomaxTranslateKey?.("workshopNeed") || "Workshopbehov"} ${period.required || 2}` : staffing.text}`)}"
           >
             <div class="font-semibold">${escapeHtml(project.name)}</div>
             <div class="text-[11px] opacity-90">${escapeHtml(periodLabel)}</div>
-            ${period.phase !== "workshop" ? `<div data-resize-handle data-resize-type="project" data-target-id="${escapeHtml(project.id)}" title="Dra for å endre sluttdato" style="position:absolute; top:0; right:0; bottom:0; width:12px; cursor:ew-resize; border-left:1px solid rgba(255,255,255,0.35); background:linear-gradient(to left, rgba(255,255,255,0.35), rgba(255,255,255,0));"></div>` : ""}
+            ${period.phase !== "workshop" ? `<div data-resize-handle data-resize-type="project" data-target-id="${escapeHtml(project.id)}" title="${window.izomaxTranslateKey?.("resizeEndDate") || "Dra for å endre sluttdato"}" style="position:absolute; top:0; right:0; bottom:0; width:12px; cursor:ew-resize; border-left:1px solid rgba(255,255,255,0.35); background:linear-gradient(to left, rgba(255,255,255,0.35), rgba(255,255,255,0));"></div>` : ""}
           </div>
         `;
       }
@@ -7388,20 +7392,20 @@ function getDashboardAnalysisRange() {
   function getProjectStaffingLabel(projectId, required) {
     const project = getProjectById(projectId);
     if (project && isCancelledProject(project)) {
-      return { text: "Kansellert", variant: "text-red-700" };
+      return { text: window.izomaxTranslateKey?.("cancelled") || "Kansellert", variant: "text-red-700" };
     }
 
     const assigned = getProjectAssignedCount(projectId);
 
     if (assigned === 0) {
-      return { text: "Ikke bemannet", variant: "text-red-700" };
+      return { text: window.izomaxTranslateKey?.("notStaffed") || "Ikke bemannet", variant: "text-red-700" };
     }
 
     if (required > 0 && assigned < required) {
-      return { text: "Delvis bemannet", variant: "text-amber-700" };
+      return { text: window.izomaxTranslateKey?.("partlyStaffed") || "Delvis bemannet", variant: "text-amber-700" };
     }
 
-    return { text: "Bemannet", variant: "text-green-700" };
+    return { text: window.izomaxTranslateKey?.("staffed") || "Bemannet", variant: "text-green-700" };
   }
 
   function projectOverlapsRange(project, rangeStart, rangeEnd) {
@@ -7422,12 +7426,12 @@ function getDashboardAnalysisRange() {
     if (project?.has_multiple_periods && periods.length) {
       return periods.map(period => `${formatDate(period.start)} – ${formatDate(period.end)}`).join(", ");
     }
-    if (!project.planned_start_date && !project.planned_end_date) return "Ingen planlagt periode";
+    if (!project.planned_start_date && !project.planned_end_date) return window.izomaxTranslateKey?.("noPlannedPeriod") || "Ingen planlagt periode";
     if (project.planned_start_date && project.planned_end_date) {
       return `${formatDate(project.planned_start_date)} – ${formatDate(project.planned_end_date)}`;
     }
-    if (project.planned_start_date) return `Fra ${formatDate(project.planned_start_date)}`;
-    return `Til ${formatDate(project.planned_end_date)}`;
+    if (project.planned_start_date) return `${window.izomaxTranslateKey?.("from") || "Fra"} ${formatDate(project.planned_start_date)}`;
+    return `${window.izomaxTranslateKey?.("to") || "Til"} ${formatDate(project.planned_end_date)}`;
   }
 
   function formatDateTime(value) {
