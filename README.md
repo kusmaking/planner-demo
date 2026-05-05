@@ -1,106 +1,208 @@
 # Izomax Personalplanlegger – Sandbox changelog
 
-## Versjon
-v18.36b-admin-screens-cleanup-safe
-
 ## Base
-Bygger fra låst sandbox-base:
+Denne ZIP-en bygger videre på:
 
-- Locked-v18.35f-restore-available-select-button-safe
+- v18.35e-language-modal-and-add-button-fix-safe
 
-## Formål
-Dette er en kontrollert oppryddingsversjon før videre redesign av admin-/importområder.
+## Hovedstatus
 
-Vi stopper videre oversettelse av gamle Prosjektadmin, Ansattadmin og Admin inntil vi har bestemt ny struktur.
+Systemet har nå:
 
-## Endret
+- Izomax oppstartsside før innlogging
+- bakgrunnsbilde/watermark i appen
+- språkvalg NO / EN
+- språkvalg på oppstart/login
+- språkvalg i brukermeny etter innlogging
+- delvis språkstøtte for Ansattplan
+- delvis språkstøtte for Prosjektplan
+- delvis språkstøtte for prosjektpanelet
+- utvidet språkstøtte for prosjektmodal / Edit project
 
-### Dashboard / oppstart
-Snarveier til følgende sider er fjernet fra dashboard/oppstart:
+## Viktige prinsipper
 
-- Prosjektadmin
-- Ansattadmin
-
-Dashboard peker nå kun til de operative hovedflytene:
-
-- Ansattplan
-- Prosjektplan
-- Uten bemanning
-
-### Prosjektadmin
-Gammel Prosjektadmin-visning er deaktivert i UI.
-
-Siden viser nå en ryddig placeholder for fremtidig:
-
-- Prosjektimport
-- CSV/Excel-upload
-- forhåndsvisning
-- validering
-- opprettelse av prosjekter
-
-Importfunksjonen er ikke aktiv ennå.
-
-### Ansattadmin
-Gammel Ansattadmin-visning er deaktivert i UI.
-
-Siden viser nå en ryddig placeholder for fremtidig redesign:
-
-- ansattoversikt
-- grupper og roller
-- aktiv/inaktiv
-
-### Admin
-Gammel Admin-visning er deaktivert i UI.
-
-Siden viser nå en ryddig placeholder for fremtidig redesign:
-
-- brukere og roller
-- systemstatus
-- importhistorikk
-
-## Bevisst ikke endret
+### Ikke endret
+Følgende er bevisst ikke endret:
 
 - Supabase
 - database/datamodell
 - RLS
 - data.js
-- Prosjektplan
-- Ansattplan
-- kalenderlogikk
+- interne statusverdier
+- interne personalblokkverdier
 - prosjektdata/fritekst
+- prosjektlogikk
 - drag/resize
 - workshop/feltlogikk
 - bemanningslogikk
 
-## Viktig teknisk merknad
+### Viktig språkregel
+Lagrede prosjektdata skal ikke oversettes automatisk.
 
-Gammel kode er ikke hardt slettet ennå. Den er deaktivert/omgått slik at vi kan teste ny flyt uten å risikere unødvendig regresjon.
+Dette gjelder blant annet:
 
-Dette er bevisst gjort som et trygt mellomsteg:
-1. Skjul/deaktiver gammel UI
-2. Test at hovedsystemet fortsatt fungerer
-3. Design nye admin/import-sider
-4. Rydd eventuell gammel kode senere
+- prosjektnavn
+- lokasjon
+- notater
+- prosjekttekst
+- verdier skrevet inn av bruker
+- prosjektkategori/verdi slik den er lagret
+
+Kun faste UI-tekster oversettes.
+
+## Hva som er forbedret i denne versjonen
+
+### Prosjektmodal / Edit project
+Mer av modalen er nå oversatt:
+
+- Feltoppdrag / Field assignment
+- Ressursbehov for selve prosjektperioden i felt / Resource need for the actual field period
+- Lokasjon / feltoppdrag / Location / field assignment
+- Behov for antall personer i felt / Required number of people in field
+- Workshop / mobilisering / Workshop / mobilization
+- Kan fjernes hvis prosjektet ikke trenger workshopforberedelse / Can be removed if the project does not need workshop preparation
+- Legg til / Add
+- Fjern / Remove
+- Workshop start / Workshop start
+- Workshop slutt / Workshop end
+- Workshop ressursbehov / Workshop resource need
+- standard hjelpetekst for workshop
+- hjelpetekst for prosjektperioder
+
+### Available-list i prosjektpanelet
+Knappen til høyre er justert:
+
+- viser nå Add / Selected tydeligere på engelsk
+- større bredde
+- bedre padding
+- teksten skal ikke kuttes
+
+## Språkstøtte som fungerer
+
+### Oppstart/login
+- Personalplanlegger / Personnel Planner
+- Logg inn / Log in
+- E-post / Email
+- Passord / Password
+- Glemt passord / Forgot password
+- Trenger tilgang / Need access
+
+### Hovedmeny
+- Oppstart / Home
+- Ansattplan / Employee plan
+- Prosjektplan / Project plan
+- Uten bemanning / Unstaffed
+- Prosjektadmin / Project admin
+- Ansattadmin / Employee admin
+- Admin / Admin
+
+### Ansattplan
+Delvis oversatt:
+- Søk ansatt / Search employee
+- Uke / Måned / År
+- Tilbake / I dag / Frem
+- Panel
+- Farger og status
+- Direkte blokk på ansatt
+- Notat
+- Lagre blokk i kalender
+- Kurs / Ferie / Syk / Avspasering / Travel som visningstekst
+
+### Prosjektplan / prosjektpanel
+Delvis oversatt:
+- Prosjekt / Project
+- Feltoppdrag / Field assignment
+- Workshop / mobilisering / Workshop / mobilization
+- behov / need
+- Workshopbehov / Workshop need
+- Ikke bemannet / Not staffed
+- Delvis bemannet / Partly staffed
+- Bemannet / Staffed
+- Kansellert / Cancelled
+- Tildelte / Assigned
+- Bemanning / Staffing
+- Bemann prosjekt / Staff project
+- Perioder / Periods
+- Rediger perioder / Edit periods
+- Legg til ansatt / Add employee
+- Available-list bruker Add / Selected på engelsk
+
+## Områder som fortsatt bør tas videre modul for modul
+
+Neste naturlige steg:
+
+1. Fullføre resten av prosjektmodal / Edit project
+   - resterende field labels
+   - eventuelle feilmeldinger
+   - flere workshop/periode-felter
+
+2. Prosjektadmin
+   - prosjektliste
+   - valgt prosjekt
+   - bemann prosjekt
+   - tildelte ressurser
+   - arkiv/fullførte prosjekter
+
+3. Ansattadmin
+   - ny ansatt
+   - ansattfelter
+   - grupper
+   - aktiv/inaktiv
+   - bulk-import
+
+4. Dashboard
+   - kapasitet
+   - neste 14 dager
+   - KPI-kort
+   - lave kapasitetsdager
+
+5. Admin/logg/systemstatus
+   - varsellogg
+   - endringslogg
+   - systemstatus
+   - standardmeldinger
 
 ## Testpunkter i sandbox
 
-1. Åpne dashboard/oppstart.
-2. Bekreft at Prosjektadmin og Ansattadmin ikke lenger vises som snarveier.
-3. Test Ansattplan.
-4. Test Prosjektplan.
-5. Test Uten bemanning.
-6. Åpne Prosjektadmin-fanen og se at Prosjektimport-placeholder vises.
-7. Åpne Ansattadmin-fanen og se at redesign-placeholder vises.
-8. Åpne Admin-fanen og se at redesign-placeholder vises.
-9. Bekreft at Supabase-data fortsatt lastes.
-10. Bekreft at prosjektdata/fritekst ikke er endret.
+1. Test NO/EN på login.
+2. Logg inn.
+3. Test NO/EN i brukermenyen.
+4. Test Ansattplan.
+5. Test Prosjektplan.
+6. Test Uten bemanning.
+7. Åpne Edit project / Rediger prosjekt.
+8. Sjekk at prosjektdata ikke oversettes automatisk.
+9. Sjekk at Add/Selected vises riktig i available-listen.
+10. Sjekk at Add-knappen er stor nok og viser hele teksten.
+11. Sjekk at drag/resize, tildeling og workshop/feltlogikk fortsatt fungerer.
 
-## Neste naturlige steg
+## GitHub/Vercel arbeidsflyt
 
-Neste anbefalte arbeid:
+- Videre utvikling skal skje i sandbox.
+- Ikke push til main før sandbox er testet og godkjent.
+- Ved stabil versjon bør sandbox låses/tagges før neste større endring.
+- Main skal fortsatt være stabil production.
 
-1. Designe Prosjektimport-siden
-2. Avklare CSV/Excel-format
-3. Lage import-preview før lagring
-4. Redesigne Ansattadmin
-5. Redesigne Admin
+
+## v18.35f – Restore visible available selection button
+
+### Fikset
+Available-listen i prosjektpanelet hadde mistet den tydelige valgknappen etter forrige justering.
+
+Endring:
+- Valgknappen er lagt tydelig tilbake som en fullbreddeknapp nederst i hver tilgjengelig-person-rad.
+- På engelsk vises:
+  - Add
+  - Selected
+- På norsk vises:
+  - Legg til
+  - Valgt
+- Den lille knappen til høyre er redusert til en kompakt + / ✓-indikator, slik at teksten ikke kuttes i smal høyrepanelvisning.
+
+### Ikke endret
+- Supabase / database / RLS
+- data.js
+- prosjektdata/fritekst
+- prosjektlogikk
+- drag/resize
+- workshop/feltlogikk
