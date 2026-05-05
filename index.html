@@ -43,31 +43,1178 @@
     .day-cell.weekend { background: #f8fafc; }
     .day-cell.today { background: #eff6ff; }
     .day-cell.red-day { background: #fef2f2; }
+  
+
+    /* Approved compact dark UI shell - visual layer only */
+    :root {
+      --iz-bg-left: #04151d;
+      --iz-bg-mid: #062b3a;
+      --iz-bg-right: #08748a;
+      --iz-panel: rgba(5, 27, 37, 0.58);
+      --iz-panel-strong: rgba(7, 31, 43, 0.82);
+      --iz-line: rgba(172, 219, 230, 0.22);
+      --iz-text: #f4fbfc;
+      --iz-muted: rgba(235, 248, 250, 0.72);
+      --iz-green: #50f0c7;
+    }
+
+    body.iz-compact-ui {
+      min-height: 100vh;
+      background: linear-gradient(105deg, var(--iz-bg-left) 0%, var(--iz-bg-mid) 52%, var(--iz-bg-right) 100%);
+      color: var(--iz-text);
+    }
+
+    body.iz-compact-ui > div {
+      max-width: none !important;
+      padding: 14px 18px 14px 0 !important;
+      margin: 0 !important;
+      width: 100% !important;
+      position: relative;
+      min-height: 100vh;
+    }
+
+    .iz-app-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 0 22px 14px 22px;
+      min-height: 74px;
+      border: 0 !important;
+      background: transparent !important;
+      box-shadow: none !important;
+    }
+
+    .iz-brand-wrap {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      min-width: 0;
+    }
+
+    .iz-logo {
+      width: 205px;
+      height: auto;
+      display: block;
+      object-fit: contain;
+    }
+
+    .iz-title-block {
+      border-left: 1px solid rgba(235, 248, 250, 0.30);
+      padding-left: 22px;
+      min-width: 0;
+    }
+
+    .iz-title-block h1 {
+      color: #ffffff;
+      font-size: 31px;
+      line-height: 1.02;
+      font-weight: 800;
+      letter-spacing: -0.025em;
+      margin: 0;
+    }
+
+    .iz-title-block p {
+      color: var(--iz-muted);
+      margin-top: 6px;
+      font-size: 12px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      font-weight: 700;
+    }
+
+    body.iz-compact-ui #storageBadge,
+    body.iz-compact-ui #saveStatus {
+      display: none !important;
+    }
+
+    body.iz-compact-ui #plannerTabs {
+      position: fixed;
+      left: 0;
+      top: 88px;
+      width: 58px;
+      z-index: 80;
+      padding: 8px 6px;
+      background: rgba(3, 18, 25, 0.38) !important;
+      border-top: 1px solid var(--iz-line) !important;
+      border-right: 1px solid var(--iz-line) !important;
+      border-bottom: 1px solid var(--iz-line) !important;
+      border-left: 0 !important;
+      border-radius: 0 !important;
+      box-shadow: none !important;
+    }
+
+    body.iz-compact-ui #plannerTabs > div {
+      display: flex !important;
+      flex-direction: column !important;
+      gap: 8px !important;
+    }
+
+    body.iz-compact-ui #plannerTabs button {
+      width: 43px !important;
+      height: 43px !important;
+      min-width: 43px !important;
+      padding: 0 !important;
+      border-radius: 5px !important;
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      font-size: 18px !important;
+      line-height: 1 !important;
+      background: rgba(4, 22, 31, 0.50) !important;
+      color: #ffffff !important;
+      border: 1px solid rgba(172, 219, 230, 0.36) !important;
+      box-shadow: none !important;
+      position: relative;
+    }
+
+    body.iz-compact-ui #plannerTabs button.bg-slate-900,
+    body.iz-compact-ui #plannerTabs button[aria-current="page"] {
+      background: var(--iz-green) !important;
+      color: #062531 !important;
+      border-color: var(--iz-green) !important;
+    }
+
+    body.iz-compact-ui #plannerTabs button::after {
+      content: attr(data-tooltip);
+      position: absolute;
+      left: calc(100% + 9px);
+      top: 50%;
+      transform: translateY(-50%);
+      opacity: 0;
+      pointer-events: none;
+      background: rgba(3, 16, 22, 0.96);
+      color: #fff;
+      border: 1px solid var(--iz-line);
+      padding: 5px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 700;
+      white-space: nowrap;
+      transition: opacity .14s ease;
+    }
+    body.iz-compact-ui #plannerTabs button:hover::after { opacity: 1; }
+
+    body.iz-compact-ui #statsRow,
+    body.iz-compact-ui #tabCalendarSection,
+    body.iz-compact-ui #tabProjectsSection,
+    body.iz-compact-ui #tabEmployeesSection,
+    body.iz-compact-ui #tabAdminSection {
+      margin-left: 72px !important;
+      margin-right: 0 !important;
+    }
+
+    body.iz-compact-ui #statsRow {
+      display: none !important;
+    }
+
+    body.iz-compact-ui .iz-stat-card,
+    body.iz-compact-ui #statsRow > button {
+      background: linear-gradient(135deg, rgba(12, 46, 63, 0.78), rgba(10, 36, 50, 0.56)) !important;
+      border: 1px solid rgba(172, 219, 230, 0.30) !important;
+      color: var(--iz-text) !important;
+      border-radius: 5px !important;
+      box-shadow: none !important;
+      min-height: 86px !important;
+      padding: 13px 16px !important;
+      position: relative;
+    }
+
+    body.iz-compact-ui #statsRow > button::after {
+      content: '›';
+      position: absolute;
+      right: 14px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 28px;
+      color: rgba(255,255,255,0.82);
+      font-weight: 300;
+    }
+
+    body.iz-compact-ui #statsRow .text-sm,
+    body.iz-compact-ui #statsRow .text-xs { color: rgba(238,248,250,0.80) !important; }
+    body.iz-compact-ui #statsRow .text-3xl { color: #ffffff !important; font-size: 30px !important; margin-top: 6px !important; }
+
+    body.iz-compact-ui #tabCalendarSection {
+      gap: 12px !important;
+      align-items: stretch !important;
+      color: var(--iz-text);
+    }
+
+    body.iz-compact-ui #calendarMainCol {
+      background: transparent !important;
+      border: 0 !important;
+      box-shadow: none !important;
+      border-radius: 0 !important;
+      min-width: 0 !important;
+    }
+
+    body.iz-compact-ui #calendarMainCol > div:first-child {
+      border: 0 !important;
+      padding: 0 0 12px 0 !important;
+      background: transparent !important;
+    }
+
+    body.iz-compact-ui #searchInput,
+    body.iz-compact-ui #employeeGroupFilterButton,
+    body.iz-compact-ui #projectFilterControl,
+    body.iz-compact-ui #calendarNewProjectBtn,
+    body.iz-compact-ui #calendarMode,
+    body.iz-compact-ui #viewMode,
+    body.iz-compact-ui #prevBtn,
+    body.iz-compact-ui #todayBtn,
+    body.iz-compact-ui #nextBtn {
+      height: 42px !important;
+      border-radius: 4px !important;
+      background: rgba(3, 20, 28, 0.62) !important;
+      border: 1px solid rgba(172, 219, 230, 0.35) !important;
+      color: #ffffff !important;
+      box-shadow: none !important;
+      font-size: 14px !important;
+    }
+
+    body.iz-compact-ui #searchInput { width: 240px !important; }
+    body.iz-compact-ui #employeeGroupFilterButton { width: 315px !important; }
+    body.iz-compact-ui #projectFilterControl { width: 260px !important; }
+    body.iz-compact-ui #calendarNewProjectBtn { padding-left: 16px !important; padding-right: 16px !important; font-weight: 700 !important; }
+    body.iz-compact-ui #calendarMode { width: 170px !important; }
+    body.iz-compact-ui #viewMode { width: 120px !important; }
+    body.iz-compact-ui #prevBtn,
+    body.iz-compact-ui #todayBtn,
+    body.iz-compact-ui #nextBtn { padding-left: 17px !important; padding-right: 17px !important; }
+
+    body.iz-compact-ui #personalPlanQuickBtn,
+    body.iz-compact-ui #projectPlanQuickBtn,
+    body.iz-compact-ui #unstaffedProjectsQuickBtn {
+      height: 42px !important;
+      border-radius: 5px !important;
+      background: rgba(3, 20, 28, 0.62) !important;
+      border: 1px solid rgba(172, 219, 230, 0.35) !important;
+      color: #ffffff !important;
+      box-shadow: none !important;
+      font-size: 14px !important;
+      font-weight: 700 !important;
+      padding: 0 14px !important;
+      display: inline-flex !important;
+      align-items: center !important;
+      gap: 8px !important;
+      white-space: nowrap !important;
+    }
+
+    body.iz-compact-ui #personalPlanQuickBtn.is-active,
+    body.iz-compact-ui #projectPlanQuickBtn.is-active,
+    body.iz-compact-ui #unstaffedProjectsQuickBtn.is-active {
+      border-color: rgba(80, 240, 199, 0.75) !important;
+      box-shadow: inset 0 0 0 1px rgba(80, 240, 199, 0.25) !important;
+      color: #ffffff !important;
+    }
+
+    body.iz-compact-ui #unstaffedProjectsQuickBtn .quick-count {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 22px;
+      height: 22px;
+      border-radius: 5px !important;
+      background: var(--iz-green);
+      color: #062531;
+      padding: 0 6px;
+      font-size: 12px;
+      font-weight: 900;
+    }
+
+    body.iz-compact-ui #searchInput::placeholder { color: rgba(235, 248, 250, 0.73); }
+    body.iz-compact-ui #employeeGroupFilterLabel { color: #ffffff !important; }
+    body.iz-compact-ui #employeeGroupFilterButton span:last-child { color: rgba(255,255,255,0.85) !important; }
+    body.iz-compact-ui #projectFilterControl { color: #ffffff !important; }
+    body.iz-compact-ui #projectFilterControl option,
+    body.iz-compact-ui select option { color: #0f172a; background: #ffffff; }
+
+    body.iz-compact-ui #employeeGroupFilterPanel,
+    body.iz-compact-ui #accountMenuDropdown,
+    body.iz-compact-ui #calendarPanelCol,
+    body.iz-compact-ui #calendarPanelContent {
+      border-radius: 4px !important;
+    }
+
+    body.iz-compact-ui #rangeTitle,
+    body.iz-compact-ui #holidayInfo,
+    body.iz-compact-ui #calendarMainCol > div:nth-child(5) {
+      display: none !important;
+    }
+
+    body.iz-compact-ui #calendarWrap {
+      background: #ffffff !important;
+      border: 1px solid #dbe5eb !important;
+      border-radius: 5px !important;
+      overflow: auto !important;
+      box-shadow: 0 18px 36px rgba(0,0,0,0.22) !important;
+    }
+
+    body.iz-compact-ui .calendar-shell,
+    body.iz-compact-ui .month-cell,
+    body.iz-compact-ui .day-cell { color: #0f172a; }
+
+    body.iz-compact-ui .sticky-col { color: #0f172a; }
+
+    body.iz-compact-ui .entry-bar {
+      border-radius: 2px !important;
+      border-width: 0 !important;
+      box-shadow: none !important;
+      padding: 6px 10px !important;
+      top: 6px !important;
+      bottom: 6px !important;
+    }
+
+    body.iz-compact-ui .bg-green-500,
+    body.iz-compact-ui .bg-green-600 {
+      background-color: #0aa05f !important;
+    }
+    body.iz-compact-ui .bg-blue-500,
+    body.iz-compact-ui .bg-blue-600 {
+      background-color: #1976a8 !important;
+    }
+    body.iz-compact-ui .bg-orange-500,
+    body.iz-compact-ui .bg-orange-600 {
+      background-color: #ef811a !important;
+    }
+    body.iz-compact-ui .bg-purple-500,
+    body.iz-compact-ui .bg-purple-600 {
+      background-color: #5147d9 !important;
+    }
+
+    body.iz-compact-ui .day-cell.red-day { background: #fff2ef !important; }
+    body.iz-compact-ui .day-cell.weekend { background: #fafafa !important; }
+
+    body.iz-compact-ui #calendarPanelCol {
+      background: rgba(3, 20, 28, 0.34) !important;
+      border: 1px solid rgba(172, 219, 230, 0.30) !important;
+      border-radius: 5px !important;
+      box-shadow: none !important;
+      color: var(--iz-text) !important;
+      overflow: hidden !important;
+    }
+
+    body.iz-compact-ui #calendarPanelHandleBtn {
+      background: transparent !important;
+      color: #ffffff !important;
+      border: 0 !important;
+      width: 42px !important;
+      min-width: 42px !important;
+      height: 100% !important;
+      min-height: 220px !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      text-transform: uppercase;
+      letter-spacing: .26em;
+      font-weight: 800 !important;
+      font-size: 12px !important;
+    }
+
+    body.iz-compact-ui #calendarPanelContent {
+      background: linear-gradient(160deg, rgba(6, 28, 39, 0.96), rgba(5, 22, 31, 0.96));
+      color: var(--iz-text);
+    }
+
+    body.iz-compact-ui #legendList { color: var(--iz-text); }
+    body.iz-compact-ui #legendList .border-slate-200 { border-color: rgba(172, 219, 230, 0.20) !important; }
+
+    body.iz-compact-ui .rounded-2xl,
+    body.iz-compact-ui .rounded-xl,
+    body.iz-compact-ui .rounded-lg,
+    body.iz-compact-ui .rounded-[28px],
+    body.iz-compact-ui .rounded-[24px],
+    body.iz-compact-ui .rounded-[22px] {
+      border-radius: 5px !important;
+    }
+
+    body.iz-compact-ui #accountPanel {
+      display: flex !important;
+      align-items: center !important;
+      justify-content: flex-end !important;
+      gap: 0 !important;
+    }
+
+    body.iz-compact-ui #loginBtn,
+    body.iz-compact-ui #accountMenuButton {
+      min-height: 54px !important;
+      min-width: 210px !important;
+      border-radius: 6px !important;
+      background: rgba(4, 22, 31, 0.48) !important;
+      border: 1px solid rgba(172, 219, 230, 0.35) !important;
+      color: #ffffff !important;
+      padding: 8px 14px !important;
+      box-shadow: none !important;
+    }
+
+    body.iz-compact-ui .account-avatar {
+      width: 34px;
+      height: 34px;
+      border-radius: 50% !important;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(80,240,199,0.14);
+      color: #ffffff;
+      border: 1px solid rgba(80,240,199,0.20);
+      font-weight: 800;
+      letter-spacing: 0.02em;
+      flex: 0 0 auto;
+    }
+
+    body.iz-compact-ui .account-text {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      line-height: 1.05;
+      min-width: 0;
+    }
+
+    body.iz-compact-ui .account-name {
+      color: #ffffff;
+      font-weight: 800;
+      font-size: 14px;
+      max-width: 145px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    body.iz-compact-ui .account-role {
+      color: rgba(235,248,250,0.74);
+      font-size: 12px;
+      margin-top: 4px;
+    }
+
+    body.iz-compact-ui #accountMenuDropdown {
+      background: rgba(5, 24, 33, 0.98) !important;
+      border: 1px solid rgba(172, 219, 230, 0.28) !important;
+      border-radius: 5px !important;
+      min-width: 210px !important;
+      box-shadow: 0 18px 34px rgba(0,0,0,0.32) !important;
+      overflow: hidden !important;
+    }
+
+    body.iz-compact-ui #accountMenuDropdown button {
+      background: transparent !important;
+      color: #ffffff !important;
+      border: 0 !important;
+      border-bottom: 1px solid rgba(172, 219, 230, 0.16) !important;
+      border-radius: 0 !important;
+      padding: 12px 14px !important;
+    }
+    body.iz-compact-ui #accountMenuDropdown button:hover { background: rgba(255,255,255,0.06) !important; }
+    body.iz-compact-ui #accountMenuDropdown button:last-child { border-bottom: 0 !important; }
+
+    body.iz-compact-ui #resetPasswordBtn { display: none !important; }
+
+    .iz-holiday-panel {
+      margin-top: 16px;
+      padding-top: 14px;
+      border-top: 1px solid rgba(172, 219, 230, 0.20);
+    }
+    .iz-holiday-panel-title {
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+    .iz-holiday-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 6px 0;
+      color: rgba(235,248,250,0.88);
+      border-bottom: 1px solid rgba(172, 219, 230, 0.10);
+    }
+    .iz-holiday-row span:last-child { color: rgba(235,248,250,0.70); white-space: nowrap; }
+
+
+    /* Targeted regression fixes: keep approved design, restore profile visibility, hide only inactive tabs and remove white panel close button. */
+    body.iz-compact-ui #calendarPanelCloseBtn {
+      display: none !important;
+    }
+
+    body.iz-compact-ui #tabProjectsSection[style*="display: none"],
+    body.iz-compact-ui #tabEmployeesSection[style*="display: none"],
+    body.iz-compact-ui #tabAdminSection[style*="display: none"] {
+      display: none !important;
+    }
+
+    body.iz-compact-ui #accountMenuWrap.hidden,
+    body.iz-compact-ui #accountMenuDropdown.hidden,
+    body.iz-compact-ui #loginBtn.hidden {
+      display: none !important;
+    }
+
+
+
+    /* Bugfix: remove panel header close button and keep project modal as overlay. */
+    body.iz-compact-ui #calendarPanelContent > div:first-child button,
+    body.iz-compact-ui #calendarPanelCloseBtn {
+      display: none !important;
+      visibility: hidden !important;
+      width: 0 !important;
+      height: 0 !important;
+      padding: 0 !important;
+      margin: 0 !important;
+      border: 0 !important;
+      overflow: hidden !important;
+    }
+
+    body.iz-compact-ui #projectModal.hidden,
+    body.iz-compact-ui #editModal.hidden,
+    body.iz-compact-ui #employeeModal.hidden,
+    body.iz-compact-ui #loginModal.hidden {
+      display: none !important;
+    }
+
+    body.iz-compact-ui #projectModal.flex,
+    body.iz-compact-ui #editModal.flex,
+    body.iz-compact-ui #employeeModal.flex,
+    body.iz-compact-ui #loginModal.flex {
+      position: fixed !important;
+      inset: 0 !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      z-index: 9999 !important;
+    }
+
+    body.iz-compact-ui #projectModal > div,
+    body.iz-compact-ui #editModal > div,
+    body.iz-compact-ui #employeeModal > div,
+    body.iz-compact-ui #loginModal > div {
+      color: #0f172a !important;
+    }
+
+    @media (max-width: 1279px) {
+      body.iz-compact-ui #plannerTabs {
+        position: static;
+        width: auto;
+        margin-left: 0 !important;
+      }
+      body.iz-compact-ui #plannerTabs > div { flex-direction: row !important; }
+      body.iz-compact-ui #statsRow,
+      body.iz-compact-ui #tabCalendarSection,
+      body.iz-compact-ui #tabProjectsSection,
+      body.iz-compact-ui #tabEmployeesSection,
+      body.iz-compact-ui #tabAdminSection {
+        margin-left: 0 !important;
+      }
+      .iz-app-header { padding-left: 14px; }
+      .iz-logo { width: 160px; }
+    }
+
+
+    /* Project spotlight: visual-only calendar focus mode */
+    .project-spotlight-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin: 10px 0 0 0;
+      padding: 8px 10px;
+      border: 1px solid rgba(148, 163, 184, 0.28);
+      background: rgba(15, 23, 42, 0.06);
+      color: #e5eef1;
+      font-size: 12px;
+    }
+
+    .project-spotlight-bar strong {
+      color: #ffffff;
+      font-weight: 700;
+    }
+
+    .project-spotlight-clear {
+      border: 1px solid rgba(226, 232, 240, 0.28);
+      background: rgba(255,255,255,0.08);
+      color: #f8fafc;
+      padding: 5px 8px;
+      font-size: 12px;
+      line-height: 1;
+      cursor: pointer;
+    }
+
+    .project-spotlight-clear:hover {
+      background: rgba(255,255,255,0.14);
+    }
+
+    .entry-bar.project-spotlight-muted {
+      opacity: 0.20;
+      filter: grayscale(1) saturate(0.15);
+      box-shadow: none !important;
+    }
+
+    .entry-bar.project-spotlight-active {
+      opacity: 1;
+      filter: none;
+      z-index: 36;
+      box-shadow: 0 0 0 2px rgba(255,255,255,0.82), 0 8px 20px rgba(15,23,42,0.18) !important;
+    }
+
+
+    /* v16.9: Prosjektinspektør som mørk overlay over kalenderen, med hvit tekst. */
+    body.iz-compact-ui #calendarPanelCol.iz-project-inspector-shell {
+      position: fixed !important;
+      top: 98px !important;
+      right: 26px !important;
+      bottom: 26px !important;
+      width: 380px !important;
+      max-width: calc(100vw - 52px) !important;
+      z-index: 80 !important;
+      background: linear-gradient(180deg, rgba(5, 48, 63, 0.98) 0%, rgba(3, 34, 45, 0.98) 100%) !important;
+      color: #f8fbfd !important;
+      border: 1px solid rgba(133, 194, 210, 0.35) !important;
+      border-radius: 4px !important;
+      box-shadow: 0 24px 60px rgba(2, 12, 18, 0.42) !important;
+      overflow: hidden !important;
+      backdrop-filter: blur(6px) !important;
+    }
+    body.iz-compact-ui #calendarPanelCol.iz-project-inspector-shell #calendarPanelContent {
+      background: transparent !important;
+      color: #f8fbfd !important;
+      border-radius: 4px !important;
+    }
+    body.iz-compact-ui #calendarPanelCol.iz-project-inspector-shell .iz-project-panel-tab {
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      min-height: 100% !important;
+      background: rgba(2, 31, 42, 0.74) !important;
+      color: #f8fbfd !important;
+      border-color: rgba(133, 194, 210, 0.26) !important;
+      letter-spacing: 0.16em !important;
+      writing-mode: vertical-rl !important;
+      transform: rotate(180deg) !important;
+      text-transform: uppercase !important;
+    }
+    body.iz-compact-ui #calendarPanelCol.iz-project-inspector-shell svg {
+      color: currentColor !important;
+    }
+    body.iz-compact-ui #calendarPanelCol.iz-project-inspector-shell h2,
+    body.iz-compact-ui #calendarPanelCol.iz-project-inspector-shell h3,
+    body.iz-compact-ui #calendarPanelCol.iz-project-inspector-shell .text-slate-950,
+    body.iz-compact-ui #calendarPanelCol.iz-project-inspector-shell .text-slate-900,
+    body.iz-compact-ui #calendarPanelCol.iz-project-inspector-shell .text-slate-800,
+    body.iz-compact-ui #calendarPanelCol.iz-project-inspector-shell .text-slate-700 {
+      color: #f8fbfd !important;
+    }
+    body.iz-compact-ui #calendarPanelCol.iz-project-inspector-shell .text-slate-600,
+    body.iz-compact-ui #calendarPanelCol.iz-project-inspector-shell .text-slate-500,
+    body.iz-compact-ui #calendarPanelCol.iz-project-inspector-shell .text-slate-400 {
+      color: rgba(232, 244, 248, 0.78) !important;
+    }
+    body.iz-compact-ui #calendarPanelCol.iz-project-inspector-shell .bg-white,
+    body.iz-compact-ui #calendarPanelCol.iz-project-inspector-shell .bg-slate-50,
+    body.iz-compact-ui #calendarPanelCol.iz-project-inspector-shell .bg-slate-100 {
+      background: rgba(255, 255, 255, 0.10) !important;
+      color: #f8fbfd !important;
+    }
+    body.iz-compact-ui #calendarPanelCol.iz-project-inspector-shell .border-slate-300,
+    body.iz-compact-ui #calendarPanelCol.iz-project-inspector-shell .border-slate-200,
+    body.iz-compact-ui #calendarPanelCol.iz-project-inspector-shell .border-slate-100 {
+      border-color: rgba(133, 194, 210, 0.22) !important;
+    }
+    body.iz-compact-ui #calendarPanelCol.iz-project-inspector-shell .border-b,
+    body.iz-compact-ui #calendarPanelCol.iz-project-inspector-shell .border-t {
+      border-color: rgba(133, 194, 210, 0.24) !important;
+    }
+    body.iz-compact-ui #calendarPanelCol.iz-project-inspector-shell input,
+    body.iz-compact-ui #calendarPanelCol.iz-project-inspector-shell select {
+      background: rgba(255, 255, 255, 0.12) !important;
+      color: #f8fbfd !important;
+      border: 1px solid rgba(133, 194, 210, 0.34) !important;
+    }
+    body.iz-compact-ui #calendarPanelCol.iz-project-inspector-shell input::placeholder {
+      color: rgba(232, 244, 248, 0.62) !important;
+    }
+    body.iz-compact-ui #calendarPanelCol.iz-project-inspector-shell button:not(.bg-green-600):not(.hover\:bg-green-700) {
+      color: #f8fbfd !important;
+    }
+
+    body.iz-compact-ui #calendarPanelCol.iz-project-inspector-shell [data-project-entry-edit-id] {
+      background: rgba(34, 211, 238, 0.16) !important;
+      border-color: rgba(103, 232, 249, 0.45) !important;
+      color: #e6fbff !important;
+      font-weight: 700 !important;
+    }
+    body.iz-compact-ui #calendarPanelCol.iz-project-inspector-shell [data-project-entry-edit-id]:hover {
+      background: rgba(34, 211, 238, 0.26) !important;
+    }
+    body.iz-compact-ui #calendarPanelCol.iz-project-inspector-shell button,
+    body.iz-compact-ui #calendarPanelCol.iz-project-inspector-shell input,
+    body.iz-compact-ui #calendarPanelCol.iz-project-inspector-shell select,
+    body.iz-compact-ui #calendarPanelCol.iz-project-inspector-shell .rounded-2xl,
+    body.iz-compact-ui #calendarPanelCol.iz-project-inspector-shell .rounded-xl,
+    body.iz-compact-ui #calendarPanelCol.iz-project-inspector-shell .rounded-lg,
+    body.iz-compact-ui #calendarPanelCol.iz-project-inspector-shell .rounded-full {
+      border-radius: 4px !important;
+    }
+    @media (max-width: 900px) {
+      body.iz-compact-ui #calendarPanelCol.iz-project-inspector-shell {
+        top: 74px !important;
+        right: 10px !important;
+        bottom: 10px !important;
+        width: calc(100vw - 20px) !important;
+      }
+    }
+
+    /* v18.24a dashboard cleanup: isolate Oppstart from fixed icon menu and make cards compact. */
+    body.iz-compact-ui #tabHomeSection {
+      margin-left: 72px !important;
+      margin-right: 0 !important;
+      color: #0f172a;
+    }
+
+    body.iz-compact-ui #homeDashboard {
+      max-width: 1680px;
+      margin: 0 auto;
+    }
+
+    body.iz-compact-ui .dashboard-shell {
+      padding-top: 4px;
+    }
+
+    body.iz-compact-ui .dashboard-title {
+      color: #f8fbfd;
+      font-size: 28px;
+      line-height: 1.1;
+      font-weight: 800;
+      letter-spacing: -0.025em;
+      margin: 0;
+    }
+
+    body.iz-compact-ui .dashboard-subtitle {
+      color: rgba(229, 238, 241, 0.72);
+      font-size: 13px;
+      margin-top: 6px;
+    }
+
+    body.iz-compact-ui .dashboard-card {
+      border-radius: 8px !important;
+      border: 1px solid rgba(172, 219, 230, 0.22) !important;
+      box-shadow: none !important;
+    }
+
+    body.iz-compact-ui .dashboard-welcome {
+      min-height: 74px;
+      padding: 16px 18px !important;
+    }
+
+    body.iz-compact-ui .dashboard-action-card {
+      min-height: 142px !important;
+      padding: 18px !important;
+    }
+
+    body.iz-compact-ui .dashboard-action-icon {
+      width: 42px !important;
+      height: 42px !important;
+    }
+
+    body.iz-compact-ui .dashboard-metric-card {
+      min-height: 260px;
+      padding: 18px !important;
+    }
+
+    @media (max-width: 1279px) {
+      body.iz-compact-ui #tabHomeSection {
+        margin-left: 0 !important;
+      }
+    }
+
+    /* v18.27 dashboard mockup layout safe: Oppstart only. Izomax logo/header untouched. */
+    body.iz-compact-ui #homeDashboard .dash27-shell{color:#f8fbfd;padding-bottom:24px}
+    body.iz-compact-ui #homeDashboard .dash27-title{font-size:34px;line-height:1;font-weight:850;letter-spacing:-.035em;color:#fff;margin:0}
+    body.iz-compact-ui #homeDashboard .dash27-subtitle{margin-top:6px;font-size:14px;color:rgba(235,248,250,.72)}
+    body.iz-compact-ui #homeDashboard .dash27-panel{background:linear-gradient(160deg,rgba(5,42,56,.84),rgba(3,26,37,.70));border:1px solid rgba(172,219,230,.26);border-radius:12px;box-shadow:0 18px 42px rgba(2,12,18,.20);color:#f8fbfd}
+    body.iz-compact-ui #homeDashboard .dash27-white-card{background:linear-gradient(180deg,#fff,#f7fafc);border:1px solid rgba(226,232,240,.95);border-radius:12px;color:#0f172a;box-shadow:0 10px 24px rgba(2,12,18,.12)}
+    body.iz-compact-ui #homeDashboard .dash27-shortcut{min-height:128px;padding:18px;transition:transform .12s ease,box-shadow .12s ease}
+    body.iz-compact-ui #homeDashboard .dash27-shortcut:hover{transform:translateY(-1px);box-shadow:0 16px 32px rgba(2,12,18,.18)}
+    body.iz-compact-ui #homeDashboard .dash27-iconbox{width:46px;height:46px;border-radius:10px;display:inline-flex;align-items:center;justify-content:center;background:rgba(8,145,178,.08);color:#075985;border:1px solid rgba(8,145,178,.16)}
+    body.iz-compact-ui #homeDashboard .dash27-kpi{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:16px;min-height:112px;padding:18px;border-right:1px solid rgba(172,219,230,.20)}
+    body.iz-compact-ui #homeDashboard .dash27-kpi:last-child{border-right:0}
+    body.iz-compact-ui #homeDashboard .dash27-kpi-icon{width:66px;height:66px;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;border:2px solid currentColor;background:rgba(255,255,255,.03)}
+    body.iz-compact-ui #homeDashboard .dash27-muted{color:rgba(235,248,250,.70)}
+    body.iz-compact-ui #homeDashboard .dash27-card-title{font-size:20px;font-weight:800;letter-spacing:-.02em;color:#fff}
+    body.iz-compact-ui #homeDashboard .dash27-info{display:inline-flex;align-items:center;justify-content:center;width:17px;height:17px;border:1px solid rgba(235,248,250,.45);border-radius:999px;font-size:11px;color:rgba(235,248,250,.70)}
+    body.iz-compact-ui #homeDashboard .dash27-heatcell{min-height:42px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;color:#fff;border:1px solid rgba(255,255,255,.06)}
+    body.iz-compact-ui #homeDashboard .dash27-heat-ok{background:rgba(20,83,45,.55)}
+    body.iz-compact-ui #homeDashboard .dash27-heat-low{background:rgba(161,98,7,.72)}
+    body.iz-compact-ui #homeDashboard .dash27-heat-critical{background:rgba(127,29,29,.74)}
+    body.iz-compact-ui #homeDashboard .dash27-row-line{border-bottom:1px solid rgba(172,219,230,.16)}
+    body.iz-compact-ui #homeDashboard .dash27-row-line:last-child{border-bottom:0}
+    body.iz-compact-ui #homeDashboard .dash27-progress{height:8px;border-radius:999px;background:rgba(255,255,255,.10);overflow:hidden}
+    body.iz-compact-ui #homeDashboard .dash27-progress>span{display:block;height:100%;border-radius:999px}
+    body.iz-compact-ui #homeDashboard .dash27-donut{width:176px;height:176px;border-radius:999px;position:relative;border:1px solid rgba(255,255,255,.12)}
+    body.iz-compact-ui #homeDashboard .dash27-donut:after{content:"";position:absolute;inset:42px;border-radius:999px;background:#062131;border:1px solid rgba(255,255,255,.10)}
+    body.iz-compact-ui #homeDashboard .dash27-donut-inner{position:absolute;z-index:2;inset:0;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center}
+
+    /* v18.27a dashboard clickable status/list polish */
+    body.iz-compact-ui #homeDashboard .dash27-kpi {
+      cursor: pointer;
+      position: relative;
+      transition: background .14s ease, transform .14s ease, box-shadow .14s ease;
+    }
+    body.iz-compact-ui #homeDashboard .dash27-kpi:hover {
+      background: rgba(255,255,255,.045);
+      transform: translateY(-1px);
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,.08);
+    }
+    body.iz-compact-ui #homeDashboard .dash27-kpi:focus-visible {
+      outline: 2px solid rgba(45,212,191,.75);
+      outline-offset: -2px;
+    }
+    body.iz-compact-ui #homeDashboard .dash27-kpi-action {
+      margin-top: 6px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      font-weight: 800;
+      color: rgba(103,232,249,.92);
+      text-transform: uppercase;
+      letter-spacing: .08em;
+    }
+    body.iz-compact-ui #homeDashboard .dash27-list-row {
+      border-bottom: 1px solid rgba(172,219,230,.16);
+      border-radius: 9px;
+      transition: background .14s ease, transform .14s ease;
+    }
+    body.iz-compact-ui #homeDashboard .dash27-list-row:hover {
+      background: rgba(255,255,255,.045);
+      transform: translateX(2px);
+    }
+    body.iz-compact-ui #homeDashboard .dash27-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 3px 8px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 800;
+      background: rgba(255,255,255,.075);
+      border: 1px solid rgba(255,255,255,.10);
+      color: rgba(235,248,250,.86);
+    }
+
+    /* v18.27b dashboard KPI filters */
+    body.iz-compact-ui #dashboardEmployeeFilterBanner {
+      margin: 0 0 10px 0;
+      border: 1px solid rgba(14,165,233,.22);
+      background: linear-gradient(90deg, rgba(8,145,178,.10), rgba(255,255,255,.92));
+      color: #0f172a;
+      border-radius: 12px;
+      padding: 10px 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      font-size: 13px;
+    }
+    body.iz-compact-ui #dashboardEmployeeFilterBanner button {
+      border: 1px solid rgba(15,23,42,.14);
+      background: #fff;
+      color: #0f172a;
+      border-radius: 10px;
+      padding: 6px 10px;
+      font-weight: 700;
+    }
+
+    /* v18.27d capacity readability */
+    body.iz-compact-ui #homeDashboard .dash27-capacity-scroll {
+      overflow-x: auto;
+      padding-bottom: 4px;
+    }
+    body.iz-compact-ui #homeDashboard .dash27-capacity-table {
+      min-width: 1040px;
+      display: grid;
+      grid-template-columns: 156px repeat(14, minmax(64px, 1fr));
+      gap: 8px;
+      align-items: stretch;
+    }
+    body.iz-compact-ui #homeDashboard .dash27-capacity-head {
+      min-height: 42px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      font-size: 11px;
+      font-weight: 800;
+      color: rgba(235,248,250,.70);
+      background: rgba(255,255,255,.035);
+      border: 1px solid rgba(255,255,255,.06);
+      line-height: 1.25;
+    }
+    body.iz-compact-ui #homeDashboard .dash27-capacity-group {
+      min-height: 58px;
+      border-radius: 9px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding: 8px 10px;
+      background: rgba(255,255,255,.055);
+      border: 1px solid rgba(255,255,255,.08);
+    }
+    body.iz-compact-ui #homeDashboard .dash27-capacity-cell {
+      min-height: 58px;
+      border-radius: 9px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      border: 1px solid rgba(255,255,255,.07);
+      color: #fff;
+      padding: 6px 4px;
+    }
+    body.iz-compact-ui #homeDashboard .dash27-capacity-cell strong {
+      font-size: 20px;
+      line-height: 1;
+      font-weight: 900;
+    }
+    body.iz-compact-ui #homeDashboard .dash27-capacity-cell span {
+      font-size: 10px;
+      line-height: 1.25;
+      opacity: .88;
+      margin-top: 4px;
+    }
+    body.iz-compact-ui #homeDashboard .dash27-threshold-note {
+      font-size: 11px;
+      color: rgba(235,248,250,.62);
+      margin-top: 2px;
+    }
+    body.iz-compact-ui #homeDashboard .dash27-why-low {
+      margin-top: 12px;
+      border-top: 1px solid rgba(255,255,255,.10);
+      padding-top: 12px;
+      display: grid;
+      gap: 8px;
+    }
+    body.iz-compact-ui #homeDashboard .dash27-alert-line {
+      border-radius: 9px;
+      background: rgba(255,255,255,.045);
+      border: 1px solid rgba(255,255,255,.075);
+      padding: 9px 10px;
+      font-size: 12px;
+      color: rgba(248,251,253,.92);
+    }
+
+    /* v18.27e layout cleanup */
+    body.iz-compact-ui #homeDashboard .dash27-shell { padding-bottom: 16px; }
+    body.iz-compact-ui #homeDashboard .dash27-panel { border-radius: 10px; }
+    body.iz-compact-ui #homeDashboard .dash27-shortcut { min-height: 108px; padding: 14px; }
+    body.iz-compact-ui #homeDashboard .dash27-kpi { min-height: 94px; padding: 14px; gap: 12px; }
+    body.iz-compact-ui #homeDashboard .dash27-kpi-icon { width: 58px; height: 58px; }
+    body.iz-compact-ui #homeDashboard .dash27-card-title { font-size: 18px; }
+    body.iz-compact-ui #homeDashboard .dash27-donut { width: 154px; height: 154px; }
+    body.iz-compact-ui #homeDashboard .dash27-donut:after { inset: 36px; }
+    body.iz-compact-ui #homeDashboard .dash27-capacity-table { min-width: 980px; grid-template-columns: 138px repeat(14, minmax(58px, 1fr)); gap: 6px; }
+    body.iz-compact-ui #homeDashboard .dash27-capacity-head { min-height: 36px; font-size: 10px; }
+    body.iz-compact-ui #homeDashboard .dash27-capacity-group { min-height: 52px; padding: 6px 8px; }
+    body.iz-compact-ui #homeDashboard .dash27-capacity-cell { min-height: 52px; padding: 4px 3px; }
+    body.iz-compact-ui #homeDashboard .dash27-capacity-cell strong { font-size: 18px; }
+    body.iz-compact-ui #homeDashboard .dash27-capacity-cell span { font-size: 9px; margin-top: 3px; }
+    body.iz-compact-ui #homeDashboard .dash27-alert-line { padding: 7px 9px; font-size: 11px; }
+    body.iz-compact-ui #homeDashboard .dash27-threshold-note { font-size: 10px; }
+    body.iz-compact-ui #homeDashboard .dash27-list-row { padding-top: 6px; padding-bottom: 6px; }
+
+    /* v18.27f single screen cleanup */
+    body.iz-compact-ui #homeDashboard .dash27-shell { padding-bottom: 10px; }
+    body.iz-compact-ui #homeDashboard .dash27-title { font-size: 30px; margin-bottom: 0; }
+    body.iz-compact-ui #homeDashboard .dash27-panel { border-radius: 10px; }
+    body.iz-compact-ui #homeDashboard .dash27-white-card,
+    body.iz-compact-ui #homeDashboard .dash27-panel { box-shadow: 0 6px 18px rgba(15,23,42,.10); }
+    body.iz-compact-ui #homeDashboard .dash27-shortcut { min-height: 86px; padding: 12px 14px; }
+    body.iz-compact-ui #homeDashboard .dash27-iconbox { width: 44px; height: 44px; }
+    body.iz-compact-ui #homeDashboard .dash27-kpi { min-height: 86px; padding: 12px 16px; gap: 12px; grid-template-columns: 54px 1fr; }
+    body.iz-compact-ui #homeDashboard .dash27-kpi-icon { width: 54px; height: 54px; }
+    body.iz-compact-ui #homeDashboard .dash27-card-title { font-size: 17px; }
+    body.iz-compact-ui #homeDashboard .dash27-capacity-table { min-width: 900px; grid-template-columns: 118px repeat(14, minmax(48px, 1fr)); gap: 4px; }
+    body.iz-compact-ui #homeDashboard .dash27-capacity-head { min-height: 31px; font-size: 9px; }
+    body.iz-compact-ui #homeDashboard .dash27-capacity-group { min-height: 42px; padding: 5px 6px; }
+    body.iz-compact-ui #homeDashboard .dash27-capacity-group strong { font-size: 12px; }
+    body.iz-compact-ui #homeDashboard .dash27-threshold-note { display: none; }
+    body.iz-compact-ui #homeDashboard .dash27-capacity-cell { min-height: 42px; padding: 2px; }
+    body.iz-compact-ui #homeDashboard .dash27-capacity-cell strong { font-size: 16px; }
+    body.iz-compact-ui #homeDashboard .dash27-capacity-cell span { font-size: 8px; margin-top: 2px; }
+    body.iz-compact-ui #homeDashboard .dash27-heatcell { min-height: 46px; padding: 3px; font-size: 13px; }
+    body.iz-compact-ui #homeDashboard .dash27-heatcell span { font-size: 9px; }
+    body.iz-compact-ui #homeDashboard .dash27-why-low,
+    body.iz-compact-ui #homeDashboard .dash27-subtitle,
+    body.iz-compact-ui #homeDashboard .dash27-info { display: none !important; }
+    body.iz-compact-ui #homeDashboard .dash27-donut { width: 126px; height: 126px; }
+    body.iz-compact-ui #homeDashboard .dash27-donut:after { inset: 30px; }
+    body.iz-compact-ui #homeDashboard .dash27-donut-inner .text-4xl { font-size: 1.65rem; }
+    body.iz-compact-ui #homeDashboard .dash27-list-row { padding-top: 6px; padding-bottom: 6px; }
+
+    /* v18.30g: restyled existing edit button and wider project panel */
+    body.iz-compact-ui #projectInspectorEditProjectVisibleBtn {
+      display: inline-flex !important;
+      visibility: visible !important;
+      opacity: 1 !important;
+      pointer-events: auto !important;
+    }
+    body.iz-compact-ui #calendarPanelCol {
+      width: 460px !important;
+      min-width: 460px !important;
+      max-width: 460px !important;
+    }
+    body.iz-compact-ui #calendarPanelCol.is-open,
+    body.iz-compact-ui #calendarPanelCol:not(.hidden) {
+      width: 460px !important;
+      min-width: 460px !important;
+      max-width: 460px !important;
+    }
+    body.iz-compact-ui #calendarPanelContent {
+      width: 100% !important;
+      min-width: 0 !important;
+    }
+
+    /* v18.31a: workshop phase drag cue */
+    body.iz-compact-ui [data-workshop-project-id] {
+      cursor: move !important;
+    }
+    body.iz-compact-ui [data-workshop-project-id]:hover {
+      filter: brightness(1.08);
+      box-shadow: 0 0 0 2px rgba(80, 240, 199, 0.28) inset !important;
+    }
+
+    /* v18.31b: compact project plan rows and search autofill cleanup */
+    body.iz-compact-ui .project-plan-name-cell {
+      min-height: 40px !important;
+      padding-top: 6px !important;
+      padding-bottom: 5px !important;
+      line-height: 1.15 !important;
+    }
+    body.iz-compact-ui .project-plan-title {
+      font-size: 12px !important;
+      font-weight: 800 !important;
+      color: #0f172a !important;
+      line-height: 1.18 !important;
+      white-space: normal !important;
+      overflow: hidden !important;
+      display: -webkit-box !important;
+      -webkit-line-clamp: 2 !important;
+      -webkit-box-orient: vertical !important;
+    }
+    body.iz-compact-ui .project-plan-meta {
+      margin-top: 2px !important;
+      display: flex !important;
+      align-items: center !important;
+      gap: 4px !important;
+      flex-wrap: wrap !important;
+      font-size: 10px !important;
+      line-height: 1.15 !important;
+      color: #64748b !important;
+    }
+    body.iz-compact-ui .project-workshop-drop-row {
+      min-height: 40px !important;
+    }
+    body.iz-compact-ui .project-workshop-drop-row > div:last-child {
+      min-height: 40px !important;
+    }
+    body.iz-compact-ui .project-workshop-drop-row .entry-bar {
+      top: 4px !important;
+      bottom: 4px !important;
+      padding-top: 4px !important;
+      padding-bottom: 4px !important;
+    }
+    body.iz-compact-ui .project-workshop-drop-row .entry-bar .font-semibold {
+      font-size: 12px !important;
+      line-height: 1.15 !important;
+    }
+    body.iz-compact-ui .project-workshop-drop-row .entry-bar .text-\[11px\] {
+      font-size: 10px !important;
+      line-height: 1.1 !important;
+    }
+
+    /* v18.31c: project/workshop end resize cue */
+    body.iz-compact-ui [data-resize-type="workshop"],
+    body.iz-compact-ui [data-resize-type="project"] {
+      opacity: 0.8;
+    }
+    body.iz-compact-ui [data-resize-type="workshop"]:hover,
+    body.iz-compact-ui [data-resize-type="project"]:hover {
+      opacity: 1;
+      background: rgba(255,255,255,0.35) !important;
+    }
+
+    /* v18.31d: field project drag cue */
+    body.iz-compact-ui [data-field-project-id] {
+      cursor: move !important;
+    }
+    body.iz-compact-ui [data-field-project-id]:hover {
+      filter: brightness(1.06);
+      box-shadow: 0 0 0 2px rgba(248, 113, 113, 0.30) inset !important;
+    }
+
+    /* v18.31e: stop project panel shell leaking into Ansattplan */
+    body.iz-compact-ui #calendarPanelCol.hidden,
+    body.iz-compact-ui #calendarPanelHandleBtn.hidden,
+    body.iz-compact-ui #calendarPanelContent.hidden {
+      display: none !important;
+      width: 0 !important;
+      min-width: 0 !important;
+      max-width: 0 !important;
+      border: 0 !important;
+      padding: 0 !important;
+      margin: 0 !important;
+      overflow: hidden !important;
+    }
+
+    /* v18.31f: project modal resource/workshop toggle */
+    #projectModal input:disabled {
+      cursor: not-allowed !important;
+    }
+
+    /* v18.31g: project modal internal scroll */
+    #projectModal {
+      overflow-y: auto !important;
+      align-items: flex-start !important;
+    }
+    #projectModal > div {
+      max-height: 92vh !important;
+      overflow-y: auto !important;
+      margin-top: 16px !important;
+      margin-bottom: 16px !important;
+    }
+
   </style>
 </head>
-<body class="bg-slate-100 text-slate-900">
+<body class="iz-compact-ui text-slate-900">
   <div class="max-w-[1900px] mx-auto p-6 space-y-6">
-    <header class="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4">
-      <div>
-        <h1 class="text-3xl font-bold tracking-tight">Personal planlegging</h1>
-        <p class="text-slate-600 mt-1">Izomax personal planlegging onshore offshore</p>
+    <header class="iz-app-header">
+      <div class="iz-brand-wrap">
+        <img src="izomax-logo-ocean-light.png" alt="Izomax" class="iz-logo" />
+        <div class="iz-title-block">
+          <h1>Personal planlegging</h1>
+          <p>Onshore • Offshore • Ressurser</p>
+        </div>
       </div>
 
-      <div class="flex flex-wrap gap-2 items-center">
+      <div class="flex flex-wrap gap-2 items-center justify-end">
         <span id="storageBadge" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm">Laster...</span>
         <span id="saveStatus" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm">Klar</span>
-              </div>
+      </div>
     </header>
 
     <section id="statsRow" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4"></section>
 
     <section id="plannerTabs" class="rounded-2xl bg-white border border-slate-200 shadow-sm p-3">
       <div class="flex flex-wrap gap-2">
-        <button id="tabCalendarBtn" class="rounded-2xl px-4 py-2 text-sm border border-slate-900 bg-slate-900 text-white">Kalender</button>
-        <button id="tabProjectsBtn" class="rounded-2xl px-4 py-2 text-sm border border-slate-300 bg-white text-slate-700">Prosjekter</button>
-        <button id="tabEmployeesBtn" class="rounded-2xl px-4 py-2 text-sm border border-slate-300 bg-white text-slate-700">Ansatte</button>
-        <button id="tabAdminBtn" class="rounded-2xl px-4 py-2 text-sm border border-slate-300 bg-white text-slate-700">Admin</button>
+        <button id="tabHomeBtn" class="rounded-2xl px-4 py-2 text-sm border border-slate-300 bg-white text-slate-700" data-tooltip="Oppstart" aria-label="Oppstart">⌂</button>
+        <button id="tabCalendarBtn" class="rounded-2xl px-4 py-2 text-sm border border-slate-900 bg-slate-900 text-white" data-tooltip="Ansattplan" aria-label="Ansattplan">☷</button>
+        <button id="tabProjectPlanBtn" class="rounded-2xl px-4 py-2 text-sm border border-slate-300 bg-white text-slate-700" data-tooltip="Prosjektplan" aria-label="Prosjektplan">▦</button>
+        <button id="tabUnstaffedBtn" class="rounded-2xl px-4 py-2 text-sm border border-slate-300 bg-white text-slate-700" data-tooltip="Uten bemanning" aria-label="Uten bemanning">!</button>
+        <button id="tabProjectsBtn" class="rounded-2xl px-4 py-2 text-sm border border-slate-300 bg-white text-slate-700" data-tooltip="Prosjektadmin" aria-label="Prosjektadmin">♙</button>
+        <button id="tabEmployeesBtn" class="rounded-2xl px-4 py-2 text-sm border border-slate-300 bg-white text-slate-700" data-tooltip="Ansattadmin" aria-label="Ansattadmin">◎</button>
+        <button id="tabAdminBtn" class="rounded-2xl px-4 py-2 text-sm border border-slate-300 bg-white text-slate-700" data-tooltip="Admin" aria-label="Admin">⚙</button>
       </div>
+    </section>
+
+    <section id="tabHomeSection" style="display:none;">
+      <div id="homeDashboard"></div>
     </section>
 
     <section id="tabCalendarSection" class="flex flex-col xl:flex-row gap-4 items-start">
@@ -76,7 +1223,7 @@
           <div class="flex flex-wrap gap-2 items-center">
             <input id="searchInput" name="planner_search_filter" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false" class="w-[220px] rounded-2xl border border-slate-300 px-3 py-2" placeholder="Søk ansatt" />
             <select id="employeeFilter" class="w-[220px] rounded-2xl border border-slate-300 px-3 py-2"></select>
-            <select id="calendarMode" class="rounded-2xl border border-slate-300 px-3 py-2">
+            <select id="calendarMode" class="hidden" aria-hidden="true" tabindex="-1">
               <option value="personal">Personalplan</option>
               <option value="project">Prosjektplan</option>
             </select>
@@ -85,6 +1232,9 @@
               <option value="Måned">Måned</option>
               <option value="År">År</option>
             </select>
+            <button id="personalPlanQuickBtn" type="button">Ansattplan</button>
+            <button id="projectPlanQuickBtn" type="button">Prosjektplan</button>
+            <button id="unstaffedProjectsQuickBtn" type="button">Uten bemanning <span class="quick-count">0</span></button>
           </div>
 
           <div class="flex gap-2">
@@ -96,6 +1246,7 @@
 
         <div id="rangeTitle" class="px-4 py-3 border-b border-slate-200 text-sm text-slate-600"></div>
         <div id="holidayInfo" class="px-4 py-2 border-b border-slate-200 text-sm text-red-700 bg-red-50/60"></div>
+        <div id="projectSpotlightBar" class="hidden"></div>
 
         <div class="p-4 border-b border-slate-200 text-sm text-slate-500">
           Personalplan viser tildelte ressurser. Prosjektplan viser alle prosjekter, også de som ennå ikke er bemannet.
@@ -113,8 +1264,7 @@
           <div id="calendarPanelContent" class="hidden min-w-0 flex-1">
             <div class="p-4 border-b border-slate-200 flex items-center justify-between gap-3">
               <h2 class="font-semibold">Farger og status</h2>
-              <button id="calendarPanelCloseBtn" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm">Lukk</button>
-            </div>
+</div>
             <div id="legendList" class="p-4 space-y-2 text-sm"></div>
           </div>
         </div>
@@ -254,7 +1404,7 @@
   </div>
 
   <div id="editModal" class="fixed inset-0 z-[200] bg-black/40 hidden items-center justify-center p-4">
-    <div class="w-full max-w-lg rounded-2xl bg-white shadow-xl">
+    <div class="w-full max-w-xl max-h-[92vh] overflow-y-auto rounded-2xl bg-white shadow-xl my-4">
       <div class="p-4 border-b border-slate-200 flex items-center justify-between">
         <h2 class="font-semibold">Rediger tildeling</h2>
         <button id="closeModalBtn" class="rounded-lg border border-slate-300 px-3 py-1 text-sm">Lukk</button>
@@ -276,9 +1426,9 @@
     </div>
   </div>
 
-  <div id="projectModal" class="fixed inset-0 z-[200] bg-black/40 hidden items-center justify-center p-4">
+  <div id="projectModal" class="fixed inset-0 z-[200] bg-black/40 hidden items-start justify-center overflow-y-auto p-4 sm:p-6">
     <div class="w-full max-w-lg rounded-2xl bg-white shadow-xl">
-      <div class="p-4 border-b border-slate-200 flex items-center justify-between">
+      <div class="sticky top-0 z-10 bg-white p-4 border-b border-slate-200 flex items-center justify-between">
         <h2 id="projectModalTitle" class="font-semibold">Nytt prosjekt</h2>
         <button id="closeProjectModalBtn" class="rounded-lg border border-slate-300 px-3 py-1 text-sm">Lukk</button>
       </div>
@@ -304,10 +1454,51 @@
           </div>
           <div id="projectPeriodsList" class="space-y-3"></div>
         </div>
-        <input id="projectLocation" class="w-full rounded-2xl border border-slate-300 px-3 py-2" placeholder="Lokasjon / onshore / offshore" />
-        <input id="projectHeadcount" type="number" min="0" class="w-full rounded-2xl border border-slate-300 px-3 py-2" placeholder="Behov for antall personer" />
+        <div class="rounded-2xl border border-red-200 bg-red-50/60 p-3 space-y-3">
+          <div class="flex items-start justify-between gap-3">
+            <div>
+              <div class="text-sm font-semibold text-red-950">Feltoppdrag</div>
+              <div class="text-xs text-red-800 mt-1">Ressursbehov for selve prosjektperioden i felt.</div>
+            </div>
+          </div>
+          <input id="projectLocation" class="w-full rounded-2xl border border-red-200 bg-white px-3 py-2" placeholder="Lokasjon / feltoppdrag" />
+          <label class="block">
+            <span class="block text-xs text-red-800 mb-1">Behov for antall personer i felt</span>
+            <input id="projectHeadcount" type="number" min="0" class="w-full rounded-2xl border border-red-200 bg-white px-3 py-2" placeholder="F.eks. 2" />
+          </label>
+        </div>
+        <div class="rounded-2xl border border-green-200 bg-green-50/60 p-3 space-y-3">
+          <div class="flex items-start justify-between gap-3">
+            <label class="flex items-start gap-2 text-sm font-semibold text-green-950">
+              <input id="projectWorkshopEnabled" type="checkbox" checked class="mt-0.5" />
+              <span>
+                Workshop / mobilisering
+                <span class="block text-xs font-normal text-green-800 mt-1">Kan fjernes hvis prosjektet ikke trenger workshopforberedelse.</span>
+              </span>
+            </label>
+            <div class="flex gap-2 shrink-0">
+              <button id="projectWorkshopAddBtn" type="button" class="rounded-xl border border-green-300 bg-white px-3 py-1.5 text-xs font-semibold text-green-900">Legg til</button>
+              <button id="projectWorkshopRemoveBtn" type="button" class="rounded-xl border border-red-200 bg-white px-3 py-1.5 text-xs font-semibold text-red-700">Fjern</button>
+            </div>
+          </div>
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="block text-xs text-green-800 mb-1">Workshop start</label>
+              <input id="projectWorkshopStart" type="date" class="w-full rounded-2xl border border-green-200 bg-white px-3 py-2" />
+            </div>
+            <div>
+              <label class="block text-xs text-green-800 mb-1">Workshop slutt</label>
+              <input id="projectWorkshopEnd" type="date" class="w-full rounded-2xl border border-green-200 bg-white px-3 py-2" />
+            </div>
+          </div>
+          <label class="block">
+            <span class="block text-xs text-green-800 mb-1">Workshop ressursbehov</span>
+            <input id="projectWorkshopHeadcount" type="number" min="0" class="w-full rounded-2xl border border-green-200 bg-white px-3 py-2" placeholder="F.eks. 2" />
+          </label>
+          <div class="text-xs text-green-800">Default: 2 ressurser, 14 dager før feltstart. Fjern-knappen skjuler grønn workshopblokk i Prosjektplan.</div>
+        </div>
         <textarea id="projectNotes" class="w-full rounded-2xl border border-slate-300 px-3 py-2" rows="3" placeholder="Notater"></textarea>
-        <div class="flex gap-2">
+        <div class="sticky bottom-0 z-10 -mx-4 -mb-4 flex gap-2 border-t border-slate-200 bg-white/95 p-4 backdrop-blur">
           <button id="saveProjectBtn" class="rounded-2xl bg-slate-900 text-white px-4 py-2">Lagre</button>
           <button id="deleteProjectBtn" class="rounded-2xl border border-slate-300 bg-white px-4 py-2">Slett</button>
         </div>

@@ -37,8 +37,9 @@ const STATUS_COLORS = {
   Planlagt: "bg-blue-100 text-blue-800 border-blue-200",
   "Pågår": "bg-green-100 text-green-800 border-green-200",
   Avventer: "bg-yellow-100 text-yellow-800 border-yellow-200",
-  Avsluttet: "bg-slate-200 text-slate-700 border-slate-300",
-  "Fullført": "bg-slate-200 text-slate-700 border-slate-300"
+  "Fullført": "bg-slate-200 text-slate-700 border-slate-300",
+  Kansellert: "bg-red-100 text-red-800 border-red-200",
+  Avsluttet: "bg-slate-200 text-slate-700 border-slate-300"
 };
 
 const ROLE_CLASSES = {
@@ -49,8 +50,8 @@ const ROLE_CLASSES = {
 };
 
 const ROLE_OPTIONS = ["Supervisor", "Mekaniker 1", "Mekaniker 2", "Mekaniker 3"];
-const CATEGORY_OPTIONS = ["Offshore", "Travel", "Onshore"];
-const STATUS_OPTIONS = ["Planlagt", "Pågår", "Avventer", "Avsluttet"];
+const CATEGORY_OPTIONS = ["Offshore", "Onshore"];
+const STATUS_OPTIONS = ["Planlagt", "Pågår", "Avventer", "Fullført", "Kansellert"];
 
 const DEFAULT_EMPLOYEES = [
   { id: crypto.randomUUID(), name: "Olis Hansen", email: "olis@firma.no", phone: "+47 90000001", title: "", active: true },

@@ -1,4 +1,7 @@
 (() => {
+  // v18.31g-sandbox-project-modal-scroll-safe
+  // v18.19-ansattplan-project-focus-toggle-safe
+  // v18.11: plain visible available-row render for project inspector.
   const supabaseClient = window.supabase?.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
   const state = {
@@ -15,6 +18,8 @@
     selectedEmployeeGroups: [],
     groupFilterSearch: "",
     employeeGroupFilterOpen: false,
+    collapsedEmployeeGroups: load("planner_collapsed_employee_groups_v1", []),
+    projectSpotlightId: "",
     search: "",
     viewMode: "Måned",
     calendarMode: load(STORAGE_KEYS.calendarMode, "personal"),
@@ -44,6 +49,8 @@
       entryCountByProject: new Map()
     },
     dragEntryId: null,
+    dragWorkshopProjectId: null,
+    dragFieldProjectId: null,
     justDraggedEntryId: null,
     dragAnchor: {
       timeUnit: "day",
@@ -59,9 +66,20 @@
       previewEndDate: "",
       originalValueSnapshot: null
     },
-    activeTab: "calendar",
+    activeTab: "home",
     calendarPanelOpen: false,
     projectListFilter: "all",
+    projectFilterCategory: "all",
+    dashboardEmployeeFilter: "",
+    dashboardEmployeeFilterLabel: "",
+    projectInspectorSearch: "",
+    projectInspectorGroup: "all",
+    projectInspectorShowAvailable: false,
+    projectInspectorAddCandidateName: "",
+    projectInspectorAddRole: "",
+    projectInspectorAddUseCustomRange: false,
+    projectInspectorAddCustomStart: "",
+    projectInspectorAddCustomEnd: "",
     contextMenu: {
       visible: false,
       employeeName: "",
@@ -78,45 +96,104 @@
   };
 
   const els = {};
-  const PERSONAL_BLOCK_TYPES = ["Kurs", "Ferie", "Syk", "Avspasering"];
+  const PERSONAL_BLOCK_TYPES = ["Kurs", "Ferie", "Syk", "Avspasering", "Travel"];
+  const PROJECT_STATUS_OPTIONS = ["Planlagt", "Pågår", "Avventer", "Fullført", "Kansellert"];
   const PERSONAL_PROJECT_MARKER = "__personal_block_system_project__";
-  const EMPLOYEE_GROUP_OPTIONS = [
-    "",
-    "Offshore arbeider",
-    "Onshore arbeider",
-    "Lager og logistikk",
-    "Engineer",
-    "3 parts innleie"
+  // v18.20-personalblock-modal-click-guard-safe
+  const EMPLOYEE_GROUP_DEFINITIONS = [
+    {
+      value: "Offshore arbeider",
+      label: "Offshore",
+      icon: "plane",
+      order: 1,
+      aliases: ["Offshore", "Offshore arbeider"],
+      cardClass: "border-slate-200 bg-white/80 hover:bg-slate-50",
+      badgeClass: "border-slate-200 bg-slate-50 text-slate-700",
+      dotClass: "bg-slate-400",
+      calendarCellClass: "bg-white text-slate-900"
+    },
+    {
+      value: "Onshore arbeider",
+      label: "Workshop technician",
+      icon: "tools",
+      order: 2,
+      aliases: ["Onshore", "Onshore arbeider"],
+      cardClass: "border-slate-200 bg-white/80 hover:bg-slate-50",
+      badgeClass: "border-slate-200 bg-slate-50 text-slate-700",
+      dotClass: "bg-slate-400",
+      calendarCellClass: "bg-white text-slate-900"
+    },
+    {
+      value: "Lager og logistikk",
+      label: "Lager og logistikk",
+      icon: "box",
+      order: 3,
+      aliases: ["Lager og logistikk", "Lager/logistikk"],
+      cardClass: "border-slate-200 bg-white/80 hover:bg-slate-50",
+      badgeClass: "border-slate-200 bg-slate-50 text-slate-700",
+      dotClass: "bg-slate-400",
+      calendarCellClass: "bg-white text-slate-900"
+    },
+    {
+      value: "Engineering",
+      label: "Engineering",
+      icon: "gear",
+      order: 4,
+      aliases: ["Engineer", "Engineering"],
+      cardClass: "border-slate-200 bg-white/80 hover:bg-slate-50",
+      badgeClass: "border-slate-200 bg-slate-50 text-slate-700",
+      dotClass: "bg-slate-400",
+      calendarCellClass: "bg-white text-slate-900"
+    },
+    {
+      value: "3 parts innleie",
+      label: "3 parts innleie",
+      icon: "network",
+      order: 5,
+      aliases: ["3 parts innleie", "3 Parts innleie", "3 party"],
+      cardClass: "border-slate-200 bg-white/80 hover:bg-slate-50",
+      badgeClass: "border-slate-200 bg-slate-50 text-slate-700",
+      dotClass: "bg-slate-400",
+      calendarCellClass: "bg-white text-slate-900"
+    },
+    {
+      value: "Management",
+      label: "Management",
+      icon: "people",
+      order: 6,
+      aliases: ["Management", "Managment"],
+      cardClass: "border-slate-200 bg-white/80 hover:bg-slate-50",
+      badgeClass: "border-slate-200 bg-slate-50 text-slate-700",
+      dotClass: "bg-slate-400",
+      calendarCellClass: "bg-white text-slate-900"
+    },
+    {
+      value: "Prosjektledelse / planlegging",
+      label: "Prosjektledelse / planlegging",
+      icon: "clipboard",
+      order: 7,
+      aliases: ["Prosjektledelse / planlegging", "Prosjektledelse", "Project managers / planners", "Project Managers / Planners", "Project managers", "Planners", "Planner", "Planleggere"],
+      cardClass: "border-slate-200 bg-white/80 hover:bg-slate-50",
+      badgeClass: "border-slate-200 bg-slate-50 text-slate-700",
+      dotClass: "bg-slate-400",
+      calendarCellClass: "bg-white text-slate-900"
+    }
   ];
+  const EMPLOYEE_GROUP_OPTIONS = ["", ...EMPLOYEE_GROUP_DEFINITIONS.map(group => group.value)];
   const EMPLOYEE_GROUP_STORAGE_KEY = "planner_employee_groups_v41";
-  const EMPLOYEE_GROUP_CARD_STYLES = {
-    "Offshore arbeider": "border-emerald-500 bg-emerald-50/40 hover:bg-emerald-50",
-    "Onshore arbeider": "border-blue-500 bg-blue-50/40 hover:bg-blue-50",
-    "Lager og logistikk": "border-amber-500 bg-amber-50/40 hover:bg-amber-50",
-    "Engineer": "border-violet-500 bg-violet-50/40 hover:bg-violet-50",
-    "3 parts innleie": "border-rose-500 bg-rose-50/40 hover:bg-rose-50"
-  };
-  const EMPLOYEE_GROUP_BADGE_STYLES = {
-    "Offshore arbeider": "border-emerald-200 bg-emerald-50 text-emerald-800",
-    "Onshore arbeider": "border-blue-200 bg-blue-50 text-blue-800",
-    "Lager og logistikk": "border-amber-200 bg-amber-50 text-amber-800",
-    "Engineer": "border-violet-200 bg-violet-50 text-violet-800",
-    "3 parts innleie": "border-rose-200 bg-rose-50 text-rose-800"
-  };
-  const EMPLOYEE_GROUP_DOT_STYLES = {
-    "Offshore arbeider": "bg-emerald-500",
-    "Onshore arbeider": "bg-blue-500",
-    "Lager og logistikk": "bg-amber-500",
-    "Engineer": "bg-violet-500",
-    "3 parts innleie": "bg-rose-500"
-  };
-  const EMPLOYEE_GROUP_ORDER = {
-    "Offshore arbeider": 1,
-    "Onshore arbeider": 2,
-    "Lager og logistikk": 3,
-    "Engineer": 4,
-    "3 parts innleie": 5
-  };
+  const EMPLOYEE_GROUP_CARD_STYLES = Object.fromEntries(EMPLOYEE_GROUP_DEFINITIONS.map(group => [group.value, group.cardClass]));
+  const EMPLOYEE_GROUP_BADGE_STYLES = Object.fromEntries(EMPLOYEE_GROUP_DEFINITIONS.map(group => [group.value, group.badgeClass]));
+  const EMPLOYEE_GROUP_DOT_STYLES = Object.fromEntries(EMPLOYEE_GROUP_DEFINITIONS.map(group => [group.value, group.dotClass]));
+  const EMPLOYEE_GROUP_CALENDAR_CELL_STYLES = Object.fromEntries(EMPLOYEE_GROUP_DEFINITIONS.map(group => [group.value, group.calendarCellClass]));
+  const EMPLOYEE_GROUP_ORDER = Object.fromEntries(EMPLOYEE_GROUP_DEFINITIONS.map(group => [group.value, group.order]));
+  const EMPLOYEE_GROUP_META = Object.fromEntries(EMPLOYEE_GROUP_DEFINITIONS.map(group => [group.value, group]));
+  const EMPLOYEE_GROUP_ALIAS_MAP = EMPLOYEE_GROUP_DEFINITIONS.reduce((map, group) => {
+    group.aliases.forEach(alias => {
+      map[String(alias || "").trim().toLowerCase()] = group.value;
+    });
+    map[String(group.value || "").trim().toLowerCase()] = group.value;
+    return map;
+  }, {});
   const EMPLOYEE_GROUP_FILTER_ALL_VALUE = "__all__";
   let saveStatusTimer = null;
   let calendarScrollSyncRaf = null;
@@ -128,6 +205,8 @@
     cacheElements();
     hardenSearchInput();
     ensureEmployeeGroupFilterControl();
+    ensureProjectFilterControl();
+    ensureCalendarNewProjectButton();
     ensureAccountPanel();
     ensurePersonalBlockPanel();
     ensureCalendarContextMenu();
@@ -160,14 +239,15 @@
 
   function cacheElements() {
     const ids = [
-      "statsRow", "searchInput", "employeeFilter", "viewMode", "calendarMode", "prevBtn", "nextBtn", "todayBtn",
-      "calendarWrap", "holidayInfo", "warningBox", "legendList", "projectList", "projectWorkspaceCard", "projectWorkspaceEmpty", "projectWorkspaceContent", "projectWorkspaceTitle", "projectWorkspaceMeta", "projectWorkspaceNotes", "projectWorkspaceAssignments", "projectWorkspaceActions", "assignProject", "assignPeriodWrap", "assignPeriod", "assignPeriodHint", "assignPeriodNav", "assignPrevPeriodBtn", "assignNextPeriodBtn", "assignEmployeesWrap", "assignSummary", "assignRole",
+      "statsRow", "searchInput", "employeeFilter", "projectFilterControl", "calendarNewProjectBtn", "viewMode", "calendarMode", "personalPlanQuickBtn", "projectPlanQuickBtn", "unstaffedProjectsQuickBtn", "prevBtn", "nextBtn", "todayBtn",
+      "calendarWrap", "holidayInfo", "projectSpotlightBar", "warningBox", "legendList", "projectList", "projectWorkspaceCard", "projectWorkspaceEmpty", "projectWorkspaceContent", "projectWorkspaceTitle", "projectWorkspaceMeta", "projectWorkspaceNotes", "projectWorkspaceAssignments", "projectWorkspaceActions", "assignProject", "assignPeriodWrap", "assignPeriod", "assignPeriodHint", "assignPeriodNav", "assignPrevPeriodBtn", "assignNextPeriodBtn", "assignEmployeesWrap", "assignSummary", "assignRole",
       "assignStart", "assignEnd", "assignNotes", "assignBtn", "bulkEmployees", "bulkAddBtn",
       "employeeList", "kanbanBoard", "notificationList", "auditList", "editModal", "closeModalBtn",
       "editProject", "editEmployee", "editRole", "editStart", "editEnd", "editNotes",
       "saveEditBtn", "deleteEditBtn", "storageBadge", "resetDemoBtn", "systemStatus", "rangeTitle",
-      "saveStatus", "plannerTabs", "tabCalendarBtn", "tabProjectsBtn", "tabEmployeesBtn", "tabAdminBtn", "tabCalendarSection", "tabProjectsSection", "tabEmployeesSection", "tabAdminSection", "calendarMainCol", "calendarPanelCol", "calendarPanelHandleBtn", "calendarPanelCloseBtn", "calendarPanelContent", "newProjectBtn", "projectModal", "projectModalTitle", "closeProjectModalBtn",
+      "saveStatus", "plannerTabs", "tabHomeBtn", "tabProjectPlanBtn", "tabUnstaffedBtn", "tabCalendarBtn", "tabProjectsBtn", "tabEmployeesBtn", "tabAdminBtn", "tabHomeSection", "homeDashboard", "tabCalendarSection", "tabProjectsSection", "tabEmployeesSection", "tabAdminSection", "calendarMainCol", "calendarPanelCol", "calendarPanelHandleBtn", "calendarPanelCloseBtn", "calendarPanelContent", "newProjectBtn", "projectModal", "projectModalTitle", "closeProjectModalBtn",
       "projectName", "projectCategory", "projectStatus", "projectPlannedStart", "projectPlannedEnd", "projectHasMultiplePeriods", "projectPeriodsSection", "projectPeriodsList", "addProjectPeriodBtn",
+      "projectWorkshopEnabled", "projectWorkshopStart", "projectWorkshopEnd", "projectWorkshopHeadcount", "projectWorkshopAddBtn", "projectWorkshopRemoveBtn",
       "projectLocation", "projectHeadcount", "projectNotes", "saveProjectBtn", "deleteProjectBtn",
       "newEmployeeBtn", "employeeModal", "employeeModalTitle", "closeEmployeeModalBtn",
       "employeeName", "employeeEmail", "employeePhone", "employeeTitle", "employeeGroup", "employeeActive", "saveEmployeeBtn", "deleteEmployeeBtn",
@@ -188,8 +268,15 @@
     els.searchInput.setAttribute("autocorrect", "off");
     els.searchInput.setAttribute("autocapitalize", "none");
     els.searchInput.setAttribute("spellcheck", "false");
-    els.searchInput.setAttribute("name", "planner_search_filter");
+    els.searchInput.setAttribute("name", "planner_search_filter_no_autofill");
     els.searchInput.setAttribute("data-lpignore", "true");
+    els.searchInput.addEventListener("focus", () => {
+      const currentSearchValue = String(els.searchInput.value || "").trim();
+      if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(currentSearchValue)) {
+        els.searchInput.value = "";
+        state.search = "";
+      }
+    });
   }
 
   function startOfWeekMonday(date) {
@@ -272,6 +359,24 @@
     return !!date && (date.getDay() === 0 || isNorwegianHoliday(date));
   }
 
+  function isTodayDate(date) {
+    return !!date && toIsoDate(date) === toIsoDate(new Date());
+  }
+
+  // v18.21-ansattplan-today-highlight-safe
+  function getTodayColumnStyle(date, mode = "cell") {
+    if (!isTodayDate(date)) return "";
+    if (mode === "header") {
+      return "background:linear-gradient(180deg, rgba(219,234,254,0.98), rgba(239,246,255,0.98)); color:#1d4ed8; box-shadow:inset 2px 0 0 #3b82f6, inset -2px 0 0 #3b82f6; position:relative; z-index:5;";
+    }
+    return "background:rgba(59,130,246,0.10); box-shadow:inset 2px 0 0 rgba(37,99,235,0.85), inset -2px 0 0 rgba(37,99,235,0.35); z-index:1;";
+  }
+
+  function getTodayHeaderBadgeHtml(date) {
+    if (!isTodayDate(date)) return "";
+    return `<div style="margin:2px auto 0; width:max-content; border-radius:999px; background:#2563eb; color:#ffffff; padding:1px 6px; font-size:9px; font-weight:800; line-height:1.2;">I dag</div>`;
+  }
+
   function getHolidayNamesForYear(year) {
     const easter = getEasterSunday(year);
     return [
@@ -326,7 +431,9 @@
       const nextDay = days[i + 1] || null;
       const monthBoundary = !nextDay || nextDay.getMonth() !== day.getMonth();
       const redDay = isRedDay(day);
-      html += `<div class="border-b ${monthBoundary ? 'border-r-2 border-r-slate-400' : 'border-r border-slate-200'} px-1 py-2 text-center text-[10px] ${redDay ? 'bg-red-50 text-red-700' : 'bg-white text-slate-500'}"><div class="font-medium">${escapeHtml(weekdayShort(day))}</div><div>${day.getDate()}</div><div>${escapeHtml(monthShort(day))}</div></div>`;
+      const today = isTodayDate(day);
+      const todayHeaderStyle = getTodayColumnStyle(day, "header");
+      html += `<div data-today-header="${today ? "true" : "false"}" class="border-b ${monthBoundary ? 'border-r-2 border-r-slate-400' : 'border-r border-slate-200'} px-1 py-2 text-center text-[10px] ${redDay ? 'bg-red-50 text-red-700' : 'bg-white text-slate-500'}" style="${todayHeaderStyle}"><div class="font-medium">${escapeHtml(weekdayShort(day))}</div><div>${day.getDate()}</div><div>${escapeHtml(monthShort(day))}</div>${getTodayHeaderBadgeHtml(day)}</div>`;
     }
 
     return html;
@@ -378,38 +485,148 @@
     renderEmployeeGroupFilterControl();
   }
 
+  function ensureProjectFilterControl() {
+    if (!els.employeeFilter) return;
+    if (document.getElementById("projectFilterControl")) {
+      els.projectFilterControl = document.getElementById("projectFilterControl");
+      return;
+    }
+    const select = document.createElement("select");
+    select.id = "projectFilterControl";
+    select.className = "hidden w-[260px] rounded border border-slate-300 bg-white px-3 py-2 text-sm";
+    select.setAttribute("aria-label", "Filtrer prosjekter");
+    const anchor = document.getElementById("employeeGroupFilterControl") || els.employeeFilter;
+    anchor.parentNode.insertBefore(select, anchor.nextSibling);
+    els.projectFilterControl = select;
+  }
+
+  function ensureCalendarNewProjectButton() {
+    if (!els.employeeFilter) return;
+    if (document.getElementById("calendarNewProjectBtn")) {
+      els.calendarNewProjectBtn = document.getElementById("calendarNewProjectBtn");
+      return;
+    }
+    const button = document.createElement("button");
+    button.id = "calendarNewProjectBtn";
+    button.type = "button";
+    button.className = "hidden rounded border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50";
+    button.textContent = "+ Nytt prosjekt";
+    const anchor = document.getElementById("projectFilterControl") || els.employeeFilter;
+    anchor.parentNode.insertBefore(button, anchor.nextSibling);
+    els.calendarNewProjectBtn = button;
+  }
+
+  function updateCalendarSearchControls() {
+    if (!els.searchInput) return;
+    const isProjectMode = state.calendarMode === "project";
+    els.searchInput.placeholder = isProjectMode ? "Søk prosjekt" : "Søk ansatt";
+    els.searchInput.setAttribute("aria-label", isProjectMode ? "Søk prosjekt" : "Søk ansatt");
+    els.searchInput.setAttribute("name", isProjectMode ? "planner_project_search_filter_no_autofill" : "planner_search_filter_no_autofill");
+    els.searchInput.setAttribute("autocomplete", "off");
+    els.searchInput.setAttribute("autocorrect", "off");
+    els.searchInput.setAttribute("autocapitalize", "none");
+    els.searchInput.setAttribute("spellcheck", "false");
+    els.searchInput.setAttribute("data-lpignore", "true");
+
+    const currentSearchValue = String(els.searchInput.value || "").trim();
+    const looksLikeAutofilledEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(currentSearchValue);
+    if (isProjectMode && (looksLikeAutofilledEmail || currentSearchValue === String(state.currentUser?.email || "").trim())) {
+      els.searchInput.value = "";
+      state.search = "";
+    }
+
+    if (els.groupFilterControl) els.groupFilterControl.classList.toggle("hidden", isProjectMode);
+    if (els.projectFilterControl) els.projectFilterControl.classList.toggle("hidden", !isProjectMode);
+    if (els.calendarNewProjectBtn) els.calendarNewProjectBtn.classList.toggle("hidden", !isProjectMode);
+  }
+
+  function getProjectFilterOptions() {
+    const categories = Array.from(new Set(getVisibleProjects().map(project => project.category).filter(Boolean)))
+      .sort((a, b) => a.localeCompare(b, "no"));
+    return [
+      { id: "all", name: "Alle prosjekter / kategorier" },
+      ...categories.map(category => ({ id: category, name: category }))
+    ];
+  }
+
   function ensureAccountPanel() {
     if (document.getElementById("accountPanel")) {
       els.accountPanel = document.getElementById("accountPanel");
+      els.accountMenuWrap = document.getElementById("accountMenuWrap");
+      els.accountMenuButton = document.getElementById("accountMenuButton");
+      els.accountMenuDropdown = document.getElementById("accountMenuDropdown");
       els.accountUserInfo = document.getElementById("accountUserInfo");
+      els.accountAvatar = document.getElementById("accountAvatar");
+      els.accountRoleInfo = document.getElementById("accountRoleInfo");
       els.changePasswordBtn = document.getElementById("changePasswordBtn");
       els.resetPasswordBtn = document.getElementById("resetPasswordBtn");
       els.logoutBtn = document.getElementById("logoutBtn");
       els.loginBtn = document.getElementById("loginBtn");
+      if (els.accountMenuButton && !els.accountMenuButton.dataset.boundAccountMenu) {
+        els.accountMenuButton.dataset.boundAccountMenu = "true";
+        els.accountMenuButton.addEventListener("click", event => {
+          event.stopPropagation();
+          els.accountMenuDropdown?.classList.toggle("hidden");
+        });
+      }
       ensureLoginModal();
       return;
     }
 
     const panel = document.createElement("div");
     panel.id = "accountPanel";
-    panel.className = "flex flex-wrap items-center justify-end gap-2";
+    panel.className = "flex flex-wrap items-center justify-end gap-2 relative";
     panel.innerHTML = `
-      <div id="accountUserInfo" class="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700">Ikke innlogget</div>
       <button id="loginBtn" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm hover:bg-slate-50">Logg inn</button>
-      <button id="changePasswordBtn" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm hover:bg-slate-50">Endre passord</button>
-      <button id="resetPasswordBtn" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm hover:bg-slate-50">Send reset-link</button>
-      <button id="logoutBtn" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm hover:bg-slate-50">Logg ut</button>
+      <div id="accountMenuWrap" class="hidden relative">
+        <button id="accountMenuButton" type="button" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm hover:bg-slate-50 flex items-center gap-3">
+          <span id="accountAvatar" class="account-avatar">OH</span>
+          <span class="account-text">
+            <span id="accountUserInfo" class="account-name">Ikke innlogget</span>
+            <span id="accountRoleInfo" class="account-role"></span>
+          </span>
+          <span class="account-caret text-xs ml-auto">▾</span>
+        </button>
+        <div id="accountMenuDropdown" class="hidden absolute right-0 top-full mt-2 min-w-[170px] rounded-xl border border-slate-200 bg-white shadow-xl overflow-hidden z-[120]">
+          <button id="changePasswordBtn" class="w-full text-left border-b border-slate-200 bg-white px-3 py-2 text-sm hover:bg-slate-50">Endre passord</button>
+          <button id="logoutBtn" class="w-full text-left bg-white px-3 py-2 text-sm hover:bg-slate-50">Logg ut</button>
+          <button id="resetPasswordBtn" class="hidden">Send reset-link</button>
+        </div>
+      </div>
     `;
 
     const anchor = els.storageBadge?.parentElement || document.body.firstElementChild || document.body;
     anchor.appendChild(panel);
 
     els.accountPanel = panel;
+    els.accountMenuWrap = document.getElementById("accountMenuWrap");
+    els.accountMenuButton = document.getElementById("accountMenuButton");
+    els.accountMenuDropdown = document.getElementById("accountMenuDropdown");
     els.accountUserInfo = document.getElementById("accountUserInfo");
+    els.accountAvatar = document.getElementById("accountAvatar");
+    els.accountRoleInfo = document.getElementById("accountRoleInfo");
     els.changePasswordBtn = document.getElementById("changePasswordBtn");
     els.resetPasswordBtn = document.getElementById("resetPasswordBtn");
     els.logoutBtn = document.getElementById("logoutBtn");
     els.loginBtn = document.getElementById("loginBtn");
+
+    if (els.accountMenuButton) {
+      els.accountMenuButton.addEventListener("click", event => {
+        event.stopPropagation();
+        els.accountMenuDropdown?.classList.toggle("hidden");
+      });
+    }
+
+    document.addEventListener("click", event => {
+      if (!els.accountPanel?.contains(event.target)) {
+        els.accountMenuDropdown?.classList.add("hidden");
+      }
+    });
+
+    [els.changePasswordBtn, els.logoutBtn].forEach(btn => {
+      if (!btn) return;
+      btn.addEventListener("click", () => els.accountMenuDropdown?.classList.add("hidden"));
+    });
 
     ensureLoginModal();
   }
@@ -472,29 +689,44 @@
 
 
 
-  function ensureCalendarContextMenu() {
-    if (document.getElementById("calendarContextMenu")) {
-      els.calendarContextMenu = document.getElementById("calendarContextMenu");
-      els.contextMenuEmployee = document.getElementById("contextMenuEmployee");
-      els.contextMenuStart = document.getElementById("contextMenuStart");
-      els.contextMenuEnd = document.getElementById("contextMenuEnd");
-      els.contextMenuType = document.getElementById("contextMenuType");
-      els.contextMenuNotes = document.getElementById("contextMenuNotes");
-      els.contextMenuAddBtn = document.getElementById("contextMenuAddBtn");
-      els.contextMenuCloseBtn = document.getElementById("contextMenuCloseBtn");
-      return;
+  function normalizeCalendarContextMenuElement() {
+    const menu = els.calendarContextMenu || document.getElementById("calendarContextMenu");
+    if (!menu) return;
+    if (menu.parentElement !== document.body) {
+      document.body.appendChild(menu);
     }
+    menu.className = menu.classList.contains("hidden") ? "hidden" : "";
+    menu.style.setProperty("position", "fixed", "important");
+    menu.style.setProperty("z-index", "2147483647", "important");
+    menu.style.setProperty("width", "320px", "important");
+    menu.style.setProperty("max-width", "calc(100vw - 24px)", "important");
+    menu.style.setProperty("background", "#ffffff", "important");
+    menu.style.setProperty("color", "#0f172a", "important");
+    menu.style.setProperty("border", "1px solid #cbd5e1", "important");
+    menu.style.setProperty("border-radius", "16px", "important");
+    menu.style.setProperty("box-shadow", "0 24px 80px rgba(0,0,0,0.35)", "important");
+    menu.style.setProperty("pointer-events", "auto", "important");
+    menu.style.setProperty("overflow", "hidden", "important");
+  }
+
+  function ensureCalendarContextMenu() {
+    // Rebuild the context menu as a true body-level portal every time app.js starts.
+    // This avoids the old problem where the menu stayed inside the calendar/layout grid
+    // and rendered as a full-width section below the calendar.
+    document.querySelectorAll('#calendarContextMenu').forEach(existing => existing.remove());
 
     const menu = document.createElement("div");
     menu.id = "calendarContextMenu";
-    menu.className = "fixed z-[120] hidden w-80 rounded-2xl border border-slate-200 bg-white shadow-2xl";
+    menu.className = "hidden";
+    menu.setAttribute("role", "dialog");
+    menu.setAttribute("aria-label", "Legg til direkte blokk");
     menu.innerHTML = `
       <div class="p-4 border-b border-slate-200 flex items-center justify-between gap-3">
         <div>
           <div class="font-semibold">Legg til direkte blokk</div>
-          <div class="text-xs text-slate-500 mt-1">Fra høyreklikk i kalender</div>
+          <div class="text-xs text-slate-500 mt-1">Fra kalender</div>
         </div>
-        <button id="contextMenuCloseBtn" class="rounded-lg border border-slate-300 px-3 py-1 text-sm">Lukk</button>
+        <button id="contextMenuCloseBtn" type="button" class="rounded-lg border border-slate-300 bg-white px-3 py-1 text-sm">Lukk</button>
       </div>
       <div class="p-4 space-y-3">
         <div>
@@ -503,25 +735,26 @@
         </div>
         <div>
           <div class="text-xs text-slate-500">Kategori</div>
-          <select id="contextMenuType" class="mt-1 w-full rounded-2xl border border-slate-300 px-3 py-2"></select>
+          <select id="contextMenuType" class="mt-1 w-full rounded-2xl border border-slate-300 bg-white px-3 py-2"></select>
         </div>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
           <div>
             <div class="text-xs text-slate-500">Fra</div>
-            <input id="contextMenuStart" type="date" class="mt-1 w-full rounded-2xl border border-slate-300 px-3 py-2" />
+            <input id="contextMenuStart" type="date" class="mt-1 w-full rounded-2xl border border-slate-300 bg-white px-3 py-2" />
           </div>
           <div>
             <div class="text-xs text-slate-500">Til</div>
-            <input id="contextMenuEnd" type="date" class="mt-1 w-full rounded-2xl border border-slate-300 px-3 py-2" />
+            <input id="contextMenuEnd" type="date" class="mt-1 w-full rounded-2xl border border-slate-300 bg-white px-3 py-2" />
           </div>
         </div>
         <div>
           <div class="text-xs text-slate-500">Notat / beskrivelse</div>
-          <textarea id="contextMenuNotes" class="mt-1 w-full rounded-2xl border border-slate-300 px-3 py-2" rows="4" placeholder="For eksempel kursnavn eller kommentar"></textarea>
+          <textarea id="contextMenuNotes" class="mt-1 w-full rounded-2xl border border-slate-300 bg-white px-3 py-2" rows="4" placeholder="For eksempel kursnavn eller kommentar"></textarea>
         </div>
-        <button id="contextMenuAddBtn" class="w-full rounded-2xl bg-slate-900 text-white px-4 py-2">Legg i kalender</button>
+        <button id="contextMenuAddBtn" type="button" class="w-full rounded-2xl bg-slate-900 text-white px-4 py-2">Legg i kalender</button>
       </div>
     `;
+
     document.body.appendChild(menu);
 
     els.calendarContextMenu = menu;
@@ -532,6 +765,8 @@
     els.contextMenuNotes = document.getElementById("contextMenuNotes");
     els.contextMenuAddBtn = document.getElementById("contextMenuAddBtn");
     els.contextMenuCloseBtn = document.getElementById("contextMenuCloseBtn");
+
+    normalizeCalendarContextMenuElement();
   }
 
   function ensureAvailabilityPanel() {
@@ -647,7 +882,7 @@
       try {
         const { data, error } = await supabaseClient.rpc("get_my_profile");
         if (!error && Array.isArray(data) && data[0]) {
-          state.currentRole = data[0].role || "";
+          state.currentRole = normalizeRoleValue(data[0].role || "");
           if (data[0].full_name) state.currentUser = data[0].full_name;
           if (data[0].email) state.currentUserEmail = data[0].email;
         }
@@ -662,12 +897,19 @@
     }
   }
 
+  function normalizeRoleValue(role) {
+    const normalized = String(role || "").trim().toLowerCase();
+    if (normalized === "planlegger") return "planner";
+    return normalized;
+  }
+
   function isSuperadmin() {
-    return state.currentRole === "superadmin";
+    return normalizeRoleValue(state.currentRole) === "superadmin";
   }
 
   function isPlanner() {
-    return state.currentRole === "planner";
+    const role = normalizeRoleValue(state.currentRole);
+    return role === "planner" || role === "admin";
   }
 
   function isLoggedInUser() {
@@ -697,15 +939,51 @@
     if (card) card.style.display = visible ? "" : "none";
   }
 
+  function toTitleCaseName(value) {
+    const raw = String(value || "").trim();
+    if (!raw) return "";
+    const noDomain = raw.includes("@") ? raw.split("@")[0] : raw;
+    return noDomain
+      .replace(/[._-]+/g, " ")
+      .split(" ")
+      .filter(Boolean)
+      .map(part => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+      .join(" ");
+  }
+
+  function getAccountDisplayName() {
+    return toTitleCaseName(state.currentUser || state.currentUserEmail) || "Ikke innlogget";
+  }
+
+  function getAccountInitials(name) {
+    const parts = String(name || "")
+      .replace(/[^A-Za-zÆØÅæøå\s-]/g, " ")
+      .split(/[\s-]+/)
+      .filter(Boolean);
+    if (!parts.length) return "OH";
+    return parts.slice(0, 2).map(part => part.charAt(0).toUpperCase()).join("");
+  }
+
+  function formatRoleLabel(role) {
+    const raw = String(role || "").trim();
+    if (!raw) return "";
+    return raw.charAt(0).toUpperCase() + raw.slice(1).toLowerCase();
+  }
+
   function updateAccountPanel() {
     if (!els.accountUserInfo) return;
-    const roleText = state.currentRole ? ` • ${state.currentRole}` : "";
-    const nameText = state.currentUser || state.currentUserEmail || "Ikke innlogget";
-    els.accountUserInfo.textContent = `${nameText}${roleText}`;
+    const nameText = getAccountDisplayName();
+    const roleText = formatRoleLabel(state.currentRole);
+    els.accountUserInfo.textContent = nameText;
+    if (els.accountRoleInfo) els.accountRoleInfo.textContent = roleText;
+    if (els.accountAvatar) els.accountAvatar.textContent = getAccountInitials(nameText);
   }
 
   function bindTabEvents() {
-    if (els.tabCalendarBtn) els.tabCalendarBtn.addEventListener("click", () => setActiveTab("calendar"));
+    if (els.tabHomeBtn) els.tabHomeBtn.addEventListener("click", () => setActiveTab("home"));
+    if (els.tabCalendarBtn) els.tabCalendarBtn.addEventListener("click", () => openPersonalCalendarView());
+    if (els.tabProjectPlanBtn) els.tabProjectPlanBtn.addEventListener("click", () => openProjectCalendarView("all"));
+    if (els.tabUnstaffedBtn) els.tabUnstaffedBtn.addEventListener("click", () => openProjectCalendarView("unstaffed"));
     if (els.tabProjectsBtn) els.tabProjectsBtn.addEventListener("click", () => setActiveTab("projects"));
     if (els.tabEmployeesBtn) els.tabEmployeesBtn.addEventListener("click", () => setActiveTab("employees"));
     if (els.tabAdminBtn) els.tabAdminBtn.addEventListener("click", () => setActiveTab("admin"));
@@ -716,44 +994,72 @@
     renderLayoutTabs();
   }
 
+  function getActiveNavigationKey() {
+    if (state.activeTab === "home") return "home";
+    if (state.activeTab === "projects") return "projects";
+    if (state.activeTab === "employees") return "employees";
+    if (state.activeTab === "admin") return "admin";
+    if (state.activeTab === "calendar" && state.calendarMode === "project" && state.projectListFilter === "unstaffed") return "unstaffed";
+    if (state.activeTab === "calendar" && state.calendarMode === "project") return "projectplan";
+    return "calendar";
+  }
+
   function renderLayoutTabs() {
     const canPlan = canPlanApp();
-    const allowedTabs = canPlan ? ["calendar", "projects", "employees", "admin"] : ["calendar"];
+    const allowedTabs = canPlan ? ["home", "calendar", "projects", "employees", "admin"] : ["calendar"];
 
     if (!allowedTabs.includes(state.activeTab)) {
-      state.activeTab = "calendar";
+      state.activeTab = canPlan ? "home" : "calendar";
     }
 
+    const activeKey = getActiveNavigationKey();
+
     const buttons = {
+      home: els.tabHomeBtn,
       calendar: els.tabCalendarBtn,
+      projectplan: els.tabProjectPlanBtn,
+      unstaffed: els.tabUnstaffedBtn,
       projects: els.tabProjectsBtn,
       employees: els.tabEmployeesBtn,
       admin: els.tabAdminBtn
     };
 
+    const hiddenForGuests = new Set(["home", "projectplan", "unstaffed", "projects", "employees", "admin"]);
+
+    Object.entries(buttons).forEach(([name, btn]) => {
+      if (!btn) return;
+      const visible = canPlan || !hiddenForGuests.has(name);
+      btn.style.display = visible ? "" : "none";
+      if (activeKey === name) btn.setAttribute("aria-current", "page");
+      else btn.removeAttribute("aria-current");
+      btn.className = [
+        "rounded-2xl px-4 py-2 text-sm border transition",
+        activeKey === name
+          ? "border-slate-900 bg-slate-900 text-white"
+          : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+      ].join(" ");
+    });
+
     const sections = {
+      home: els.tabHomeSection,
       calendar: els.tabCalendarSection,
       projects: els.tabProjectsSection,
       employees: els.tabEmployeesSection,
       admin: els.tabAdminSection
     };
 
-    Object.entries(buttons).forEach(([name, btn]) => {
-      if (!btn) return;
-      const visible = allowedTabs.includes(name);
-      btn.style.display = visible ? "" : "none";
-      btn.className = [
-        "rounded-2xl px-4 py-2 text-sm border transition",
-        state.activeTab === name
-          ? "border-slate-900 bg-slate-900 text-white"
-          : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
-      ].join(" ");
-    });
-
     Object.entries(sections).forEach(([name, section]) => {
       if (!section) return;
-      section.style.display = state.activeTab === name ? "" : "none";
+      const active = state.activeTab === name;
+      section.style.display = active ? "" : "none";
+      section.classList.toggle("hidden", !active);
     });
+
+    if (els.statsRow) {
+      const showStats = state.activeTab !== "home";
+      els.statsRow.style.display = showStats ? "grid" : "none";
+      els.statsRow.classList.toggle("hidden", !showStats);
+    }
   }
 
 
@@ -769,7 +1075,7 @@
     }
 
     if (els.saveStatus) {
-      els.saveStatus.style.display = canPlan ? "" : "none";
+      els.saveStatus.style.display = "none";
     }
 
     if (els.resetDemoBtn) {
@@ -778,6 +1084,12 @@
 
     if (els.loginBtn) {
       els.loginBtn.style.display = isLoggedIn ? "none" : "";
+      els.loginBtn.classList.toggle("hidden", isLoggedIn);
+    }
+
+    if (els.accountMenuWrap) {
+      els.accountMenuWrap.style.display = isLoggedIn ? "" : "none";
+      els.accountMenuWrap.classList.toggle("hidden", !isLoggedIn);
     }
 
     if (els.changePasswordBtn) {
@@ -785,7 +1097,7 @@
     }
 
     if (els.resetPasswordBtn) {
-      els.resetPasswordBtn.style.display = isLoggedIn ? "" : "none";
+      els.resetPasswordBtn.style.display = "none";
     }
 
     if (els.logoutBtn) {
@@ -1057,11 +1369,11 @@
   }
 
   function setupStaticOptions() {
-    fillSelect(els.projectCategory, CATEGORY_OPTIONS);
-    fillSelect(els.projectStatus, STATUS_OPTIONS, "Planlagt");
+    fillSelect(els.projectCategory, [{ id: "Offshore", name: "Feltoppdrag" }], "Offshore", "name", "id");
+    fillSelect(els.projectStatus, PROJECT_STATUS_OPTIONS, "Planlagt");
     fillSelect(els.editRole, ROLE_OPTIONS, "Supervisor");
-    fillSelect(els.personalBlockType, PERSONAL_BLOCK_TYPES);
-    fillSelect(els.contextMenuType, PERSONAL_BLOCK_TYPES);
+    fillSelect(els.personalBlockType, getPersonalBlockTypeOptions());
+    fillSelect(els.contextMenuType, getPersonalBlockTypeOptions());
   }
 
 
@@ -1084,6 +1396,87 @@
     toggleEmployeeGroupFilter(false);
   }
 
+  function getCalendarDropRowFromPointer(event) {
+    if (!els.calendarWrap) return null;
+    const target = event.target;
+
+    // First try the normal DOM path. This works when the pointer event lands directly on a calendar row/cell.
+    const directRow = target?.closest?.(".drop-row");
+    if (directRow && els.calendarWrap.contains(directRow)) return directRow;
+
+    // Then try the browser hit-stack. This helps when visual layers sit above the row.
+    if (typeof document.elementsFromPoint === "function") {
+      const hitElements = document.elementsFromPoint(event.clientX, event.clientY);
+      for (const hit of hitElements) {
+        if (!(hit instanceof HTMLElement)) continue;
+        const row = hit.matches(".drop-row") ? hit : hit.closest(".drop-row");
+        if (row && els.calendarWrap.contains(row)) return row;
+      }
+    }
+
+    // Final fallback after employee grouping/expand-collapse:
+    // find the visible employee row by Y-position only. The clicked element can be a sticky/name/layout
+    // layer even when the pointer is visually over the calendar row.
+    const rows = Array.from(els.calendarWrap.querySelectorAll(".drop-row"));
+    for (const row of rows) {
+      const rect = row.getBoundingClientRect();
+      if (event.clientY >= rect.top && event.clientY <= rect.bottom) {
+        return row;
+      }
+    }
+
+    return null;
+  }
+
+  function openCalendarContextMenuFromEvent(event) {
+    if (state.calendarMode !== "personal" || state.viewMode === "År") return false;
+    if (!canEditApp()) return false;
+    if (!els.calendarWrap) return false;
+    if (event.target?.closest?.(".entry-bar")) return false;
+    if (event.target?.closest?.("[data-resize-handle]")) return false;
+    if (event.target?.closest?.("#calendarContextMenu")) return false;
+    // v18.20: Ikke åpne direkteblokk-popup når et modalvindu er aktivt, eller når brukeren klikker inni et modal.
+    // Dette hindrer at Lukk/Lagre/Fjern i Rediger tildeling åpner "Legg til direkte blokk" på kalenderen bak.
+    if (event.target?.closest?.("#editModal, #projectModal, #employeeModal, #loginModal")) return false;
+    if (hasOpenEditorModal()) return false;
+
+    // Når prosjekt-spotlight er aktiv, skal tomme kalenderfelt ikke åpne
+    // ferie/syk/kurs/avspasering. Bruk Nullstill fokus først.
+    if (getProjectSpotlightProject()) return false;
+
+    const row = getCalendarDropRowFromPointer(event);
+    if (!row) return false;
+
+    const targetEmployeeName = row.dataset.employeeName;
+    if (!targetEmployeeName) return false;
+
+    const dropMeta = getDropMetaFromRow(row, event);
+    if (!dropMeta?.rangeStart || !Number.isFinite(dropMeta.colIndex)) return false;
+
+    const selectedDate = dropMeta?.dropDate
+      ? toIsoDate(parseIsoDateLocal(dropMeta.dropDate))
+      : toIsoDate(addDays(parseIsoDateLocal(dropMeta.rangeStart), dropMeta.colIndex));
+
+    event.preventDefault();
+    event.stopPropagation();
+    if (typeof event.stopImmediatePropagation === "function") event.stopImmediatePropagation();
+    openCalendarContextMenu(targetEmployeeName, selectedDate, event.clientX + 8, event.clientY + 8);
+    return true;
+  }
+
+  function handleCalendarWrapContextMenu(event) {
+    openCalendarContextMenuFromEvent(event);
+  }
+
+  function handleCalendarDocumentContextMenu(event) {
+    openCalendarContextMenuFromEvent(event);
+  }
+
+  function handleCalendarDocumentClick(event) {
+    if (event.button !== 0) return;
+    openCalendarContextMenuFromEvent(event);
+  }
+
   function getEmployeeGroupBadgeClass(group) {
     return EMPLOYEE_GROUP_BADGE_STYLES[group] || "border-slate-200 bg-slate-100 text-slate-700";
   }
@@ -1092,8 +1485,42 @@
     return EMPLOYEE_GROUP_DOT_STYLES[group] || "bg-slate-400";
   }
 
+  function getEmployeeGroupMeta(group) {
+    const normalized = normalizeEmployeeGroup(group || "");
+    return EMPLOYEE_GROUP_META[normalized] || null;
+  }
+
+  function getEmployeeGroupLabel(group) {
+    return getEmployeeGroupMeta(group)?.label || normalizeEmployeeGroup(group || "") || "";
+  }
+
+  function getEmployeeGroupIcon(group) {
+    return getEmployeeGroupMeta(group)?.icon || "";
+  }
+
+  function getEmployeeGroupIconSvg(iconKey) {
+    const attrs = 'viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"';
+    const icons = {
+      plane: `<svg ${attrs}><path d="M10.8 13.2 3.6 10.8c-.8-.3-.8-1.4 0-1.7L20.4 3.2c.7-.2 1.3.4 1.1 1.1l-5.9 16.9c-.3.8-1.4.8-1.7 0l-2.4-7.2 5.1-5.1"/></svg>`,
+      tools: `<svg ${attrs}><path d="M14.7 6.3a4 4 0 0 0 4.7 4.7l-7.9 7.9a2.3 2.3 0 0 1-3.3 0l-2.1-2.1a2.3 2.3 0 0 1 0-3.3l7.9-7.9Z"/><path d="m5.2 18.8 3-3"/><path d="M4 4l5 5"/><path d="M6 3 3 6"/></svg>`,
+      box: `<svg ${attrs}><path d="m21 8.5-9-5-9 5 9 5 9-5Z"/><path d="M3 8.5v7l9 5 9-5v-7"/><path d="M12 13.5v7"/><path d="m7.5 6 9 5"/></svg>`,
+      gear: `<svg ${attrs}><path d="M12 15.2a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4Z"/><path d="M19.4 15a1.8 1.8 0 0 0 .36 2l.06.06a2.1 2.1 0 0 1-3 3l-.06-.06a1.8 1.8 0 0 0-2-.36 1.8 1.8 0 0 0-1 1.64V21.4a2.1 2.1 0 0 1-4.2 0v-.1a1.8 1.8 0 0 0-1-1.64 1.8 1.8 0 0 0-2 .36l-.06.06a2.1 2.1 0 0 1-3-3l.06-.06a1.8 1.8 0 0 0 .36-2 1.8 1.8 0 0 0-1.64-1H2.6a2.1 2.1 0 0 1 0-4.2h.1a1.8 1.8 0 0 0 1.64-1 1.8 1.8 0 0 0-.36-2l-.06-.06a2.1 2.1 0 0 1 3-3l.06.06a1.8 1.8 0 0 0 2 .36 1.8 1.8 0 0 0 1-1.64V2.6a2.1 2.1 0 0 1 4.2 0v.1a1.8 1.8 0 0 0 1 1.64 1.8 1.8 0 0 0 2-.36l.06-.06a2.1 2.1 0 0 1 3 3l-.06.06a1.8 1.8 0 0 0-.36 2 1.8 1.8 0 0 0 1.64 1h.1a2.1 2.1 0 0 1 0 4.2h-.1a1.8 1.8 0 0 0-1.64 1Z"/></svg>`,
+      network: `<svg ${attrs}><circle cx="12" cy="5" r="2.5"/><circle cx="5" cy="18" r="2.5"/><circle cx="19" cy="18" r="2.5"/><path d="M10.8 7.2 6.2 15.8"/><path d="m13.2 7.2 4.6 8.6"/><path d="M7.5 18h9"/></svg>`,
+      people: `<svg ${attrs}><path d="M16 20v-1.4a3.6 3.6 0 0 0-3.6-3.6H7.6A3.6 3.6 0 0 0 4 18.6V20"/><circle cx="10" cy="7" r="3"/><path d="M20 20v-1.2a3.2 3.2 0 0 0-2.4-3.1"/><path d="M15.5 4.2a3 3 0 0 1 0 5.6"/></svg>`,
+      clipboard: `<svg ${attrs}><path d="M9 4.5h6a2 2 0 0 1 2 2V7H7v-.5a2 2 0 0 1 2-2Z"/><path d="M8 6H6a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-2"/><path d="M8 12h8"/><path d="M8 16h6"/></svg>`
+    };
+    return icons[iconKey] || "";
+  }
+
+  function getEmployeeGroupIconHtml(group, classes = "") {
+    const iconKey = getEmployeeGroupMeta(group)?.icon || "";
+    const svg = getEmployeeGroupIconSvg(iconKey);
+    if (!svg) return "";
+    return `<span class="${classes || "inline-flex h-5 w-5 items-center justify-center text-slate-600 shrink-0"}">${svg}</span>`;
+  }
+
   function getOrderedEmployeeGroups() {
-    return EMPLOYEE_GROUP_OPTIONS.filter(Boolean);
+    return EMPLOYEE_GROUP_DEFINITIONS.map(group => group.value);
   }
 
   function getEmployeeGroupSortIndex(group) {
@@ -1104,8 +1531,56 @@
   function getEmployeeGroupFilterLabel() {
     const selectedGroups = state.selectedEmployeeGroups || [];
     if (!selectedGroups.length) return "Alle ansatte / alle grupper";
-    if (selectedGroups.length <= 2) return selectedGroups.join(", ");
+    if (selectedGroups.length <= 2) return selectedGroups.map(group => getEmployeeGroupLabel(group)).join(", ");
     return `${selectedGroups.length} grupper valgt`;
+  }
+
+
+  function getCalendarEmployeeGroups(employees) {
+    const map = new Map();
+    employees.forEach(employee => {
+      const group = normalizeEmployeeGroup(employee.employee_group || "");
+      const key = group || "__ungrouped__";
+      if (!map.has(key)) {
+        map.set(key, {
+          key,
+          group,
+          label: group ? getEmployeeGroupLabel(group) : "Ingen gruppe valgt",
+          iconHtml: group ? getEmployeeGroupIconHtml(group, "inline-flex h-5 w-5 items-center justify-center text-slate-600 shrink-0") : "",
+          employees: []
+        });
+      }
+      map.get(key).employees.push(employee);
+    });
+
+    return Array.from(map.values()).sort((a, b) => {
+      const groupDiff = getEmployeeGroupSortIndex(a.group) - getEmployeeGroupSortIndex(b.group);
+      if (groupDiff !== 0) return groupDiff;
+      return a.label.localeCompare(b.label, "no");
+    });
+  }
+
+  function isEmployeeGroupCollapsed(key) {
+    return (state.collapsedEmployeeGroups || []).includes(key);
+  }
+
+  function setEmployeeGroupCollapsed(key, collapsed) {
+    const current = new Set(state.collapsedEmployeeGroups || []);
+    if (collapsed) current.add(key);
+    else current.delete(key);
+    state.collapsedEmployeeGroups = Array.from(current);
+    localStorage.setItem("planner_collapsed_employee_groups_v1", JSON.stringify(state.collapsedEmployeeGroups));
+  }
+
+  function bindEmployeeGroupCollapseButtons() {
+    if (!els.calendarWrap) return;
+    els.calendarWrap.querySelectorAll("[data-employee-group-toggle]").forEach(button => {
+      button.addEventListener("click", () => {
+        const key = button.dataset.employeeGroupToggle || "";
+        setEmployeeGroupCollapsed(key, !isEmployeeGroupCollapsed(key));
+        renderCalendar();
+      });
+    });
   }
 
   function renderEmployeeGroupFilterControl() {
@@ -1150,10 +1625,10 @@
 
     const groupOptionsHtml = groupOptions.map(group => `
       <label class="flex items-center justify-between gap-3 px-3 py-3 hover:bg-slate-50 border-b border-slate-100">
-        <div class="flex items-center gap-2 min-w-0">
-          <span class="inline-block h-3 w-3 rounded-full ${getEmployeeGroupDotClass(group)}"></span>
+        <div class="flex items-center gap-3 min-w-0">
+          <span class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-slate-50 text-slate-700 shrink-0">${getEmployeeGroupIconSvg(getEmployeeGroupIcon(group))}</span>
           <div class="min-w-0">
-            <div class="font-medium text-sm truncate">${escapeHtml(group)}</div>
+            <div class="font-medium text-sm text-slate-800 truncate">${escapeHtml(getEmployeeGroupLabel(group) || group)}</div>
             <div class="text-xs text-slate-500">${groupCounts.get(group) || 0} ansatte</div>
           </div>
         </div>
@@ -1191,18 +1666,17 @@
 
   function getEmployeeCalendarCellClass(employee) {
     const group = normalizeEmployeeGroup(employee?.employee_group || "");
-    const map = {
-      "Offshore arbeider": "bg-emerald-50 text-emerald-950",
-      "Onshore arbeider": "bg-blue-50 text-blue-950",
-      "Lager og logistikk": "bg-amber-50 text-amber-950",
-      "Engineer": "bg-violet-50 text-violet-950",
-      "3 parts innleie": "bg-rose-50 text-rose-950"
-    };
-    return map[group] || "bg-white text-slate-900";
+    return EMPLOYEE_GROUP_CALENDAR_CELL_STYLES[group] || "bg-white text-slate-900";
   }
 
   function getEmployeeNameTabHtml(employee) {
-    return `<div class="text-sm font-semibold leading-tight">${escapeHtml(employee?.name || "")}</div>`;
+    const group = normalizeEmployeeGroup(employee?.employee_group || "");
+    return `
+      <div class="flex items-center gap-2 min-w-0">
+        ${getEmployeeGroupIconHtml(group, "inline-flex h-5 w-5 items-center justify-center text-slate-600 shrink-0 opacity-90")}
+        <div class="min-w-0 text-sm font-semibold leading-tight truncate">${escapeHtml(employee?.name || "")}</div>
+      </div>
+    `;
   }
 
   function bindEvents() {
@@ -1238,6 +1712,17 @@
     }
 
     document.addEventListener("click", handleEmployeeGroupFilterOutsideClick);
+    if (els.calendarWrap) {
+      els.calendarWrap.addEventListener("contextmenu", handleCalendarWrapContextMenu, true);
+      els.calendarWrap.addEventListener("pointerdown", event => {
+        if (event.button === 2) openCalendarContextMenuFromEvent(event);
+      }, true);
+      els.calendarWrap.addEventListener("mousedown", event => {
+        if (event.button === 2) openCalendarContextMenuFromEvent(event);
+      }, true);
+    }
+    document.addEventListener("contextmenu", handleCalendarDocumentContextMenu, true);
+    document.addEventListener("click", handleCalendarDocumentClick, true);
 
     bindTabEvents();
     if (els.calendarPanelHandleBtn) {
@@ -1263,6 +1748,18 @@
       renderCalendar();
     });
 
+    if (els.projectFilterControl) {
+      els.projectFilterControl.addEventListener("change", e => {
+        state.projectFilterCategory = e.target.value || "all";
+        renderStats();
+        renderCalendar();
+      });
+    }
+
+    if (els.calendarNewProjectBtn) {
+      els.calendarNewProjectBtn.addEventListener("click", () => openProjectModal());
+    }
+
     els.viewMode.addEventListener("change", e => {
       state.viewMode = e.target.value;
       persistUiState();
@@ -1270,12 +1767,33 @@
       renderCalendar();
     });
 
-    els.calendarMode.addEventListener("change", e => {
-      state.calendarMode = e.target.value;
-      persistUiState();
-      renderStats();
-      renderCalendar();
-    });
+    if (els.calendarMode) {
+      els.calendarMode.addEventListener("change", e => {
+        state.calendarMode = e.target.value;
+        if (state.calendarMode !== "personal") state.projectSpotlightId = "";
+        if (state.calendarMode === "personal") {
+          state.projectListFilter = "all";
+          state.calendarPanelOpen = false;
+          state.focusProjectId = "";
+          resetProjectInspectorFilters();
+        }
+        persistUiState();
+        renderStats();
+        renderCalendar();
+      });
+    }
+
+    if (els.personalPlanQuickBtn) {
+      els.personalPlanQuickBtn.addEventListener("click", () => openPersonalCalendarView());
+    }
+
+    if (els.projectPlanQuickBtn) {
+      els.projectPlanQuickBtn.addEventListener("click", () => openProjectCalendarView("all"));
+    }
+
+    if (els.unstaffedProjectsQuickBtn) {
+      els.unstaffedProjectsQuickBtn.addEventListener("click", () => openProjectCalendarView("unstaffed"));
+    }
 
     els.prevBtn.addEventListener("click", () => {
       shiftPeriod(-1);
@@ -1350,10 +1868,14 @@
       els.contextMenuAddBtn.addEventListener("click", createContextMenuPersonalBlockEntry);
     }
     if (els.contextMenuCloseBtn) {
-      els.contextMenuCloseBtn.addEventListener("click", hideCalendarContextMenu);
+      els.contextMenuCloseBtn.addEventListener("click", event => {
+        event.preventDefault();
+        event.stopPropagation();
+        if (typeof event.stopImmediatePropagation === "function") event.stopImmediatePropagation();
+        hideCalendarContextMenu();
+      });
     }
     document.addEventListener("click", handleGlobalPointerClose, true);
-    window.addEventListener("scroll", hideCalendarContextMenu, true);
     window.addEventListener("resize", hideCalendarContextMenu);
     window.addEventListener("mousemove", handleResizePointerMove);
     window.addEventListener("mouseup", handleResizePointerUp);
@@ -1364,7 +1886,12 @@
       els.resetDemoBtn.style.display = "none";
     }
 
-    els.closeModalBtn.addEventListener("click", closeEditModal);
+    els.closeModalBtn.addEventListener("click", event => {
+      event.preventDefault();
+      event.stopPropagation();
+      if (typeof event.stopImmediatePropagation === "function") event.stopImmediatePropagation();
+      closeEditModal();
+    });
     els.saveEditBtn.addEventListener("click", saveEditedEntry);
     els.deleteEditBtn.addEventListener("click", deleteEditedEntry);
 
@@ -1377,6 +1904,20 @@
         setProjectMultiplePeriodsUiState();
         renderProjectPeriodsEditor();
       });
+    }
+    if (els.projectPlannedStart) {
+      els.projectPlannedStart.addEventListener("change", () => applyDefaultWorkshopDraft(false));
+    }
+    if (els.projectWorkshopEnabled) {
+      els.projectWorkshopEnabled.addEventListener("change", () => {
+        setWorkshopModalEnabled(Boolean(els.projectWorkshopEnabled.checked), Boolean(els.projectWorkshopEnabled.checked));
+      });
+    }
+    if (els.projectWorkshopAddBtn) {
+      els.projectWorkshopAddBtn.addEventListener("click", () => setWorkshopModalEnabled(true, true));
+    }
+    if (els.projectWorkshopRemoveBtn) {
+      els.projectWorkshopRemoveBtn.addEventListener("click", () => setWorkshopModalEnabled(false, false));
     }
     if (els.addProjectPeriodBtn) {
       els.addProjectPeriodBtn.addEventListener("click", addProjectPeriodDraft);
@@ -1606,13 +2147,38 @@
     }));
   }
 
+  function normalizeProjectStatus(status) {
+    const value = String(status || "").trim();
+    if (!value) return "Planlagt";
+    if (value === "Avsluttet") return "Fullført";
+    if (value === "Fullført") return "Fullført";
+    if (value === "Kansellert") return "Kansellert";
+    return PROJECT_STATUS_OPTIONS.includes(value) ? value : "Planlagt";
+  }
+
+  function isCancelledProject(project) {
+    return normalizeProjectStatus(project?.status || "") === "Kansellert";
+  }
+
+  function isCompletedProject(project) {
+    return normalizeProjectStatus(project?.status || "") === "Fullført";
+  }
+
+  function isClosedProject(project) {
+    return isCompletedProject(project) || isCancelledProject(project);
+  }
+
   function normalizeProjects(list) {
     return (list || []).map(project => ({
       ...project,
       category: project?.category === "Project" ? "Offshore" : project?.category,
-      status: project?.status === "Fullført" ? "Avsluttet" : project?.status,
+      status: normalizeProjectStatus(project?.status || "Planlagt"),
       has_multiple_periods: Boolean(project?.has_multiple_periods),
-      project_periods_json: normalizeProjectPeriods(project?.project_periods_json || [])
+      project_periods_json: normalizeProjectPeriods(project?.project_periods_json || []),
+      workshop_enabled: project?.workshop_enabled !== false,
+      workshop_start_date: project?.workshop_start_date || null,
+      workshop_end_date: project?.workshop_end_date || null,
+      workshop_headcount_required: Number(project?.workshop_headcount_required || 2)
     }));
   }
 
@@ -1663,7 +2229,8 @@
 
   function normalizeEmployeeGroup(value) {
     const group = String(value || "").trim();
-    return EMPLOYEE_GROUP_OPTIONS.includes(group) ? group : "";
+    if (!group) return "";
+    return EMPLOYEE_GROUP_ALIAS_MAP[group.toLowerCase()] || (EMPLOYEE_GROUP_OPTIONS.includes(group) ? group : "");
   }
 
   function getEmployeeGroupCardClass(group) {
@@ -2276,7 +2843,7 @@
               <div class="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100 text-sm font-semibold text-blue-700">${escapeHtml(getInitials(selectedEmployee))}</div>
               <div class="min-w-0">
                 <div class="text-sm font-medium text-slate-900 truncate">${escapeHtml(selectedEmployee)}</div>
-                <div class="mt-0.5 text-xs text-slate-500">${escapeHtml(groupLabel || "Ingen gruppe valgt")}${employee?.title ? ` • ${escapeHtml(employee.title)}` : ""}</div>
+                <div class="mt-0.5 text-xs text-slate-500">${escapeHtml(getEmployeeGroupLabel(groupLabel) || "Ingen gruppe valgt")}${employee?.title ? ` • ${escapeHtml(employee.title)}` : ""}</div>
               </div>
             </div>
           ` : ""}
@@ -2440,7 +3007,7 @@
             <div class="flex h-10 w-10 items-center justify-center rounded-full bg-green-100 text-sm font-semibold text-green-700">${escapeHtml(getInitials(employee.name))}</div>
             <div class="min-w-0">
               <div class="font-medium text-slate-900 truncate">${escapeHtml(employee.name)}</div>
-              <div class="text-xs text-slate-500 mt-0.5">${escapeHtml(employee.group || "Ingen gruppe valgt")}${employee.title ? ` • ${escapeHtml(employee.title)}` : ""}</div>
+              <div class="text-xs text-slate-500 mt-0.5">${escapeHtml(getEmployeeGroupLabel(employee.group) || "Ingen gruppe valgt")}${employee.title ? ` • ${escapeHtml(employee.title)}` : ""}</div>
             </div>
           </div>
           <div class="mt-3 inline-flex rounded-full border border-green-200 bg-green-50 px-2.5 py-1 text-xs font-medium text-green-700">Tilgjengelig i valgt periode</div>
@@ -2465,7 +3032,7 @@
             <div class="flex h-10 w-10 items-center justify-center rounded-full bg-rose-100 text-sm font-semibold text-rose-700">${escapeHtml(getInitials(employee.name))}</div>
             <div class="min-w-0">
               <div class="font-medium text-slate-900 truncate">${escapeHtml(employee.name)}</div>
-              <div class="text-xs text-slate-500 mt-0.5">${escapeHtml(employee.group || "Ingen gruppe valgt")}${employee.title ? ` • ${escapeHtml(employee.title)}` : ""}</div>
+              <div class="text-xs text-slate-500 mt-0.5">${escapeHtml(getEmployeeGroupLabel(employee.group) || "Ingen gruppe valgt")}${employee.title ? ` • ${escapeHtml(employee.title)}` : ""}</div>
             </div>
           </div>
           <div class="mt-3 space-y-2">
@@ -2492,8 +3059,12 @@
     return canEditApp();
   }
 
+  function getPersonalBlockTypeOptions() {
+    return Array.from(new Set([...(PERSONAL_BLOCK_TYPES || []), "Travel"]));
+  }
+
   function getVisiblePersonalBlockTypes() {
-    return PERSONAL_BLOCK_TYPES.filter(canSeePersonalBlockType);
+    return getPersonalBlockTypeOptions().filter(canSeePersonalBlockType);
   }
 
   function getVisibleEntriesForEmployee(employeeName, rangeStart, rangeEnd) {
@@ -2507,6 +3078,9 @@
 
   function openCalendarContextMenu(employeeName, isoDate, x, y) {
     if (!canEditApp() || !els.calendarContextMenu) return;
+    // Hard stop: personalblokker skal ikke kunne åpnes mens prosjekt-spotlight er aktiv.
+    // Brukeren må først trykke Nullstill fokus.
+    if (state.projectSpotlightId || getProjectSpotlightProject()) return;
 
     state.contextMenu = {
       visible: true,
@@ -2520,28 +3094,30 @@
     if (els.contextMenuEmployee) els.contextMenuEmployee.textContent = employeeName;
     if (els.contextMenuStart) els.contextMenuStart.value = isoDate;
     if (els.contextMenuEnd) els.contextMenuEnd.value = isoDate;
-    fillSelect(els.contextMenuType, PERSONAL_BLOCK_TYPES);
+    fillSelect(els.contextMenuType, getPersonalBlockTypeOptions());
     if (els.contextMenuType) els.contextMenuType.value = "Ferie";
     if (els.contextMenuNotes) els.contextMenuNotes.value = "";
 
     const menu = els.calendarContextMenu;
+    normalizeCalendarContextMenuElement();
     menu.classList.remove("hidden");
-    menu.style.left = "0px";
-    menu.style.top = "0px";
+    menu.style.setProperty("display", "block", "important");
+    menu.style.setProperty("position", "fixed", "important");
+    menu.style.setProperty("z-index", "2147483647", "important");
 
-    requestAnimationFrame(() => {
-      const menuRect = menu.getBoundingClientRect();
-      const maxLeft = Math.max(12, window.innerWidth - menuRect.width - 12);
-      const maxTop = Math.max(12, window.innerHeight - menuRect.height - 12);
-      menu.style.left = `${Math.min(Math.max(12, x), maxLeft)}px`;
-      menu.style.top = `${Math.min(Math.max(12, y), maxTop)}px`;
-    });
+    const menuWidth = 320;
+    const menuHeight = Math.min(520, window.innerHeight - 24);
+    const maxLeft = Math.max(12, window.innerWidth - menuWidth - 12);
+    const maxTop = Math.max(12, window.innerHeight - menuHeight - 12);
+    menu.style.setProperty("left", `${Math.min(Math.max(12, x), maxLeft)}px`, "important");
+    menu.style.setProperty("top", `${Math.min(Math.max(12, y), maxTop)}px`, "important");
   }
 
   function hideCalendarContextMenu() {
     state.contextMenu.visible = false;
     if (!els.calendarContextMenu) return;
     els.calendarContextMenu.classList.add("hidden");
+    els.calendarContextMenu.style.setProperty("display", "none", "important");
   }
 
   function handleGlobalPointerClose(event) {
@@ -2602,6 +3178,76 @@
     }
   }
 
+  function openProjectCalendarView(filter = "all") {
+    state.calendarMode = "project";
+    state.projectListFilter = filter === "unstaffed" ? "unstaffed" : "all";
+    state.projectSpotlightId = "";
+    state.calendarPanelOpen = false;
+    state.focusProjectId = "";
+    if (els.calendarMode) els.calendarMode.value = "project";
+    updateCalendarSearchControls();
+    persistUiState();
+    setActiveTab("calendar");
+    renderStats();
+    renderCalendarPanel();
+    renderCalendar();
+  }
+
+  function clearDashboardEmployeeFilter() {
+    state.dashboardEmployeeFilter = "";
+    state.dashboardEmployeeFilterLabel = "";
+    renderCalendar();
+  }
+
+  function openDashboardEmployeeFilter(filterType, label) {
+    state.dashboardEmployeeFilter = filterType;
+    state.dashboardEmployeeFilterLabel = label || "";
+    state.calendarMode = "personal";
+    state.projectListFilter = "all";
+    state.calendarPanelOpen = false;
+    state.focusProjectId = "";
+    resetProjectInspectorFilters();
+    if (els.calendarMode) els.calendarMode.value = "personal";
+    updateCalendarSearchControls();
+    persistUiState();
+    setActiveTab("calendar");
+    renderStats();
+    renderCalendarPanel();
+    renderCalendar();
+  }
+
+  function openPersonalCalendarView() {
+    state.dashboardEmployeeFilter = "";
+    state.dashboardEmployeeFilterLabel = "";
+    state.calendarMode = "personal";
+    state.projectListFilter = "all";
+    state.calendarPanelOpen = false;
+    state.focusProjectId = "";
+    resetProjectInspectorFilters();
+    if (els.calendarMode) els.calendarMode.value = "personal";
+    updateCalendarSearchControls();
+    persistUiState();
+    setActiveTab("calendar");
+    renderStats();
+    renderCalendarPanel();
+    renderCalendar();
+  }
+
+  function getProjectCalendarItems() {
+    const baseProjects = state.projectListFilter === "unstaffed"
+      ? getUnstaffedProjectsForCurrentCalendarRange()
+      : getVisibleProjects().slice();
+
+    return baseProjects.filter(project => {
+      const categoryMatch = !state.projectFilterCategory || state.projectFilterCategory === "all" || project.category === state.projectFilterCategory;
+      const search = String(state.search || "").trim().toLowerCase();
+      const searchMatch = !search || [project.name, project.category, project.location, project.status]
+        .filter(Boolean)
+        .some(value => String(value).toLowerCase().includes(search));
+      return categoryMatch && searchMatch;
+    });
+  }
+
   async function ensurePersonalProject(type) {
     let project = state.projects.find(item => isSystemPersonalProject(item) && item.category === type);
     if (project) return { ok: true, project };
@@ -2633,7 +3279,7 @@
 
   function clearPersonalBlockForm() {
     if (els.personalBlockEmployee) els.personalBlockEmployee.value = "";
-    if (els.personalBlockType) els.personalBlockType.value = PERSONAL_BLOCK_TYPES[0] || "";
+    if (els.personalBlockType) els.personalBlockType.value = getPersonalBlockTypeOptions()[0] || "";
     if (els.personalBlockStart) els.personalBlockStart.value = "";
     if (els.personalBlockEnd) els.personalBlockEnd.value = "";
     if (els.personalBlockNotes) els.personalBlockNotes.value = "";
@@ -2683,6 +3329,7 @@
       state.entries = state.entries.filter(item => item.id !== entry.id);
       rebuildDerivedState();
       renderAll();
+      alert(`Kunne ikke lagre tildelingen: ${result.error?.message || "ukjent feil"}`);
       return;
     }
 
@@ -2940,6 +3587,101 @@ async function deleteEditedEntry() {
     return [];
   }
 
+  function getDefaultWorkshopPeriodForProject(project, fieldPeriods = null) {
+    if (!project || isSystemPersonalProject(project) || isCancelledProject(project)) return null;
+    if (project.workshop_enabled === false) return null;
+
+    const periods = (fieldPeriods || getProjectTimelinePeriods(project) || [])
+      .filter(period => period?.start && period?.end)
+      .slice()
+      .sort((a, b) => String(a.start).localeCompare(String(b.start)));
+
+    const storedStart = project.workshop_start_date || "";
+    const storedEnd = project.workshop_end_date || "";
+    let workshopStart = storedStart;
+    let workshopEnd = storedEnd;
+
+    if (!workshopStart || !workshopEnd) {
+      if (!periods.length) return null;
+      const fieldStart = asLocalDate(periods[0].start);
+      if (!fieldStart) return null;
+      workshopStart = toIsoDate(addDays(fieldStart, -14));
+      workshopEnd = toIsoDate(addDays(fieldStart, -1));
+    }
+
+    if (!workshopStart || !workshopEnd || workshopStart > workshopEnd) return null;
+
+    return {
+      id: `${project.id}__workshop`,
+      start: workshopStart,
+      end: workshopEnd,
+      phase: "workshop",
+      phaseLabel: "Workshop / mobilisering",
+      required: project.workshop_headcount_required === 0 ? 0 : Number(project.workshop_headcount_required || 2),
+      generated: !storedStart || !storedEnd
+    };
+  }
+
+  function getProjectTimelinePeriodsWithWorkshop(project) {
+    const fieldPeriods = getProjectTimelinePeriods(project).map(period => ({
+      ...period,
+      phase: "field",
+      phaseLabel: "Feltoppdrag"
+    }));
+    const workshopPeriod = getDefaultWorkshopPeriodForProject(project, fieldPeriods);
+    return [
+      ...(workshopPeriod ? [workshopPeriod] : []),
+      ...fieldPeriods
+    ].filter(period => period.start && period.end)
+      .sort((a, b) => String(a.start).localeCompare(String(b.start)) || String(a.end).localeCompare(String(b.end)));
+  }
+
+  function getDefaultWorkshopDraftFromFieldStart(fieldStartValue) {
+    if (!fieldStartValue) return { start: "", end: "", headcount: 2 };
+    const fieldStart = asLocalDate(fieldStartValue);
+    if (!fieldStart) return { start: "", end: "", headcount: 2 };
+    return {
+      start: toIsoDate(addDays(fieldStart, -14)),
+      end: toIsoDate(addDays(fieldStart, -1)),
+      headcount: 2
+    };
+  }
+
+  function applyDefaultWorkshopDraft(force = false) {
+    if (!els.projectWorkshopStart || !els.projectWorkshopEnd || !els.projectWorkshopHeadcount) return;
+    if (!force && (els.projectWorkshopStart.value || els.projectWorkshopEnd.value)) return;
+    const draft = getDefaultWorkshopDraftFromFieldStart(els.projectPlannedStart?.value || "");
+    els.projectWorkshopStart.value = draft.start || "";
+    els.projectWorkshopEnd.value = draft.end || "";
+    if (!els.projectWorkshopHeadcount.value || force) {
+      els.projectWorkshopHeadcount.value = String(draft.headcount || 2);
+    }
+  }
+
+  function setWorkshopModalEnabled(enabled, applyDefault = false) {
+    const isEnabled = Boolean(enabled);
+    if (els.projectWorkshopEnabled) els.projectWorkshopEnabled.checked = isEnabled;
+
+    if (applyDefault && isEnabled) {
+      applyDefaultWorkshopDraft(true);
+    }
+
+    [els.projectWorkshopStart, els.projectWorkshopEnd, els.projectWorkshopHeadcount].forEach(input => {
+      if (!input) return;
+      input.disabled = !isEnabled;
+      input.classList.toggle("opacity-50", !isEnabled);
+      input.classList.toggle("bg-slate-100", !isEnabled);
+    });
+
+    if (!isEnabled) {
+      if (els.projectWorkshopStart) els.projectWorkshopStart.value = "";
+      if (els.projectWorkshopEnd) els.projectWorkshopEnd.value = "";
+      if (els.projectWorkshopHeadcount) els.projectWorkshopHeadcount.value = "0";
+    } else if (els.projectWorkshopHeadcount && (!els.projectWorkshopHeadcount.value || Number(els.projectWorkshopHeadcount.value) <= 0)) {
+      els.projectWorkshopHeadcount.value = "2";
+    }
+  }
+
 
   function createEmptyProjectPeriod() {
     return {
@@ -3026,13 +3768,21 @@ async function deleteEditedEntry() {
 
     els.projectModalTitle.textContent = project ? "Rediger prosjekt" : "Nytt prosjekt";
     els.projectName.value = project?.name || "";
-    fillSelect(els.projectCategory, CATEGORY_OPTIONS, project?.category || "Offshore");
-    fillSelect(els.projectStatus, STATUS_OPTIONS, project?.status || "Planlagt");
+    fillSelect(els.projectCategory, [{ id: "Offshore", name: "Feltoppdrag" }], "Offshore", "name", "id");
+    fillSelect(els.projectStatus, PROJECT_STATUS_OPTIONS, normalizeProjectStatus(project?.status || "Planlagt"));
     els.projectPlannedStart.value = project?.planned_start_date || "";
     els.projectPlannedEnd.value = project?.planned_end_date || "";
     if (els.projectHasMultiplePeriods) {
       els.projectHasMultiplePeriods.checked = Boolean(project?.has_multiple_periods);
     }
+    if (els.projectWorkshopEnabled) {
+      els.projectWorkshopEnabled.checked = project?.workshop_enabled !== false;
+    }
+    const workshopDraft = getDefaultWorkshopDraftFromFieldStart(project?.planned_start_date || "");
+    if (els.projectWorkshopStart) els.projectWorkshopStart.value = project?.workshop_start_date || workshopDraft.start || "";
+    if (els.projectWorkshopEnd) els.projectWorkshopEnd.value = project?.workshop_end_date || workshopDraft.end || "";
+    if (els.projectWorkshopHeadcount) els.projectWorkshopHeadcount.value = project?.workshop_headcount_required ?? 2;
+    setWorkshopModalEnabled(project?.workshop_enabled !== false, false);
     state.projectModalPeriods = normalizeProjectPeriods(project?.project_periods_json || []);
     els.projectLocation.value = project?.location || "";
     els.projectHeadcount.value = project?.headcount_required ?? "";
@@ -3056,18 +3806,42 @@ async function deleteEditedEntry() {
   async function saveProjectFromModal() {
     if (!canEditApp()) return;
     const name = els.projectName.value.trim();
-    const category = els.projectCategory.value;
-    const status = els.projectStatus.value;
+    const category = "Offshore";
+    const status = normalizeProjectStatus(els.projectStatus.value);
     const singlePlannedStart = els.projectPlannedStart.value;
     const singlePlannedEnd = els.projectPlannedEnd.value;
     const hasMultiplePeriods = Boolean(els.projectHasMultiplePeriods?.checked);
     const location = els.projectLocation.value.trim();
     const headcountRequired = Number(els.projectHeadcount.value || 0);
+    const workshopEnabled = els.projectWorkshopEnabled ? Boolean(els.projectWorkshopEnabled.checked) : true;
+    const workshopStartDate = els.projectWorkshopStart?.value || "";
+    const workshopEndDate = els.projectWorkshopEnd?.value || "";
+    const workshopHeadcountRequired = workshopEnabled ? Number(els.projectWorkshopHeadcount?.value || 0) : 0;
     const notes = els.projectNotes.value.trim();
 
     if (!name) {
       alert("Legg inn prosjektnavn.");
       return;
+    }
+
+    if (headcountRequired < 0) {
+      alert("Ressursbehov i felt kan ikke være negativt.");
+      return;
+    }
+
+    if (workshopEnabled) {
+      if (!workshopStartDate || !workshopEndDate) {
+        alert("Legg inn start/slutt for workshopfasen, eller deaktiver workshopfasen.");
+        return;
+      }
+      if (workshopStartDate > workshopEndDate) {
+        alert("Workshop start kan ikke være etter workshop slutt.");
+        return;
+      }
+      if (workshopHeadcountRequired < 0) {
+        alert("Workshop ressursbehov kan ikke være negativt.");
+        return;
+      }
     }
 
     let plannedStart = singlePlannedStart;
@@ -3097,6 +3871,18 @@ async function deleteEditedEntry() {
     }
 
     let project = state.projects.find(p => p.id === state.selectedProjectId);
+    const isExistingProject = Boolean(project);
+    const willCancelProject = status === "Kansellert";
+    const entriesToRemoveOnCancel = project
+      ? state.entries.filter(entry => entry.project_id === project.id)
+      : [];
+
+    if (willCancelProject && entriesToRemoveOnCancel.length) {
+      const confirmed = confirm(
+        `Prosjektet settes til Kansellert. Dette fjerner ${entriesToRemoveOnCancel.length} tildeling${entriesToRemoveOnCancel.length === 1 ? "" : "er"} fra ansattplanen. Prosjektet blir fortsatt liggende i prosjektplanen. Fortsette?`
+      );
+      if (!confirmed) return;
+    }
 
     if (project) {
       project.name = name;
@@ -3108,6 +3894,10 @@ async function deleteEditedEntry() {
       project.project_periods_json = hasMultiplePeriods ? projectPeriods : [];
       project.location = location;
       project.headcount_required = headcountRequired;
+      project.workshop_enabled = workshopEnabled;
+      project.workshop_start_date = workshopEnabled ? (workshopStartDate || null) : null;
+      project.workshop_end_date = workshopEnabled ? (workshopEndDate || null) : null;
+      project.workshop_headcount_required = workshopEnabled ? workshopHeadcountRequired : 0;
       project.notes = notes;
     } else {
       project = {
@@ -3121,6 +3911,10 @@ async function deleteEditedEntry() {
         project_periods_json: hasMultiplePeriods ? projectPeriods : [],
         location,
         headcount_required: headcountRequired,
+        workshop_enabled: workshopEnabled,
+        workshop_start_date: workshopEnabled ? (workshopStartDate || null) : null,
+        workshop_end_date: workshopEnabled ? (workshopEndDate || null) : null,
+        workshop_headcount_required: workshopEnabled ? workshopHeadcountRequired : 0,
         notes
       };
       state.projects.push(project);
@@ -3133,9 +3927,32 @@ async function deleteEditedEntry() {
     const result = await saveRow("planner_projects", project);
     if (!result.ok) return;
 
+    if (willCancelProject && entriesToRemoveOnCancel.length) {
+      const removedEntryIds = new Set(entriesToRemoveOnCancel.map(entry => entry.id));
+      state.entries = state.entries.filter(entry => !removedEntryIds.has(entry.id));
+      rebuildDerivedState();
+      saveAllLocal();
+
+      let failedDeletes = 0;
+      for (const entry of entriesToRemoveOnCancel) {
+        const deleteResult = await deleteRow("planner_entries", entry.id);
+        if (!deleteResult.ok) failedDeletes += 1;
+      }
+
+      if (failedDeletes) {
+        alert(`Prosjektet ble kansellert, men ${failedDeletes} tildeling${failedDeletes === 1 ? "" : "er"} kunne ikke slettes fra Supabase. Oppdater siden og kontroller ansattplanen.`);
+      }
+
+      void addAudit(`Kansellerte prosjekt og fjernet ${entriesToRemoveOnCancel.length} tildeling${entriesToRemoveOnCancel.length === 1 ? "" : "er"}: ${name}`);
+    }
+
     closeProjectModal();
+    if (!isExistingProject && state.calendarMode === "project") {
+      state.focusProjectId = project.id;
+      state.calendarPanelOpen = true;
+    }
     renderAll();
-    void addAudit(`${state.selectedProjectId ? "Redigerte" : "Opprettet"} prosjekt: ${name}`);
+    void addAudit(`${isExistingProject ? "Redigerte" : "Opprettet"} prosjekt: ${name}`);
   }
 
   async function deleteProjectFromModal() {
@@ -3178,7 +3995,7 @@ async function deleteEditedEntry() {
     els.employeeEmail.value = employee?.email || "";
     els.employeePhone.value = employee?.phone || "";
     els.employeeTitle.value = employee?.title || "";
-    fillSelect(els.employeeGroup, EMPLOYEE_GROUP_OPTIONS.map(value => ({ id: value, name: value || "Ingen gruppe valgt" })), normalizeEmployeeGroup(employee?.employee_group || ""), "name", "id");
+    fillSelect(els.employeeGroup, EMPLOYEE_GROUP_OPTIONS.map(value => ({ id: value, name: value ? getEmployeeGroupLabel(value) : "Ingen gruppe valgt" })), normalizeEmployeeGroup(employee?.employee_group || ""), "name", "id");
     els.employeeActive.checked = employee?.active ?? true;
     els.deleteEmployeeBtn.style.display = employee ? "inline-flex" : "none";
 
@@ -3369,6 +4186,7 @@ async function deleteEditedEntry() {
   function renderAll() {
     populateDynamicSelects();
     renderStats();
+    renderHomeDashboard();
     renderLegend();
     renderCalendarPanel();
     renderProjects();
@@ -3399,13 +4217,17 @@ async function deleteEditedEntry() {
     };
 
     fillSelect(els.employeeFilter, employeeFilterItems, state.employeeFilter, "name", "id");
+    if (els.projectFilterControl) {
+      fillSelect(els.projectFilterControl, getProjectFilterOptions(), state.projectFilterCategory || "all", "name", "id");
+    }
+    updateCalendarSearchControls();
     renderEmployeeGroupFilterControl();
     fillSelect(els.editEmployee, state.employees.filter(e => e.active !== false), null, "name", "name");
     fillSelect(els.assignProject, [{ id: "", name: "Velg prosjekt" }, ...visibleProjects.map(p => ({ id: p.id, name: p.name }))], assignFormState.projectId, "name", "id");
     fillSelect(els.editProject, state.projects, null, "name", "id");
     fillSelect(els.personalBlockEmployee, [{ id: "", name: "Velg ansatt" }, ...state.employees.filter(e => e.active !== false).map(e => ({ id: e.name, name: e.name }))], els.personalBlockEmployee?.value || "", "name", "id");
-    fillSelect(els.personalBlockType, PERSONAL_BLOCK_TYPES, els.personalBlockType?.value || PERSONAL_BLOCK_TYPES[0] || "");
-    fillSelect(els.contextMenuType, PERSONAL_BLOCK_TYPES, els.contextMenuType?.value || "Ferie");
+    fillSelect(els.personalBlockType, getPersonalBlockTypeOptions(), els.personalBlockType?.value || getPersonalBlockTypeOptions()[0] || "");
+    fillSelect(els.contextMenuType, getPersonalBlockTypeOptions(), els.contextMenuType?.value || "Ferie");
     fillSelect(els.viewMode, ["Uke", "Måned", "År"], state.viewMode);
     fillSelect(els.calendarMode, [
       { id: "personal", name: "Personalplan" },
@@ -3426,56 +4248,383 @@ async function deleteEditedEntry() {
     }
   }
 
+  function getUnstaffedProjectsForCurrentCalendarRange() {
+    const range = getCurrentRange();
+    return getVisibleProjects()
+      .filter(project => projectNeedsStaffing(project))
+      .filter(project => projectOverlapsRange(project, range.start, range.end));
+  }
+
   function renderStats() {
     const visibleProjects = getVisibleProjects();
-    const unstaffedProjects = visibleProjects.filter(project => projectNeedsStaffing(project));
+    const unstaffedProjects = getUnstaffedProjectsForCurrentCalendarRange();
 
-    const cards = [
-      {
-        label: "Prosjekter",
-        value: visibleProjects.length,
-        filter: "all",
-        helper: "Vis alle prosjekter"
-      },
-      {
-        label: "Prosjekter uten bemanning",
-        value: unstaffedProjects.length,
-        filter: "unstaffed",
-        helper: "Vis prosjekter som må bemannes"
+    if (els.statsRow) {
+      els.statsRow.innerHTML = "";
+    }
+
+    updateProjectQuickControls(visibleProjects.length, unstaffedProjects.length);
+  }
+
+  function makeLocalDateISO(date) {
+    const d = new Date(date);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+  }
+
+  function renderHomeDashboard() {
+    if (!els.homeDashboard) return;
+
+    const canPlan = canPlanApp();
+    if (!canPlan) {
+      els.homeDashboard.innerHTML = "";
+      return;
+    }
+
+    const GROUPS = [
+      { value: "Offshore arbeider", label: "Offshore", color: "#2dd4bf" },
+      { value: "Onshore arbeider", label: "Onshore", color: "#60a5fa" },
+      { value: "Engineering", label: "Engineering", color: "#fb923c" },
+      { value: "3 parts innleie", label: "3 parts innleie", color: "#c084fc" }
+    ];
+    const UNAVAILABLE_TYPES = ["Ferie", "Syk", "Avspasering", "Kurs", "Travel"];
+    const activeEmployees = (state.employees || []).filter(employee => employee && employee.active !== false);
+    const activeProjects = (state.projects || []).filter(project => project && !isSystemPersonalProject(project) && !isCancelledProject(project) && normalizeProjectStatus(project.status) !== "Fullført");
+    const activeProjectIds = new Set(activeProjects.map(project => project.id));
+    const getEntryEmployee = (entry) => entry?.employee_name || entry?.employeeName || "";
+    const getEntryProject = (entry) => entry?.project_id || entry?.projectId || "";
+    const getEntryStart = (entry) => entry?.start_date || entry?.start || "";
+    const getEntryEnd = (entry) => entry?.end_date || entry?.end || "";
+    const addDays = (date, days) => { const d = new Date(date); d.setDate(d.getDate() + days); return d; };
+    const dayKey = (date) => makeLocalDateISO(date);
+    const overlaps = (entry, startKey, endKey) => entry && getEntryStart(entry) <= endKey && getEntryEnd(entry) >= startKey;
+    const getProject = (entry) => getProjectById(getEntryProject(entry));
+    const isRealProject = (entry) => activeProjectIds.has(getProject(entry)?.id || "");
+    const isUnavailable = (entry) => {
+      const project = getProject(entry);
+      return !!project && isSystemPersonalProject(project) && UNAVAILABLE_TYPES.includes(project.category);
+    };
+
+    function entriesForRange(startDate, endDate) {
+      const startKey = dayKey(startDate);
+      const endKey = dayKey(endDate);
+      return (state.entries || []).filter(entry => overlaps(entry, startKey, endKey));
+    }
+
+    function daysBetween(startDate, endDate) {
+      const days = [];
+      const d = new Date(startDate);
+      d.setHours(0,0,0,0);
+      const end = new Date(endDate);
+      end.setHours(0,0,0,0);
+      while (d <= end) {
+        days.push(new Date(d));
+        d.setDate(d.getDate() + 1);
       }
+      return days;
+    }
+
+    function groupMetrics(group, startDate, endDate) {
+      const employees = activeEmployees.filter(employee => normalizeEmployeeGroup(employee.employee_group || "") === group.value);
+      const names = new Set(employees.map(employee => employee.name));
+      const entries = entriesForRange(startDate, endDate);
+      const onProjectNames = new Set();
+      const unavailableNames = new Set();
+      let projectDays = 0;
+      let capacityDays = 0;
+
+      entries.forEach(entry => {
+        const name = getEntryEmployee(entry);
+        if (!name || !names.has(name)) return;
+        if (isRealProject(entry)) onProjectNames.add(name);
+        if (isUnavailable(entry)) unavailableNames.add(name);
+      });
+
+      daysBetween(startDate, endDate).forEach(day => {
+        const key = dayKey(day);
+        employees.forEach(employee => {
+          const employeeEntries = entries.filter(entry => getEntryEmployee(entry) === employee.name && getEntryStart(entry) <= key && getEntryEnd(entry) >= key);
+          const unavailable = employeeEntries.some(isUnavailable);
+          const project = employeeEntries.some(isRealProject);
+          if (unavailable) return;
+          capacityDays += 1;
+          if (project) projectDays += 1;
+        });
+      });
+
+      const utilization = capacityDays ? Math.round((projectDays / capacityDays) * 100) : 0;
+      return { ...group, total: employees.length, onProject: onProjectNames.size, unavailable: unavailableNames.size, available: Math.max(employees.length - onProjectNames.size - unavailableNames.size, 0), utilization, projectDays, capacityDays };
+    }
+
+    function dailyGroupMetric(group, date) {
+      const employees = activeEmployees.filter(employee => normalizeEmployeeGroup(employee.employee_group || "") === group.value);
+      const key = dayKey(date);
+      const entries = entriesForRange(date, date);
+      let unavailable = 0;
+      let onProject = 0;
+      employees.forEach(employee => {
+        const employeeEntries = entries.filter(entry => getEntryEmployee(entry) === employee.name && getEntryStart(entry) <= key && getEntryEnd(entry) >= key);
+        if (employeeEntries.some(isUnavailable)) unavailable += 1;
+        else if (employeeEntries.some(isRealProject)) onProject += 1;
+      });
+      return { total: employees.length, unavailable, onProject, available: Math.max(employees.length - unavailable - onProject, 0) };
+    }
+
+    const today = new Date();
+    const analysisStart = new Date(today);
+    analysisStart.setHours(0, 0, 0, 0);
+    const analysisEnd = addDays(analysisStart, 14);
+    const metrics = GROUPS.map(group => groupMetrics(group, analysisStart, analysisEnd));
+    const totalProjectPeople = metrics.reduce((sum, row) => sum + row.onProject, 0);
+    const totalCapacityDays = metrics.reduce((sum, row) => sum + row.capacityDays, 0);
+    const totalProjectDays = metrics.reduce((sum, row) => sum + row.projectDays, 0);
+    const totalAvailable = metrics.reduce((sum, row) => sum + row.available, 0);
+    const totalUnavailable = metrics.reduce((sum, row) => sum + row.unavailable, 0);
+    const overallUtilization = totalCapacityDays ? Math.round((totalProjectDays / totalCapacityDays) * 100) : 0;
+
+    const allProjects = (state.projects || []).filter(project => project && !isSystemPersonalProject(project));
+    const projectTotals = allProjects.reduce((acc, project) => {
+      const status = normalizeProjectStatus(project.status);
+      if (isCancelledProject(project)) acc.cancelled += 1;
+      else if (status === "Fullført") acc.completed += 1;
+      else acc.remaining += 1;
+      acc.total += 1;
+      return acc;
+    }, { total: 0, completed: 0, remaining: 0, cancelled: 0 });
+    const unstaffedCount = getUnstaffedProjectsForCurrentCalendarRange().length;
+    const completedPct = projectTotals.total ? Math.round((projectTotals.completed / projectTotals.total) * 100) : 0;
+
+    const actionIcon = (key) => {
+      const attrs = 'viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"';
+      const icons = {
+        sun: `<svg ${attrs}><path d="M12 4V2"/><path d="M12 22v-2"/><path d="m17.7 6.3 1.4-1.4"/><path d="m4.9 19.1 1.4-1.4"/><path d="M20 12h2"/><path d="M2 12h2"/><circle cx="12" cy="12" r="4"/></svg>`,
+        calendar: `<svg ${attrs}><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/><path d="M9 16h6"/></svg>`,
+        project: `<svg ${attrs}><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M3 12h18"/></svg>`,
+        warning: `<svg ${attrs}><path d="M10.3 4.9 2.9 18a1.2 1.2 0 0 0 1.1 1.8h16a1.2 1.2 0 0 0 1.1-1.8L13.7 4.9a1 1 0 0 0-1.7 0Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>`,
+        gear: `<svg ${attrs}><path d="M12 15.2a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4Z"/><path d="M19.4 15a1.8 1.8 0 0 0 .36 2l.06.06a2.1 2.1 0 0 1-3 3l-.06-.06a1.8 1.8 0 0 0-2-.36 1.8 1.8 0 0 0-1 1.64V21.4a2.1 2.1 0 0 1-4.2 0v-.1a1.8 1.8 0 0 0-1-1.64 1.8 1.8 0 0 0-2 .36l-.06.06a2.1 2.1 0 0 1-3-3l.06-.06a1.8 1.8 0 0 0 .36-2 1.8 1.8 0 0 0-1.64-1H2.6a2.1 2.1 0 0 1 0-4.2h.1a1.8 1.8 0 0 0 1.64-1 1.8 1.8 0 0 0-.36-2l-.06-.06a2.1 2.1 0 0 1 3-3l.06.06a1.8 1.8 0 0 0 2 .36 1.8 1.8 0 0 0 1-1.64V2.6a2.1 2.1 0 0 1 4.2 0v.1a1.8 1.8 0 0 0 1 1.64 1.8 1.8 0 0 0 2-.36l.06-.06a2.1 2.1 0 0 1 3 3l-.06.06a1.8 1.8 0 0 0-.36 2 1.8 1.8 0 0 0 1.64 1h.1a2.1 2.1 0 0 1 0 4.2h-.1a1.8 1.8 0 0 0-1.64 1Z"/></svg>`,
+        people: `<svg ${attrs}><path d="M16 20v-1.4a3.6 3.6 0 0 0-3.6-3.6H7.6A3.6 3.6 0 0 0 4 18.6V20"/><circle cx="10" cy="7" r="3"/><path d="M20 20v-1.2a3.2 3.2 0 0 0-2.4-3.1"/></svg>`,
+        check: `<svg ${attrs}><circle cx="12" cy="12" r="9"/><path d="m8 12 2.5 2.5L16 9"/></svg>`,
+        bag: `<svg ${attrs}><rect x="5" y="7" width="14" height="13" rx="2"/><path d="M9 7V5a3 3 0 0 1 6 0v2"/></svg>`
+      };
+      return icons[key] || icons.calendar;
+    };
+
+    const shortcuts = [
+      { key: "calendar", title: "Ansattplan", text: "Planlegg bemanning og kapasitet.", action: "personal" },
+      { key: "project", title: "Prosjektplan", text: "Planlegg prosjekter og tildel oppdrag.", action: "project" },
+      { key: "warning", title: "Uten bemanning", text: "Se prosjekter som mangler bemanning.", action: "unstaffed" },
+      { key: "gear", title: "Prosjektadmin", text: "Administrer prosjekter, faser og oppdrag.", action: "projects" },
+      { key: "people", title: "Ansattadmin", text: "Legg til og oppdater ansatte og kompetanse.", action: "employees" }
     ];
 
-    els.statsRow.innerHTML = cards.map(card => `
-      <button
-        type="button"
-        data-stats-project-filter="${escapeHtml(card.filter)}"
-        class="w-full rounded-2xl bg-white border border-slate-200 shadow-sm p-4 text-left hover:bg-slate-50 transition"
-      >
-        <div class="text-sm text-slate-500">${escapeHtml(card.label)}</div>
-        <div class="text-3xl font-bold mt-2">${escapeHtml(String(card.value))}</div>
-        <div class="text-xs text-slate-500 mt-2">${escapeHtml(card.helper)}</div>
+    const displayName = String(getAccountDisplayName() || state.currentUser || "Planlegger").trim();
+    const firstName = displayName && displayName !== "Ikke innlogget" ? displayName.split(/\s+/)[0] : "Planlegger";
+
+    const shortcutHtml = shortcuts.map(card => `
+      <button type="button" data-home-action="${card.action}" class="dash27-white-card dash27-shortcut text-left">
+        <div class="flex items-start justify-between gap-4"><span class="dash27-iconbox">${actionIcon(card.key)}</span><span class="text-2xl text-slate-500">→</span></div>
+        <div class="mt-4 text-[17px] font-extrabold text-slate-950">${escapeHtml(card.title)}</div>
+        <div class="mt-2 text-sm leading-6 text-slate-600">${escapeHtml(card.text)}</div>
       </button>
     `).join("");
 
-    els.statsRow.querySelectorAll("[data-stats-project-filter]").forEach(btn => {
-      btn.addEventListener("click", () => {
-        openProjectListView(btn.dataset.statsProjectFilter || "all");
+    const kpiCards = [
+      { label: "På prosjekt", value: totalProjectPeople, icon: "people", color: "#2dd4bf", text: `${overallUtilization}% neste 14 dager`, action: "dash-on-project", actionText: "Vis disse" },
+      { label: "Tilgjengelige", value: totalAvailable, icon: "check", color: "#86efac", text: "ikke brukt i perioden", action: "dash-available", actionText: "Vis disse" },
+      { label: "Borte / fravær", value: totalUnavailable, icon: "bag", color: "#fb923c", text: "ferie, syk, kurs, travel", action: "dash-away", actionText: "Vis disse" },
+      { label: "Uten bemanning", value: unstaffedCount, icon: "warning", color: "#fb7185", text: `${unstaffedCount} prosjekter berørt`, action: "unstaffed", actionText: "Se prosjekter" }
+    ].map(card => `
+      <button type="button" data-home-action="${card.action}" class="dash27-kpi text-left w-full">
+        <span class="dash27-kpi-icon" style="color:${card.color}">${actionIcon(card.icon)}</span>
+        <div>
+          <div class="text-xs uppercase font-black tracking-[.16em]" style="color:${card.color}">${escapeHtml(card.label)}</div>
+          <div class="mt-1 text-4xl font-black text-white">${card.value}</div>
+          <div class="mt-1 text-sm dash27-muted">${escapeHtml(card.text)}</div>
+          <div class="dash27-kpi-action">${escapeHtml(card.actionText)} <span>→</span></div>
+        </div>
+        <div class="text-right"><div class="text-green-300 font-black">↑</div><div class="text-xs dash27-muted">periode</div></div>
+      </button>
+    `).join("");
+
+    const weekDays = Array.from({ length: 5 }, (_, i) => addDays(today, i + 1));
+    const capacityDays = Array.from({ length: 14 }, (_, i) => addDays(today, i));
+
+    const GROUP_THRESHOLDS = {
+      "Offshore arbeider": { critical: 2, low: 4, note: "Lav ≤4 · Kritisk ≤2" },
+      "Onshore arbeider": { critical: 2, low: 4, note: "Lav ≤4 · Kritisk ≤2" },
+      "Engineering": { critical: 0, low: 1, note: "Lav 1 · Kritisk 0" },
+      "3 parts innleie": { critical: 0, low: 2, note: "Lav ≤2 · Kritisk 0" }
+    };
+
+    const getThreshold = (group) => GROUP_THRESHOLDS[group.value] || { critical: 1, low: 3, note: "Lav terskel" };
+    const heatLevel = (group, metric) => {
+      const threshold = getThreshold(group);
+      if (!metric.total) return "ok";
+      if (metric.available <= threshold.critical) return "critical";
+      if (metric.available <= threshold.low) return "low";
+      return "ok";
+    };
+    const heatClass = (level) => level === "critical" ? "dash27-heat-critical" : level === "low" ? "dash27-heat-low" : "dash27-heat-ok";
+    const heatLabel = (level) => level === "critical" ? "Kritisk" : level === "low" ? "Lav" : "OK";
+
+    let lowSituations = 0;
+    const lowSituationRows = [];
+    const heatmapHtml = `
+      <div class="grid grid-cols-[116px_repeat(5,1fr)] gap-2 items-center">
+        <div></div>
+        ${weekDays.map(day => `<div class="text-center text-xs font-bold dash27-muted">${escapeHtml(day.toLocaleDateString("no-NO", { weekday: "short" }).replace(".", ""))}<br><span class="text-[11px]">${escapeHtml(day.toLocaleDateString("no-NO", { day: "numeric", month: "numeric" }))}</span></div>`).join("")}
+        ${GROUPS.map(group => `
+          <div>
+            <div class="text-sm font-bold text-white">${escapeHtml(group.label)}</div>
+            <div class="dash27-threshold-note">${escapeHtml(getThreshold(group).note)}</div>
+          </div>
+          ${weekDays.map(day => {
+            const m = dailyGroupMetric(group, day);
+            const level = heatLevel(group, m);
+            if (level !== "ok") {
+              lowSituations += 1;
+              if (lowSituationRows.length < 4) {
+                lowSituationRows.push({ group: group.label, day, metric: m, level });
+              }
+            }
+            return `<div class="dash27-heatcell ${heatClass(level)}" title="${escapeHtml(group.label)} ${escapeHtml(day.toLocaleDateString("no-NO"))}: ledig ${m.available}, prosjekt ${m.onProject}, borte ${m.unavailable}">${m.available}<span class="block text-[10px] font-medium">${heatLabel(level)}</span></div>`;
+          }).join("")}
+        `).join("")}
+      </div>
+    `;
+
+    const capacityOverviewHtml = `
+      <div class="dash27-capacity-scroll">
+        <div class="dash27-capacity-table">
+          <div></div>
+          ${capacityDays.map(day => `<div class="dash27-capacity-head">${escapeHtml(day.toLocaleDateString("no-NO", { weekday: "short" }).replace(".", ""))}<br>${escapeHtml(day.toLocaleDateString("no-NO", { day: "numeric", month: "numeric" }))}</div>`).join("")}
+          ${GROUPS.map(group => `
+            <div class="dash27-capacity-group">
+              <div class="flex items-center gap-2">
+                <span class="inline-flex h-2.5 w-2.5 rounded-full" style="background:${group.color}"></span>
+                <strong>${escapeHtml(group.label)}</strong>
+              </div>
+              <div class="dash27-threshold-note">${escapeHtml(getThreshold(group).note)}</div>
+            </div>
+            ${capacityDays.map(day => {
+              const metric = dailyGroupMetric(group, day);
+              const level = heatLevel(group, metric);
+              return `<div class="dash27-capacity-cell ${heatClass(level)}" title="${escapeHtml(group.label)} ${escapeHtml(day.toLocaleDateString("no-NO"))}: ledig ${metric.available}, på prosjekt ${metric.onProject}, borte ${metric.unavailable}">
+                <strong>${metric.available}</strong>
+                <span>P:${metric.onProject} · B:${metric.unavailable}</span>
+              </div>`;
+            }).join("")}
+          `).join("")}
+        </div>
+      </div>
+    `;
+
+    const lowSituationSummaryHtml = lowSituationRows.length
+      ? `<div class="dash27-why-low">${lowSituationRows.map(item => `<div class="dash27-alert-line"><strong>${escapeHtml(item.group)}</strong> · ${escapeHtml(item.day.toLocaleDateString("no-NO", { weekday: "short", day: "numeric", month: "numeric" }))}: ${item.metric.available} ledig · ${item.metric.onProject} på prosjekt · ${item.metric.unavailable} borte</div>`).join("")}</div>`
+      : `<div class="dash27-why-low"><div class="dash27-alert-line">Ingen lave kapasitetsdager i denne ukevisningen.</div></div>`;
+
+    let deg = 0;
+    const segments = metrics.map(row => {
+      const slice = totalProjectPeople ? (row.onProject / totalProjectPeople) * 360 : 0;
+      const start = deg;
+      const end = deg + slice;
+      deg = end;
+      return `${row.color} ${start.toFixed(2)}deg ${end.toFixed(2)}deg`;
+    });
+    const donutBg = totalProjectPeople ? `conic-gradient(${segments.join(", ")})` : "#334155";
+    const distLegend = metrics.map(row => {
+      const pct = totalProjectPeople ? Math.round((row.onProject / totalProjectPeople) * 100) : 0;
+      return `<div class="flex items-center justify-between gap-3 py-2"><div class="flex items-center gap-2"><span class="inline-flex h-3 w-3 rounded-sm" style="background:${row.color}"></span><span class="text-sm">${escapeHtml(row.label)}</span></div><div class="text-right text-sm"><strong>${row.onProject}</strong><span class="dash27-muted ml-3">${pct}%</span></div></div>`;
+    }).join("");
+    const maxTotal = Math.max(...metrics.map(row => row.total), 1);
+    const employeesBars = metrics.map(row => `<div class="dash27-list-row grid grid-cols-[150px_1fr_52px_64px] gap-3 items-center py-2 px-2"><div class="flex items-center gap-2 text-sm"><span class="inline-flex h-7 w-7 items-center justify-center rounded-full border border-white/15" style="color:${row.color}">${getEmployeeGroupIconHtml(row.value, "inline-flex h-4 w-4")}</span><span>${escapeHtml(row.label)}</span></div><div class="dash27-progress"><span style="width:${Math.round((row.total / maxTotal) * 100)}%; background:${row.color};"></span></div><div class="text-right font-bold">${row.total}</div><div class="text-right"><span class="dash27-chip">↑ ${row.onProject}</span></div></div>`).join("");
+    const projectRows = [
+      ["Totalt", projectTotals.total, "#e2e8f0"],
+      ["Avsluttet", projectTotals.completed, "#86efac"],
+      ["Gjennomføring", projectTotals.remaining, "#60a5fa"],
+      ["Uten bemanning", unstaffedCount, "#fb7185"],
+      ["Kansellert", projectTotals.cancelled, "#cbd5e1"]
+    ].map(row => `<div class="dash27-list-row flex items-center justify-between gap-3 py-3 px-2"><div class="flex items-center gap-2"><span class="inline-flex h-5 w-5 rounded-full border" style="border-color:${row[2]}; background:${row[2]}22"></span><span class="${row[0] === "Uten bemanning" ? "text-red-300 font-bold" : ""}">${escapeHtml(row[0])}</span></div><strong class="text-xl">${row[1]}</strong></div>`).join("");
+
+    els.homeDashboard.innerHTML = `
+      <div class="dash27-shell space-y-4">
+        <div><h2 class="dash27-title">Oppstart</h2><p class="dash27-subtitle">Operativ oversikt for dagens dato og de neste 14 dagene.</p></div>
+        <div class="grid grid-cols-1 xl:grid-cols-[320px_1fr] gap-4">
+          <div class="dash27-panel p-5 flex items-center gap-4"><span class="inline-flex h-16 w-16 items-center justify-center rounded-full bg-cyan-400/10 text-cyan-300 border border-cyan-300/20 shrink-0">${actionIcon("sun")}</span><div><div class="text-xl font-extrabold">God morgen, ${escapeHtml(firstName)}!</div><div class="mt-2 text-sm dash27-muted">Her er hvem som er opptatt og tilgjengelig de neste 14 dagene.</div><div class="mt-3 text-xs dash27-muted">Oppdatert ${escapeHtml(today.toLocaleDateString("no-NO"))}</div></div></div>
+          <div class="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-5 gap-3">${shortcutHtml}</div>
+        </div>
+        <div class="dash27-panel overflow-hidden"><div class="px-5 pt-4 text-xl font-extrabold">Operativ status – neste 14 dager</div><div class="grid grid-cols-1 lg:grid-cols-4">${kpiCards}</div></div>
+        <div class="grid grid-cols-1 2xl:grid-cols-[1.25fr_.75fr] gap-4">
+          <div class="dash27-panel p-5"><div class="flex items-center justify-between gap-3 mb-4"><div class="dash27-card-title">Kapasitet dag for dag – neste 14 dager <span class="dash27-info">i</span></div><div class="text-sm dash27-muted">Ledig kapasitet · P = prosjekt · B = borte</div></div>${capacityOverviewHtml}<div class="mt-3 text-xs dash27-muted">Viser antall ledige per gruppe per dag. Farge følger egne terskler per gruppe, slik at Engineering ikke vurderes likt som Offshore/Onshore.</div></div>
+          <div class="dash27-panel p-5"><div class="flex items-center justify-between gap-3 mb-4"><div class="dash27-card-title">Lav kapasitet – neste uke <span class="dash27-info">i</span></div><button type="button" data-home-action="project" class="text-cyan-300 text-sm font-bold">Se detaljer →</button></div>${heatmapHtml}<div class="mt-4 pt-4 border-t border-white/10 text-sm"><span class="text-orange-300 font-bold">⚠</span> Totalt ${lowSituations} lav-kapasitetssituasjoner i kommende uke</div>${lowSituationSummaryHtml}</div>
+        </div>
+        <div class="grid grid-cols-1 xl:grid-cols-3 gap-4">
+          <div class="dash27-panel p-5"><div class="dash27-card-title mb-4">Prosjektfordeling pr gruppe <span class="dash27-info">i</span></div><div class="grid grid-cols-1 md:grid-cols-[190px_1fr] gap-5 items-center"><div class="dash27-donut mx-auto" style="background:${donutBg}"><div class="dash27-donut-inner"><div class="text-sm dash27-muted">Totalt</div><div class="text-4xl font-black">${totalProjectPeople}</div><div class="text-xs dash27-muted">personer</div></div></div><div>${distLegend}</div></div></div>
+          <div class="dash27-panel p-5"><div class="dash27-card-title mb-4">Ansatte pr gruppe <span class="dash27-info">i</span></div><div class="grid grid-cols-[150px_1fr_52px_48px] gap-3 pb-2 text-xs uppercase tracking-wider dash27-muted"><div>Gruppe</div><div></div><div class="text-right">Antall</div><div class="text-right">Endr.</div></div>${employeesBars}<div class="flex items-center justify-between pt-4 font-black"><span>Totalt</span><span>${metrics.reduce((sum, row) => sum + row.total, 0)}</span></div></div>
+          <div class="dash27-panel p-5 grid grid-cols-1 md:grid-cols-[1fr_150px] gap-4 items-center"><div><div class="dash27-card-title mb-4">Prosjektoversikt <span class="dash27-info">i</span></div>${projectRows}</div><div class="dash27-donut mx-auto" style="width:140px;height:140px;background:conic-gradient(#2dd4bf 0 ${completedPct}%, rgba(148,163,184,.38) ${completedPct}% 100%)"><div class="dash27-donut-inner"><div class="text-4xl font-black">${completedPct}%</div><div class="text-[11px] font-bold tracking-wider">AVSLUTTET</div><div class="text-xs dash27-muted">${projectTotals.completed} prosjekter</div></div></div></div>
+        </div>
+      </div>
+    `;
+
+    els.homeDashboard.querySelectorAll("[data-home-action]").forEach(button => {
+      button.addEventListener("click", () => {
+        const action = button.getAttribute("data-home-action");
+        if (action === "dash-on-project") return openDashboardEmployeeFilter("on_project", "På prosjekt");
+        if (action === "dash-available") return openDashboardEmployeeFilter("available", "Tilgjengelige");
+        if (action === "dash-away") return openDashboardEmployeeFilter("away", "Borte / fravær");
+        if (action === "personal") return openPersonalCalendarView();
+        if (action === "project") return openProjectCalendarView("all");
+        if (action === "unstaffed") return openProjectCalendarView("unstaffed");
+        if (action === "projects") return setActiveTab("projects");
+        if (action === "employees") return setActiveTab("employees");
       });
     });
   }
 
 
+  function updateProjectQuickControls(projectCount = null, unstaffedCount = null) {
+    const totalProjects = projectCount ?? getVisibleProjects().length;
+    const missingStaffCount = unstaffedCount ?? getUnstaffedProjectsForCurrentCalendarRange().length;
+
+    if (els.personalPlanQuickBtn) {
+      const active = state.calendarMode === "personal";
+      els.personalPlanQuickBtn.classList.toggle("is-active", active);
+      els.personalPlanQuickBtn.textContent = "Ansattplan";
+      els.personalPlanQuickBtn.title = "Vis ansattplan i kalenderen";
+    }
+
+    if (els.projectPlanQuickBtn) {
+      const active = state.calendarMode === "project" && state.projectListFilter !== "unstaffed";
+      els.projectPlanQuickBtn.classList.toggle("is-active", active);
+      els.projectPlanQuickBtn.textContent = `Prosjektplan (${totalProjects})`;
+      els.projectPlanQuickBtn.title = "Åpne prosjektplan i kalenderen";
+    }
+
+    if (els.unstaffedProjectsQuickBtn) {
+      const active = state.calendarMode === "project" && state.projectListFilter === "unstaffed";
+      els.unstaffedProjectsQuickBtn.classList.toggle("is-active", active);
+      els.unstaffedProjectsQuickBtn.innerHTML = `Uten bemanning <span class="quick-count">${escapeHtml(String(missingStaffCount))}</span>`;
+      els.unstaffedProjectsQuickBtn.title = "Vis prosjekter som mangler bemanning i prosjektplanen for valgt periode";
+    }
+  }
+
+
   function renderLegend() {
-    const projectCategoryHtml = ["Offshore", "Travel", "Onshore"].map(name => `
+    const projectCategoryHtml = [
+      { name: "Feltoppdrag", color: "bg-red-600" },
+      { name: "Workshop / mobilisering", color: "bg-green-600" }
+    ].map(item => `
       <div class="flex items-center gap-2">
-        <span class="inline-block w-4 h-4 rounded ${CATEGORY_COLORS[name] || "bg-slate-400"}"></span>
-        <span>${escapeHtml(name)}</span>
+        <span class="inline-block w-4 h-4 rounded ${item.color}"></span>
+        <span>${escapeHtml(item.name)}</span>
       </div>
     `).join("");
 
     const personalCategoryHtml = getVisiblePersonalBlockTypes().map(name => `
       <div class="flex items-center gap-2">
-        <span class="inline-block w-4 h-4 rounded ${CATEGORY_COLORS[name] || "bg-slate-400"}"></span>
+        <span class="inline-block w-4 h-4 rounded ${getLegendDotClasses(name)}"></span>
         <span>${escapeHtml(name)}</span>
       </div>
     `).join("");
@@ -3485,6 +4634,16 @@ async function deleteEditedEntry() {
         <span class="inline-block rounded-full border px-2 py-0.5 ${STATUS_COLORS[name]}">${escapeHtml(name)}</span>
       </div>
     `).join("");
+
+    const range = getCurrentRange();
+    const holidayItems = [];
+    for (let year = range.start.getFullYear(); year <= range.end.getFullYear(); year++) {
+      for (const holiday of getHolidayNamesForYear(year)) {
+        if (holiday.date >= range.start && holiday.date <= range.end) {
+          holidayItems.push(`<div class="iz-holiday-row"><span>${escapeHtml(holiday.label)}</span><span>${escapeHtml(formatDate(holiday.date))}</span></div>`);
+        }
+      }
+    }
 
     els.legendList.innerHTML = `
       <div>
@@ -3499,11 +4658,870 @@ async function deleteEditedEntry() {
         <div class="font-medium mb-2">Prosjektstatus</div>
         <div class="space-y-2">${statusHtml}</div>
       </div>
+      <div class="iz-holiday-panel">
+        <div class="iz-holiday-panel-title">Helligdager</div>
+        <div class="space-y-1">${holidayItems.length ? holidayItems.join("") : '<div class="text-slate-400">Ingen helligdager i valgt periode.</div>'}</div>
+      </div>
     `;
+  }
+
+  function selectProjectInCalendar(projectId) {
+    state.focusProjectId = projectId || "";
+    state.calendarPanelOpen = !!projectId;
+    renderCalendarPanel();
+    renderCalendar();
+  }
+
+  function getProjectInspectorPeriods(project) {
+    const periods = getProjectTimelinePeriods(project);
+    if (periods.length) return periods;
+    if (project?.planned_start_date && project?.planned_end_date) {
+      return [{ start: project.planned_start_date, end: project.planned_end_date }];
+    }
+    return [];
+  }
+
+  function getProjectStaffingGroupRank(group) {
+    const normalized = normalizeEmployeeGroup(group || "");
+    if (normalized === "Offshore arbeider") return 1;
+    if (normalized === "3 parts innleie") return 2;
+    if (normalized === "Engineering") return 3;
+    if (normalized === "Onshore arbeider") return 4;
+    return 9;
+  }
+
+  function getProjectStaffingGroupLabel(group) {
+    const normalized = normalizeEmployeeGroup(group || "");
+    if (normalized === "Offshore arbeider") return "Offshore";
+    if (normalized === "3 parts innleie") return "3 Part";
+    if (normalized === "Engineering") return "Engineer";
+    if (normalized === "Onshore arbeider") return "Onshore";
+    return getEmployeeGroupLabel(normalized) || "Annet";
+  }
+
+  function getProjectInspectorAvailability(employee, project) {
+    const periods = getProjectInspectorPeriods(project);
+    if (!periods.length) return { label: "Ukjent", tone: "text-slate-500", rank: 3 };
+
+    let conflictPeriods = 0;
+    for (const period of periods) {
+      const conflicts = (state.derived.entriesByEmployee.get(employee.name) || [])
+        .filter(entry => overlaps(entry.start_date, entry.end_date, period.start, period.end))
+        .filter(entry => entry.project_id !== project.id);
+      if (conflicts.length) conflictPeriods += 1;
+    }
+
+    if (conflictPeriods === 0) return { label: "Ledig", tone: "text-green-700", rank: 1 };
+    if (conflictPeriods < periods.length) return { label: "Delvis ledig", tone: "text-amber-700", rank: 2 };
+    return { label: "Opptatt", tone: "text-red-700", rank: 3 };
+  }
+
+  function getProjectInspectorEmployees(project) {
+    return state.employees
+      .filter(employee => employee.active !== false)
+      .map(employee => ({
+        ...employee,
+        normalizedGroup: normalizeEmployeeGroup(employee.employee_group || ""),
+        availability: getProjectInspectorAvailability(employee, project)
+      }))
+      .sort((a, b) => {
+        const groupDiff = getProjectStaffingGroupRank(a.normalizedGroup) - getProjectStaffingGroupRank(b.normalizedGroup);
+        if (groupDiff !== 0) return groupDiff;
+        const availabilityDiff = a.availability.rank - b.availability.rank;
+        if (availabilityDiff !== 0) return availabilityDiff;
+        return a.name.localeCompare(b.name, "no");
+      });
+  }
+
+  function getEmployeeRoleSearchText(employee) {
+    const employeeAssignments = state.entries.filter(entry => entry.employee_name === employee.name && entry.role);
+    const roles = new Set(employeeAssignments.map(entry => String(entry.role || "").trim()).filter(Boolean));
+    if (employee.title) roles.add(String(employee.title).trim());
+    return Array.from(roles).join(" ");
+  }
+
+  function getProjectInspectorFilterOptions() {
+    return [
+      { id: "all", label: "Alle" },
+      { id: "Offshore arbeider", label: "Offshore" },
+      { id: "Onshore arbeider", label: "Onshore" },
+      { id: "Engineering", label: "Engineering" },
+      { id: "3 parts innleie", label: "3 party" },
+      { id: "Projekt", label: "Projekt" }
+    ];
+  }
+
+  function employeeMatchesProjectInspectorGroup(employee, filterValue) {
+    if (!filterValue || filterValue === "all") return true;
+    const normalizedGroup = normalizeEmployeeGroup(employee.normalizedGroup || employee.employee_group || "");
+    if (filterValue === "Projekt") {
+      const text = [
+        employee.name,
+        employee.title,
+        employee.roleText,
+        getProjectStaffingGroupLabel(normalizedGroup),
+        employee.employee_group
+      ].join(" ").toLowerCase();
+      return text.includes("projekt") || text.includes("project") || text.includes("prosjekt");
+    }
+    return normalizedGroup === filterValue;
+  }
+
+  function getProjectInspectorFilteredEmployees(project, assignedNames) {
+    const search = String(state.projectInspectorSearch || "").trim().toLowerCase();
+    const groupFilter = String(state.projectInspectorGroup || "all");
+
+    return getProjectInspectorEmployees(project)
+      .filter(employee => !assignedNames.has(employee.name))
+      .map(employee => {
+        const roleText = getEmployeeRoleSearchText(employee);
+        return { ...employee, roleText };
+      })
+      .filter(employee => {
+        if (!employeeMatchesProjectInspectorGroup(employee, groupFilter)) return false;
+        if (!search) return true;
+        const haystack = [
+          employee.name,
+          employee.title,
+          employee.roleText,
+          getProjectStaffingGroupLabel(employee.normalizedGroup),
+          employee.availability.label
+        ].join(" ").toLowerCase();
+        return haystack.includes(search);
+      });
+  }
+
+  function getProjectInspectorAvailabilitySummary(project, assignedNames) {
+    const employees = getProjectInspectorEmployees(project).filter(employee => !assignedNames.has(employee.name));
+    return employees.reduce((summary, employee) => {
+      const label = employee.availability.label;
+      if (label === "Ledig") summary.available += 1;
+      else if (label === "Delvis ledig") summary.partial += 1;
+      else summary.busy += 1;
+      return summary;
+    }, { available: 0, partial: 0, busy: 0, assigned: assignedNames.size });
+  }
+
+  function resetProjectInspectorFilters() {
+    state.projectInspectorSearch = "";
+    state.projectInspectorGroup = "all";
+    state.projectInspectorShowAvailable = false;
+    state.projectInspectorAddCandidateName = "";
+    state.projectInspectorAddRole = "";
+    state.projectInspectorAddUseCustomRange = false;
+    state.projectInspectorAddCustomStart = "";
+    state.projectInspectorAddCustomEnd = "";
+  }
+
+  function getProjectInspectorProjectBounds(project) {
+    const periods = getProjectInspectorPeriods(project).filter(period => period.start && period.end);
+    if (periods.length) {
+      const starts = periods.map(period => period.start).sort();
+      const ends = periods.map(period => period.end).sort();
+      return { start: starts[0], end: ends[ends.length - 1] };
+    }
+    if (project?.planned_start_date && project?.planned_end_date) {
+      return { start: project.planned_start_date, end: project.planned_end_date };
+    }
+    return { start: "", end: "" };
+  }
+
+  function getProjectInspectorAddCandidate(project) {
+    const name = String(state.projectInspectorAddCandidateName || "").trim();
+    if (!name) return null;
+    const assignedNames = new Set(state.entries.filter(entry => entry.project_id === project?.id).map(entry => entry.employee_name));
+    if (assignedNames.has(name)) return null;
+    return getProjectInspectorEmployees(project).find(employee => employee.name === name) || null;
+  }
+
+  function getProjectInspectorAddRole(employee) {
+    const current = String(state.projectInspectorAddRole || "").trim();
+    if (current && ROLE_OPTIONS.includes(current)) return current;
+    const title = String(employee?.title || "").trim();
+    const exact = ROLE_OPTIONS.find(role => role.toLowerCase() === title.toLowerCase());
+    return exact || getDefaultRoleForIndex(0);
+  }
+
+  function primeProjectInspectorCandidate(project, employeeName, suggestedRole = "") {
+    const bounds = getProjectInspectorProjectBounds(project);
+    state.projectInspectorAddCandidateName = employeeName || "";
+    state.projectInspectorAddRole = suggestedRole || "";
+    state.projectInspectorAddUseCustomRange = false;
+    state.projectInspectorAddCustomStart = bounds.start || "";
+    state.projectInspectorAddCustomEnd = bounds.end || "";
+  }
+
+  function getProjectInspectorAddRange(project) {
+    const bounds = getProjectInspectorProjectBounds(project);
+    const fallbackStart = bounds.start || String(project?.planned_start_date || "").trim();
+    const fallbackEnd = bounds.end || String(project?.planned_end_date || "").trim();
+    const safeBounds = {
+      start: fallbackStart,
+      end: fallbackEnd
+    };
+
+    if (state.projectInspectorAddUseCustomRange) {
+      return {
+        start: String(state.projectInspectorAddCustomStart || fallbackStart || "").trim(),
+        end: String(state.projectInspectorAddCustomEnd || fallbackEnd || "").trim(),
+        bounds: safeBounds
+      };
+    }
+    return {
+      start: fallbackStart || "",
+      end: fallbackEnd || "",
+      bounds: safeBounds
+    };
+  }
+
+  function projectPanelDebug(label, payload = {}) {
+    try {
+      // v18.16: debug logging disabled after locating flow issue.
+      // console.log(`[PROJECT PANEL DEBUG v18.16] ${label}`, payload);
+    } catch (_) {}
+  }
+
+  async function createProjectInspectorAssignment(projectId) {
+    projectPanelDebug("createProjectInspectorAssignment called", {
+      projectId,
+      selectedCandidateName: state.projectInspectorAddCandidateName,
+      selectedRole: state.projectInspectorAddRole,
+      useCustomRange: state.projectInspectorAddUseCustomRange,
+      customStart: state.projectInspectorAddCustomStart,
+      customEnd: state.projectInspectorAddCustomEnd,
+      canEdit: canEditApp()
+    });
+    if (!canEditApp()) {
+      projectPanelDebug("create blocked: canEditApp false");
+      return;
+    }
+    const project = getProjectById(projectId);
+    if (!project) {
+      projectPanelDebug("create blocked: project not found", { projectId });
+      return;
+    }
+
+    const assigned = state.entries.filter(entry => entry.project_id === project.id).length;
+    const required = Math.max(Number(project.headcount_required || 0), 0);
+    if (required > 0 && assigned >= required) {
+      projectPanelDebug("create blocked: project fully staffed", { assigned, required });
+      alert("Prosjektet er allerede fullbemannet.");
+      return;
+    }
+
+    const employee = getProjectInspectorAddCandidate(project);
+    projectPanelDebug("create candidate resolved", {
+      candidateName: state.projectInspectorAddCandidateName,
+      found: !!employee,
+      employeeName: employee?.name || "",
+      availability: employee?.availability?.label || ""
+    });
+    if (!employee) {
+      alert("Velg en ansatt fra listen først.");
+      return;
+    }
+    if (employee.availability?.label === "Opptatt") {
+      projectPanelDebug("create blocked: employee busy", { employee: employee.name });
+      alert("Denne personen er opptatt i prosjektperioden.");
+      return;
+    }
+
+    const range = getProjectInspectorAddRange(project);
+    projectPanelDebug("create range resolved", range);
+    if (!range.start || !range.end) {
+      alert("Velg en gyldig periode.");
+      return;
+    }
+    if (range.start > range.end) {
+      alert("Fra-dato kan ikke være senere enn til-dato.");
+      return;
+    }
+    if (range.bounds.start && range.start < range.bounds.start) {
+      alert("Fra-dato må være innenfor prosjektperioden.");
+      return;
+    }
+    if (range.bounds.end && range.end > range.bounds.end) {
+      alert("Til-dato må være innenfor prosjektperioden.");
+      return;
+    }
+
+    const role = getProjectInspectorAddRole(employee);
+    const entry = {
+      id: crypto.randomUUID(),
+      project_id: project.id,
+      employee_name: employee.name,
+      role,
+      start_date: range.start,
+      end_date: range.end,
+      notes: ""
+    };
+
+    const conflicts = getEntryOverlapConflicts(entry);
+    if (conflicts.length) {
+      projectPanelDebug("create blocked: conflicts", { conflictCount: conflicts.length, conflicts });
+      alert(getEntryConflictSummary(entry, conflicts));
+      return;
+    }
+
+    projectPanelDebug("create pushing entry", entry);
+    state.entries.push(entry);
+    state.projectInspectorAddCandidateName = "";
+    state.projectInspectorAddRole = "";
+    state.projectInspectorAddUseCustomRange = false;
+    state.projectInspectorAddCustomStart = "";
+    state.projectInspectorAddCustomEnd = "";
+    rebuildDerivedState();
+    renderAll();
+
+    const result = await saveRow("planner_entries", entry);
+    projectPanelDebug("saveRow result", { ok: result?.ok, error: result?.error?.message || result?.error || null });
+    if (!result.ok) {
+      state.entries = state.entries.filter(item => item.id !== entry.id);
+      rebuildDerivedState();
+      renderAll();
+      return;
+    }
+
+    state.calendarMode = "project";
+    state.focusProjectId = project.id;
+    state.calendarPanelOpen = true;
+    renderAll();
+    void addAudit(`La til ${employee.name} på ${project.name} fra prosjektpanelet`);
+    void addNotification(employee.name, project.name);
+  }
+
+  function renderProjectInspectorPanel(project) {
+    // v17.8: Assigned rows render visible Endre and remove buttons directly in this panel.
+    if (!els.calendarPanelContent || !project) return;
+
+    const assignedEntries = state.entries
+      .filter(entry => entry.project_id === project.id)
+      .slice()
+      .sort((a, b) => a.employee_name.localeCompare(b.employee_name, "no"));
+    const assignedNames = new Set(assignedEntries.map(entry => entry.employee_name));
+    const assigned = assignedEntries.length;
+    const required = Number(project.headcount_required || 0);
+    const isFullyStaffed = required > 0 && assigned >= required;
+    const needsStaffing = required > 0 && assigned < required;
+    const missingStaffCount = Math.max(required - assigned, 0);
+    const shouldShowAvailable = !isFullyStaffed || state.projectInspectorShowAvailable === true;
+    const staffing = getProjectStaffingLabel(project.id, required);
+    const periods = getProjectInspectorPeriods(project);
+    const availabilitySummary = getProjectInspectorAvailabilitySummary(project, assignedNames);
+    const filteredEmployees = shouldShowAvailable ? getProjectInspectorFilteredEmployees(project, assignedNames) : [];
+    const employees = filteredEmployees.slice(0, 10);
+    const groupOptions = getProjectInspectorFilterOptions()
+      .map(option => `<option value="${escapeHtml(option.id)}" ${state.projectInspectorGroup === option.id ? "selected" : ""}>${escapeHtml(option.label)}</option>`)
+      .join("");
+    const staffingTone = staffing.variant.includes("green")
+      ? "text-green-700"
+      : staffing.variant.includes("amber")
+        ? "text-amber-700"
+        : "text-red-700";
+    const addCandidate = getProjectInspectorAddCandidate(project);
+    const addCandidateRole = getProjectInspectorAddRole(addCandidate);
+    const projectBounds = getProjectInspectorProjectBounds(project);
+    const addRange = getProjectInspectorAddRange(project);
+    const showAddFromList = needsStaffing && shouldShowAvailable;
+    projectPanelDebug("renderProjectInspectorPanel", {
+      projectId: project.id,
+      projectName: project.name,
+      assigned,
+      required,
+      needsStaffing,
+      shouldShowAvailable,
+      selectedCandidateName: state.projectInspectorAddCandidateName,
+      addCandidateFound: !!addCandidate,
+      addCandidateName: addCandidate?.name || "",
+      employeesShown: employees.length,
+      filteredEmployees: filteredEmployees.length,
+      stableAddBoxShouldRender: !!addCandidate
+    });
+    const selectedAddPanelHtml = addCandidate ? `
+      <div id="projectInspectorStableAddBox" data-project-inspector-stable-add-box="1" data-v1816-add-box-visible="1" style="display:block !important;width:100% !important;box-sizing:border-box !important;border:1px solid rgba(132,204,222,0.38) !important;background:rgba(15,23,42,0.92) !important;color:#f8fbfd !important;border-radius:4px !important;padding:12px !important;margin-top:10px !important;visibility:visible !important;opacity:1 !important;">
+        <div style="display:flex !important;align-items:flex-start !important;justify-content:space-between !important;gap:10px !important;margin-bottom:10px !important;">
+          <div style="min-width:0 !important;">
+            <div style="font-size:13px !important;font-weight:900 !important;line-height:1.25 !important;color:#f8fbfd !important;">Legg til ${escapeHtml(addCandidate.name)}</div>
+            <div style="margin-top:4px !important;font-size:11px !important;font-weight:600 !important;color:rgba(232,244,248,0.72) !important;">Velg rolle og periode, trykk deretter Legg til prosjekt.</div>
+          </div>
+          <span style="display:inline-flex !important;align-items:center !important;justify-content:center !important;border:1px solid rgba(132,204,222,0.28) !important;background:rgba(255,255,255,0.06) !important;color:#f8fbfd !important;border-radius:4px !important;padding:5px 8px !important;font-size:11px !important;font-weight:900 !important;">${escapeHtml(addCandidate.availability?.label || "Valgt")}</span>
+        </div>
+        <button id="projectInspectorAddConfirmTopBtn" data-project-inspector-confirm-add="1" data-project-inspector-confirm-employee="${escapeHtml(addCandidate.name)}" type="button" style="display:flex !important;align-items:center !important;justify-content:center !important;width:100% !important;box-sizing:border-box !important;border:1px solid rgba(34,197,94,0.45) !important;background:#16a34a !important;color:#ffffff !important;border-radius:4px !important;padding:11px 12px !important;margin:0 0 10px 0 !important;font-size:13px !important;font-weight:950 !important;line-height:1.1 !important;cursor:pointer !important;visibility:visible !important;opacity:1 !important;position:relative !important;z-index:20 !important;">Legg til prosjekt</button>
+        <div style="display:grid !important;gap:10px !important;">
+          <label style="display:grid !important;gap:5px !important;font-size:11px !important;font-weight:800 !important;text-transform:uppercase !important;letter-spacing:.04em !important;color:rgba(232,244,248,0.76) !important;">
+            Rolle
+            <select id="projectInspectorAddRoleSelect" style="width:100% !important;border:1px solid rgba(132,204,222,0.34) !important;background:#ffffff !important;color:#0f172a !important;border-radius:4px !important;padding:9px !important;font-size:12px !important;">${ROLE_OPTIONS.map(role => `<option value="${escapeHtml(role)}" ${role === addCandidateRole ? "selected" : ""}>${escapeHtml(role)}</option>`).join("")}</select>
+          </label>
+          <div style="display:grid !important;gap:8px !important;border:1px solid rgba(132,204,222,0.22) !important;background:rgba(255,255,255,0.08) !important;border-radius:4px !important;padding:10px !important;">
+            <label style="display:flex !important;align-items:flex-start !important;gap:8px !important;color:#f8fbfd !important;font-size:12px !important;">
+              <input id="projectInspectorWholePeriodRadio" type="radio" name="projectInspectorPeriodMode" value="whole" ${state.projectInspectorAddUseCustomRange ? "" : "checked"} style="margin-top:2px !important;" />
+              <span><span style="display:block !important;font-weight:800 !important;color:#f8fbfd !important;">Hele prosjektperioden</span><span style="display:block !important;margin-top:2px !important;font-size:11px !important;color:rgba(232,244,248,0.72) !important;">${escapeHtml(projectBounds.start ? `${formatDate(projectBounds.start)} – ${formatDate(projectBounds.end)}` : "Periode ikke satt")}</span></span>
+            </label>
+            <label style="display:flex !important;align-items:flex-start !important;gap:8px !important;color:#f8fbfd !important;font-size:12px !important;">
+              <input id="projectInspectorCustomPeriodRadio" type="radio" name="projectInspectorPeriodMode" value="custom" ${state.projectInspectorAddUseCustomRange ? "checked" : ""} style="margin-top:2px !important;" />
+              <span><span style="display:block !important;font-weight:800 !important;color:#f8fbfd !important;">Egendefinert periode</span><span style="display:block !important;margin-top:2px !important;font-size:11px !important;color:rgba(232,244,248,0.72) !important;">Velg fra/til innenfor prosjektperioden.</span></span>
+            </label>
+            <div style="display:grid !important;grid-template-columns:repeat(2,minmax(0,1fr)) !important;gap:8px !important;opacity:${state.projectInspectorAddUseCustomRange ? "1" : "0.62"} !important;">
+              <label style="display:grid !important;gap:4px !important;font-size:10px !important;font-weight:800 !important;text-transform:uppercase !important;letter-spacing:.04em !important;color:rgba(232,244,248,0.72) !important;">
+                Fra
+                <input id="projectInspectorCustomStartInput" type="date" value="${escapeHtml(addRange.start || projectBounds.start || "")}" min="${escapeHtml(projectBounds.start || "")}" max="${escapeHtml(projectBounds.end || "")}" ${state.projectInspectorAddUseCustomRange ? "" : "disabled"} style="width:100% !important;border:1px solid rgba(132,204,222,0.34) !important;background:#ffffff !important;color:#0f172a !important;border-radius:4px !important;padding:8px !important;font-size:12px !important;" />
+              </label>
+              <label style="display:grid !important;gap:4px !important;font-size:10px !important;font-weight:800 !important;text-transform:uppercase !important;letter-spacing:.04em !important;color:rgba(232,244,248,0.72) !important;">
+                Til
+                <input id="projectInspectorCustomEndInput" type="date" value="${escapeHtml(addRange.end || projectBounds.end || "")}" min="${escapeHtml(projectBounds.start || "")}" max="${escapeHtml(projectBounds.end || "")}" ${state.projectInspectorAddUseCustomRange ? "" : "disabled"} style="width:100% !important;border:1px solid rgba(132,204,222,0.34) !important;background:#ffffff !important;color:#0f172a !important;border-radius:4px !important;padding:8px !important;font-size:12px !important;" />
+              </label>
+            </div>
+          </div>
+          ${addCandidate.availability?.label === "Delvis ledig" ? `<div style="border:1px solid rgba(245,158,11,0.35) !important;background:rgba(245,158,11,0.12) !important;color:#fde68a !important;border-radius:4px !important;padding:8px !important;font-size:11px !important;line-height:1.35 !important;">Denne personen er delvis tilgjengelig. Velg riktig delperiode før du legger til.</div>` : ""}
+        </div>
+        <div style="display:grid !important;grid-template-columns:repeat(2,minmax(0,1fr)) !important;gap:8px !important;margin-top:12px !important;">
+          <button id="projectInspectorAddCancelBtn" type="button" style="border:1px solid rgba(132,204,222,0.28) !important;background:rgba(255,255,255,0.06) !important;color:#f8fbfd !important;border-radius:4px !important;padding:9px 10px !important;font-size:12px !important;font-weight:800 !important;cursor:pointer !important;">Avbryt</button>
+          <button id="projectInspectorAddConfirmBtn" data-project-inspector-confirm-add="1" data-project-inspector-confirm-employee="${escapeHtml(addCandidate.name)}" type="button" style="border:1px solid rgba(34,197,94,0.38) !important;background:rgba(22,163,74,0.92) !important;color:#ffffff !important;border-radius:4px !important;padding:10px 10px !important;font-size:12px !important;font-weight:900 !important;cursor:pointer !important;">Legg til prosjekt</button>
+        </div>
+      </div>
+    ` : "";
+
+    const assignedHtml = `
+      <section>
+        <div class="mb-2 flex items-center justify-between gap-2">
+          <h3 class="font-semibold text-slate-900">Tildelte (${assigned}${required ? `/${required}` : ""})</h3>
+          ${isFullyStaffed ? `<button id="projectInspectorChangeCrewHeaderBtn" type="button" class="border border-cyan-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-800 hover:bg-slate-50">${shouldShowAvailable ? "Skjul analyse" : "Endre crew"}</button>` : ""}
+        </div>
+        <div class="space-y-2">
+          ${assignedEntries.length ? assignedEntries.slice(0, 10).map(entry => `
+            <div
+              class="project-assigned-row"
+              data-project-assigned-row="${escapeHtml(entry.id)}"
+              style="display:flex !important;align-items:center !important;justify-content:space-between !important;gap:10px !important;width:100% !important;min-height:56px !important;box-sizing:border-box !important;border:1px solid rgba(148, 187, 199, 0.26) !important;background:rgba(255,255,255,0.10) !important;padding:10px 12px !important;border-radius:4px !important;overflow:visible !important;"
+            >
+              <div style="min-width:0 !important;flex:1 1 auto !important;overflow:hidden !important;">
+                <div style="font-size:12px !important;font-weight:700 !important;line-height:1.25 !important;color:#f8fbfd !important;white-space:nowrap !important;overflow:hidden !important;text-overflow:ellipsis !important;">${escapeHtml(entry.employee_name)}</div>
+                <div style="margin-top:4px !important;font-size:11px !important;line-height:1.25 !important;color:rgba(232,244,248,0.78) !important;white-space:nowrap !important;overflow:hidden !important;text-overflow:ellipsis !important;">${escapeHtml(entry.role || "Rolle ikke satt")}</div>
+              </div>
+              <div style="display:flex !important;align-items:center !important;justify-content:flex-end !important;gap:6px !important;flex:0 0 auto !important;visibility:visible !important;opacity:1 !important;">
+                <button
+                  data-project-entry-edit-id="${escapeHtml(entry.id)}"
+                  type="button"
+                  class="project-assigned-edit-pencil-btn"
+                  style="display:inline-flex !important;align-items:center !important;justify-content:center !important;width:30px !important;height:30px !important;border:1px solid rgba(132,204,222,0.32) !important;background:rgba(255,255,255,0.06) !important;color:rgba(248,251,253,0.82) !important;border-radius:4px !important;font-size:14px !important;font-weight:700 !important;line-height:1 !important;cursor:pointer !important;visibility:visible !important;opacity:1 !important;position:relative !important;z-index:5 !important;"
+                  title="Endre tildeling"
+                  aria-label="Endre tildeling"
+                >✎</button>
+              </div>
+            </div>
+          `).join("") : `<div class="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-3 py-3 text-xs text-slate-500">Ingen tildelte ressurser.</div>`}
+          ${needsStaffing ? `
+            <button
+              id="projectInspectorAddStaffBtn"
+              type="button"
+              class="project-add-staff-slot"
+              style="display:flex !important;align-items:center !important;justify-content:center !important;gap:8px !important;width:100% !important;min-height:48px !important;box-sizing:border-box !important;border:1px dashed rgba(132,204,222,0.62) !important;background:rgba(255,255,255,0.08) !important;color:#f8fbfd !important;border-radius:4px !important;font-size:13px !important;font-weight:700 !important;cursor:pointer !important;visibility:visible !important;opacity:1 !important;"
+              title="Legg til ansatt på dette prosjektet"
+            >
+              <span style="font-size:18px !important;line-height:1 !important;">+</span>
+              <span>Legg til ansatt</span>
+              <span style="font-size:11px !important;font-weight:600 !important;color:rgba(232,244,248,0.72) !important;">Velg fra tilgjengelige personer under · ${missingStaffCount} mangler</span>
+            </button>
+          ` : ""}
+        </div>
+      </section>
+    `;
+
+    const availableHtml = shouldShowAvailable ? `<!-- v18.16-add-box-moved-up --><!-- v18.12-dark-available-cards -->
+      <section>
+        <div class="mb-2 grid grid-cols-3 gap-1 text-[11px]">
+          <div class="rounded-lg border border-green-200 bg-green-50 px-2 py-1 text-center font-semibold text-green-700"><div>Ledig</div><div class="text-sm">${availabilitySummary.available}</div></div>
+          <div class="rounded-lg border border-amber-200 bg-amber-50 px-2 py-1 text-center font-semibold text-amber-700"><div>Delvis</div><div class="text-sm">${availabilitySummary.partial}</div></div>
+          <div class="rounded-lg border border-red-200 bg-red-50 px-2 py-1 text-center font-semibold text-red-700"><div>Opptatt</div><div class="text-sm">${availabilitySummary.busy}</div></div>
+        </div>
+        <div class="mb-2 grid grid-cols-[1fr_auto] gap-2">
+          <input id="projectInspectorSearchInput" type="text" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs" placeholder="Søk navn, gruppe, tittel eller status" value="${escapeHtml(state.projectInspectorSearch || "")}" />
+          <select id="projectInspectorGroupFilter" class="rounded-xl border border-slate-300 px-2 py-2 text-xs">${groupOptions}</select>
+        </div>
+        <div style="display:grid !important;gap:8px !important;background:transparent !important;border:0 !important;overflow:visible !important;">
+          <div style="display:grid !important;grid-template-columns:1fr auto !important;align-items:center !important;padding:0 2px 2px 2px !important;font-size:11px !important;font-weight:800 !important;text-transform:uppercase !important;letter-spacing:.04em !important;color:rgba(232,244,248,0.78) !important;">
+            <span>Tilgjengelige / øvrige</span><span>Status</span>
+          </div>
+          ${employees.length ? employees.map(employee => {
+            const isSelected = addCandidate && addCandidate.name === employee.name;
+            const canAssign = employee.availability.label !== "Opptatt";
+            const expandedHtml = "";
+            return `
+              <div
+                class="project-available-person-row-v1811"
+                data-project-available-person-row="${escapeHtml(employee.name)}"
+                data-project-inspector-row-role="${escapeHtml(getDefaultRoleForIndex(0))}"
+                style="display:block !important;width:100% !important;box-sizing:border-box !important;border:1px solid rgba(148,187,199,0.26) !important;background:${isSelected ? 'rgba(255,255,255,0.16)' : 'rgba(255,255,255,0.10)'} !important;color:#f8fbfd !important;border-radius:4px !important;visibility:visible !important;opacity:1 !important;overflow:hidden !important;cursor:pointer !important;"
+              >
+                <div style="display:flex !important;align-items:center !important;justify-content:space-between !important;gap:10px !important;width:100% !important;box-sizing:border-box !important;padding:10px 12px !important;color:#f8fbfd !important;visibility:visible !important;opacity:1 !important;">
+                  <div style="display:flex !important;align-items:center !important;gap:9px !important;min-width:0 !important;flex:1 1 auto !important;color:#f8fbfd !important;visibility:visible !important;opacity:1 !important;">
+                    ${getEmployeeGroupIconHtml(employee.normalizedGroup, "inline-flex h-5 w-5 items-center justify-center text-cyan-100 shrink-0 opacity-80") || `<span style="display:inline-flex !important;width:20px !important;height:20px !important;align-items:center !important;justify-content:center !important;color:rgba(232,244,248,0.62) !important;flex:0 0 auto !important;">•</span>`}
+                    <div style="display:block !important;min-width:0 !important;flex:1 1 auto !important;color:#f8fbfd !important;visibility:visible !important;opacity:1 !important;">
+                      <div class="project-available-person-name v1811-visible-name v1812-dark-card-name" style="display:block !important;font-size:13px !important;font-weight:800 !important;line-height:1.2 !important;color:#f8fbfd !important;background:transparent !important;white-space:nowrap !important;overflow:hidden !important;text-overflow:ellipsis !important;visibility:visible !important;opacity:1 !important;position:relative !important;z-index:2 !important;">${escapeHtml(employee.name)}</div>
+                      <div class="project-available-person-title v1811-visible-title v1812-dark-card-title" style="display:block !important;margin-top:3px !important;font-size:11px !important;font-weight:600 !important;line-height:1.2 !important;color:rgba(232,244,248,0.78) !important;background:transparent !important;white-space:nowrap !important;overflow:hidden !important;text-overflow:ellipsis !important;visibility:visible !important;opacity:1 !important;position:relative !important;z-index:2 !important;">${escapeHtml(employee.title || "Tittel ikke satt")}</div>
+                    </div>
+                  </div>
+                  <div style="display:flex !important;align-items:center !important;justify-content:flex-end !important;gap:8px !important;flex:0 0 auto !important;color:#f8fbfd !important;visibility:visible !important;opacity:1 !important;">
+                    <span style="display:inline-flex !important;align-items:center !important;justify-content:center !important;min-width:58px !important;font-size:12px !important;font-weight:850 !important;line-height:1.1 !important;color:${employee.availability.label === 'Ledig' ? '#15803d' : employee.availability.label === 'Delvis ledig' ? '#b45309' : '#b91c1c'} !important;visibility:visible !important;opacity:1 !important;">${escapeHtml(employee.availability.label)}</span>
+                    ${canAssign ? `<button data-project-inspector-select-employee="${escapeHtml(employee.name)}" data-project-inspector-select-role="${escapeHtml(getDefaultRoleForIndex(0))}" type="button" style="display:inline-flex !important;align-items:center !important;justify-content:center !important;border:1px solid rgba(132,204,222,0.32) !important;background:rgba(255,255,255,0.06) !important;color:#f8fbfd !important;border-radius:4px !important;padding:6px 9px !important;font-size:11px !important;font-weight:900 !important;cursor:pointer !important;visibility:visible !important;opacity:1 !important;">${isSelected ? "Valgt" : "Velg"}</button>` : `<span style="display:inline-flex !important;align-items:center !important;justify-content:center !important;border:1px solid #e2e8f0 !important;background:#f8fafc !important;color:#64748b !important;border-radius:4px !important;padding:6px 9px !important;font-size:11px !important;font-weight:900 !important;visibility:visible !important;opacity:1 !important;">Opptatt</span>`}
+                  </div>
+                </div>
+                <button
+                  data-project-inspector-select-employee="${escapeHtml(employee.name)}"
+                  data-project-inspector-select-role="${escapeHtml(getDefaultRoleForIndex(0))}"
+                  type="button"
+                  style="display:block !important;width:100% !important;height:1px !important;min-height:1px !important;padding:0 !important;margin:0 !important;border:0 !important;background:transparent !important;color:transparent !important;overflow:hidden !important;"
+                  aria-label="Velg ${escapeHtml(employee.name)}"
+                  tabindex="-1"
+                ></button>
+                ${expandedHtml}
+              </div>
+            `;
+          }).join("") : `<div class="px-3 py-4 text-xs text-slate-500">Ingen treff i tilgjengelig-listen.</div>`}
+        </div>
+        ${filteredEmployees.length > employees.length ? `<div class="mt-2 text-[11px] text-slate-500">Viser ${employees.length} av ${filteredEmployees.length}. Bruk søk eller gruppefilter for å snevre inn.</div>` : ""}
+      </section>
+    ` : "";
+
+    const fullStaffedCrewActionHtml = isFullyStaffed ? `
+      <section>
+        <button id="projectInspectorChangeCrewBtn" type="button" class="w-full rounded-xl border border-cyan-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-800 hover:bg-slate-50">
+          ${shouldShowAvailable ? "Skjul tilgjengelige / øvrige" : "Endre crew"}
+        </button>
+        ${!shouldShowAvailable ? `<div class="mt-2 text-xs text-slate-500">Prosjektet er fullt bemannet. Tilgjengelighetsanalyse vises først når du skal endre crew.</div>` : ""}
+      </section>
+    ` : "";
+
+    els.calendarPanelContent.innerHTML = `
+      <!-- v18.18-period-fallback-confirm-safe v18.17-confirm-button-visible-top v18.16-add-box-visible-under-assigned -->
+      <div class="flex h-full flex-col">
+        <div class="flex items-start justify-between gap-3 border-b border-slate-200 p-4">
+          <div class="min-w-0">
+            <h2 class="text-base font-semibold text-slate-950">Prosjektdetaljer</h2>
+            <div class="mt-1 truncate text-sm font-medium text-slate-800">${escapeHtml(project.name)}</div>
+            <div class="mt-1 text-xs font-medium ${staffingTone}">${escapeHtml(staffing.text)}${required ? ` (${assigned}/${required})` : ""}</div>
+          </div>
+          <div class="flex items-center gap-2 shrink-0">
+            <button data-calendar-panel-edit-project="${escapeHtml(project.id)}" type="button" class="rounded-xl border border-slate-300 bg-slate-900 px-3 py-1.5 text-sm font-semibold text-white hover:bg-slate-800">Rediger prosjekt</button>
+            <button id="calendarProjectPanelCloseBtn" type="button" class="rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50">×</button>
+          </div>
+        </div>
+
+        <div class="min-h-0 flex-1 space-y-4 overflow-auto p-4 text-sm">
+          <div style="display:block !important;margin:0 0 14px 0 !important;width:100% !important;">
+            <button
+              id="projectInspectorEditProjectVisibleBtn"
+              data-calendar-panel-edit-project="${escapeHtml(project.id)}"
+              type="button"
+              style="display:flex !important;align-items:center !important;justify-content:space-between !important;gap:12px !important;width:100% !important;min-height:58px !important;box-sizing:border-box !important;border:1px solid rgba(80,240,199,0.58) !important;background:linear-gradient(180deg, rgba(80,240,199,0.20) 0%, rgba(80,240,199,0.12) 100%) !important;color:#f8fbfd !important;border-radius:6px !important;padding:12px 14px !important;font-size:13px !important;font-weight:900 !important;line-height:1.15 !important;cursor:pointer !important;visibility:visible !important;opacity:1 !important;position:relative !important;z-index:30 !important;text-align:left !important;box-shadow:0 0 0 1px rgba(80,240,199,0.10) inset !important;"
+            >
+              <span style="display:flex !important;align-items:center !important;gap:12px !important;min-width:0 !important;">
+                <span style="display:inline-flex !important;align-items:center !important;justify-content:center !important;width:32px !important;height:32px !important;border-radius:6px !important;background:rgba(255,255,255,0.12) !important;border:1px solid rgba(255,255,255,0.16) !important;font-size:16px !important;font-weight:900 !important;color:#50f0c7 !important;flex:0 0 auto !important;">✎</span>
+                <span style="display:block !important;min-width:0 !important;">
+                  <span style="display:block !important;font-size:14px !important;font-weight:900 !important;color:#f8fbfd !important;">Rediger prosjekt</span>
+                  <span style="display:block !important;margin-top:4px !important;font-size:11px !important;font-weight:650 !important;color:rgba(232,244,248,0.76) !important;">Feltperiode · workshop · ressursbehov</span>
+                </span>
+              </span>
+              <span style="display:inline-flex !important;align-items:center !important;justify-content:center !important;color:#50f0c7 !important;font-size:16px !important;font-weight:900 !important;flex:0 0 auto !important;">→</span>
+            </button>
+          </div>
+          <div class="grid grid-cols-2 gap-2">
+            <div class="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+              <div class="text-[11px] uppercase tracking-wide text-slate-500">Kategori</div>
+              <div class="mt-1 font-semibold text-slate-900">${escapeHtml(project.category || "Ikke satt")}</div>
+            </div>
+            <div class="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+              <div class="text-[11px] uppercase tracking-wide text-slate-500">Bemanningsbehov</div>
+              <div class="mt-1 font-semibold text-slate-900">${required || 0} personer</div>
+            </div>
+          </div>
+
+          <section>
+            <div class="mb-2 flex items-center justify-between gap-2">
+              <h3 class="font-semibold text-slate-900">Perioder</h3>
+              <button data-calendar-panel-edit-project="${escapeHtml(project.id)}" type="button" class="rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50">Rediger perioder</button>
+            </div>
+            <div class="space-y-2">
+              ${periods.length ? periods.map((period, index) => `
+                <div class="flex items-center justify-between gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2">
+                  <span class="font-medium text-slate-700">Periode ${index + 1}</span>
+                  <span class="text-xs text-slate-500">${escapeHtml(formatDate(period.start))} – ${escapeHtml(formatDate(period.end))}</span>
+                </div>
+              `).join("") : `<div class="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-3 py-3 text-xs text-slate-500">Ingen periode satt.</div>`}
+            </div>
+          </section>
+
+          <section>
+            <div class="mb-2 flex items-center justify-between gap-2">
+              <h3 class="font-semibold text-slate-900">Bemanning</h3>
+              <button data-calendar-panel-staff-project="${escapeHtml(project.id)}" type="button" class="rounded-xl bg-slate-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-slate-800">Bemann prosjekt</button>
+            </div>
+          </section>
+
+          ${assignedHtml}
+          ${selectedAddPanelHtml}
+          ${fullStaffedCrewActionHtml}
+          ${availableHtml}
+        </div>
+
+        <div class="grid grid-cols-2 gap-2 border-t border-slate-200 p-4">
+          <button data-calendar-panel-edit-project="${escapeHtml(project.id)}" type="button" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">Rediger prosjekt</button>
+          <button data-calendar-panel-staff-project="${escapeHtml(project.id)}" type="button" class="rounded-xl bg-green-600 px-3 py-2 text-sm font-medium text-white hover:bg-green-700">Bemann</button>
+        </div>
+      </div>
+    `;
+
+    projectPanelDebug("after innerHTML", {
+      stableAddBoxExists: !!document.getElementById("projectInspectorStableAddBox"),
+      confirmButtonExists: !!document.getElementById("projectInspectorAddConfirmBtn"),
+      selectButtons: els.calendarPanelContent.querySelectorAll("[data-project-inspector-select-employee]").length,
+      availableRows: els.calendarPanelContent.querySelectorAll("[data-project-available-person-row]").length
+    });
+
+    const rerenderPanel = (focusSearch = false) => {
+      projectPanelDebug("rerenderPanel called", { focusSearch });
+      renderProjectInspectorPanel(project);
+      if (focusSearch) {
+        const input = document.getElementById("projectInspectorSearchInput");
+        if (input) {
+          input.focus();
+          const len = input.value.length;
+          input.setSelectionRange(len, len);
+        }
+      }
+    };
+
+    const closeBtn = document.getElementById("calendarProjectPanelCloseBtn");
+    if (closeBtn) closeBtn.addEventListener("click", () => {
+      state.calendarPanelOpen = false;
+      state.focusProjectId = "";
+      resetProjectInspectorFilters();
+      renderCalendarPanel();
+      renderCalendar();
+    });
+
+    const wireChangeCrewButton = (button) => {
+      if (!button) return;
+      button.addEventListener("click", () => {
+        state.projectInspectorShowAvailable = !state.projectInspectorShowAvailable;
+        rerenderPanel(false);
+      });
+    };
+    wireChangeCrewButton(document.getElementById("projectInspectorChangeCrewBtn"));
+    wireChangeCrewButton(document.getElementById("projectInspectorChangeCrewHeaderBtn"));
+
+    const addStaffBtn = document.getElementById("projectInspectorAddStaffBtn");
+    if (addStaffBtn) {
+      addStaffBtn.addEventListener("click", () => {
+        projectPanelDebug("add staff slot clicked");
+        state.projectInspectorShowAvailable = true;
+        state.projectInspectorAddCandidateName = "";
+        state.projectInspectorAddRole = "";
+        state.projectInspectorAddUseCustomRange = false;
+        const bounds = getProjectInspectorProjectBounds(project);
+        state.projectInspectorAddCustomStart = bounds.start || "";
+        state.projectInspectorAddCustomEnd = bounds.end || "";
+        rerenderPanel(false);
+      });
+    }
+
+    const searchInput = document.getElementById("projectInspectorSearchInput");
+    if (searchInput) {
+      searchInput.addEventListener("input", event => {
+        state.projectInspectorSearch = event.target.value || "";
+        rerenderPanel(true);
+      });
+    }
+    const groupFilter = document.getElementById("projectInspectorGroupFilter");
+    if (groupFilter) {
+      groupFilter.addEventListener("change", event => {
+        state.projectInspectorGroup = event.target.value || "all";
+        rerenderPanel(false);
+      });
+    }
+
+    const visibleEditBtn = document.getElementById("projectInspectorEditProjectVisibleBtn");
+    if (visibleEditBtn) {
+      visibleEditBtn.addEventListener("click", event => {
+        event.preventDefault();
+        event.stopPropagation();
+        openProjectModal(visibleEditBtn.dataset.calendarPanelEditProject);
+      });
+    }
+    els.calendarPanelContent.querySelectorAll("[data-calendar-panel-edit-project]").forEach(btn => {
+      if (btn.dataset.boundProjectEdit === "true") return;
+      btn.dataset.boundProjectEdit = "true";
+      btn.addEventListener("click", () => openProjectModal(btn.dataset.calendarPanelEditProject));
+    });
+    els.calendarPanelContent.querySelectorAll("[data-calendar-panel-staff-project]").forEach(btn => {
+      btn.addEventListener("click", () => startProjectStaffing(btn.dataset.calendarPanelStaffProject));
+    });
+    const selectProjectInspectorCandidate = (employeeName, suggestedRole = "", options = {}) => {
+      projectPanelDebug("selectProjectInspectorCandidate called", {
+        employeeName,
+        suggestedRole,
+        options,
+        previousCandidate: state.projectInspectorAddCandidateName
+      });
+      if (!employeeName) {
+        projectPanelDebug("select blocked: empty employeeName");
+        return;
+      }
+      if (options.toggle && state.projectInspectorAddCandidateName === employeeName) {
+        projectPanelDebug("select toggled off", { employeeName });
+        state.projectInspectorAddCandidateName = "";
+        state.projectInspectorAddRole = "";
+        state.projectInspectorAddUseCustomRange = false;
+        rerenderPanel(false);
+        return;
+      }
+      primeProjectInspectorCandidate(project, employeeName, suggestedRole || getDefaultRoleForIndex(0));
+      projectPanelDebug("candidate primed", {
+        selectedCandidateName: state.projectInspectorAddCandidateName,
+        selectedRole: state.projectInspectorAddRole,
+        customStart: state.projectInspectorAddCustomStart,
+        customEnd: state.projectInspectorAddCustomEnd
+      });
+      state.projectInspectorShowAvailable = true;
+      rerenderPanel(false);
+      requestAnimationFrame(() => {
+        const addBox = document.getElementById("projectInspectorStableAddBox");
+        if (addBox && typeof addBox.scrollIntoView === "function") {
+          addBox.scrollIntoView({ block: "nearest", behavior: "smooth" });
+        }
+      });
+    };
+
+    els.calendarPanelContent.querySelectorAll("[data-project-available-person-row]").forEach(row => {
+      row.addEventListener("click", event => {
+        projectPanelDebug("available row clicked", {
+          employeeName: row.dataset.projectAvailablePersonRow || "",
+          ignoredTarget: !!event.target?.closest?.("button, input, select, textarea, label")
+        });
+        if (event.target?.closest?.("button, input, select, textarea, label")) return;
+        selectProjectInspectorCandidate(row.dataset.projectAvailablePersonRow || "", row.dataset.projectInspectorRowRole || getDefaultRoleForIndex(0), { toggle: true });
+      });
+    });
+
+    els.calendarPanelContent.querySelectorAll("[data-project-inspector-select-employee]").forEach(btn => {
+      btn.addEventListener("click", event => {
+        event.preventDefault();
+        event.stopPropagation();
+        projectPanelDebug("select button clicked", {
+          employeeName: btn.dataset.projectInspectorSelectEmployee || "",
+          role: btn.dataset.projectInspectorSelectRole || ""
+        });
+        selectProjectInspectorCandidate(btn.dataset.projectInspectorSelectEmployee || "", btn.dataset.projectInspectorSelectRole || getDefaultRoleForIndex(0), { toggle: true });
+      });
+    });
+
+    document.getElementById("projectInspectorAddCancelBtn")?.addEventListener("click", event => {
+      event.preventDefault();
+      state.projectInspectorAddCandidateName = "";
+      state.projectInspectorAddRole = "";
+      state.projectInspectorAddUseCustomRange = false;
+      rerenderPanel(false);
+    });
+    document.getElementById("projectInspectorAddRoleSelect")?.addEventListener("change", event => {
+      state.projectInspectorAddRole = event.target.value || "";
+      projectPanelDebug("role changed", { role: state.projectInspectorAddRole });
+    });
+    document.getElementById("projectInspectorWholePeriodRadio")?.addEventListener("change", () => {
+      state.projectInspectorAddUseCustomRange = false;
+      const bounds = getProjectInspectorProjectBounds(project);
+      state.projectInspectorAddCustomStart = bounds.start || "";
+      state.projectInspectorAddCustomEnd = bounds.end || "";
+      rerenderPanel(false);
+    });
+    document.getElementById("projectInspectorCustomPeriodRadio")?.addEventListener("change", () => {
+      state.projectInspectorAddUseCustomRange = true;
+      if (!state.projectInspectorAddCustomStart || !state.projectInspectorAddCustomEnd) {
+        const bounds = getProjectInspectorProjectBounds(project);
+        state.projectInspectorAddCustomStart = state.projectInspectorAddCustomStart || bounds.start || "";
+        state.projectInspectorAddCustomEnd = state.projectInspectorAddCustomEnd || bounds.end || "";
+      }
+      rerenderPanel(false);
+    });
+    document.getElementById("projectInspectorCustomStartInput")?.addEventListener("change", event => {
+      state.projectInspectorAddCustomStart = event.target.value || "";
+    });
+    document.getElementById("projectInspectorCustomEndInput")?.addEventListener("change", event => {
+      state.projectInspectorAddCustomEnd = event.target.value || "";
+    });
+    const confirmButtons = Array.from(els.calendarPanelContent.querySelectorAll("[data-project-inspector-confirm-add]"));
+    projectPanelDebug("wire confirm buttons", { count: confirmButtons.length });
+    confirmButtons.forEach(confirmBtn => {
+      confirmBtn.addEventListener("click", event => {
+        event.preventDefault();
+        event.stopPropagation();
+        projectPanelDebug("confirm button clicked", {
+          stateCandidateBefore: state.projectInspectorAddCandidateName,
+          buttonEmployee: event.currentTarget?.dataset?.projectInspectorConfirmEmployee || ""
+        });
+        const btn = event.currentTarget;
+        const employeeName = btn?.dataset?.projectInspectorConfirmEmployee || state.projectInspectorAddCandidateName || "";
+        if (employeeName && state.projectInspectorAddCandidateName !== employeeName) {
+          primeProjectInspectorCandidate(project, employeeName, state.projectInspectorAddRole || getDefaultRoleForIndex(0));
+        }
+        const roleSelect = document.getElementById("projectInspectorAddRoleSelect");
+        if (roleSelect) state.projectInspectorAddRole = roleSelect.value || state.projectInspectorAddRole || getDefaultRoleForIndex(0);
+        const wholePeriodRadio = document.getElementById("projectInspectorWholePeriodRadio");
+        const customPeriodRadio = document.getElementById("projectInspectorCustomPeriodRadio");
+        const bounds = getProjectInspectorProjectBounds(project);
+        const customStart = document.getElementById("projectInspectorCustomStartInput");
+        const customEnd = document.getElementById("projectInspectorCustomEndInput");
+        if (customPeriodRadio?.checked) {
+          state.projectInspectorAddUseCustomRange = true;
+          if (customStart) state.projectInspectorAddCustomStart = customStart.value || state.projectInspectorAddCustomStart || bounds.start || "";
+          if (customEnd) state.projectInspectorAddCustomEnd = customEnd.value || state.projectInspectorAddCustomEnd || bounds.end || "";
+        } else {
+          state.projectInspectorAddUseCustomRange = false;
+          state.projectInspectorAddCustomStart = bounds.start || project?.planned_start_date || state.projectInspectorAddCustomStart || "";
+          state.projectInspectorAddCustomEnd = bounds.end || project?.planned_end_date || state.projectInspectorAddCustomEnd || "";
+          if (wholePeriodRadio) wholePeriodRadio.checked = true;
+        }
+        projectPanelDebug("before createProjectInspectorAssignment", {
+          candidate: state.projectInspectorAddCandidateName,
+          role: state.projectInspectorAddRole,
+          useCustomRange: state.projectInspectorAddUseCustomRange,
+          customStart: state.projectInspectorAddCustomStart,
+          customEnd: state.projectInspectorAddCustomEnd
+        });
+        void createProjectInspectorAssignment(project.id);
+      });
+    });
+    els.calendarPanelContent.querySelectorAll("[data-project-entry-edit-id]").forEach(btn => {
+      btn.addEventListener("click", () => openEditModal(btn.dataset.projectEntryEditId));
+    });
+    els.calendarPanelContent.querySelectorAll("[data-project-entry-delete-id]").forEach(btn => {
+      btn.addEventListener("click", () => deleteEntryFromProjectCard(btn.dataset.projectEntryDeleteId));
+    });
   }
 
   function renderCalendarPanel() {
     if (!els.calendarPanelCol || !els.calendarPanelHandleBtn || !els.calendarPanelContent) return;
+
+    if (state.calendarMode === "project") {
+      const project = state.calendarPanelOpen ? getProjectById(state.focusProjectId || "") : null;
+      if (!project) {
+        els.calendarPanelCol.className = "hidden";
+        els.calendarPanelContent.className = "hidden min-w-0 flex-1";
+        return;
+      }
+      els.calendarPanelCol.className = "iz-project-inspector-shell w-full shrink-0 bg-white border border-slate-200 shadow-sm overflow-hidden transition-all duration-300";
+      els.calendarPanelHandleBtn.className = "iz-project-panel-tab w-10 shrink-0 border-r border-slate-200 bg-slate-50 text-slate-700 text-xs font-semibold tracking-wide [writing-mode:vertical-rl] rotate-180";
+      els.calendarPanelHandleBtn.textContent = "Panel";
+      els.calendarPanelContent.className = "min-w-0 flex-1";
+      renderProjectInspectorPanel(project);
+      return;
+    }
+
+    // v18.31e: Ansattplan skal ikke arve prosjektpanelet.
+    // Høyrepanelet skjules helt utenfor Prosjektplan for å unngå tom mørk boks/regresjon.
+    els.calendarPanelCol.className = "hidden";
+    els.calendarPanelContent.className = "hidden min-w-0 flex-1";
+    els.calendarPanelHandleBtn.className = "hidden";
+    return;
 
     const isDesktop = window.innerWidth >= 1280;
 
@@ -3518,12 +5536,12 @@ async function deleteEditedEntry() {
     if (state.calendarPanelOpen) {
       els.calendarPanelCol.className = "xl:w-80 w-full shrink-0 rounded-2xl bg-white border border-slate-200 shadow-sm overflow-hidden transition-all duration-300";
       els.calendarPanelContent.classList.remove("hidden");
-      els.calendarPanelHandleBtn.className = "w-12 shrink-0 border-r border-slate-200 bg-slate-50 text-slate-700 text-xs font-semibold tracking-wide [writing-mode:vertical-rl] rotate-180";
+      els.calendarPanelHandleBtn.className = "w-11 shrink-0 border-r border-slate-200 bg-slate-50 text-slate-700 text-xs font-semibold tracking-wide [writing-mode:vertical-rl] rotate-180";
       els.calendarPanelHandleBtn.textContent = "Panel";
     } else {
-      els.calendarPanelCol.className = "xl:w-12 w-full shrink-0 rounded-2xl bg-white border border-slate-200 shadow-sm overflow-hidden transition-all duration-300";
+      els.calendarPanelCol.className = "xl:w-11 w-full shrink-0 rounded-2xl bg-white border border-slate-200 shadow-sm overflow-hidden transition-all duration-300";
       els.calendarPanelContent.classList.add("hidden");
-      els.calendarPanelHandleBtn.className = "w-12 shrink-0 border-r-0 bg-slate-50 text-slate-700 text-xs font-semibold tracking-wide [writing-mode:vertical-rl] rotate-180";
+      els.calendarPanelHandleBtn.className = "w-11 shrink-0 border-r-0 bg-slate-50 text-slate-700 text-xs font-semibold tracking-wide [writing-mode:vertical-rl] rotate-180";
       els.calendarPanelHandleBtn.textContent = "Panel";
     }
   }
@@ -3542,13 +5560,15 @@ async function deleteEditedEntry() {
 
   function getArchivedProjectsForWorkspace() {
     return getVisibleProjects()
-      .filter(project => project.status === "Avsluttet")
+      .filter(project => isClosedProject(project))
       .slice()
       .sort((a, b) => compareProjectDates(a, b));
   }
 
   function setFocusProject(projectId) {
-    state.focusProjectId = projectId || "";
+    const nextProjectId = projectId || "";
+    if (state.focusProjectId !== nextProjectId) resetProjectInspectorFilters();
+    state.focusProjectId = nextProjectId;
     if (projectId && els.assignProject) {
       els.assignProject.value = projectId;
       syncAssignDatesFromProject({ projectId, rows: [] });
@@ -3781,13 +5801,18 @@ async function deleteEditedEntry() {
   }
 
 
-  function startProjectStaffing(projectId) {
+  function startProjectStaffing(projectId, preselectEmployeeName = "", preselectRole = "") {
     if (!els.assignProject) return;
-    state.focusProjectId = projectId || "";
+    const nextProjectId = projectId || "";
+    if (state.focusProjectId !== nextProjectId) resetProjectInspectorFilters();
+    state.focusProjectId = nextProjectId;
     setActiveTab("projects");
     els.assignProject.value = projectId;
     if (els.assignNotes) els.assignNotes.value = "";
-    syncAssignDatesFromProject({ projectId, rows: [] });
+    const rows = preselectEmployeeName
+      ? [{ employee_name: preselectEmployeeName, role: preselectRole || getDefaultRoleForIndex(0) }]
+      : [];
+    syncAssignDatesFromProject({ projectId, rows });
     updateAvailabilityAnalysis();
     els.assignProject.scrollIntoView({ behavior: "smooth", block: "center" });
     renderProjects();
@@ -3822,19 +5847,28 @@ async function deleteEditedEntry() {
   }
 
   function renderEmployees() {
-    els.employeeList.innerHTML = state.employees.map(emp => {
+    const sortedEmployees = state.employees.slice().sort((a, b) => {
+      const groupDiff = getEmployeeGroupSortIndex(a.employee_group) - getEmployeeGroupSortIndex(b.employee_group);
+      if (groupDiff !== 0) return groupDiff;
+      return (a.name || "").localeCompare(b.name || "", "no");
+    });
+
+    els.employeeList.innerHTML = sortedEmployees.map(emp => {
       const employeeGroup = normalizeEmployeeGroup(emp.employee_group || "");
       const cardClass = getEmployeeGroupCardClass(employeeGroup);
       return `
       <button data-employee-id="${escapeHtml(emp.id)}" class="w-full text-left rounded-xl border-2 p-3 transition ${cardClass}">
         <div class="flex items-center justify-between gap-2">
-          <div class="font-medium">${escapeHtml(emp.name)}</div>
+          <div class="flex items-center gap-2 min-w-0">
+            ${getEmployeeGroupIconHtml(employeeGroup, "inline-flex h-5 w-5 items-center justify-center text-slate-600 shrink-0")}
+            <div class="font-medium truncate">${escapeHtml(emp.name)}</div>
+          </div>
           <span class="text-xs ${emp.active ? "text-green-700" : "text-amber-700"}">${emp.active ? "Aktiv" : "Inaktiv"}</span>
         </div>
         <div class="text-xs text-slate-500 mt-1">${escapeHtml(emp.email || "Ingen e-post")}</div>
         <div class="text-xs text-slate-500">${escapeHtml(emp.phone || "Ingen telefon")}</div>
         <div class="text-xs text-slate-500">${escapeHtml(emp.title || "Ingen stillingstittel")}</div>
-        <div class="mt-2 inline-flex rounded-full border border-current/20 bg-white/80 px-2 py-1 text-xs font-medium text-slate-700">${escapeHtml(employeeGroup || "Ingen gruppe valgt")}</div>
+        <div class="mt-2 inline-flex items-center gap-1.5 rounded-full border border-current/20 bg-white/80 px-2 py-1 text-xs font-medium text-slate-700">${getEmployeeGroupIconHtml(employeeGroup, "inline-flex h-4 w-4 items-center justify-center text-slate-600 shrink-0")}<span>${escapeHtml(getEmployeeGroupLabel(employeeGroup) || "Ingen gruppe valgt")}</span></div>
       </button>
     `}).join("") || `<div class="text-sm text-slate-500">Ingen ansatte enda.</div>`;
 
@@ -3844,7 +5878,7 @@ async function deleteEditedEntry() {
   }
 
   function renderKanban() {
-    const groups = STATUS_OPTIONS.map(status => ({
+    const groups = PROJECT_STATUS_OPTIONS.map(status => ({
       status,
       projects: getVisibleProjects().filter(p => p.status === status)
     }));
@@ -3854,7 +5888,7 @@ async function deleteEditedEntry() {
         <div class="p-3 border-b border-slate-200 font-medium">${escapeHtml(group.status)} (${group.projects.length})</div>
         <div class="p-3 space-y-2">
           ${group.projects.length ? group.projects.map(project => `
-            <div class="rounded-xl border border-slate-200 ${project.status === "Avsluttet" ? "bg-slate-100" : "bg-white"} p-3">
+            <div class="rounded-xl border border-slate-200 ${isClosedProject(project) ? "bg-slate-100" : "bg-white"} p-3">
               <div class="font-medium">${escapeHtml(project.name)}</div>
               <div class="mt-1 text-xs text-slate-500">${escapeHtml(project.category)}${project.location ? ` • ${escapeHtml(project.location)}` : ""}</div>
               <div class="mt-1 text-xs text-slate-600">${escapeHtml(formatProjectDateRange(project))}</div>
@@ -3903,11 +5937,93 @@ async function deleteEditedEntry() {
     els.systemStatus.innerHTML = lines.join("");
   }
 
+  function getProjectSpotlightProject() {
+    if (!state.projectSpotlightId) return null;
+    const project = getProjectById(state.projectSpotlightId);
+    if (!project || isSystemPersonalProject(project)) {
+      state.projectSpotlightId = "";
+      return null;
+    }
+    return project;
+  }
+
+  function expandEmployeeGroupsForProject(projectId) {
+    const employeeNames = new Set(state.entries
+      .filter(entry => entry.project_id === projectId)
+      .map(entry => entry.employee_name)
+      .filter(Boolean));
+
+    if (!employeeNames.size) return;
+
+    const groupsToOpen = new Set();
+    state.employees.forEach(employee => {
+      if (!employeeNames.has(employee.name)) return;
+      const group = normalizeEmployeeGroup(employee.employee_group || "");
+      groupsToOpen.add(group || "__ungrouped__");
+    });
+
+    if (!groupsToOpen.size) return;
+
+    state.collapsedEmployeeGroups = (state.collapsedEmployeeGroups || []).filter(key => !groupsToOpen.has(key));
+    localStorage.setItem("planner_collapsed_employee_groups_v1", JSON.stringify(state.collapsedEmployeeGroups));
+  }
+
+  function setProjectSpotlight(projectId) {
+    const project = getProjectById(projectId);
+    if (!project || isSystemPersonalProject(project)) return;
+
+    if (state.projectSpotlightId === project.id) {
+      state.projectSpotlightId = "";
+      renderCalendar();
+      return;
+    }
+
+    state.projectSpotlightId = project.id;
+    expandEmployeeGroupsForProject(project.id);
+    renderCalendar();
+  }
+
+  function clearProjectSpotlight() {
+    if (!state.projectSpotlightId) return;
+    state.projectSpotlightId = "";
+    renderCalendar();
+  }
+
+  function renderProjectSpotlightBar() {
+    if (!els.projectSpotlightBar) return;
+    const project = getProjectSpotlightProject();
+    if (!project || state.calendarMode !== "personal") {
+      els.projectSpotlightBar.className = "hidden";
+      els.projectSpotlightBar.innerHTML = "";
+      return;
+    }
+
+    els.projectSpotlightBar.className = "project-spotlight-bar";
+    els.projectSpotlightBar.innerHTML = `
+      <div class="min-w-0 truncate">Fokus: <strong>${escapeHtml(displayProjectName(project))}</strong></div>
+      <button id="clearProjectSpotlightBtn" type="button" class="project-spotlight-clear">Nullstill fokus</button>
+    `;
+
+    const clearBtn = document.getElementById("clearProjectSpotlightBtn");
+    if (clearBtn) clearBtn.addEventListener("click", clearProjectSpotlight);
+  }
+
+  function getEntrySpotlightClass(project) {
+    const spotlight = getProjectSpotlightProject();
+    if (!spotlight || state.calendarMode !== "personal") return "";
+    if (project && project.id === spotlight.id) return " project-spotlight-active";
+    return " project-spotlight-muted";
+  }
+
   function renderCalendar() {
     if (!els.calendarWrap) return;
     const range = getCurrentRange();
     els.rangeTitle.innerHTML = getRangeTitle();
     renderHolidayInfo(range);
+    renderProjectSpotlightBar();
+    renderLegend();
+    updateCalendarSearchControls();
+    renderCalendarPanel();
 
     if (state.calendarMode === "project") {
       renderProjectCalendar();
@@ -3926,78 +6042,109 @@ async function deleteEditedEntry() {
     const range = getCurrentRange();
     const days = getDaysBetween(range.start, range.end);
     const employees = getFilteredEmployees();
+    const employeeGroups = getCalendarEmployeeGroups(employees);
+
+    const dashboardFilterBanner = state.dashboardEmployeeFilter
+      ? `<div id="dashboardEmployeeFilterBanner"><div><strong>Dashboard-filter:</strong> ${escapeHtml(state.dashboardEmployeeFilterLabel || "Utvalg")} · viser ${employees.length} ansatte · ${escapeHtml(getDashboardAnalysisPeriodLabel())}</div><button type="button" id="clearDashboardEmployeeFilterBtn">Vis alle ansatte</button></div>`
+      : "";
 
     const stickyWidth = 238;
     const colWidth = Math.max(28, state.viewMode === "Uke" ? 38 : 32);
     const totalWidth = colWidth * days.length;
 
-    let html = `<div class="calendar-shell" style="width:${stickyWidth + totalWidth}px; min-width:${stickyWidth + totalWidth}px;">`;
+    let html = dashboardFilterBanner;
+    html += `<div class="calendar-shell" style="width:${stickyWidth + totalWidth}px; min-width:${stickyWidth + totalWidth}px;">`;
     html += `<div class="day-grid border border-slate-200 rounded-2xl overflow-visible" style="grid-template-columns:${stickyWidth}px repeat(${days.length}, ${colWidth}px);">`;
     html += renderTimelineHeaderRows(days, "Ansatt");
 
     const warnings = [];
 
-    for (const employee of employees) {
-      const employeeEntries = getVisibleEntriesForEmployee(employee.name, range.start, range.end);
-
+    for (const group of employeeGroups) {
+      const collapsed = isEmployeeGroupCollapsed(group.key);
       html += `
-        <div class="sticky-col border-r border-b border-slate-200 px-3 py-2 ${getEmployeeCalendarCellClass(employee)}">
-          <div>${getEmployeeNameTabHtml(employee)}</div>
-          ${employee.title ? `<div class="text-[11px] opacity-80 leading-tight mt-1">${escapeHtml(employee.title)}</div>` : ""}
+        <div class="sticky-col border-r border-b border-slate-200 bg-slate-50 px-3 py-2">
+          <button type="button" data-employee-group-toggle="${escapeHtml(group.key)}" class="w-full flex items-center justify-between gap-3 text-left text-slate-800">
+            <span class="min-w-0 flex items-center gap-2">
+              <span class="text-xs text-slate-500">${collapsed ? "▶" : "▼"}</span>
+              ${group.iconHtml}
+              <span class="font-semibold text-sm truncate">${escapeHtml(group.label)}</span>
+              <span class="rounded-md border border-slate-300 bg-white px-1.5 py-0.5 text-[11px] font-semibold text-slate-600">${group.employees.length}</span>
+            </span>
+          </button>
         </div>
+        <div class="border-b border-slate-200 bg-slate-50/70" style="grid-column: span ${days.length}; width:${totalWidth}px; min-height:36px;"></div>
       `;
 
-      html += `<div class="row-overlay border-b border-slate-200 drop-row" data-employee-name="${escapeHtml(employee.name)}" data-range-start="${toIsoDate(range.start)}" data-col-width="${colWidth}" data-total-cols="${days.length}" data-time-unit="day" style="grid-column: span ${days.length}; width:${totalWidth}px;">`;
+      if (collapsed) continue;
 
-      for (let i = 0; i < days.length; i++) {
-        const day = days[i];
-        const nextDay = days[i + 1] || null;
-        const monthBoundary = !nextDay || nextDay.getMonth() !== day.getMonth();
-        const redDay = isRedDay(day);
-        html += `<div data-drop-slot-index="${i}" data-drop-date="${toIsoDate(day)}" class="day-cell ${redDay ? "red-day" : ""}" style="position:absolute; left:${i * colWidth}px; width:${colWidth}px; border-right:${monthBoundary ? "2px solid #94a3b8" : "1px solid #e2e8f0"};"></div>`;
-      }
-
-      html += `<div style="position:relative; width:${totalWidth}px; min-height:52px;">`;
-
-      for (const entry of employeeEntries) {
-        const project = getProjectById(entry.project_id);
-        if (!project) continue;
-
-        const clipped = clipRange(asLocalDate(entry.start_date), asLocalDate(entry.end_date), range.start, range.end);
-        const startIndex = diffDays(range.start, clipped.start);
-        const spanDays = diffDays(clipped.start, clipped.end) + 1;
-        const left = startIndex * colWidth + 2;
-        const width = Math.max(spanDays * colWidth - 4, 40);
+      for (const employee of group.employees) {
+        const employeeEntries = getVisibleEntriesForEmployee(employee.name, range.start, range.end);
 
         html += `
-          <div
-            class="entry-bar ${getEntryBarClasses(project, entry.role, entry)}"
-            style="left:${left}px; width:${width}px;"
-            data-entry-id="${escapeHtml(entry.id)}"
-            draggable="true"
-            title="${escapeHtml(`${employee.name} | ${displayProjectName(project)} | ${entry.role} | ${entry.start_date} - ${entry.end_date}${entry.notes ? ` | ${entry.notes}` : ""}`)}"
-          >
-            <div class="font-semibold">${escapeHtml(displayProjectName(project))}</div>
-            ${isSystemPersonalProject(project) ? "" : `<div class="text-[11px] opacity-90">${escapeHtml(entry.role)}</div>`}
-            <div data-resize-handle data-resize-type="entry" data-target-id="${escapeHtml(entry.id)}" title="Dra for å endre sluttdato" style="position:absolute; top:0; right:0; bottom:0; width:12px; cursor:ew-resize; border-left:1px solid rgba(255,255,255,0.35); background:linear-gradient(to left, rgba(255,255,255,0.35), rgba(255,255,255,0));"></div>
+          <div class="sticky-col border-r border-b border-slate-200 px-3 py-2 ${getEmployeeCalendarCellClass(employee)}">
+            <div>${getEmployeeNameTabHtml(employee)}</div>
+            ${employee.title ? `<div class="text-[11px] opacity-80 leading-tight mt-1">${escapeHtml(employee.title)}</div>` : ""}
           </div>
         `;
 
-        const overlappingCount = employeeEntries.filter(other =>
-          other.id !== entry.id &&
-          overlaps(entry.start_date, entry.end_date, other.start_date, other.end_date)
-        ).length;
+        html += `<div class="row-overlay border-b border-slate-200 drop-row" data-employee-name="${escapeHtml(employee.name)}" data-range-start="${toIsoDate(range.start)}" data-col-width="${colWidth}" data-total-cols="${days.length}" data-time-unit="day" style="grid-column: span ${days.length}; width:${totalWidth}px;">`;
 
-        if (overlappingCount > 0) {
-          warnings.push(`${employee.name} har overlappende tildelinger rundt ${entry.start_date}–${entry.end_date}.`);
+        for (let i = 0; i < days.length; i++) {
+          const day = days[i];
+          const nextDay = days[i + 1] || null;
+          const monthBoundary = !nextDay || nextDay.getMonth() !== day.getMonth();
+          const redDay = isRedDay(day);
+          const todayCellStyle = getTodayColumnStyle(day, "cell");
+          html += `<div data-drop-slot-index="${i}" data-drop-date="${toIsoDate(day)}" data-today-column="${isTodayDate(day) ? "true" : "false"}" class="day-cell ${redDay ? "red-day" : ""}" style="position:absolute; left:${i * colWidth}px; width:${colWidth}px; border-right:${monthBoundary ? "2px solid #94a3b8" : "1px solid #e2e8f0"}; ${todayCellStyle}"></div>`;
         }
-      }
 
-      html += `</div></div>`;
+        html += `<div style="position:relative; width:${totalWidth}px; min-height:40px;">`;
+
+        for (const entry of employeeEntries) {
+          const project = getProjectById(entry.project_id);
+          if (!project) continue;
+
+          const clipped = clipRange(asLocalDate(entry.start_date), asLocalDate(entry.end_date), range.start, range.end);
+          const startIndex = diffDays(range.start, clipped.start);
+          const spanDays = diffDays(clipped.start, clipped.end) + 1;
+          const left = startIndex * colWidth + 2;
+          const width = Math.max(spanDays * colWidth - 4, 40);
+
+          html += `
+            <div
+              class="entry-bar ${getEntryBarClasses(project, entry.role, entry)}${getEntrySpotlightClass(project)}"
+              style="left:${left}px; width:${width}px;"
+              data-entry-id="${escapeHtml(entry.id)}"
+              data-project-id="${escapeHtml(project.id)}"
+              data-system-personal="${isSystemPersonalProject(project) ? "true" : "false"}"
+              draggable="true"
+              title="${escapeHtml(`${employee.name} | ${displayProjectName(project)} | ${entry.role} | ${entry.start_date} - ${entry.end_date}${entry.notes ? ` | ${entry.notes}` : ""}`)}"
+            >
+              <div class="font-semibold">${escapeHtml(displayProjectName(project))}</div>
+              ${isSystemPersonalProject(project) ? "" : `<div class="text-[11px] opacity-90">${escapeHtml(entry.role)}</div>`}
+              <div data-resize-handle data-resize-type="entry" data-target-id="${escapeHtml(entry.id)}" title="Dra for å endre sluttdato" style="position:absolute; top:0; right:0; bottom:0; width:12px; cursor:ew-resize; border-left:1px solid rgba(255,255,255,0.35); background:linear-gradient(to left, rgba(255,255,255,0.35), rgba(255,255,255,0));"></div>
+            </div>
+          `;
+
+          const overlappingCount = employeeEntries.filter(other =>
+            other.id !== entry.id &&
+            overlaps(entry.start_date, entry.end_date, other.start_date, other.end_date)
+          ).length;
+
+          if (overlappingCount > 0) {
+            warnings.push(`${employee.name} har overlappende tildelinger rundt ${entry.start_date}–${entry.end_date}.`);
+          }
+        }
+
+        html += `</div></div>`;
+      }
     }
 
     html += `</div></div>`;
     els.calendarWrap.innerHTML = html;
+    const clearDashboardBtn = document.getElementById("clearDashboardEmployeeFilterBtn");
+    if (clearDashboardBtn) clearDashboardBtn.addEventListener("click", clearDashboardEmployeeFilter);
+    bindEmployeeGroupCollapseButtons();
     bindEntryClicks();
     bindResizeHandles();
     renderWarnings(uniqueArray(warnings));
@@ -4005,6 +6152,7 @@ async function deleteEditedEntry() {
 
   function renderPersonalYearCalendar() {
     const employees = getFilteredEmployees();
+    const employeeGroups = getCalendarEmployeeGroups(employees);
     const year = state.startDate.getFullYear();
     const months = Array.from({ length: 12 }, (_, i) => new Date(year, i, 1));
 
@@ -4026,56 +6174,78 @@ async function deleteEditedEntry() {
     const yearStart = new Date(year, 0, 1);
     const yearEnd = new Date(year, 11, 31);
 
-    for (const employee of employees) {
-      const employeeEntries = getVisibleEntriesForEmployee(employee.name, yearStart, yearEnd);
-
+    for (const group of employeeGroups) {
+      const collapsed = isEmployeeGroupCollapsed(group.key);
       html += `
-        <div class="sticky-col border-r border-b border-slate-200 px-3 py-2 ${getEmployeeCalendarCellClass(employee)}">
-          <div>${getEmployeeNameTabHtml(employee)}</div>
-          ${employee.title ? `<div class="text-[11px] text-slate-600 leading-tight mt-1">${escapeHtml(employee.title)}</div>` : ""}
+        <div class="sticky-col border-r border-b border-slate-200 bg-slate-50 px-3 py-2">
+          <button type="button" data-employee-group-toggle="${escapeHtml(group.key)}" class="w-full flex items-center justify-between gap-3 text-left text-slate-800">
+            <span class="min-w-0 flex items-center gap-2">
+              <span class="text-xs text-slate-500">${collapsed ? "▶" : "▼"}</span>
+              ${group.iconHtml}
+              <span class="font-semibold text-sm truncate">${escapeHtml(group.label)}</span>
+              <span class="rounded-md border border-slate-300 bg-white px-1.5 py-0.5 text-[11px] font-semibold text-slate-600">${group.employees.length}</span>
+            </span>
+          </button>
         </div>
+        <div class="border-b border-slate-200 bg-slate-50/70" style="grid-column: span 12; width:${totalWidth}px; min-height:36px;"></div>
       `;
 
-      html += `<div class="row-overlay border-b border-slate-200 drop-row" data-employee-name="${escapeHtml(employee.name)}" data-range-start="${toIsoDate(yearStart)}" data-col-width="${monthWidth}" data-total-cols="12" data-time-unit="month" style="grid-column: span 12; width:${totalWidth}px;">`;
+      if (collapsed) continue;
 
-      for (let i = 0; i < 12; i++) {
-        html += `<div data-drop-slot-index="${i}" data-drop-month-index="${i}" class="month-cell" style="position:absolute; left:${i * monthWidth}px; width:${monthWidth}px;"></div>`;
-      }
-
-      html += `<div style="position:relative; width:${totalWidth}px; min-height:56px;">`;
-
-      for (const entry of employeeEntries) {
-        const project = getProjectById(entry.project_id);
-        if (!project) continue;
-
-        const entryStart = asLocalDate(entry.start_date);
-        const entryEnd = asLocalDate(entry.end_date);
-        const startMonth = Math.max(0, entryStart.getFullYear() < year ? 0 : entryStart.getMonth());
-        const endMonth = Math.min(11, entryEnd.getFullYear() > year ? 11 : entryEnd.getMonth());
-        const spanMonths = (endMonth - startMonth) + 1;
-        const left = startMonth * monthWidth + 2;
-        const width = Math.max(spanMonths * monthWidth - 4, 40);
+      for (const employee of group.employees) {
+        const employeeEntries = getVisibleEntriesForEmployee(employee.name, yearStart, yearEnd);
 
         html += `
-          <div
-            class="entry-bar ${getEntryBarClasses(project, entry.role, entry)}"
-            style="left:${left}px; width:${width}px;"
-            data-entry-id="${escapeHtml(entry.id)}"
-            draggable="true"
-            title="${escapeHtml(`${employee.name} | ${displayProjectName(project)} | ${entry.role} | ${entry.start_date} - ${entry.end_date}`)}"
-          >
-            <div class="font-semibold">${escapeHtml(displayProjectName(project))}</div>
-            <div class="text-[11px] opacity-90">${escapeHtml(formatYearBarLabel(entry.start_date, entry.end_date))}</div>
-            <div data-resize-handle data-resize-type="entry" data-target-id="${escapeHtml(entry.id)}" title="Dra for å endre sluttdato" style="position:absolute; top:0; right:0; bottom:0; width:12px; cursor:ew-resize; border-left:1px solid rgba(255,255,255,0.35); background:linear-gradient(to left, rgba(255,255,255,0.35), rgba(255,255,255,0));"></div>
+          <div class="sticky-col border-r border-b border-slate-200 px-3 py-2 ${getEmployeeCalendarCellClass(employee)}">
+            <div>${getEmployeeNameTabHtml(employee)}</div>
+            ${employee.title ? `<div class="text-[11px] text-slate-600 leading-tight mt-1">${escapeHtml(employee.title)}</div>` : ""}
           </div>
         `;
-      }
 
-      html += `</div></div>`;
+        html += `<div class="row-overlay border-b border-slate-200 drop-row" data-employee-name="${escapeHtml(employee.name)}" data-range-start="${toIsoDate(yearStart)}" data-col-width="${monthWidth}" data-total-cols="12" data-time-unit="month" style="grid-column: span 12; width:${totalWidth}px;">`;
+
+        for (let i = 0; i < 12; i++) {
+          html += `<div data-drop-slot-index="${i}" data-drop-month-index="${i}" class="month-cell" style="position:absolute; left:${i * monthWidth}px; width:${monthWidth}px;"></div>`;
+        }
+
+        html += `<div style="position:relative; width:${totalWidth}px; min-height:56px;">`;
+
+        for (const entry of employeeEntries) {
+          const project = getProjectById(entry.project_id);
+          if (!project) continue;
+
+          const entryStart = asLocalDate(entry.start_date);
+          const entryEnd = asLocalDate(entry.end_date);
+          const startMonth = Math.max(0, entryStart.getFullYear() < year ? 0 : entryStart.getMonth());
+          const endMonth = Math.min(11, entryEnd.getFullYear() > year ? 11 : entryEnd.getMonth());
+          const spanMonths = (endMonth - startMonth) + 1;
+          const left = startMonth * monthWidth + 2;
+          const width = Math.max(spanMonths * monthWidth - 4, 40);
+
+          html += `
+            <div
+              class="entry-bar ${getEntryBarClasses(project, entry.role, entry)}${getEntrySpotlightClass(project)}"
+              style="left:${left}px; width:${width}px;"
+              data-entry-id="${escapeHtml(entry.id)}"
+              data-project-id="${escapeHtml(project.id)}"
+              data-system-personal="${isSystemPersonalProject(project) ? "true" : "false"}"
+              draggable="true"
+              title="${escapeHtml(`${employee.name} | ${displayProjectName(project)} | ${entry.role} | ${entry.start_date} - ${entry.end_date}`)}"
+            >
+              <div class="font-semibold">${escapeHtml(displayProjectName(project))}</div>
+              <div class="text-[11px] opacity-90">${escapeHtml(formatYearBarLabel(entry.start_date, entry.end_date))}</div>
+              <div data-resize-handle data-resize-type="entry" data-target-id="${escapeHtml(entry.id)}" title="Dra for å endre sluttdato" style="position:absolute; top:0; right:0; bottom:0; width:12px; cursor:ew-resize; border-left:1px solid rgba(255,255,255,0.35); background:linear-gradient(to left, rgba(255,255,255,0.35), rgba(255,255,255,0));"></div>
+            </div>
+          `;
+        }
+
+        html += `</div></div>`;
+      }
     }
 
     html += `</div></div>`;
     els.calendarWrap.innerHTML = html;
+    bindEmployeeGroupCollapseButtons();
     bindEntryClicks();
     bindResizeHandles();
     renderWarnings(uniqueArray(warnings));
@@ -4095,9 +6265,9 @@ async function deleteEditedEntry() {
 
   function renderProjectDayCalendar(range, warnings) {
     const days = getDaysBetween(range.start, range.end);
-    const projects = getVisibleProjects().filter(project => projectOverlapsRange(project, range.start, range.end));
+    const projects = getProjectCalendarItems().filter(project => projectOverlapsRange(project, range.start, range.end));
 
-    const stickyWidth = 300;
+    const stickyWidth = 380;
     const colWidth = Math.max(28, state.viewMode === "Uke" ? 38 : 32);
     const totalWidth = colWidth * days.length;
 
@@ -4109,25 +6279,28 @@ async function deleteEditedEntry() {
       const assigned = getProjectAssignedCount(project.id);
       const required = Number(project.headcount_required || 0);
       const staffing = getProjectStaffingLabel(project.id, required);
-      const projectPeriods = getProjectTimelinePeriods(project);
+      const projectPeriods = getProjectTimelinePeriodsWithWorkshop(project);
 
       html += `
-        <div class="sticky-col border-r border-b border-slate-200 px-3 py-2 ${project.status === "Avsluttet" ? "bg-slate-100" : "bg-white"}">
-          <div class="font-medium">${escapeHtml(project.name)}</div>
-          <div class="text-xs text-slate-500">${escapeHtml(project.location || "")}</div>
-          <div class="text-xs ${staffing.variant} mt-1">${escapeHtml(staffing.text)}${required ? ` (${assigned}/${required})` : ""}</div>
-          ${project.has_multiple_periods && projectPeriods.length ? `<div class="text-[11px] text-slate-400 mt-1">${projectPeriods.length} perioder</div>` : ""}
-        </div>
+        <button type="button" data-project-list-row-id="${escapeHtml(project.id)}" class="sticky-col project-plan-name-cell border-r border-b border-slate-200 px-3 py-1.5 text-left ${project.id === state.focusProjectId ? "bg-blue-50 ring-2 ring-blue-200" : isClosedProject(project) ? "bg-slate-100" : "bg-white"}">
+          <div class="project-plan-title">${escapeHtml(project.name)}</div>
+          <div class="project-plan-meta">
+            <span class="${staffing.variant}">${escapeHtml(staffing.text)}${required ? ` (${assigned}/${required})` : ""}</span>
+            ${project.location ? `<span class="text-slate-400">·</span><span>${escapeHtml(project.location)}</span>` : ""}
+            ${project.has_multiple_periods && getProjectTimelinePeriods(project).length ? `<span class="text-slate-400">·</span><span>${getProjectTimelinePeriods(project).length} feltperioder + workshop</span>` : ""}
+          </div>
+        </button>
       `;
 
-      html += `<div class="row-overlay border-b border-slate-200" data-range-start="${toIsoDate(range.start)}" data-col-width="${colWidth}" data-total-cols="${days.length}" data-time-unit="day" style="grid-column: span ${days.length}; width:${totalWidth}px;">`;
+      html += `<div class="row-overlay border-b border-slate-200 project-workshop-drop-row" data-project-drop-row-id="${escapeHtml(project.id)}" data-range-start="${toIsoDate(range.start)}" data-col-width="${colWidth}" data-total-cols="${days.length}" data-time-unit="day" style="grid-column: span ${days.length}; width:${totalWidth}px;">`;
 
       for (let i = 0; i < days.length; i++) {
         const day = days[i];
         const nextDay = days[i + 1] || null;
         const monthBoundary = !nextDay || nextDay.getMonth() !== day.getMonth();
         const redDay = isRedDay(day);
-        html += `<div data-drop-slot-index="${i}" data-drop-date="${toIsoDate(day)}" class="day-cell ${redDay ? "red-day" : ""}" style="position:absolute; left:${i * colWidth}px; width:${colWidth}px; border-right:${monthBoundary ? "2px solid #94a3b8" : "1px solid #e2e8f0"};"></div>`;
+        const todayCellStyle = getTodayColumnStyle(day, "cell");
+          html += `<div data-drop-slot-index="${i}" data-drop-date="${toIsoDate(day)}" data-today-column="${isTodayDate(day) ? "true" : "false"}" class="day-cell ${redDay ? "red-day" : ""}" style="position:absolute; left:${i * colWidth}px; width:${colWidth}px; border-right:${monthBoundary ? "2px solid #94a3b8" : "1px solid #e2e8f0"}; ${todayCellStyle}"></div>`;
       }
 
       html += `<div style="position:relative; width:${totalWidth}px; min-height:52px;">`;
@@ -4138,17 +6311,30 @@ async function deleteEditedEntry() {
         const spanDays = diffDays(clipped.start, clipped.end) + 1;
         const left = startIndex * colWidth + 2;
         const width = Math.max(spanDays * colWidth - 4, 40);
-        const periodLabel = project.has_multiple_periods && projectPeriods.length > 1 ? `${formatDate(period.start)} – ${formatDate(period.end)}` : staffing.text;
+        const periodLabel = period.phase === "workshop"
+          ? `Workshop / mobilisering · behov ${period.required || 2}`
+          : (project.has_multiple_periods && projectPeriods.filter(item => item.phase !== "workshop").length > 1 ? `${formatDate(period.start)} – ${formatDate(period.end)}` : staffing.text);
+        const periodClasses = getProjectPeriodBarClasses(project, period);
 
         html += `
           <div
-            class="entry-bar ${getProjectBarClasses(project)}"
+            class="entry-bar ${periodClasses} ${(period.phase === "workshop" || (period.phase !== "workshop" && !project.has_multiple_periods)) ? "cursor-move" : ""} ${project.id === state.focusProjectId ? 'ring-2 ring-blue-300 ring-offset-1' : ''}"
             style="left:${left}px; width:${width}px;"
             data-project-row-id="${escapeHtml(project.id)}"
-            title="${escapeHtml(`${project.name} | ${formatDate(period.start)} – ${formatDate(period.end)} | ${staffing.text}`)}"
+            data-project-period-phase="${escapeHtml(period.phase || "field")}"
+            ${period.phase === "workshop" ? `data-workshop-project-id="${escapeHtml(project.id)}" draggable="true"` : ""}
+            ${period.phase !== "workshop" && !project.has_multiple_periods ? `data-field-project-id="${escapeHtml(project.id)}" draggable="true"` : ""}
+            title="${escapeHtml(`${project.name} | ${period.phaseLabel || "Feltoppdrag"} | ${formatDate(period.start)} – ${formatDate(period.end)} | ${period.phase === "workshop" ? `Workshopbehov ${period.required || 2}` : staffing.text}`)}"
           >
             <div class="font-semibold">${escapeHtml(project.name)}</div>
             <div class="text-[11px] opacity-90">${escapeHtml(periodLabel)}</div>
+            <div
+              data-resize-handle
+              data-resize-type="${period.phase === "workshop" ? "workshop" : "project"}"
+              data-target-id="${escapeHtml(project.id)}"
+              title="${period.phase === "workshop" ? "Dra for å endre workshop-sluttdato" : "Dra for å endre prosjektsluttdato"}"
+              style="position:absolute; top:0; right:0; bottom:0; width:14px; cursor:ew-resize; border-left:1px solid rgba(255,255,255,0.42); background:linear-gradient(to left, rgba(255,255,255,0.42), rgba(255,255,255,0));"
+            ></div>
           </div>
         `;
       }
@@ -4160,15 +6346,21 @@ async function deleteEditedEntry() {
     els.calendarWrap.innerHTML = html;
 
     els.calendarWrap.querySelectorAll("[data-project-row-id]").forEach(el => {
-      el.addEventListener("click", () => openProjectModal(el.dataset.projectRowId));
+      el.addEventListener("click", () => selectProjectInCalendar(el.dataset.projectRowId));
     });
+    els.calendarWrap.querySelectorAll("[data-project-list-row-id]").forEach(el => {
+      el.addEventListener("click", () => selectProjectInCalendar(el.dataset.projectListRowId));
+    });
+    bindWorkshopPhaseDrag();
+    bindFieldProjectDrag();
+    bindResizeHandles();
     renderWarnings(uniqueArray(warnings));
   }
 
   function renderProjectYearCalendar(range, warnings) {
     const year = range.start.getFullYear();
     const months = Array.from({ length: 12 }, (_, i) => new Date(year, i, 1));
-    const projects = getVisibleProjects().filter(project => projectOverlapsRange(project, range.start, range.end));
+    const projects = getProjectCalendarItems().filter(project => projectOverlapsRange(project, range.start, range.end));
 
     const calendarWrapWidth = Math.max(els.calendarWrap.clientWidth - 8, 900);
     const stickyWidth = 320;
@@ -4190,7 +6382,7 @@ async function deleteEditedEntry() {
       const staffing = getProjectStaffingLabel(project.id, required);
 
       html += `
-        <div class="sticky-col border-r border-b border-slate-200 px-3 py-3 ${project.status === "Avsluttet" ? "bg-slate-100" : ""}">
+        <div class="sticky-col border-r border-b border-slate-200 px-3 py-3 ${isClosedProject(project) ? "bg-slate-100" : ""}">
           <div class="font-medium">${escapeHtml(project.name)}</div>
           <div class="text-xs text-slate-500">${escapeHtml(project.location || "")}</div>
           <div class="text-xs ${staffing.variant} mt-1">${escapeHtml(staffing.text)}${required ? ` (${assigned}/${required})` : ""}</div>
@@ -4205,25 +6397,28 @@ async function deleteEditedEntry() {
 
       html += `<div style="position:relative; width:${totalWidth}px; min-height:56px;">`;
 
-      if (project.planned_start_date && project.planned_end_date) {
-        const start = asLocalDate(project.planned_start_date);
-        const end = asLocalDate(project.planned_end_date);
+      const yearPeriods = getProjectTimelinePeriodsWithWorkshop(project).filter(period => overlaps(period.start, period.end, new Date(year, 0, 1), new Date(year, 11, 31)));
+      for (const period of yearPeriods) {
+        const start = asLocalDate(period.start);
+        const end = asLocalDate(period.end);
+        if (!start || !end) continue;
         const startMonth = Math.max(0, start.getFullYear() < year ? 0 : start.getMonth());
         const endMonth = Math.min(11, end.getFullYear() > year ? 11 : end.getMonth());
         const spanMonths = (endMonth - startMonth) + 1;
         const left = startMonth * monthWidth + 2;
         const width = Math.max(spanMonths * monthWidth - 4, 40);
+        const periodLabel = period.phase === "workshop" ? `Workshop / mobilisering · behov ${period.required || 2}` : staffing.text;
 
         html += `
           <div
-            class="entry-bar ${getProjectBarClasses(project)}"
+            class="entry-bar ${getProjectPeriodBarClasses(project, period)} ${project.id === state.focusProjectId ? 'ring-2 ring-blue-300 ring-offset-1' : ''}"
             style="left:${left}px; width:${width}px;"
             data-project-row-id="${escapeHtml(project.id)}"
-            title="${escapeHtml(`${project.name} | ${formatProjectDateRange(project)} | ${staffing.text}`)}"
+            title="${escapeHtml(`${project.name} | ${period.phaseLabel || "Feltoppdrag"} | ${formatDate(period.start)} – ${formatDate(period.end)} | ${period.phase === "workshop" ? `Workshopbehov ${period.required || 2}` : staffing.text}`)}"
           >
             <div class="font-semibold">${escapeHtml(project.name)}</div>
-            <div class="text-[11px] opacity-90">${escapeHtml(staffing.text)}</div>
-            <div data-resize-handle data-resize-type="project" data-target-id="${escapeHtml(project.id)}" title="Dra for å endre sluttdato" style="position:absolute; top:0; right:0; bottom:0; width:12px; cursor:ew-resize; border-left:1px solid rgba(255,255,255,0.35); background:linear-gradient(to left, rgba(255,255,255,0.35), rgba(255,255,255,0));"></div>
+            <div class="text-[11px] opacity-90">${escapeHtml(periodLabel)}</div>
+            ${period.phase !== "workshop" ? `<div data-resize-handle data-resize-type="project" data-target-id="${escapeHtml(project.id)}" title="Dra for å endre sluttdato" style="position:absolute; top:0; right:0; bottom:0; width:12px; cursor:ew-resize; border-left:1px solid rgba(255,255,255,0.35); background:linear-gradient(to left, rgba(255,255,255,0.35), rgba(255,255,255,0));"></div>` : ""}
           </div>
         `;
       }
@@ -4235,7 +6430,10 @@ async function deleteEditedEntry() {
     els.calendarWrap.innerHTML = html;
 
     els.calendarWrap.querySelectorAll("[data-project-row-id]").forEach(el => {
-      el.addEventListener("click", () => openProjectModal(el.dataset.projectRowId));
+      el.addEventListener("click", () => selectProjectInCalendar(el.dataset.projectRowId));
+    });
+    els.calendarWrap.querySelectorAll("[data-project-list-row-id]").forEach(el => {
+      el.addEventListener("click", () => selectProjectInCalendar(el.dataset.projectListRowId));
     });
     bindResizeHandles();
 
@@ -4264,12 +6462,41 @@ async function deleteEditedEntry() {
     els.calendarWrap.querySelectorAll("[data-entry-id]").forEach(el => {
       if (!editable) {
         el.setAttribute("draggable", "false");
-        el.style.cursor = "default";
+        const projectId = el.dataset.projectId || "";
+        const isPersonal = el.dataset.systemPersonal === "true";
+        if (projectId && !isPersonal) {
+          el.style.cursor = "pointer";
+          el.addEventListener("click", event => {
+            event.preventDefault();
+            event.stopPropagation();
+            setProjectSpotlight(projectId);
+          });
+        } else {
+          el.style.cursor = "default";
+        }
         return;
       }
 
-      el.addEventListener("click", () => {
+      el.addEventListener("click", event => {
         if (state.justDraggedEntryId === el.dataset.entryId) return;
+        if (event.target?.closest?.("[data-resize-handle]")) return;
+
+        const projectId = el.dataset.projectId || "";
+        const isPersonal = el.dataset.systemPersonal === "true";
+        if (projectId && !isPersonal) {
+          event.preventDefault();
+          event.stopPropagation();
+          setProjectSpotlight(projectId);
+          return;
+        }
+
+        openEditModal(el.dataset.entryId);
+      });
+
+      el.addEventListener("dblclick", event => {
+        if (state.justDraggedEntryId === el.dataset.entryId) return;
+        event.preventDefault();
+        event.stopPropagation();
         openEditModal(el.dataset.entryId);
       });
 
@@ -4295,16 +6522,7 @@ async function deleteEditedEntry() {
 
     els.calendarWrap.querySelectorAll(".drop-row").forEach(row => {
       row.addEventListener("contextmenu", event => {
-        if (state.calendarMode !== "personal" || state.viewMode === "År") return;
-        event.preventDefault();
-        const targetEmployeeName = row.dataset.employeeName;
-        if (!targetEmployeeName) return;
-        const dropMeta = getDropMetaFromRow(row, event);
-        if (!dropMeta?.rangeStart || !Number.isFinite(dropMeta.colIndex)) return;
-        const selectedDate = dropMeta?.dropDate
-          ? toIsoDate(parseIsoDateLocal(dropMeta.dropDate))
-          : toIsoDate(addDays(parseIsoDateLocal(dropMeta.rangeStart), dropMeta.colIndex));
-        openCalendarContextMenu(targetEmployeeName, selectedDate, event.clientX + 8, event.clientY + 8);
+        openCalendarContextMenuFromEvent(event);
       });
 
       row.addEventListener("dragover", event => {
@@ -4329,6 +6547,238 @@ async function deleteEditedEntry() {
         await moveEntryByDrop(entryId, targetEmployeeName, dropMeta);
       });
     });
+  }
+
+  function bindWorkshopPhaseDrag() {
+    if (!canEditApp()) return;
+
+    els.calendarWrap.querySelectorAll("[data-workshop-project-id]").forEach(el => {
+      el.addEventListener("click", event => {
+        if (state.dragWorkshopProjectId) return;
+      });
+
+      el.addEventListener("dragstart", event => {
+        const projectId = el.dataset.workshopProjectId || "";
+        if (!projectId) return;
+        state.dragWorkshopProjectId = projectId;
+        const row = el.closest(".row-overlay");
+        state.dragAnchor = getDragAnchorFromPointer(el, row, event.clientX);
+        event.dataTransfer.effectAllowed = "move";
+        event.dataTransfer.setData("text/workshop-project-id", projectId);
+        event.dataTransfer.setData("text/plain", `workshop:${projectId}`);
+        requestAnimationFrame(() => {
+          el.classList.add("opacity-60");
+        });
+      });
+
+      el.addEventListener("dragend", () => {
+        el.classList.remove("opacity-60");
+        state.dragWorkshopProjectId = null;
+        state.dragAnchor = { timeUnit: "day", slotOffset: 0 };
+      });
+    });
+
+    els.calendarWrap.querySelectorAll("[data-project-drop-row-id]").forEach(row => {
+      row.addEventListener("dragover", event => {
+        if (!state.dragWorkshopProjectId) return;
+        event.preventDefault();
+        event.dataTransfer.dropEffect = "move";
+        row.classList.add("ring-2", "ring-green-300", "ring-inset");
+      });
+
+      row.addEventListener("dragleave", () => {
+        row.classList.remove("ring-2", "ring-green-300", "ring-inset");
+      });
+
+      row.addEventListener("drop", async event => {
+        if (!state.dragWorkshopProjectId) return;
+        event.preventDefault();
+        row.classList.remove("ring-2", "ring-green-300", "ring-inset");
+
+        const projectId = event.dataTransfer.getData("text/workshop-project-id") || state.dragWorkshopProjectId;
+        const targetProjectId = row.dataset.projectDropRowId || "";
+        if (!projectId || !targetProjectId || projectId !== targetProjectId) return;
+
+        const dropMeta = getDropMetaFromRow(row, event);
+        await moveWorkshopPhaseByDrop(projectId, dropMeta);
+      });
+    });
+  }
+
+  async function moveWorkshopPhaseByDrop(projectId, dropMeta = null) {
+    if (!canEditApp()) return;
+    const project = getProjectById(projectId);
+    if (!project || project.workshop_enabled === false) return;
+
+    const currentStart = project.workshop_start_date;
+    const currentEnd = project.workshop_end_date;
+    if (!currentStart || !currentEnd) {
+      alert("Workshopfasen mangler start/slutt. Rediger prosjektet og lagre workshopdatoer først.");
+      return;
+    }
+
+    const original = {
+      workshop_start_date: currentStart,
+      workshop_end_date: currentEnd
+    };
+
+    let newStart = null;
+    const durationDays = Math.max(0, diffDays(asLocalDate(currentStart), asLocalDate(currentEnd)));
+
+    if (dropMeta?.timeUnit === "day" && dropMeta.rangeStart && Number.isFinite(dropMeta.colIndex)) {
+      const pointerBaseDate = dropMeta.dropDate
+        ? parseIsoDateLocal(dropMeta.dropDate)
+        : addDays(parseIsoDateLocal(dropMeta.rangeStart), dropMeta.colIndex);
+      const anchorOffset = Math.max(0, Number(state.dragAnchor?.slotOffset || 0));
+      newStart = addDays(pointerBaseDate, -anchorOffset);
+    }
+
+    if (!newStart || Number.isNaN(newStart.getTime())) return;
+
+    const newEnd = addDays(newStart, durationDays);
+    const newStartIso = toIsoDate(newStart);
+    const newEndIso = toIsoDate(newEnd);
+
+    if (newStartIso === currentStart && newEndIso === currentEnd) return;
+
+    project.workshop_start_date = newStartIso;
+    project.workshop_end_date = newEndIso;
+
+    rebuildDerivedState();
+    saveAllLocal();
+    renderAll();
+
+    const result = await saveRow("planner_projects", project);
+    if (!result.ok) {
+      project.workshop_start_date = original.workshop_start_date;
+      project.workshop_end_date = original.workshop_end_date;
+      rebuildDerivedState();
+      saveAllLocal();
+      renderAll();
+      alert("Kunne ikke lagre flytting av workshopfasen. Endringen er rullet tilbake.");
+      return;
+    }
+
+    void addAudit(`Flyttet workshopfase: ${project.name} (${newStartIso} – ${newEndIso})`);
+  }
+
+  function bindFieldProjectDrag() {
+    if (!canEditApp()) return;
+
+    els.calendarWrap.querySelectorAll("[data-field-project-id]").forEach(el => {
+      el.addEventListener("dragstart", event => {
+        if (event.target?.closest?.("[data-resize-handle]")) {
+          event.preventDefault();
+          return;
+        }
+        const projectId = el.dataset.fieldProjectId || "";
+        if (!projectId) return;
+        state.dragFieldProjectId = projectId;
+        const row = el.closest(".row-overlay");
+        state.dragAnchor = getDragAnchorFromPointer(el, row, event.clientX);
+        event.dataTransfer.effectAllowed = "move";
+        event.dataTransfer.setData("text/field-project-id", projectId);
+        event.dataTransfer.setData("text/plain", `field:${projectId}`);
+        requestAnimationFrame(() => {
+          el.classList.add("opacity-60");
+        });
+      });
+
+      el.addEventListener("dragend", () => {
+        el.classList.remove("opacity-60");
+        state.dragFieldProjectId = null;
+        state.dragAnchor = { timeUnit: "day", slotOffset: 0 };
+      });
+    });
+
+    els.calendarWrap.querySelectorAll("[data-project-drop-row-id]").forEach(row => {
+      row.addEventListener("dragover", event => {
+        if (!state.dragFieldProjectId) return;
+        event.preventDefault();
+        event.dataTransfer.dropEffect = "move";
+        row.classList.add("ring-2", "ring-red-300", "ring-inset");
+      });
+
+      row.addEventListener("dragleave", () => {
+        if (!state.dragFieldProjectId) return;
+        row.classList.remove("ring-2", "ring-red-300", "ring-inset");
+      });
+
+      row.addEventListener("drop", async event => {
+        if (!state.dragFieldProjectId) return;
+        event.preventDefault();
+        row.classList.remove("ring-2", "ring-red-300", "ring-inset");
+
+        const projectId = event.dataTransfer.getData("text/field-project-id") || state.dragFieldProjectId;
+        const targetProjectId = row.dataset.projectDropRowId || "";
+        if (!projectId || !targetProjectId || projectId !== targetProjectId) return;
+
+        const dropMeta = getDropMetaFromRow(row, event);
+        await moveFieldProjectByDrop(projectId, dropMeta);
+      });
+    });
+  }
+
+  async function moveFieldProjectByDrop(projectId, dropMeta = null) {
+    if (!canEditApp()) return;
+    const project = getProjectById(projectId);
+    if (!project) return;
+
+    if (project.has_multiple_periods) {
+      alert("Flytting av feltprosjekt støtter foreløpig kun prosjekter med én feltperiode.");
+      return;
+    }
+
+    const currentStart = project.planned_start_date;
+    const currentEnd = project.planned_end_date;
+    if (!currentStart || !currentEnd) {
+      alert("Feltprosjektet mangler start/slutt. Rediger prosjektet og lagre datoer først.");
+      return;
+    }
+
+    const original = {
+      planned_start_date: currentStart,
+      planned_end_date: currentEnd
+    };
+
+    let newStart = null;
+    const durationDays = Math.max(0, diffDays(asLocalDate(currentStart), asLocalDate(currentEnd)));
+
+    if (dropMeta?.timeUnit === "day" && dropMeta.rangeStart && Number.isFinite(dropMeta.colIndex)) {
+      const pointerBaseDate = dropMeta.dropDate
+        ? parseIsoDateLocal(dropMeta.dropDate)
+        : addDays(parseIsoDateLocal(dropMeta.rangeStart), dropMeta.colIndex);
+      const anchorOffset = Math.max(0, Number(state.dragAnchor?.slotOffset || 0));
+      newStart = addDays(pointerBaseDate, -anchorOffset);
+    }
+
+    if (!newStart || Number.isNaN(newStart.getTime())) return;
+
+    const newEnd = addDays(newStart, durationDays);
+    const newStartIso = toIsoDate(newStart);
+    const newEndIso = toIsoDate(newEnd);
+
+    if (newStartIso === currentStart && newEndIso === currentEnd) return;
+
+    project.planned_start_date = newStartIso;
+    project.planned_end_date = newEndIso;
+
+    rebuildDerivedState();
+    saveAllLocal();
+    renderAll();
+
+    const result = await saveRow("planner_projects", project);
+    if (!result.ok) {
+      project.planned_start_date = original.planned_start_date;
+      project.planned_end_date = original.planned_end_date;
+      rebuildDerivedState();
+      saveAllLocal();
+      renderAll();
+      alert("Kunne ikke lagre flytting av feltprosjektet. Endringen er rullet tilbake.");
+      return;
+    }
+
+    void addAudit(`Flyttet feltprosjekt: ${project.name} (${newStartIso} – ${newEndIso})`);
   }
 
   async function moveEntryToEmployee(entryId, targetEmployeeName) {
@@ -4394,6 +6844,16 @@ async function deleteEditedEntry() {
         project,
         originalEndDate: project.planned_end_date || project.planned_start_date || '',
         originalStartDate: project.planned_start_date || ''
+      };
+    }
+
+    if (type === 'workshop') {
+      const project = state.projects.find(item => item.id === targetId);
+      if (!project) return null;
+      return {
+        project,
+        originalEndDate: project.workshop_end_date || project.workshop_start_date || '',
+        originalStartDate: project.workshop_start_date || ''
       };
     }
 
@@ -4552,6 +7012,22 @@ if (resizeState.type === 'entry' && snapshot.entry) {
       void addAudit(`Endret prosjektsluttdato: ${project.name} til ${nextEndDate}`);
     }
 
+    if (resizeState.type === 'workshop' && snapshot.project) {
+      const project = snapshot.project;
+      const originalEndDate = project.workshop_end_date;
+      project.workshop_end_date = nextEndDate;
+      rebuildDerivedState();
+      renderAll();
+      const result = await saveRow('planner_projects', project);
+      if (!result.ok) {
+        project.workshop_end_date = originalEndDate;
+        rebuildDerivedState();
+        renderAll();
+        return;
+      }
+      void addAudit(`Endret workshop-sluttdato: ${project.name} til ${nextEndDate}`);
+    }
+
     flushPendingRemoteRefresh();
   }
 
@@ -4654,9 +7130,63 @@ async function moveEntryByDrop(entryId, targetEmployeeName, dropMeta = null) {
   void addAudit(`Flyttet tildeling: ${displayProjectName(project) || "Ukjent prosjekt"} fra ${previous.employee_name} (${previous.start_date}–${previous.end_date}) til ${entry.employee_name} (${entry.start_date}–${entry.end_date})`);
 }
 
-function getFilteredEmployees() {
+function getDashboardAnalysisRange() {
+    const start = new Date();
+    start.setHours(0, 0, 0, 0);
+    const end = addDays(start, 14);
+    return { start, end };
+  }
+
+  function getDashboardAnalysisPeriodLabel() {
+    const range = getDashboardAnalysisRange();
+    return `${formatDate(range.start)} – ${formatDate(range.end)}`;
+  }
+
+  function getDashboardEmployeeFilterNames() {
+    const filterType = state.dashboardEmployeeFilter || "";
+    if (!filterType) return null;
+
+    const range = getDashboardAnalysisRange();
+    const startKey = makeLocalDateISO(range.start);
+    const endKey = makeLocalDateISO(range.end);
+    const activeNames = new Set((state.employees || []).filter(emp => emp.active !== false).map(emp => emp.name));
+    const names = new Set();
+    const personalTypes = new Set(["Ferie", "Syk", "Avspasering", "Kurs", "Travel"]);
+    const entriesByName = new Map();
+
+    (state.entries || []).forEach(entry => {
+      const employeeName = entry.employee_name || entry.employeeName || "";
+      if (!employeeName || !activeNames.has(employeeName)) return;
+      const entryStart = entry.start_date || entry.start || "";
+      const entryEnd = entry.end_date || entry.end || "";
+      if (!entryStart || !entryEnd || entryStart > endKey || entryEnd < startKey) return;
+      if (!entriesByName.has(employeeName)) entriesByName.set(employeeName, []);
+      entriesByName.get(employeeName).push(entry);
+    });
+
+    activeNames.forEach(employeeName => {
+      const entries = entriesByName.get(employeeName) || [];
+      const away = entries.some(entry => {
+        const project = getProjectById(entry.project_id || entry.projectId || "");
+        return !!project && isSystemPersonalProject(project) && personalTypes.has(project.category);
+      });
+      const onProject = entries.some(entry => {
+        const project = getProjectById(entry.project_id || entry.projectId || "");
+        return !!project && !isSystemPersonalProject(project) && !isCancelledProject(project) && normalizeProjectStatus(project.status) !== "Fullført";
+      });
+
+      if (filterType === "on_project" && onProject) names.add(employeeName);
+      if (filterType === "away" && away) names.add(employeeName);
+      if (filterType === "available" && !onProject && !away) names.add(employeeName);
+    });
+
+    return names;
+  }
+
+  function getFilteredEmployees() {
     const selectedGroups = state.selectedEmployeeGroups || [];
     const useGroupFilterControl = !!els.groupFilterControl;
+    const dashboardNames = getDashboardEmployeeFilterNames();
 
     return state.employees
       .filter(emp => {
@@ -4665,8 +7195,9 @@ function getFilteredEmployees() {
         const employeeGroup = normalizeEmployeeGroup(emp.employee_group || "");
         const matchesGroupFilter = !selectedGroups.length || selectedGroups.includes(employeeGroup);
         const matchesSearch = !state.search || emp.name.toLowerCase().includes(state.search);
+        const matchesDashboardFilter = !dashboardNames || dashboardNames.has(emp.name);
         const matchesFilter = useGroupFilterControl ? matchesGroupFilter : matchesLegacyFilter;
-        return isActive && matchesFilter && matchesSearch;
+        return isActive && matchesFilter && matchesSearch && matchesDashboardFilter;
       })
       .sort((a, b) => {
         const groupDiff = getEmployeeGroupSortIndex(a.employee_group) - getEmployeeGroupSortIndex(b.employee_group);
@@ -4728,7 +7259,8 @@ function getFilteredEmployees() {
   }
 
   function getProjectRemainingSlots(projectId, required = null) {
-    const project = required === null ? getProjectById(projectId) : null;
+    const project = getProjectById(projectId);
+    if (project && isCancelledProject(project)) return 0;
     const requiredBase = required !== null ? required : (project?.headcount_required ?? 0);
     const requiredCount = Math.max(Number(requiredBase), 0);
     const assignedCount = getProjectAssignedCount(projectId);
@@ -4736,12 +7268,18 @@ function getFilteredEmployees() {
   }
 
   function projectNeedsStaffing(project) {
+    if (!project || isClosedProject(project)) return false;
     const requiredCount = Math.max(Number(project?.headcount_required || 0), 0);
     if (!requiredCount) return false;
     return getProjectAssignedCount(project.id) < requiredCount;
   }
 
   function getProjectStaffingLabel(projectId, required) {
+    const project = getProjectById(projectId);
+    if (project && isCancelledProject(project)) {
+      return { text: "Kansellert", variant: "text-red-700" };
+    }
+
     const assigned = getProjectAssignedCount(projectId);
 
     if (assigned === 0) {
@@ -4756,7 +7294,7 @@ function getFilteredEmployees() {
   }
 
   function projectOverlapsRange(project, rangeStart, rangeEnd) {
-    const periods = getProjectTimelinePeriods(project);
+    const periods = getProjectTimelinePeriodsWithWorkshop(project);
     if (!periods.length) return false;
     return periods.some(period => overlaps(period.start, period.end, rangeStart, rangeEnd));
   }
@@ -5052,18 +7590,70 @@ function getFilteredEmployees() {
     return isSystemPersonalProject(project) ? project.category : project.name;
   }
 
-  
-function getEntryBarClasses(project, role, entry = null) {
-    const categoryClasses = CATEGORY_COLORS[project.category] || "bg-slate-500 border-slate-600 text-white";
-    const roleClasses = ROLE_CLASSES[role] || "";
-    const endedClasses = project.status === "Avsluttet" ? " opacity-70 grayscale" : "";
+  function getCategoryColorClasses(category) {
+    const value = String(category || "").trim();
+    switch (value) {
+      case "Syk":
+        return "bg-red-900 border-red-950 text-white";
+      case "Kurs":
+        return "bg-slate-300 border-slate-400 text-slate-900";
+      case "Ferie":
+        return "bg-pink-300 border-pink-400 text-slate-900";
+      case "Avspasering":
+        return "bg-yellow-300 border-yellow-400 text-slate-900";
+      case "Travel":
+        return "bg-sky-500 border-sky-600 text-white";
+      case "Offshore":
+      case "Onshore":
+      case "Feltoppdrag":
+      default:
+        return "bg-red-600 border-red-700 text-white";
+    }
+  }
+
+  function getLegendDotClasses(category) {
+    const value = String(category || "").trim();
+    switch (value) {
+      case "Workshop / mobilisering":
+        return "bg-green-600";
+      case "Onshore":
+      case "Offshore":
+      case "Feltoppdrag":
+        return "bg-red-600";
+      case "Syk":
+        return "bg-red-900";
+      case "Kurs":
+        return "bg-slate-400";
+      case "Ferie":
+        return "bg-pink-300";
+      case "Avspasering":
+        return "bg-yellow-300";
+      case "Travel":
+        return "bg-sky-500";
+      default:
+        return "bg-slate-400";
+    }
+  }
+
+  function getProjectPeriodBarClasses(project, period = null) {
+    if (period?.phase === "workshop") {
+      return "bg-green-600 border-green-700 text-white";
+    }
+    return getProjectBarClasses(project);
+  }
+
+  function getEntryBarClasses(project, role, entry = null) {
+    const categoryClasses = getCategoryColorClasses(project?.category);
+    const cancelledClasses = isCancelledProject(project) ? " bg-red-100 border-red-500 text-red-800 line-through decoration-red-600 decoration-2 opacity-80 grayscale" : "";
+    const endedClasses = !cancelledClasses && isCompletedProject(project) ? " opacity-70 grayscale" : "";
     const conflictClasses = entry && entryHasVisibleConflict(entry) ? " overlap-conflict border-2 border-red-700 ring-2 ring-red-300" : "";
-    return `${categoryClasses} ${roleClasses}${endedClasses}${conflictClasses}`;
+    return `${cancelledClasses || categoryClasses}${endedClasses}${conflictClasses}`;
   }
 
   function getProjectBarClasses(project) {
-    const categoryClasses = CATEGORY_COLORS[project.category] || "bg-slate-500 border-slate-600 text-white";
-    const endedClasses = project.status === "Avsluttet" ? " opacity-70 grayscale" : "";
+    const categoryClasses = getCategoryColorClasses(project?.category);
+    if (isCancelledProject(project)) return "bg-red-100 border-red-500 text-red-800 line-through decoration-red-600 decoration-2 opacity-80 grayscale";
+    const endedClasses = isCompletedProject(project) ? " opacity-70 grayscale" : "";
     return `${categoryClasses}${endedClasses}`;
   }
 
