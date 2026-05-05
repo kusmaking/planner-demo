@@ -1,4 +1,5 @@
 (() => {
+  // v18.32a-before-login-startpage-safe
   // v18.31g-sandbox-project-modal-scroll-safe
   // v18.19-ansattplan-project-focus-toggle-safe
   // v18.11: plain visible available-row render for project inspector.
@@ -220,6 +221,13 @@
 
     await loadAuthUser();
 
+    if (!isLoggedInUser()) {
+      showStartPage();
+      return;
+    }
+
+    showPlannerApp();
+
     if (supabaseClient?.auth) {
       supabaseClient.auth.onAuthStateChange((event) => {
         if (event === "SIGNED_OUT") {
@@ -252,7 +260,7 @@
       "newEmployeeBtn", "employeeModal", "employeeModalTitle", "closeEmployeeModalBtn",
       "employeeName", "employeeEmail", "employeePhone", "employeeTitle", "employeeGroup", "employeeActive", "saveEmployeeBtn", "deleteEmployeeBtn",
       "calendarContextMenu", "contextMenuEmployee", "contextMenuStart", "contextMenuEnd", "contextMenuType", "contextMenuNotes", "contextMenuAddBtn", "contextMenuCloseBtn",
-      "accountPanel", "accountUserInfo", "changePasswordBtn", "resetPasswordBtn", "logoutBtn", "loginBtn", "loginModal", "closeLoginModalBtn", "loginEmail", "loginPassword", "loginSubmitBtn", "forgotPasswordBtn"
+      "plannerStartPage", "plannerAppShell", "startLoginEmail", "startLoginPassword", "startLoginSubmitBtn", "startForgotPasswordBtn", "startAccessHelpBtn", "startLoginError", "accountPanel", "accountUserInfo", "changePasswordBtn", "resetPasswordBtn", "logoutBtn", "loginBtn", "loginModal", "closeLoginModalBtn", "loginEmail", "loginPassword", "loginSubmitBtn", "forgotPasswordBtn"
     ];
 
     ids.forEach(id => els[id] = document.getElementById(id));
@@ -916,6 +924,23 @@
     return !!state.currentUserEmail;
   }
 
+  function showStartPage() {
+    if (els.plannerStartPage) els.plannerStartPage.classList.remove("hidden");
+    if (els.plannerAppShell) els.plannerAppShell.classList.add("hidden");
+  }
+
+  function showPlannerApp() {
+    if (els.plannerStartPage) els.plannerStartPage.classList.add("hidden");
+    if (els.plannerAppShell) els.plannerAppShell.classList.remove("hidden");
+  }
+
+  function setStartLoginError(message) {
+    if (!els.startLoginError) return;
+    const text = String(message || "").trim();
+    els.startLoginError.textContent = text;
+    els.startLoginError.classList.toggle("visible", Boolean(text));
+  }
+
   function canPlanApp() {
     return isSuperadmin() || isPlanner();
   }
@@ -1183,6 +1208,67 @@
     if (els.loginEmail) els.loginEmail.value = "";
     if (els.loginPassword) els.loginPassword.value = "";
     flushPendingRemoteRefresh();
+  }
+
+  async function handleStartLogin() {
+    if (!supabaseClient?.auth) {
+      setStartLoginError("Innlogging er ikke konfigurert i denne versjonen.");
+      return;
+    }
+
+    const email = els.startLoginEmail?.value?.trim() || "";
+    const password = els.startLoginPassword?.value || "";
+
+    if (!email || !password) {
+      setStartLoginError("Legg inn e-post og passord.");
+      return;
+    }
+
+    setStartLoginError("");
+    if (els.startLoginSubmitBtn) {
+      els.startLoginSubmitBtn.disabled = true;
+      els.startLoginSubmitBtn.textContent = "Logger inn...";
+    }
+
+    try {
+      const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
+      if (error) throw error;
+      window.location.reload();
+    } catch (error) {
+      setStartLoginError(`Kunne ikke logge inn: ${error?.message || "Ukjent feil"}`);
+      if (els.startLoginSubmitBtn) {
+        els.startLoginSubmitBtn.disabled = false;
+        els.startLoginSubmitBtn.textContent = "Logg inn";
+      }
+    }
+  }
+
+  async function handleStartForgotPassword() {
+    if (!supabaseClient?.auth) {
+      setStartLoginError("Passordreset er ikke konfigurert i denne versjonen.");
+      return;
+    }
+
+    const email = els.startLoginEmail?.value?.trim() || "";
+    if (!email) {
+      setStartLoginError("Legg inn e-postadressen din først.");
+      return;
+    }
+
+    const { error } = await supabaseClient.auth.resetPasswordForEmail(email, {
+      redirectTo: window.location.origin
+    });
+
+    if (error) {
+      setStartLoginError(`Kunne ikke sende reset-link: ${error.message}`);
+      return;
+    }
+
+    setStartLoginError("Reset-link er sendt hvis e-postadressen finnes i systemet.");
+  }
+
+  function handleStartAccessHelp() {
+    setStartLoginError("Kontakt superadmin eller planner for å få opprettet tilgang.");
   }
 
   async function handleLogin() {
@@ -1968,6 +2054,30 @@
 
     if (els.logoutBtn) {
       els.logoutBtn.addEventListener("click", handleLogout);
+    }
+
+    if (els.startLoginSubmitBtn) {
+      els.startLoginSubmitBtn.addEventListener("click", handleStartLogin);
+    }
+
+    if (els.startForgotPasswordBtn) {
+      els.startForgotPasswordBtn.addEventListener("click", handleStartForgotPassword);
+    }
+
+    if (els.startAccessHelpBtn) {
+      els.startAccessHelpBtn.addEventListener("click", handleStartAccessHelp);
+    }
+
+    if (els.startLoginPassword) {
+      els.startLoginPassword.addEventListener("keydown", e => {
+        if (e.key === "Enter") handleStartLogin();
+      });
+    }
+
+    if (els.startLoginEmail) {
+      els.startLoginEmail.addEventListener("keydown", e => {
+        if (e.key === "Enter") handleStartLogin();
+      });
     }
 
     if (els.loginBtn) {
