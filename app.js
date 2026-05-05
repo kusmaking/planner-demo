@@ -1,5 +1,5 @@
 (() => {
-  // v18.31b-sandbox-project-plan-compact-search-safe
+  // v18.31c-sandbox-resize-project-workshop-end-safe
   // v18.19-ansattplan-project-focus-toggle-safe
   // v18.11: plain visible available-row render for project inspector.
   const supabaseClient = window.supabase?.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -6253,6 +6253,13 @@ async function deleteEditedEntry() {
           >
             <div class="font-semibold">${escapeHtml(project.name)}</div>
             <div class="text-[11px] opacity-90">${escapeHtml(periodLabel)}</div>
+            <div
+              data-resize-handle
+              data-resize-type="${period.phase === "workshop" ? "workshop" : "project"}"
+              data-target-id="${escapeHtml(project.id)}"
+              title="${period.phase === "workshop" ? "Dra for å endre workshop-sluttdato" : "Dra for å endre prosjektsluttdato"}"
+              style="position:absolute; top:0; right:0; bottom:0; width:14px; cursor:ew-resize; border-left:1px solid rgba(255,255,255,0.42); background:linear-gradient(to left, rgba(255,255,255,0.42), rgba(255,255,255,0));"
+            ></div>
           </div>
         `;
       }
@@ -6270,6 +6277,7 @@ async function deleteEditedEntry() {
       el.addEventListener("click", () => selectProjectInCalendar(el.dataset.projectListRowId));
     });
     bindWorkshopPhaseDrag();
+    bindResizeHandles();
     renderWarnings(uniqueArray(warnings));
   }
 
@@ -6644,6 +6652,16 @@ async function deleteEditedEntry() {
       };
     }
 
+    if (type === 'workshop') {
+      const project = state.projects.find(item => item.id === targetId);
+      if (!project) return null;
+      return {
+        project,
+        originalEndDate: project.workshop_end_date || project.workshop_start_date || '',
+        originalStartDate: project.workshop_start_date || ''
+      };
+    }
+
     return null;
   }
 
@@ -6797,6 +6815,22 @@ if (resizeState.type === 'entry' && snapshot.entry) {
         return;
       }
       void addAudit(`Endret prosjektsluttdato: ${project.name} til ${nextEndDate}`);
+    }
+
+    if (resizeState.type === 'workshop' && snapshot.project) {
+      const project = snapshot.project;
+      const originalEndDate = project.workshop_end_date;
+      project.workshop_end_date = nextEndDate;
+      rebuildDerivedState();
+      renderAll();
+      const result = await saveRow('planner_projects', project);
+      if (!result.ok) {
+        project.workshop_end_date = originalEndDate;
+        rebuildDerivedState();
+        renderAll();
+        return;
+      }
+      void addAudit(`Endret workshop-sluttdato: ${project.name} til ${nextEndDate}`);
     }
 
     flushPendingRemoteRefresh();

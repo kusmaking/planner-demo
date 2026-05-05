@@ -1129,6 +1129,17 @@
       line-height: 1.1 !important;
     }
 
+    /* v18.31c: project/workshop end resize cue */
+    body.iz-compact-ui [data-resize-type="workshop"],
+    body.iz-compact-ui [data-resize-type="project"] {
+      opacity: 0.8;
+    }
+    body.iz-compact-ui [data-resize-type="workshop"]:hover,
+    body.iz-compact-ui [data-resize-type="project"]:hover {
+      opacity: 1;
+      background: rgba(255,255,255,0.35) !important;
+    }
+
   </style>
 </head>
 <body class="iz-compact-ui text-slate-900">
