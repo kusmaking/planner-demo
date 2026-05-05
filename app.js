@@ -1,4 +1,5 @@
 (() => {
+  // v18.37e-keep-import-preview-state-safe
   // v18.32b-final-login-startpage-gradient-safe
   // v18.31g-sandbox-project-modal-scroll-safe
   // v18.19-ansattplan-project-focus-toggle-safe
@@ -81,6 +82,13 @@
     projectInspectorAddUseCustomRange: false,
     projectInspectorAddCustomStart: "",
     projectInspectorAddCustomEnd: "",
+    projectImportPreview: {
+      fileName: "",
+      rowCount: 0,
+      counts: { total: 0, newCount: 0, existing: 0, mismatch: 0, missing: 0 },
+      examples: { newCount: [], existing: [], mismatch: [], missing: [] },
+      statusText: "Ingen fil valgt."
+    },
     contextMenu: {
       visible: false,
       employeeName: "",
@@ -5839,6 +5847,7 @@ async function deleteEditedEntry() {
 
   function renderProjectImportInlineCards() {
     if (!els.tabProjectsSection) return;
+    const preview = getProjectImportPreviewState();
 
     els.tabProjectsSection.innerHTML = `
       <div class="xl:col-span-12">
@@ -5853,7 +5862,7 @@ async function deleteEditedEntry() {
               <div class="text-sm font-semibold text-slate-900">1. Last opp fil</div>
               <p class="mt-2 text-sm text-slate-600">Velg CSV-fil fra PC. Første versjon bruker kun lokal preview i nettleseren.</p>
               <input id="projectImportInlineFile" type="file" accept=".csv,text/csv" class="mt-4 block w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm" />
-              <div id="projectImportInlineFileStatus" class="mt-3 text-xs text-slate-500">Ingen fil valgt.</div>
+              <div id="projectImportInlineFileStatus" class="mt-3 text-xs text-slate-500">${escapeHtml(preview.statusText || "Ingen fil valgt.")}</div>
               <button id="projectImportInlineClearBtn" type="button" class="mt-3 rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700">Nullstill</button>
             </div>
 
@@ -5861,9 +5870,9 @@ async function deleteEditedEntry() {
               <div class="text-sm font-semibold text-slate-900">2. Forhåndsvisning</div>
               <p class="mt-2 text-sm text-slate-600">Oppsummering vises her etter opplasting.</p>
               <div id="projectImportInlineSummary" class="mt-4 grid grid-cols-2 gap-2 text-sm">
-                ${renderProjectImportInlineSummaryCards({ total: 0, newCount: 0, existing: 0, mismatch: 0, missing: 0 })}
+                ${renderProjectImportInlineSummaryCards(preview.counts)}
               </div>
-              <div id="projectImportInlineDetails" class="mt-4 text-xs text-slate-500">Ingen preview kjørt.</div>
+              <div id="projectImportInlineDetails" class="mt-4 text-xs text-slate-500">${renderProjectImportInlineDetailsHtml(preview.examples, preview.rowCount)}</div>
             </div>
 
             <div class="rounded-2xl border border-slate-200 bg-slate-50 p-5">
@@ -5878,6 +5887,44 @@ async function deleteEditedEntry() {
     `;
 
     bindProjectImportInlineControls();
+  }
+
+
+  function getDefaultProjectImportPreviewState() {
+    return {
+      fileName: "",
+      rowCount: 0,
+      counts: { total: 0, newCount: 0, existing: 0, mismatch: 0, missing: 0 },
+      examples: { newCount: [], existing: [], mismatch: [], missing: [] },
+      statusText: "Ingen fil valgt."
+    };
+  }
+
+  function getProjectImportPreviewState() {
+    const current = state.projectImportPreview || {};
+    const fallback = getDefaultProjectImportPreviewState();
+    return {
+      ...fallback,
+      ...current,
+      counts: { ...fallback.counts, ...(current.counts || {}) },
+      examples: { ...fallback.examples, ...(current.examples || {}) }
+    };
+  }
+
+  function resetProjectImportPreviewState() {
+    state.projectImportPreview = getDefaultProjectImportPreviewState();
+  }
+
+  function renderProjectImportInlineDetailsHtml(examples = {}, rowCount = 0) {
+    if (!rowCount) return "Ingen preview kjørt.";
+    const lines = [];
+    if (examples.newCount?.length) lines.push(`Nye eksempler: ${examples.newCount.join(", ")}`);
+    if (examples.existing?.length) lines.push(`Eksisterer: ${examples.existing.join(", ")}`);
+    if (examples.mismatch?.length) lines.push(`Datoavvik: ${examples.mismatch.join(", ")}`);
+    if (examples.missing?.length) lines.push(`Mangler dato/navn: ${examples.missing.join(", ")}`);
+    return lines.length
+      ? lines.map(line => `<div class="mb-1">${escapeHtml(line)}</div>`).join("")
+      : "CSV lest, men ingen rader kunne klassifiseres.";
   }
 
   function renderProjectImportInlineSummaryCards(counts = {}) {
@@ -5913,6 +5960,7 @@ async function deleteEditedEntry() {
       clearBtn.dataset.boundProjectImportInlineClear = "true";
       clearBtn.addEventListener("click", () => {
         if (input) input.value = "";
+        resetProjectImportPreviewState();
         renderProjectImportInlineResult([], "");
       });
     }
@@ -5920,7 +5968,12 @@ async function deleteEditedEntry() {
 
   function readProjectImportInlineCsv(file) {
     const status = document.getElementById("projectImportInlineFileStatus");
-    if (status) status.textContent = `Leser ${file.name}...`;
+    state.projectImportPreview = {
+      ...getProjectImportPreviewState(),
+      fileName: file.name,
+      statusText: `Leser ${file.name}...`
+    };
+    if (status) status.textContent = state.projectImportPreview.statusText;
 
     const reader = new FileReader();
     reader.onload = () => {
@@ -6011,9 +6064,10 @@ async function deleteEditedEntry() {
     const details = document.getElementById("projectImportInlineDetails");
 
     if (!rows.length) {
-      if (status) status.textContent = "Ingen fil valgt.";
-      if (summary) summary.innerHTML = renderProjectImportInlineSummaryCards({ total: 0, newCount: 0, existing: 0, mismatch: 0, missing: 0 });
-      if (details) details.textContent = "Ingen preview kjørt.";
+      state.projectImportPreview = getDefaultProjectImportPreviewState();
+      if (status) status.textContent = state.projectImportPreview.statusText;
+      if (summary) summary.innerHTML = renderProjectImportInlineSummaryCards(state.projectImportPreview.counts);
+      if (details) details.innerHTML = renderProjectImportInlineDetailsHtml(state.projectImportPreview.examples, state.projectImportPreview.rowCount);
       return;
     }
 
@@ -6057,19 +6111,17 @@ async function deleteEditedEntry() {
       if (examples.newCount.length < 3) examples.newCount.push(name);
     });
 
-    if (status) status.textContent = `${fileName || "CSV"} lest. ${rows.length} rader funnet. Ingen data er lagret.`;
-    if (summary) summary.innerHTML = renderProjectImportInlineSummaryCards(counts);
+    state.projectImportPreview = {
+      fileName: fileName || "CSV",
+      rowCount: rows.length,
+      counts,
+      examples,
+      statusText: `${fileName || "CSV"} lest. ${rows.length} rader funnet. Ingen data er lagret.`
+    };
 
-    if (details) {
-      const lines = [];
-      if (examples.newCount.length) lines.push(`Nye eksempler: ${examples.newCount.join(", ")}`);
-      if (examples.existing.length) lines.push(`Eksisterer: ${examples.existing.join(", ")}`);
-      if (examples.mismatch.length) lines.push(`Datoavvik: ${examples.mismatch.join(", ")}`);
-      if (examples.missing.length) lines.push(`Mangler dato/navn: ${examples.missing.join(", ")}`);
-      details.innerHTML = lines.length
-        ? lines.map(line => `<div class="mb-1">${escapeHtml(line)}</div>`).join("")
-        : "CSV lest, men ingen rader kunne klassifiseres.";
-    }
+    if (status) status.textContent = state.projectImportPreview.statusText;
+    if (summary) summary.innerHTML = renderProjectImportInlineSummaryCards(counts);
+    if (details) details.innerHTML = renderProjectImportInlineDetailsHtml(examples, rows.length);
   }
 
 

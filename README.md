@@ -1,74 +1,50 @@
 # Izomax Personalplanlegger – Sandbox changelog
 
 ## Versjon
-v18.37d-project-import-inline-cards-safe
+v18.37e-keep-import-preview-state-safe
 
 ## Base
-Bygget direkte fra fungerende sandbox-filene brukeren lastet opp etter rollback.
+Bygget fra fungerende sandbox-base der upload-kortet vises og login fungerer.
 
 ## Formål
-Første nye, kontrollerte forsøk på prosjektimport etter rollback.
-
-Denne versjonen legger CSV-preview inn i eksisterende Prosjektadmin/Prosjektimport-visning som tre enkle kort, uten stor tabell og uten lagring.
+Fikser at CSV-forhåndsvisning/oppsummering forsvinner etter kort tid når appen re-render.
 
 ## Endret
+Preview-resultatet lagres nå midlertidig i app-state:
 
-### Prosjektimport
-Prosjektfanen viser nå tre kort:
+- filnavn/status
+- antall rader
+- total
+- ny
+- eksisterer
+- datoavvik
+- mangler dato/navn
+- korte eksempler
 
-1. Last opp fil
-   - CSV file input
-   - status for valgt/lest fil
-   - nullstill-knapp
-
-2. Forhåndsvisning
-   - total antall rader
-   - nye prosjekter
-   - eksisterende prosjekter
-   - datoavvik
-   - mangler dato/navn
-   - korte eksempler, ikke stor tabell
-
-3. Opprett prosjekter
-   - deaktivert importknapp
-   - tydelig beskjed om at import/lagring ikke er aktiv ennå
-
-## CSV-mapping i preview
-Preview leser foreløpig:
-
-- Project Name
-- Operation start
-- Operation stop
-
-Datoformat:
-- DD.MM.YYYY konverteres til YYYY-MM-DD
-- YYYY-MM-DD støttes også
-
-Match mot eksisterende prosjekter:
-- Project Name
-
-Datoavvik:
-- Operation start sammenlignes mot planned_start_date
-- Operation stop sammenlignes mot planned_end_date
-
-## Viktig
-Denne versjonen lagrer ikke data og gjør ingen Supabase-kall for import.
+Når Prosjektimport-siden tegnes på nytt, brukes lagret state til å vise samme preview-oppsummering igjen.
 
 ## Ikke endret
-
 - Supabase
 - database/datamodell
 - RLS
 - data.js
+- index.html
 - login/auth
-- Ansattplan
 - Prosjektplan
+- Ansattplan
 - prosjektdata/fritekst
 - drag/resize
 - workshop/feltlogikk
-- bemanningslogikk
+- faktisk import/lagring
 
-## Teknisk
-Endringen er lagt i app.js og bruker eksisterende Prosjektadmin-tab som importområde.
+## Viktig
+Dette er fortsatt kun preview. Ingen data importeres eller lagres.
 
-Gammel prosjektadmin-render returnerer tidlig og viser importkort i stedet.
+## Test
+1. Login.
+2. Åpne Prosjektimport.
+3. Last opp CSV.
+4. Se at forhåndsvisning/oppsummering kommer frem.
+5. Vent noen sekunder.
+6. Bytt gjerne fane og tilbake.
+7. Sjekk at forhåndsvisningen ikke forsvinner.
