@@ -1581,20 +1581,20 @@
       <div id="calendarMainCol" class="min-w-0 flex-1 rounded-2xl bg-white border border-slate-200 shadow-sm">
         <div class="p-4 border-b border-slate-200 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
           <div class="flex flex-wrap gap-2 items-center">
-            <input id="searchInput" name="planner_search_filter" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false" class="w-[220px] rounded-2xl border border-slate-300 px-3 py-2" placeholder="Søk ansatt" />
+            <input id="searchInput" name="planner_search_filter" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false" class="w-[220px] rounded-2xl border border-slate-300 px-3 py-2" placeholder="Søk ansatt" data-ix-placeholder-key="searchEmployee" />
             <select id="employeeFilter" class="w-[220px] rounded-2xl border border-slate-300 px-3 py-2"></select>
             <select id="calendarMode" class="hidden" aria-hidden="true" tabindex="-1">
               <option value="personal">Personalplan</option>
               <option value="project">Prosjektplan</option>
             </select>
             <select id="viewMode" class="rounded-2xl border border-slate-300 px-3 py-2">
-              <option value="Uke">Uke</option>
-              <option value="Måned">Måned</option>
-              <option value="År">År</option>
+              <option value="Uke" id="ixViewWeek">Uke</option>
+              <option value="Måned" id="ixViewMonth">Måned</option>
+              <option value="År" id="ixViewYear">År</option>
             </select>
             <button id="personalPlanQuickBtn" type="button">Ansattplan</button>
             <button id="projectPlanQuickBtn" type="button">Prosjektplan</button>
-            <button id="unstaffedProjectsQuickBtn" type="button">Uten bemanning <span class="quick-count">0</span></button>
+            <button id="unstaffedProjectsQuickBtn" type="button"><span id="ixUnstaffedQuickText">Uten bemanning</span> <span class="quick-count">0</span></button>
           </div>
 
           <div class="flex gap-2">
@@ -1609,7 +1609,7 @@
         <div id="projectSpotlightBar" class="hidden"></div>
 
         <div class="p-4 border-b border-slate-200 text-sm text-slate-500">
-          Personalplan viser tildelte ressurser. Prosjektplan viser alle prosjekter, også de som ennå ikke er bemannet.
+          <span id="ixCalendarHelp">Personalplan viser tildelte ressurser. Prosjektplan viser alle prosjekter, også de som ennå ikke er bemannet.</span>
         </div>
 
         <div id="warningBox" class="hidden mx-4 mt-4 rounded-2xl border border-red-300 bg-red-50 p-4 text-red-700 text-sm"></div>
@@ -1618,12 +1618,10 @@
 
       <aside id="calendarPanelCol" class="w-full xl:w-12 shrink-0 rounded-2xl bg-white border border-slate-200 shadow-sm overflow-hidden transition-all duration-300">
         <div class="flex h-full min-h-[220px]">
-          <button id="calendarPanelHandleBtn" class="w-12 shrink-0 border-r border-slate-200 bg-slate-50 text-slate-700 text-xs font-semibold tracking-wide">
-            Panel
-          </button>
+          <button id="calendarPanelHandleBtn" class="w-12 shrink-0 border-r border-slate-200 bg-slate-50 text-slate-700 text-xs font-semibold tracking-wide">Panel</button>
           <div id="calendarPanelContent" class="hidden min-w-0 flex-1">
             <div class="p-4 border-b border-slate-200 flex items-center justify-between gap-3">
-              <h2 class="font-semibold">Farger og status</h2>
+              <h2 id="ixLegendTitle" class="font-semibold">Farger og status</h2>
 </div>
             <div id="legendList" class="p-4 space-y-2 text-sm"></div>
           </div>
@@ -1922,6 +1920,27 @@
           projectAdmin: "Prosjektadmin",
           employeeAdmin: "Ansattadmin",
           admin: "Admin",
+          searchEmployee: "Søk ansatt",
+          week: "Uke",
+          month: "Måned",
+          year: "År",
+          back: "Tilbake",
+          today: "I dag",
+          forward: "Frem",
+          panel: "Panel",
+          legendTitle: "Farger og status",
+          calendarHelp: "Personalplan viser tildelte ressurser. Prosjektplan viser alle prosjekter, også de som ennå ikke er bemannet.",
+          fieldAssignment: "Feltoppdrag",
+          workshopMobilization: "Workshop / mobilisering",
+          training: "Kurs",
+          vacation: "Ferie",
+          sickLeave: "Syk",
+          timeOff: "Avspasering",
+          travel: "Travel",
+          directBlockTitle: "Direkte blokk på ansatt",
+          directBlockDescription: "Brukes for kurs, ferie, syk og avspasering direkte på personen, uten å gå via prosjektmodulen.",
+          note: "Notat",
+          saveBlock: "Lagre blokk i kalender",
           title: "Izomax Personalplanlegger"
         },
         en: {
@@ -1946,6 +1965,27 @@
           projectAdmin: "Project admin",
           employeeAdmin: "Employee admin",
           admin: "Admin",
+          searchEmployee: "Search employee",
+          week: "Week",
+          month: "Month",
+          year: "Year",
+          back: "Back",
+          today: "Today",
+          forward: "Forward",
+          panel: "Panel",
+          legendTitle: "Colors and status",
+          calendarHelp: "Employee plan shows assigned resources. Project plan shows all projects, including projects not yet staffed.",
+          fieldAssignment: "Field assignment",
+          workshopMobilization: "Workshop / mobilization",
+          training: "Training",
+          vacation: "Vacation",
+          sickLeave: "Sick leave",
+          timeOff: "Time off in lieu",
+          travel: "Travel",
+          directBlockTitle: "Direct employee block",
+          directBlockDescription: "Used for training, vacation, sick leave and time off directly on the person, without using the project module.",
+          note: "Note",
+          saveBlock: "Save block to calendar",
           title: "Izomax Personnel Planner"
         }
       };
@@ -1964,6 +2004,11 @@
         if (!el) return;
         el.setAttribute("data-tooltip", value);
         el.setAttribute("aria-label", value);
+      }
+
+      function setPlaceholder(id, value) {
+        const el = document.getElementById(id);
+        if (el) el.setAttribute("placeholder", value);
       }
 
       function setLanguage(lang) {
@@ -1995,6 +2040,24 @@
         setTooltip("tabEmployeesBtn", t.employeeAdmin);
         setTooltip("tabAdminBtn", t.admin);
 
+        setPlaceholder("searchInput", t.searchEmployee);
+        setText("ixViewWeek", t.week);
+        setText("ixViewMonth", t.month);
+        setText("ixViewYear", t.year);
+        setText("personalPlanQuickBtn", t.employeePlan);
+        setText("projectPlanQuickBtn", t.projectPlan);
+        setText("ixUnstaffedQuickText", t.unstaffed);
+        setText("prevBtn", t.back);
+        setText("todayBtn", t.today);
+        setText("nextBtn", t.forward);
+        setText("calendarPanelHandleBtn", t.panel);
+        setText("ixLegendTitle", t.legendTitle);
+        setText("ixCalendarHelp", t.calendarHelp);
+        setText("personalBlockTitle", t.directBlockTitle);
+        setText("personalBlockDescription", t.directBlockDescription);
+        setPlaceholder("personalBlockNotes", t.note);
+        setText("personalBlockSaveBtn", t.saveBlock);
+
         setText("loginBtn", t.loginTitle);
         setText("ixAccountLanguageTitle", t.language);
         setText("changePasswordBtn", t.changePassword);
@@ -2010,6 +2073,28 @@
           btn.setAttribute("aria-pressed", active ? "true" : "false");
         });
       }
+
+      window.izomaxTranslateKey = function (key) {
+        const lang = getLang();
+        return dict[lang] && dict[lang][key] ? dict[lang][key] : key;
+      };
+      window.izomaxTranslateValue = function (value) {
+        const lang = getLang();
+        if (lang !== "en") return value;
+        const map = {
+          "Feltoppdrag": dict.en.fieldAssignment,
+          "Workshop / mobilisering": dict.en.workshopMobilization,
+          "Kurs": dict.en.training,
+          "Ferie": dict.en.vacation,
+          "Syk": dict.en.sickLeave,
+          "Avspasering": dict.en.timeOff,
+          "Travel": dict.en.travel,
+          "Uke": dict.en.week,
+          "Måned": dict.en.month,
+          "År": dict.en.year
+        };
+        return map[value] || value;
+      };
 
       window.izomaxSetLanguage = setLanguage;
       window.izomaxApplyLanguage = function () { setLanguage(getLang()); };

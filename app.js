@@ -669,6 +669,7 @@
       els.personalBlockEnd = document.getElementById("personalBlockEnd");
       els.personalBlockNotes = document.getElementById("personalBlockNotes");
       els.personalBlockSaveBtn = document.getElementById("personalBlockSaveBtn");
+      window.izomaxApplyLanguage?.();
       return;
     }
 
@@ -677,8 +678,8 @@
     wrapper.innerHTML = `
       <div id="personalBlockCard" class="rounded-2xl bg-white border border-slate-200 shadow-sm h-full">
         <div class="p-4 border-b border-slate-200">
-          <h2 class="font-semibold">Direkte blokk på ansatt</h2>
-          <p class="text-sm text-slate-500 mt-1">Brukes for kurs, ferie, syk og avspasering direkte på personen, uten å gå via prosjektmodulen.</p>
+          <h2 id="personalBlockTitle" class="font-semibold">Direkte blokk på ansatt</h2>
+          <p id="personalBlockDescription" class="text-sm text-slate-500 mt-1">Brukes for kurs, ferie, syk og avspasering direkte på personen, uten å gå via prosjektmodulen.</p>
         </div>
         <div class="p-4 space-y-4">
           <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -702,6 +703,7 @@
     els.personalBlockEnd = document.getElementById("personalBlockEnd");
     els.personalBlockNotes = document.getElementById("personalBlockNotes");
     els.personalBlockSaveBtn = document.getElementById("personalBlockSaveBtn");
+    window.izomaxApplyLanguage?.();
   }
 
 
@@ -2127,10 +2129,13 @@
       const option = document.createElement("option");
       if (typeof item === "object") {
         option.value = valueKey ? item[valueKey] : item.id;
-        option.textContent = labelKey ? item[labelKey] : item.name;
+        {
+          const labelText = labelKey ? item[labelKey] : item.name;
+          option.textContent = window.izomaxTranslateValue?.(labelText) || labelText;
+        }
       } else {
         option.value = item;
-        option.textContent = item;
+        option.textContent = window.izomaxTranslateValue?.(item) || item;
       }
       if (selected !== null && option.value === selected) option.selected = true;
       selectEl.appendChild(option);
@@ -4293,6 +4298,7 @@ async function deleteEditedEntry() {
     updateAvailabilityAnalysis();
     applyRoleChrome();
     updateAvailabilityAnalysis();
+    window.izomaxApplyLanguage?.();
   }
 
   function populateDynamicSelects() {
@@ -4711,20 +4717,20 @@ async function deleteEditedEntry() {
     ].map(item => `
       <div class="flex items-center gap-2">
         <span class="inline-block w-4 h-4 rounded ${item.color}"></span>
-        <span>${escapeHtml(item.name)}</span>
+        <span>${escapeHtml(window.izomaxTranslateValue?.(item.name) || item.name)}</span>
       </div>
     `).join("");
 
     const personalCategoryHtml = getVisiblePersonalBlockTypes().map(name => `
       <div class="flex items-center gap-2">
         <span class="inline-block w-4 h-4 rounded ${getLegendDotClasses(name)}"></span>
-        <span>${escapeHtml(name)}</span>
+        <span>${escapeHtml(window.izomaxTranslateValue?.(name) || name)}</span>
       </div>
     `).join("");
 
     const statusHtml = Object.keys(STATUS_COLORS).map(name => `
       <div class="flex items-center gap-2">
-        <span class="inline-block rounded-full border px-2 py-0.5 ${STATUS_COLORS[name]}">${escapeHtml(name)}</span>
+        <span class="inline-block rounded-full border px-2 py-0.5 ${STATUS_COLORS[name]}">${escapeHtml(window.izomaxTranslateValue?.(name) || name)}</span>
       </div>
     `).join("");
 
