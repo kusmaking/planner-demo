@@ -1149,6 +1149,20 @@
       box-shadow: 0 0 0 2px rgba(248, 113, 113, 0.30) inset !important;
     }
 
+    /* v18.31e: stop project panel shell leaking into Ansattplan */
+    body.iz-compact-ui #calendarPanelCol.hidden,
+    body.iz-compact-ui #calendarPanelHandleBtn.hidden,
+    body.iz-compact-ui #calendarPanelContent.hidden {
+      display: none !important;
+      width: 0 !important;
+      min-width: 0 !important;
+      max-width: 0 !important;
+      border: 0 !important;
+      padding: 0 !important;
+      margin: 0 !important;
+      overflow: hidden !important;
+    }
+
   </style>
 </head>
 <body class="iz-compact-ui text-slate-900">

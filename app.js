@@ -1,5 +1,5 @@
 (() => {
-  // v18.31d-sandbox-drag-field-project-safe
+  // v18.31e-sandbox-fix-employee-plan-panel-regression-safe
   // v18.19-ansattplan-project-focus-toggle-safe
   // v18.11: plain visible available-row render for project inspector.
   const supabaseClient = window.supabase?.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -1771,7 +1771,12 @@
       els.calendarMode.addEventListener("change", e => {
         state.calendarMode = e.target.value;
         if (state.calendarMode !== "personal") state.projectSpotlightId = "";
-        if (state.calendarMode === "personal") state.projectListFilter = "all";
+        if (state.calendarMode === "personal") {
+          state.projectListFilter = "all";
+          state.calendarPanelOpen = false;
+          state.focusProjectId = "";
+          resetProjectInspectorFilters();
+        }
         persistUiState();
         renderStats();
         renderCalendar();
@@ -3162,6 +3167,8 @@
     state.calendarMode = "personal";
     state.projectListFilter = "all";
     state.calendarPanelOpen = false;
+    state.focusProjectId = "";
+    resetProjectInspectorFilters();
     if (els.calendarMode) els.calendarMode.value = "personal";
     updateCalendarSearchControls();
     persistUiState();
@@ -3177,6 +3184,8 @@
     state.calendarMode = "personal";
     state.projectListFilter = "all";
     state.calendarPanelOpen = false;
+    state.focusProjectId = "";
+    resetProjectInspectorFilters();
     if (els.calendarMode) els.calendarMode.value = "personal";
     updateCalendarSearchControls();
     persistUiState();
@@ -5439,16 +5448,12 @@ async function deleteEditedEntry() {
       return;
     }
 
-    if (els.calendarPanelContent && !els.calendarPanelContent.querySelector('#legendList')) {
-      els.calendarPanelContent.innerHTML = `
-        <div class="p-4 border-b border-slate-200 flex items-center justify-between gap-3">
-          <h2 class="font-semibold">Farger og status</h2>
-        </div>
-        <div id="legendList" class="p-4 space-y-2 text-sm"></div>
-      `;
-      els.legendList = document.getElementById("legendList");
-      renderLegend();
-    }
+    // v18.31e: Ansattplan skal ikke arve prosjektpanelet.
+    // Høyrepanelet skjules helt utenfor Prosjektplan for å unngå tom mørk boks/regresjon.
+    els.calendarPanelCol.className = "hidden";
+    els.calendarPanelContent.className = "hidden min-w-0 flex-1";
+    els.calendarPanelHandleBtn.className = "hidden";
+    return;
 
     const isDesktop = window.innerWidth >= 1280;
 
