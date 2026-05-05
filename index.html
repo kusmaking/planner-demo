@@ -60,7 +60,14 @@
 
     body.iz-compact-ui {
       min-height: 100vh;
-      background: linear-gradient(105deg, var(--iz-bg-left) 0%, var(--iz-bg-mid) 52%, var(--iz-bg-right) 100%);
+      background:
+        linear-gradient(105deg, rgba(4, 21, 29, 0.93) 0%, rgba(6, 43, 58, 0.88) 38%, rgba(4, 21, 29, 0.90) 100%),
+        url("./izomax-login-worker.png"),
+        linear-gradient(105deg, var(--iz-bg-left) 0%, var(--iz-bg-mid) 52%, var(--iz-bg-right) 100%);
+      background-size: cover, cover, cover;
+      background-position: center center, right center, center center;
+      background-repeat: no-repeat, no-repeat, no-repeat;
+      background-attachment: fixed, fixed, fixed;
       color: var(--iz-text);
     }
 
