@@ -1870,7 +1870,7 @@
         <div id="projectPeriodsSection" class="hidden rounded-2xl border border-slate-200 bg-slate-50 p-3 space-y-3">
           <div class="flex items-center justify-between gap-3">
             <div>
-              <div class="font-medium text-sm text-slate-800">Prosjektperioder</div>
+              <div id="ixProjectPeriodsTitle" class="font-medium text-sm text-slate-800">Prosjektperioder</div>
               <div class="text-xs text-slate-500 mt-1">Legg inn én eller flere separate perioder for samme prosjekt.</div>
             </div>
             <button id="addProjectPeriodBtn" type="button" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm">Legg til periode</button>
@@ -2025,6 +2025,21 @@
           chooseWithinProjectPeriod: "Velg fra/til innenfor prosjektperioden.",
           searchNameGroupTitleStatus: "Søk navn, gruppe, tittel eller status",
           select: "Velg",
+          selected: "Valgt",
+          add: "Legg til",
+          newProject: "Nytt prosjekt",
+          editProject: "Rediger prosjekt",
+          close: "Lukk",
+          projectName: "Prosjektnavn",
+          projectHasMultiplePeriods: "Prosjektet går i flere perioder",
+          projectPeriods: "Prosjektperioder",
+          projectPeriodsHelp: "Legg inn én eller flere feltperioder. Workshop/mobilisering kan redigeres separat.",
+          addPeriod: "Legg til periode",
+          fieldAssignmentSection: "Feltoppdrag",
+          workshopSection: "Workshop / mobilisering",
+          projectNotes: "Notater",
+          save: "Lagre",
+          delete: "Slett",
           isBusy: "Denne personen er opptatt i prosjektperioden.",
           partlyAvailableHelp: "Denne personen er delvis tilgjengelig. Velg riktig delperiode før du legger til.",
           projectHeader: "Prosjekt",
@@ -2137,6 +2152,21 @@
           chooseWithinProjectPeriod: "Select from/to within the project period.",
           searchNameGroupTitleStatus: "Search name, group, title or status",
           select: "Select",
+          selected: "Selected",
+          add: "Add",
+          newProject: "New project",
+          editProject: "Edit project",
+          close: "Close",
+          projectName: "Project name",
+          projectHasMultiplePeriods: "Project has multiple periods",
+          projectPeriods: "Project periods",
+          projectPeriodsHelp: "Add one or more field periods. Workshop/mobilization can be edited separately.",
+          addPeriod: "Add period",
+          fieldAssignmentSection: "Field assignment",
+          workshopSection: "Workshop / mobilization",
+          projectNotes: "Notes",
+          save: "Save",
+          delete: "Delete",
           isBusy: "This person is busy in the project period.",
           partlyAvailableHelp: "This person is partly available. Select the correct sub-period before adding.",
           projectHeader: "Project",
@@ -2267,6 +2297,24 @@
         setText("changePasswordBtn", t.changePassword);
         setText("logoutBtn", t.logout);
         setText("resetPasswordBtn", t.resetLink);
+
+        setText("projectModalTitle", document.getElementById("projectId")?.value ? t.editProject : t.newProject);
+        setText("closeProjectModalBtn", t.close);
+        setPlaceholder("projectName", t.projectName);
+        const multiLabel = document.getElementById("projectHasMultiplePeriods")?.closest("label");
+        if (multiLabel && multiLabel.childNodes.length) {
+          multiLabel.childNodes.forEach(node => {
+            if (node.nodeType === Node.TEXT_NODE && node.textContent.trim()) node.textContent = ` ${t.projectHasMultiplePeriods}`;
+          });
+        }
+        setText("ixProjectPeriodsTitle", t.projectPeriods);
+        setText("ixProjectPeriodsHelp", t.projectPeriodsHelp);
+        setText("addProjectPeriodBtn", t.addPeriod);
+        setText("ixProjectFieldTitle", t.fieldAssignmentSection);
+        setText("ixProjectWorkshopTitle", t.workshopSection);
+        setPlaceholder("projectNotes", t.projectNotes);
+        setText("saveProjectBtn", t.save);
+        setText("deleteProjectBtn", t.delete);
 
         const pass = document.getElementById("startLoginPassword");
         if (pass) pass.placeholder = t.password;

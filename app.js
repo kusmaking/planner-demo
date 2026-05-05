@@ -3878,7 +3878,7 @@ async function deleteEditedEntry() {
     state.selectedProjectId = projectId;
     const project = state.projects.find(p => p.id === projectId);
 
-    els.projectModalTitle.textContent = project ? "Rediger prosjekt" : "Nytt prosjekt";
+    els.projectModalTitle.textContent = project ? (window.izomaxTranslateKey?.("editProject") || "Rediger prosjekt") : (window.izomaxTranslateKey?.("newProject") || "Nytt prosjekt");
     els.projectName.value = project?.name || "";
     fillSelect(els.projectCategory, [{ id: "Offshore", name: "Feltoppdrag" }], "Offshore", "name", "id");
     fillSelect(els.projectStatus, PROJECT_STATUS_OPTIONS, normalizeProjectStatus(project?.status || "Planlagt"));
@@ -3905,6 +3905,7 @@ async function deleteEditedEntry() {
 
     els.projectModal.classList.remove("hidden");
     els.projectModal.classList.add("flex");
+    window.izomaxApplyLanguage?.();
   }
 
   function closeProjectModal() {
