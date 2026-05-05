@@ -1,8 +1,8 @@
-v18.30f sandbox force project edit button safe
-- Basert på v18.30e.
-- Legger Rediger prosjekt inn via en robust DOM-injeksjon etter at prosjektpanelet er rendret.
-- Dette skal gjøre knappen synlig uavhengig av hvilken panelstruktur/CSS som faktisk vises.
-- Knappen åpner eksisterende prosjektmodal med workshop/feltperiode/ressursbehov.
-- Beholder bredere prosjektpanel på ca. 560px.
-- Ingen Supabase/datamodell-endring.
-- Ingen endring i workshoplogikk, bemanningslogikk, login/auth, spotlight, personalblokk-popup eller grupper/ikoner/expand-collapse.
+v18.31d sandbox drag field project safe
+- Basert på Locked-v18.31c.
+- Rød feltprosjektblokk kan nå dras horisontalt i Prosjektplan.
+- Flytting beholder samme varighet og oppdaterer planned_start_date og planned_end_date.
+- Workshop flyttes ikke automatisk når feltprosjektet flyttes.
+- Støtter foreløpig kun prosjekter med én feltperiode; flerperiode-prosjekter flyttes ikke i denne versjonen.
+- Workshop-drag og høyre-kant resize fra v18.31c beholdes.
+- Ingen endring i bemanningslogikk, Supabase/datamodell, login/auth, dashboard, spotlight, personalblokk-popup eller grupper/ikoner/expand-collapse.
