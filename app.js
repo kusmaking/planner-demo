@@ -15,7 +15,6 @@
     currentUserEmail: "",
     currentRole: "",
     authReady: false,
-    uiLanguage: load("planner_ui_language_v1", "no"),
     employeeFilter: "Alle ansatte",
     selectedEmployeeGroups: [],
     groupFilterSearch: "",
@@ -96,311 +95,6 @@
       summary: null
     }
   };
-
-
-  const LANGUAGE_STORAGE_KEY = "planner_ui_language_v1";
-  const SUPPORTED_LANGUAGES = ["no", "en"];
-
-  const I18N_NO_TO_EN = {
-    "Personal planlegging": "Personnel planning",
-    "Personalplanlegger": "Personnel Planner",
-    "Onshore • Offshore • Ressurser": "Onshore • Offshore • Resources",
-    "Én oversikt for personell, oppdrag og mobilisering.": "One overview for personnel, assignments and mobilization.",
-    "Logg inn": "Log in",
-    "Logg ut": "Log out",
-    "E-post": "Email",
-    "Passord": "Password",
-    "Glemt passord?": "Forgot password?",
-    "Trenger tilgang?": "Need access?",
-    "Bruk Izomax-brukeren din for å åpne riktig visning basert på tilgangsnivå.": "Use your Izomax account to open the correct view based on access level.",
-    "Språk": "Language",
-    "Norsk": "Norwegian",
-    "English": "English",
-    "Endre passord": "Change password",
-    "Send reset-link": "Send reset link",
-    "Ikke innlogget": "Not signed in",
-    "Laster...": "Loading...",
-    "Klar": "Ready",
-    "Lokal fallback": "Local fallback",
-
-    "Oppstart": "Home",
-    "Dashboard": "Dashboard",
-    "Ansattplan": "Employee plan",
-    "Prosjektplan": "Project plan",
-    "Uten bemanning": "Unstaffed",
-    "Prosjektadmin": "Project admin",
-    "Ansattadmin": "Employee admin",
-    "Admin": "Admin",
-    "Personalplan": "Personnel plan",
-    "Kalender": "Calendar",
-
-    "Søk ansatt": "Search employee",
-    "Søk gruppe": "Search group",
-    "Søk prosjekt": "Search project",
-    "Søk navn, gruppe, tittel eller status": "Search name, group, title or status",
-    "Alle ansatte": "All employees",
-    "Alle grupper": "All groups",
-    "Alle prosjekter": "All projects",
-    "Alle": "All",
-    "Måned": "Month",
-    "Uke": "Week",
-    "År": "Year",
-    "I dag": "Today",
-    "Forrige": "Previous",
-    "Neste": "Next",
-
-    "Nytt prosjekt": "New project",
-    "Rediger prosjekt": "Edit project",
-    "Slett prosjekt": "Delete project",
-    "Prosjektnavn": "Project name",
-    "Prosjekt": "Project",
-    "Prosjektinfo": "Project info",
-    "Prosjekter": "Projects",
-    "Prosjektliste": "Project list",
-    "Prosjektstatus": "Project status",
-    "Prosjekttype": "Project type",
-    "Feltoppdrag": "Field assignment",
-    "Workshop / mobilisering": "Workshop / mobilization",
-    "Workshop/mobilisering": "Workshop/mobilization",
-    "Workshop": "Workshop",
-    "Mobilisering": "Mobilization",
-    "Planlagt": "Planned",
-    "Pågår": "In progress",
-    "Avventer": "Pending",
-    "Fullført": "Completed",
-    "Kansellert": "Cancelled",
-    "Kansellert prosjekt": "Cancelled project",
-    "Planlagt start": "Planned start",
-    "Planlagt slutt": "Planned end",
-    "Startdato": "Start date",
-    "Sluttdato": "End date",
-    "Fra": "From",
-    "Til": "To",
-    "Ressursbehov": "Resource need",
-    "Feltressursbehov": "Field resource need",
-    "Workshopressursbehov": "Workshop resource need",
-    "Prosjektet går i flere perioder": "Project has multiple periods",
-    "Flere perioder": "Multiple periods",
-    "Legg til periode": "Add period",
-    "Fjern": "Remove",
-    "Lagre prosjekt": "Save project",
-    "Lagre": "Save",
-    "Slett": "Delete",
-    "Avbryt": "Cancel",
-    "Lukk": "Close",
-    "Notat": "Note",
-    "Notater": "Notes",
-    "Detaljer": "Details",
-    "Status": "Status",
-    "Kategori": "Category",
-    "Type": "Type",
-    "Rolle": "Role",
-    "Tittel": "Title",
-    "Gruppe": "Group",
-    "Aktiv": "Active",
-    "Inaktiv": "Inactive",
-
-    "Ny ansatt": "New employee",
-    "Legg til mange ansatte": "Add multiple employees",
-    "Ansatt": "Employee",
-    "Ansatte": "Employees",
-    "Ansattnavn": "Employee name",
-    "Navn": "Name",
-    "Lagre ansatt": "Save employee",
-    "Slett ansatt": "Delete employee",
-
-    "Direkte blokk på ansatt": "Direct employee block",
-    "Brukes for kurs, ferie, syk og avspasering direkte på personen, uten å gå via prosjektmodulen.": "Used for training, vacation, sick leave and time off directly on the person, without using the project module.",
-    "Lagre blokk i kalender": "Save block to calendar",
-    "Kurs": "Training",
-    "Ferie": "Vacation",
-    "Syk": "Sick leave",
-    "Avspasering": "Time off in lieu",
-    "Travel": "Travel",
-
-    "Bemanning": "Staffing",
-    "Bemann prosjekt": "Staff project",
-    "Tildel prosjekt": "Assign project",
-    "Tildel prosjekt i kalender": "Assign project in calendar",
-    "Rediger tildeling": "Edit assignment",
-    "Legg til ansatt på dette prosjektet": "Add employee to this project",
-    "Velg prosjekt": "Select project",
-    "Velg ansatt": "Select employee",
-    "Velg periode": "Select period",
-    "Velg prosjekt og periode for å starte bemanning.": "Select a project and period to start staffing.",
-    "Velg et prosjekt for å starte bemanning.": "Select a project to start staffing.",
-    "Velg et prosjekt fra listen for å se detaljer.": "Select a project from the list to view details.",
-    "Velg et prosjekt fra listen til venstre for å se detaljer, bemanning og arkivstatus.": "Select a project from the list on the left to view details, staffing and archive status.",
-    "Velg et prosjekt for å bemanne, følge perioder og åpne detaljer.": "Select a project to staff, follow periods and open details.",
-    "Ingen tildelte ressurser på prosjektet ennå.": "No assigned resources on the project yet.",
-    "Ingen analyse kjørt": "No analysis run",
-    "Ingen analyse kjørt.": "No analysis run.",
-    "Tilgjengelig": "Available",
-    "Ikke tilgjengelig": "Unavailable",
-    "Delvis tilgjengelig": "Partly available",
-    "Ledig": "Available",
-    "ledig": "available",
-    "På prosjekt": "On project",
-    "på prosjekt": "on project",
-    "Borte / fravær": "Away / absence",
-    "borte": "away",
-    "Skjul tilgjengelige / øvrige": "Hide available / others",
-    "Prosjektet er fullt bemannet. Tilgjengelighetsanalyse vises først når du skal endre crew.": "The project is fully staffed. Availability analysis is shown when changing crew.",
-    "Prosjektet er fullbemannet i valgt periode. Ingen ledige plasser å fylle.": "The project is fully staffed in the selected period. No open positions to fill.",
-    "Denne personen er delvis tilgjengelig. Velg riktig delperiode før du legger til.": "This person is partly available. Select the correct sub-period before adding.",
-
-    "Endringslogg": "Change log",
-    "Varsellogg": "Notification log",
-    "Systemstatus": "System status",
-    "Varsler": "Alerts",
-    "Ingen varsler": "No alerts",
-
-    "Dra for å endre sluttdato": "Drag to change end date",
-    "Dra for å endre workshop-sluttdato": "Drag to change workshop end date",
-    "Dra for å endre prosjektsluttdato": "Drag to change project end date",
-    "Nullstill fokus": "Clear focus",
-
-    "Legg inn e-postadressen din først.": "Enter your email address first.",
-    "Kontakt superadmin eller planner for å få opprettet tilgang.": "Contact a superadmin or planner to get access.",
-    "Reset-link er sendt på e-post.": "Reset link has been sent by email.",
-    "Passordet må være minst 6 tegn.": "Password must be at least 6 characters.",
-    "Startdato kan ikke være etter sluttdato.": "Start date cannot be after end date.",
-    "Fra-dato kan ikke være senere enn til-dato.": "From date cannot be later than to date.",
-    "Fra-dato må være innenfor prosjektperioden.": "From date must be within the project period.",
-    "Til-dato må være innenfor prosjektperioden.": "To date must be within the project period.",
-    "Alle perioder må ha start- og sluttdato.": "All periods must have a start and end date.",
-    "En periode har sluttdato før startdato.": "A period has an end date before the start date.",
-    "Ressursbehov i felt kan ikke være negativt.": "Field resource need cannot be negative.",
-    "Workshop start kan ikke være etter workshop slutt.": "Workshop start cannot be after workshop end.",
-    "Workshop ressursbehov kan ikke være negativt.": "Workshop resource need cannot be negative.",
-    "Planlagt start kan ikke være etter planlagt slutt.": "Planned start cannot be after planned end.",
-    "Prosjektet kan ikke slettes før tilhørende tildelinger er fjernet.": "The project cannot be deleted until related assignments are removed.",
-    "Ansatt kan ikke slettes før tilhørende tildelinger er fjernet. Sett eventuelt ansatt som inaktiv.": "The employee cannot be deleted until related assignments are removed. Set the employee as inactive if needed.",
-    "Workshopfasen mangler start/slutt. Rediger prosjektet og lagre workshopdatoer først.": "The workshop phase is missing start/end. Edit the project and save workshop dates first.",
-    "Flytting av feltprosjekt støtter foreløpig kun prosjekter med én feltperiode.": "Moving a field project currently only supports projects with one field period.",
-    "Feltprosjektet mangler start/slutt. Rediger prosjektet og lagre datoer først.": "The field project is missing start/end. Edit the project and save dates first.",
-
-    "1. nyttårsdag": "New Year's Day",
-    "Skjærtorsdag": "Maundy Thursday",
-    "Langfredag": "Good Friday",
-    "1. påskedag": "Easter Sunday",
-    "2. påskedag": "Easter Monday",
-    "Arbeidernes dag": "Labour Day",
-    "Grunnlovsdag": "Constitution Day",
-    "Kristi himmelfartsdag": "Ascension Day",
-    "1. pinsedag": "Whit Sunday",
-    "2. pinsedag": "Whit Monday",
-    "1. juledag": "Christmas Day",
-    "2. juledag": "Boxing Day"
-  };
-
-  function getUiLanguage() {
-    const stored = load(LANGUAGE_STORAGE_KEY, state.uiLanguage || "no");
-    return SUPPORTED_LANGUAGES.includes(stored) ? stored : "no";
-  }
-
-  function t(value) {
-    const str = String(value ?? "");
-    if (getUiLanguage() === "no") return str;
-    return I18N_NO_TO_EN[str] || str;
-  }
-
-  function setUiLanguage(language) {
-    const next = SUPPORTED_LANGUAGES.includes(language) ? language : "no";
-    state.uiLanguage = next;
-    save(LANGUAGE_STORAGE_KEY, next);
-    document.documentElement.lang = next === "en" ? "en" : "no";
-    document.body?.setAttribute("data-ui-language", next);
-    updateLanguageButtons();
-    applyLanguage();
-  }
-
-  function updateLanguageButtons() {
-    const lang = getUiLanguage();
-    document.querySelectorAll("[data-language-option]").forEach(button => {
-      const active = button.dataset.languageOption === lang;
-      button.classList.toggle("is-active", active);
-      button.setAttribute("aria-pressed", active ? "true" : "false");
-    });
-  }
-
-  function setupLanguageControls() {
-    document.documentElement.lang = getUiLanguage() === "en" ? "en" : "no";
-    document.body?.setAttribute("data-ui-language", getUiLanguage());
-
-    document.addEventListener("click", event => {
-      const button = event.target?.closest?.("[data-language-option]");
-      if (!button) return;
-      event.preventDefault();
-      setUiLanguage(button.dataset.languageOption || "no");
-    });
-
-    updateLanguageButtons();
-
-    if (!window.__izomaxLanguageObserver) {
-      window.__izomaxLanguageObserver = new MutationObserver(() => {
-        window.clearTimeout(window.__izomaxLanguageObserverTimer);
-        window.__izomaxLanguageObserverTimer = window.setTimeout(() => applyLanguage(), 40);
-      });
-      window.__izomaxLanguageObserver.observe(document.body, {
-        childList: true,
-        subtree: true,
-        characterData: true,
-        attributes: true,
-        attributeFilter: ["placeholder", "title", "aria-label", "data-tooltip", "value"]
-      });
-    }
-  }
-
-  function translateTextValue(value) {
-    if (getUiLanguage() === "no") return value;
-    const source = String(value ?? "");
-    if (!source.trim()) return source;
-    const trimmed = source.trim();
-    const translated = I18N_NO_TO_EN[trimmed];
-    if (!translated) return source;
-    return source.replace(trimmed, translated);
-  }
-
-  function applyLanguage(root = document.body) {
-    if (!root) return;
-    const lang = getUiLanguage();
-    document.documentElement.lang = lang === "en" ? "en" : "no";
-    document.body?.setAttribute("data-ui-language", lang);
-
-    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
-      acceptNode(node) {
-        const parent = node.parentElement;
-        if (!parent) return NodeFilter.FILTER_REJECT;
-        if (parent.closest("script, style, textarea")) return NodeFilter.FILTER_REJECT;
-        if (!node.nodeValue || !node.nodeValue.trim()) return NodeFilter.FILTER_REJECT;
-        return NodeFilter.FILTER_ACCEPT;
-      }
-    });
-
-    const nodes = [];
-    while (walker.nextNode()) nodes.push(walker.currentNode);
-
-    nodes.forEach(node => {
-      if (!node.__i18nSourceText) node.__i18nSourceText = node.nodeValue;
-      const next = lang === "en" ? translateTextValue(node.__i18nSourceText) : node.__i18nSourceText;
-      if (node.nodeValue !== next) node.nodeValue = next;
-    });
-
-    const attrNames = ["placeholder", "title", "aria-label", "data-tooltip"];
-    root.querySelectorAll?.("*")?.forEach(el => {
-      attrNames.forEach(attr => {
-        if (!el.hasAttribute(attr)) return;
-        const storeKey = `i18nSource${attr.replace(/[^a-z0-9]/gi, "")}`;
-        if (!el.dataset[storeKey]) el.dataset[storeKey] = el.getAttribute(attr) || "";
-        const next = lang === "en" ? translateTextValue(el.dataset[storeKey]) : el.dataset[storeKey];
-        if (el.getAttribute(attr) !== next) el.setAttribute(attr, next);
-      });
-    });
-
-    updateLanguageButtons();
-  }
-
 
   const els = {};
   const PERSONAL_BLOCK_TYPES = ["Kurs", "Ferie", "Syk", "Avspasering", "Travel"];
@@ -520,8 +214,6 @@
     ensureAvailabilityPanel();
     setupStaticOptions();
     bindEvents();
-    setupLanguageControls();
-    applyLanguage();
 
     state.viewMode = "Måned";
     state.startDate = startOfCurrentMonth();
@@ -547,7 +239,6 @@
     await bootData();
     rebuildDerivedState();
     renderAll();
-    applyLanguage();
     clearAssignForm();
     clearPersonalBlockForm();
     applyRoleChrome();
@@ -905,13 +596,6 @@
           <span class="account-caret text-xs ml-auto">▾</span>
         </button>
         <div id="accountMenuDropdown" class="hidden absolute right-0 top-full mt-2 min-w-[170px] rounded-xl border border-slate-200 bg-white shadow-xl overflow-hidden z-[120]">
-          <div class="iz-language-menu border-b border-slate-200 px-3 py-3">
-            <div class="iz-language-title text-xs font-semibold text-slate-500 mb-2">Språk</div>
-            <div class="iz-language-options flex gap-2">
-              <button type="button" data-language-option="no" class="iz-language-option">NO</button>
-              <button type="button" data-language-option="en" class="iz-language-option">EN</button>
-            </div>
-          </div>
           <button id="changePasswordBtn" class="w-full text-left border-b border-slate-200 bg-white px-3 py-2 text-sm hover:bg-slate-50">Endre passord</button>
           <button id="logoutBtn" class="w-full text-left bg-white px-3 py-2 text-sm hover:bg-slate-50">Logg ut</button>
           <button id="resetPasswordBtn" class="hidden">Send reset-link</button>
@@ -4599,7 +4283,6 @@ async function deleteEditedEntry() {
     updateAvailabilityAnalysis();
     applyRoleChrome();
     updateAvailabilityAnalysis();
-    applyLanguage();
   }
 
   function populateDynamicSelects() {
