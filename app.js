@@ -1033,9 +1033,6 @@
   function setActiveTab(tabName) {
     state.activeTab = tabName;
     renderLayoutTabs();
-    if (tabName === "projects") {
-      setTimeout(() => bindProjectImportPreviewControls(), 0);
-    }
   }
 
   function getActiveNavigationKey() {
@@ -1785,7 +1782,6 @@
   }
 
   function bindEvents() {
-    bindProjectImportPreviewControls();
     window.addEventListener("izomax-language-changed", () => {
       refreshCalendarModeControls();
       renderLegend();
@@ -4301,298 +4297,37 @@ async function deleteEditedEntry() {
   }
 
 
-  
-  function bindProjectImportPreviewControls() {
-    const input = document.getElementById("projectImportCsvInput");
-    const clearBtn = document.getElementById("projectImportClearBtn");
-    if (input && !input.dataset.boundProjectImport) {
-      input.dataset.boundProjectImport = "true";
-      input.addEventListener("change", event => {
-        const file = event.target.files && event.target.files[0];
-        if (!file) return;
-        readProjectImportCsvFile(file);
-      });
-    }
-    if (clearBtn && !clearBtn.dataset.boundProjectImportClear) {
-      clearBtn.dataset.boundProjectImportClear = "true";
-      clearBtn.addEventListener("click", () => {
-        if (input) input.value = "";
-        renderProjectImportPreview([], { fileName: "" });
-      });
-    }
-  }
-
-  function readProjectImportCsvFile(file) {
-    const status = document.getElementById("projectImportStatus");
-    if (status) status.textContent = `Leser ${file.name}...`;
-    const reader = new FileReader();
-    reader.onload = () => {
-      try {
-        const text = String(reader.result || "");
-        const rows = parseProjectImportCsv(text);
-        renderProjectImportPreview(rows, { fileName: file.name });
-      } catch (error) {
-        if (status) status.textContent = `Kunne ikke lese CSV: ${error.message || error}`;
-      }
-    };
-    reader.onerror = () => {
-      if (status) status.textContent = "Kunne ikke lese filen.";
-    };
-    reader.readAsText(file, "utf-8");
-  }
-
-  function parseProjectImportCsv(text) {
-    const rows = [];
-    let current = [];
-    let field = "";
-    let inQuotes = false;
-
-    for (let i = 0; i < text.length; i++) {
-      const char = text[i];
-      const next = text[i + 1];
-
-      if (char === '"') {
-        if (inQuotes && next === '"') {
-          field += '"';
-          i += 1;
-        } else {
-          inQuotes = !inQuotes;
-        }
-        continue;
-      }
-
-      if (char === "," && !inQuotes) {
-        current.push(field);
-        field = "";
-        continue;
-      }
-
-      if ((char === "\n" || char === "\r") && !inQuotes) {
-        if (char === "\r" && next === "\n") i += 1;
-        current.push(field);
-        field = "";
-        if (current.some(value => String(value || "").trim() !== "")) rows.push(current);
-        current = [];
-        continue;
-      }
-
-      field += char;
-    }
-
-    current.push(field);
-    if (current.some(value => String(value || "").trim() !== "")) rows.push(current);
-
-    if (!rows.length) return [];
-
-    const headers = rows[0].map(header => normalizeImportHeader(header));
-    return rows.slice(1).map(rawRow => {
-      const obj = {};
-      headers.forEach((header, index) => {
-        obj[header] = String(rawRow[index] || "").trim();
-      });
-      return obj;
-    }).filter(row => Object.values(row).some(value => String(value || "").trim() !== ""));
-  }
-
-  function normalizeImportHeader(value) {
-    return String(value || "")
-      .replace(/^\uFEFF/, "")
-      .trim()
-      .replace(/\s+/g, " ");
-  }
-
-  function parseImportDate(value) {
-    const raw = String(value || "").trim();
-    if (!raw) return "";
-    const ddmmyyyy = raw.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
-    if (ddmmyyyy) {
-      const day = ddmmyyyy[1].padStart(2, "0");
-      const month = ddmmyyyy[2].padStart(2, "0");
-      return `${ddmmyyyy[3]}-${month}-${day}`;
-    }
-    const yyyymmdd = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-    if (yyyymmdd) return raw;
-    return "";
-  }
-
-  function renderProjectImportPreview(rows, meta = {}) {
-    const status = document.getElementById("projectImportStatus");
-    const summary = document.getElementById("projectImportSummary");
-    const wrap = document.getElementById("projectImportPreviewWrap");
-    const body = document.getElementById("projectImportPreviewBody");
-
-    if (!rows.length) {
-      if (status) status.textContent = "Ingen fil valgt.";
-      if (summary) summary.innerHTML = "";
-      if (wrap) wrap.classList.add("hidden");
-      if (body) body.innerHTML = "";
-      return;
-    }
-
-    const existingByName = new Map(
-      state.projects.map(project => [normalizeProjectImportName(project.name), project])
-    );
-
-    const mapped = rows.map((row, index) => {
-      const name = row["Project Name"] || row["Project"] || row["Name"] || "";
-      const operationStart = parseImportDate(row["Operation start"]);
-      const operationStop = parseImportDate(row["Operation stop"]);
-      const wsStart = parseImportDate(row["WS start"]);
-      const wsStop = parseImportDate(row["WS stop"]);
-      const techs = row["Techs needed"] || row["Techs"] || "";
-      const existing = existingByName.get(normalizeProjectImportName(name)) || null;
-      const missingDates = !operationStart || !operationStop;
-      const dateMismatch = existing && operationStart && operationStop
-        && (String(existing.planned_start_date || "") !== operationStart || String(existing.planned_end_date || "") !== operationStop);
-
-      let statusKey = "Ny";
-      let tone = "border-green-200 bg-green-50 text-green-800";
-      const comments = [];
-
-      if (!name) {
-        statusKey = "Mangler navn";
-        tone = "border-red-200 bg-red-50 text-red-800";
-        comments.push("Kan ikke importeres uten Project Name.");
-      } else if (missingDates) {
-        statusKey = "Mangler dato";
-        tone = "border-amber-200 bg-amber-50 text-amber-800";
-        comments.push("Operation start/stop mangler eller har ukjent format.");
-      } else if (existing && dateMismatch) {
-        statusKey = "Datoavvik";
-        tone = "border-orange-200 bg-orange-50 text-orange-800";
-        comments.push(`Finnes fra før, men dato er ulik (${existing.planned_start_date || "?"} – ${existing.planned_end_date || "?"}).`);
-      } else if (existing) {
-        statusKey = "Eksisterer";
-        tone = "border-slate-200 bg-slate-50 text-slate-700";
-        comments.push("Prosjektnavn finnes allerede med samme dato.");
-      } else {
-        comments.push("Klar for senere import.");
-      }
-
-      return {
-        index,
-        row,
-        name,
-        operationStart,
-        operationStop,
-        wsStart,
-        wsStop,
-        techs,
-        company: row["Company"] || "",
-        statusKey,
-        tone,
-        comments
-      };
-    });
-
-    const counts = mapped.reduce((acc, item) => {
-      acc.total += 1;
-      acc[item.statusKey] = (acc[item.statusKey] || 0) + 1;
-      return acc;
-    }, { total: 0 });
-
-    if (status) {
-      status.textContent = `${meta.fileName || "CSV"} lest inn. ${mapped.length} rader funnet. Ingen data er lagret.`;
-    }
-
-    if (summary) {
-      const cards = [
-        ["Totalt", counts.total || 0],
-        ["Ny", counts["Ny"] || 0],
-        ["Eksisterer", counts["Eksisterer"] || 0],
-        ["Datoavvik", counts["Datoavvik"] || 0],
-        ["Mangler dato/navn", (counts["Mangler dato"] || 0) + (counts["Mangler navn"] || 0)]
-      ];
-      summary.innerHTML = cards.map(([label, value]) => `
-        <div class="rounded-2xl border border-slate-200 bg-white px-4 py-3">
-          <div class="text-xs uppercase tracking-wide text-slate-500 font-semibold">${escapeHtml(label)}</div>
-          <div class="mt-1 text-2xl font-black text-slate-950">${escapeHtml(String(value))}</div>
-        </div>
-      `).join("");
-    }
-
-    if (wrap) wrap.classList.remove("hidden");
-    if (body) {
-      body.innerHTML = mapped.map(item => `
-        <tr class="hover:bg-slate-50">
-          <td class="px-3 py-2 align-top"><span class="inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${item.tone}">${escapeHtml(item.statusKey)}</span></td>
-          <td class="px-3 py-2 align-top font-medium text-slate-900">${escapeHtml(item.name || "-")}</td>
-          <td class="px-3 py-2 align-top text-slate-700">${escapeHtml(item.operationStart || "-")}</td>
-          <td class="px-3 py-2 align-top text-slate-700">${escapeHtml(item.operationStop || "-")}</td>
-          <td class="px-3 py-2 align-top text-slate-700">${escapeHtml(item.wsStart || "-")}</td>
-          <td class="px-3 py-2 align-top text-slate-700">${escapeHtml(item.wsStop || "-")}</td>
-          <td class="px-3 py-2 align-top text-slate-700">${escapeHtml(item.techs || "-")}</td>
-          <td class="px-3 py-2 align-top text-slate-700">${escapeHtml(item.company || "-")}</td>
-          <td class="px-3 py-2 align-top text-slate-600">${escapeHtml(item.comments.join(" "))}</td>
-        </tr>
-      `).join("");
-    }
-  }
-
-  function normalizeProjectImportName(value) {
-    return String(value || "").trim().replace(/\s+/g, " ").toLowerCase();
-  }
-
-
   function renderProjectImportPlaceholder() {
     if (!els.tabProjectsSection) return;
     els.tabProjectsSection.innerHTML = `
       <div class="xl:col-span-12">
         <div class="rounded-[28px] bg-white border border-slate-200 shadow-sm overflow-hidden">
           <div class="p-6 border-b border-slate-200 bg-slate-50/80">
-            <h2 class="text-xl font-semibold text-slate-950">Prosjektimport <span class="ml-2 align-middle rounded-full bg-green-100 px-2 py-0.5 text-xs font-semibold text-green-800">CSV preview v18.37c</span></h2>
-            <p class="mt-2 text-sm text-slate-600">Last opp CSV for å forhåndsvise prosjekter før import. Denne versjonen lagrer ikke noe.</p>
+            <h2 class="text-xl font-semibold text-slate-950">Prosjektimport</h2>
+            <p class="mt-2 text-sm text-slate-600">Denne siden ryddes og klargjøres for fremtidig import av prosjekter fra CSV/Excel eller annet system.</p>
           </div>
-
-          <div class="p-6 space-y-5">
+          <div class="p-6 grid gap-4 md:grid-cols-3">
             <div class="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-5">
-              <label for="projectImportCsvInput" class="block text-base font-black text-slate-950">⬆ Velg CSV-fil for preview</label>
-              <p class="mt-1 text-sm text-slate-600">Forventede kolonner: Project Name, Operation start, Operation stop, WS start, WS stop, Techs needed, Company, Activity.</p>
-              <input id="projectImportCsvInput" type="file" accept=".csv,text/csv" class="mt-4 block w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm" />
-              <div class="mt-3 flex flex-wrap gap-2">
-                <button id="projectImportClearBtn" type="button" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700">Nullstill preview</button>
-              </div>
+              <div class="text-sm font-semibold text-slate-900">1. Last opp fil</div>
+              <p class="mt-2 text-sm text-slate-600">Fremtidig funksjon for CSV/Excel-upload.</p>
             </div>
-
-            <div id="projectImportStatus" class="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600">
-              Ingen fil valgt.
+            <div class="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-5">
+              <div class="text-sm font-semibold text-slate-900">2. Forhåndsvisning</div>
+              <p class="mt-2 text-sm text-slate-600">Kontroller kolonner og prosjektdata før import.</p>
             </div>
-
-            <div id="projectImportSummary" class="grid gap-3 md:grid-cols-5"></div>
-
+            <div class="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-5">
+              <div class="text-sm font-semibold text-slate-900">3. Opprett prosjekter</div>
+              <p class="mt-2 text-sm text-slate-600">Prosjekter kan senere valideres og opprettes samlet.</p>
+            </div>
+          </div>
+          <div class="px-6 pb-6">
             <div class="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-              Preview er kun kontroll/validering. Import og lagring bygges senere etter at mappingen er godkjent.
-            </div>
-
-            <div id="projectImportPreviewWrap" class="hidden rounded-2xl border border-slate-200 bg-white overflow-hidden">
-              <div class="border-b border-slate-200 bg-slate-50 px-4 py-3">
-                <div class="font-semibold text-slate-900">Import-preview</div>
-                <div class="text-xs text-slate-500 mt-1">Matcher mot eksisterende prosjekter på navn, og sammenligner Operation start/stop mot planlagt start/slutt.</div>
-              </div>
-              <div class="overflow-auto max-h-[620px]">
-                <table class="min-w-[1200px] w-full text-sm">
-                  <thead class="sticky top-0 bg-slate-100 text-slate-700 z-10">
-                    <tr>
-                      <th class="px-3 py-2 text-left font-semibold">Status</th>
-                      <th class="px-3 py-2 text-left font-semibold">Project Name</th>
-                      <th class="px-3 py-2 text-left font-semibold">Operation start</th>
-                      <th class="px-3 py-2 text-left font-semibold">Operation stop</th>
-                      <th class="px-3 py-2 text-left font-semibold">WS start</th>
-                      <th class="px-3 py-2 text-left font-semibold">WS stop</th>
-                      <th class="px-3 py-2 text-left font-semibold">Techs</th>
-                      <th class="px-3 py-2 text-left font-semibold">Company</th>
-                      <th class="px-3 py-2 text-left font-semibold">Kommentar</th>
-                    </tr>
-                  </thead>
-                  <tbody id="projectImportPreviewBody" class="divide-y divide-slate-100"></tbody>
-                </table>
-              </div>
+              Importfunksjonen er ikke aktiv ennå. Prosjekter administreres foreløpig videre fra Prosjektplan.
             </div>
           </div>
         </div>
       </div>
     `;
-    bindProjectImportPreviewControls();
   }
 
   function renderEmployeeAdminPlaceholder() {
