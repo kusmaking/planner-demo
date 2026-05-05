@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Personal planlegging</title>
+  <title>Izomax Personalplanlegger</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     .scrollbar-thin::-webkit-scrollbar { height: 10px; width: 10px; }
@@ -1454,6 +1454,66 @@
 
       .iz-start-logo { width: 155px; }
     }
+
+    /* v18.33b core language switch - controlled visual layer */
+    .iz-language-switch {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 18px;
+      padding-top: 16px;
+      border-top: 1px solid #e2e8f0;
+      width: 100%;
+    }
+
+    .iz-language-switch-label {
+      font-size: 12px;
+      font-weight: 800;
+      color: #64748b;
+      margin-right: auto;
+    }
+
+    .iz-language-option {
+      border: 1px solid #cbd5e1 !important;
+      background: #ffffff !important;
+      color: #334155 !important;
+      min-width: 42px;
+      height: 31px;
+      padding: 0 9px !important;
+      border-radius: 4px !important;
+      font-size: 12px !important;
+      font-weight: 900 !important;
+      cursor: pointer;
+      text-align: center !important;
+    }
+
+    .iz-language-option.is-active {
+      background: #2f6f57 !important;
+      color: #ffffff !important;
+      border-color: #2f6f57 !important;
+    }
+
+    body.iz-compact-ui #accountMenuDropdown .iz-language-menu {
+      background: rgba(255,255,255,0.02) !important;
+      color: #0f172a;
+    }
+
+    body.iz-compact-ui #accountMenuDropdown .iz-language-title {
+      color: rgba(235,248,250,0.74) !important;
+    }
+
+    body.iz-compact-ui #accountMenuDropdown .iz-language-option {
+      background: rgba(255,255,255,0.08) !important;
+      color: #ffffff !important;
+      border-color: rgba(172,219,230,0.28) !important;
+    }
+
+    body.iz-compact-ui #accountMenuDropdown .iz-language-option.is-active {
+      background: var(--iz-green) !important;
+      color: #062531 !important;
+      border-color: var(--iz-green) !important;
+    }
+
   </style>
 </head>
 <body class="iz-compact-ui text-slate-900">
@@ -1464,38 +1524,44 @@
         <img src="izomax-logo-ocean-light.png" alt="Izomax" class="iz-start-logo" />
         <div class="iz-start-brand-line" aria-hidden="true"></div>
         <div>
-          <div class="iz-start-brand-title">Personalplanlegger</div>
+          <div class="iz-start-brand-title" data-i18n="brand.product">Personalplanlegger</div>
           <div class="iz-start-brand-sub">Onshore • Offshore • Ressurser</div>
         </div>
       </div>
 
       <div class="iz-start-content">
-        <h1>Én oversikt for personell, oppdrag og mobilisering.</h1>
+        <h1 data-i18n="start.headline">Én oversikt for personell, oppdrag og mobilisering.</h1>
       </div>
     </div>
 
     <div class="iz-start-login-side">
       <div class="iz-start-login-card">
-        <h2>Logg inn</h2>
-        <div class="iz-start-sub">Bruk Izomax-brukeren din for å åpne riktig visning basert på tilgangsnivå.</div>
+        <h2 data-i18n="auth.login">Logg inn</h2>
+        <div class="iz-start-sub" data-i18n="start.subtext">Bruk Izomax-brukeren din for å åpne riktig visning basert på tilgangsnivå.</div>
 
         <div class="iz-start-form">
           <div>
-            <label for="startLoginEmail">E-post</label>
+            <label for="startLoginEmail" data-i18n="auth.email">E-post</label>
             <input id="startLoginEmail" type="email" placeholder="navn@izomax.com" autocomplete="username" />
           </div>
           <div>
-            <label for="startLoginPassword">Passord</label>
-            <input id="startLoginPassword" type="password" placeholder="Passord" autocomplete="current-password" />
+            <label for="startLoginPassword" data-i18n="auth.password">Passord</label>
+            <input id="startLoginPassword" type="password" placeholder="Passord" autocomplete="current-password" data-i18n-attr-placeholder="auth.password" />
           </div>
-          <button id="startLoginSubmitBtn" type="button" class="iz-start-login-btn">Logg inn</button>
+          <button id="startLoginSubmitBtn" type="button" class="iz-start-login-btn" data-i18n="auth.login">Logg inn</button>
         </div>
 
         <div id="startLoginError" class="iz-start-error"></div>
 
         <div class="iz-start-links">
-          <button id="startForgotPasswordBtn" type="button">Glemt passord?</button>
-          <button id="startAccessHelpBtn" type="button">Trenger tilgang?</button>
+          <button id="startForgotPasswordBtn" type="button" data-i18n="start.forgotPassword">Glemt passord?</button>
+          <button id="startAccessHelpBtn" type="button" data-i18n="start.needAccess">Trenger tilgang?</button>
+        </div>
+
+        <div class="iz-language-switch" aria-label="Språkvalg" data-i18n-attr-aria-label="language.ariaLabel">
+          <span class="iz-language-switch-label" data-i18n="language.label">Språk</span>
+          <button type="button" data-language-option="no" class="iz-language-option">NO</button>
+          <button type="button" data-language-option="en" class="iz-language-option">EN</button>
         </div>
       </div>
     </div>
@@ -1506,14 +1572,14 @@
       <div class="iz-brand-wrap">
         <img src="izomax-logo-ocean-light.png" alt="Izomax" class="iz-logo" />
         <div class="iz-title-block">
-          <h1>Personal planlegging</h1>
-          <p>Onshore • Offshore • Ressurser</p>
+          <h1 data-i18n="app.title">Personal planlegging</h1>
+          <p data-i18n="app.subtitle">Onshore • Offshore • Ressurser</p>
         </div>
       </div>
 
       <div class="flex flex-wrap gap-2 items-center justify-end">
-        <span id="storageBadge" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm">Laster...</span>
-        <span id="saveStatus" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm">Klar</span>
+        <span id="storageBadge" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm" data-i18n="system.loading">Laster...</span>
+        <span id="saveStatus" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm" data-i18n="system.ready">Klar</span>
       </div>
     </header>
 
@@ -1521,13 +1587,13 @@
 
     <section id="plannerTabs" class="rounded-2xl bg-white border border-slate-200 shadow-sm p-3">
       <div class="flex flex-wrap gap-2">
-        <button id="tabHomeBtn" class="rounded-2xl px-4 py-2 text-sm border border-slate-300 bg-white text-slate-700" data-tooltip="Oppstart" aria-label="Oppstart">⌂</button>
-        <button id="tabCalendarBtn" class="rounded-2xl px-4 py-2 text-sm border border-slate-900 bg-slate-900 text-white" data-tooltip="Ansattplan" aria-label="Ansattplan">☷</button>
-        <button id="tabProjectPlanBtn" class="rounded-2xl px-4 py-2 text-sm border border-slate-300 bg-white text-slate-700" data-tooltip="Prosjektplan" aria-label="Prosjektplan">▦</button>
-        <button id="tabUnstaffedBtn" class="rounded-2xl px-4 py-2 text-sm border border-slate-300 bg-white text-slate-700" data-tooltip="Uten bemanning" aria-label="Uten bemanning">!</button>
-        <button id="tabProjectsBtn" class="rounded-2xl px-4 py-2 text-sm border border-slate-300 bg-white text-slate-700" data-tooltip="Prosjektadmin" aria-label="Prosjektadmin">♙</button>
-        <button id="tabEmployeesBtn" class="rounded-2xl px-4 py-2 text-sm border border-slate-300 bg-white text-slate-700" data-tooltip="Ansattadmin" aria-label="Ansattadmin">◎</button>
-        <button id="tabAdminBtn" class="rounded-2xl px-4 py-2 text-sm border border-slate-300 bg-white text-slate-700" data-tooltip="Admin" aria-label="Admin">⚙</button>
+        <button id="tabHomeBtn" class="rounded-2xl px-4 py-2 text-sm border border-slate-300 bg-white text-slate-700" data-tooltip="Oppstart" data-i18n-attr-data-tooltip="nav.home" aria-label="Oppstart" data-i18n-attr-aria-label="nav.home">⌂</button>
+        <button id="tabCalendarBtn" class="rounded-2xl px-4 py-2 text-sm border border-slate-900 bg-slate-900 text-white" data-tooltip="Ansattplan" data-i18n-attr-data-tooltip="nav.employeePlan" aria-label="Ansattplan" data-i18n-attr-aria-label="nav.employeePlan">☷</button>
+        <button id="tabProjectPlanBtn" class="rounded-2xl px-4 py-2 text-sm border border-slate-300 bg-white text-slate-700" data-tooltip="Prosjektplan" data-i18n-attr-data-tooltip="nav.projectPlan" aria-label="Prosjektplan" data-i18n-attr-aria-label="nav.projectPlan">▦</button>
+        <button id="tabUnstaffedBtn" class="rounded-2xl px-4 py-2 text-sm border border-slate-300 bg-white text-slate-700" data-tooltip="Uten bemanning" data-i18n-attr-data-tooltip="nav.unstaffed" aria-label="Uten bemanning" data-i18n-attr-aria-label="nav.unstaffed">!</button>
+        <button id="tabProjectsBtn" class="rounded-2xl px-4 py-2 text-sm border border-slate-300 bg-white text-slate-700" data-tooltip="Prosjektadmin" data-i18n-attr-data-tooltip="nav.projectAdmin" aria-label="Prosjektadmin" data-i18n-attr-aria-label="nav.projectAdmin">♙</button>
+        <button id="tabEmployeesBtn" class="rounded-2xl px-4 py-2 text-sm border border-slate-300 bg-white text-slate-700" data-tooltip="Ansattadmin" data-i18n-attr-data-tooltip="nav.employeeAdmin" aria-label="Ansattadmin" data-i18n-attr-aria-label="nav.employeeAdmin">◎</button>
+        <button id="tabAdminBtn" class="rounded-2xl px-4 py-2 text-sm border border-slate-300 bg-white text-slate-700" data-tooltip="Admin" data-i18n-attr-data-tooltip="nav.admin" aria-label="Admin" data-i18n-attr-aria-label="nav.admin">⚙</button>
       </div>
     </section>
 
@@ -1539,16 +1605,16 @@
       <div id="calendarMainCol" class="min-w-0 flex-1 rounded-2xl bg-white border border-slate-200 shadow-sm">
         <div class="p-4 border-b border-slate-200 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
           <div class="flex flex-wrap gap-2 items-center">
-            <input id="searchInput" name="planner_search_filter" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false" class="w-[220px] rounded-2xl border border-slate-300 px-3 py-2" placeholder="Søk ansatt" />
+            <input id="searchInput" name="planner_search_filter" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false" class="w-[220px] rounded-2xl border border-slate-300 px-3 py-2" placeholder="Søk ansatt" data-i18n-attr-placeholder="search.employee" />
             <select id="employeeFilter" class="w-[220px] rounded-2xl border border-slate-300 px-3 py-2"></select>
             <select id="calendarMode" class="hidden" aria-hidden="true" tabindex="-1">
               <option value="personal">Personalplan</option>
               <option value="project">Prosjektplan</option>
             </select>
             <select id="viewMode" class="rounded-2xl border border-slate-300 px-3 py-2">
-              <option value="Uke">Uke</option>
-              <option value="Måned">Måned</option>
-              <option value="År">År</option>
+              <option value="Uke" data-i18n="calendar.week">Uke</option>
+              <option value="Måned" data-i18n="calendar.month">Måned</option>
+              <option value="År" data-i18n="calendar.year">År</option>
             </select>
             <button id="personalPlanQuickBtn" type="button">Ansattplan</button>
             <button id="projectPlanQuickBtn" type="button">Prosjektplan</button>
