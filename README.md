@@ -1,10 +1,8 @@
-v18.31f sandbox workshop resource toggle safe
-- Basert på v18.31e.
-- Prosjektmodalen er ryddet slik at Feltoppdrag og Workshop/mobilisering har tydelige ressursfelt.
-- Feltoppdrag har eget felt for behov for antall personer i felt.
-- Workshop/mobilisering kan nå tydelig legges til eller fjernes fra prosjektet.
-- Fjern workshop setter workshop_enabled=false, nuller workshopdatoer og setter workshopbehov til 0.
-- Legg til workshop fyller default: 14 dager før feltstart, slutt dagen før feltstart, ressursbehov 2.
-- Endring av workshopbehov og feltbehov lagres fortsatt i eksisterende planner_projects-felter.
-- Ingen Supabase/datamodell-endring.
-- Ingen endring i drag/resize, bemanningslogikk, login/auth, dashboard, spotlight, personalblokk-popup eller grupper/ikoner/expand-collapse.
+v18.31g sandbox project modal scroll safe
+- Basert på v18.31f.
+- Fikser at Rediger prosjekt-modal ble for høy etter at Feltoppdrag og Workshop-seksjonene ble lagt til.
+- Prosjektmodalen har nå intern scroll og maks høyde ca. 92vh.
+- Modal åpnes øverst i skjermen i stedet for låst midtstilt.
+- Header og lagre/slett-rad er gjort sticky for bedre tilgang.
+- Ingen endring i Supabase/datamodell.
+- Ingen endring i workshop/felt drag, resize, bemanningslogikk, login/auth, dashboard, spotlight, personalblokk-popup eller grupper/ikoner/expand-collapse.

@@ -1,5 +1,5 @@
 (() => {
-  // v18.31f-sandbox-workshop-resource-toggle-safe
+  // v18.31g-sandbox-project-modal-scroll-safe
   // v18.19-ansattplan-project-focus-toggle-safe
   // v18.11: plain visible available-row render for project inspector.
   const supabaseClient = window.supabase?.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);

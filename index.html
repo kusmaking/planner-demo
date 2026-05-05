@@ -1168,6 +1168,18 @@
       cursor: not-allowed !important;
     }
 
+    /* v18.31g: project modal internal scroll */
+    #projectModal {
+      overflow-y: auto !important;
+      align-items: flex-start !important;
+    }
+    #projectModal > div {
+      max-height: 92vh !important;
+      overflow-y: auto !important;
+      margin-top: 16px !important;
+      margin-bottom: 16px !important;
+    }
+
   </style>
 </head>
 <body class="iz-compact-ui text-slate-900">
@@ -1392,7 +1404,7 @@
   </div>
 
   <div id="editModal" class="fixed inset-0 z-[200] bg-black/40 hidden items-center justify-center p-4">
-    <div class="w-full max-w-lg max-h-[92vh] overflow-auto rounded-2xl bg-white shadow-xl">
+    <div class="w-full max-w-xl max-h-[92vh] overflow-y-auto rounded-2xl bg-white shadow-xl my-4">
       <div class="p-4 border-b border-slate-200 flex items-center justify-between">
         <h2 class="font-semibold">Rediger tildeling</h2>
         <button id="closeModalBtn" class="rounded-lg border border-slate-300 px-3 py-1 text-sm">Lukk</button>
@@ -1414,9 +1426,9 @@
     </div>
   </div>
 
-  <div id="projectModal" class="fixed inset-0 z-[200] bg-black/40 hidden items-center justify-center p-4">
+  <div id="projectModal" class="fixed inset-0 z-[200] bg-black/40 hidden items-start justify-center overflow-y-auto p-4 sm:p-6">
     <div class="w-full max-w-lg rounded-2xl bg-white shadow-xl">
-      <div class="p-4 border-b border-slate-200 flex items-center justify-between">
+      <div class="sticky top-0 z-10 bg-white p-4 border-b border-slate-200 flex items-center justify-between">
         <h2 id="projectModalTitle" class="font-semibold">Nytt prosjekt</h2>
         <button id="closeProjectModalBtn" class="rounded-lg border border-slate-300 px-3 py-1 text-sm">Lukk</button>
       </div>
@@ -1486,7 +1498,7 @@
           <div class="text-xs text-green-800">Default: 2 ressurser, 14 dager før feltstart. Fjern-knappen skjuler grønn workshopblokk i Prosjektplan.</div>
         </div>
         <textarea id="projectNotes" class="w-full rounded-2xl border border-slate-300 px-3 py-2" rows="3" placeholder="Notater"></textarea>
-        <div class="flex gap-2">
+        <div class="sticky bottom-0 z-10 -mx-4 -mb-4 flex gap-2 border-t border-slate-200 bg-white/95 p-4 backdrop-blur">
           <button id="saveProjectBtn" class="rounded-2xl bg-slate-900 text-white px-4 py-2">Lagre</button>
           <button id="deleteProjectBtn" class="rounded-2xl border border-slate-300 bg-white px-4 py-2">Slett</button>
         </div>
