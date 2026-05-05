@@ -1,106 +1,112 @@
 # Izomax Personalplanlegger – Sandbox changelog
 
 ## Versjon
-v18.36b-admin-screens-cleanup-safe
+v18.37a-project-import-csv-preview-safe
 
 ## Base
 Bygger fra låst sandbox-base:
 
-- Locked-v18.35f-restore-available-select-button-safe
+- Locked-v18.36b-admin-screens-cleanup-safe
 
 ## Formål
-Dette er en kontrollert oppryddingsversjon før videre redesign av admin-/importområder.
+Første trygge steg for prosjektimport.
 
-Vi stopper videre oversettelse av gamle Prosjektadmin, Ansattadmin og Admin inntil vi har bestemt ny struktur.
+Denne versjonen legger inn CSV-opplasting og preview/validering på Prosjektimport-siden, uten å lagre noe til Supabase.
 
 ## Endret
 
-### Dashboard / oppstart
-Snarveier til følgende sider er fjernet fra dashboard/oppstart:
+### Prosjektimport
+Prosjektimport-siden har nå:
 
-- Prosjektadmin
-- Ansattadmin
+- lokal CSV-filopplasting fra PC
+- lesing av CSV i nettleseren
+- preview-tabell
+- oppsummeringskort
+- validering mot eksisterende prosjekter i appen
 
-Dashboard peker nå kun til de operative hovedflytene:
+### CSV-mapping
+Preview leser foreløpig disse kolonnene:
 
-- Ansattplan
-- Prosjektplan
-- Uten bemanning
+- Project Name
+- Operation start
+- Operation stop
+- WS start
+- WS stop
+- Techs needed
+- Company
 
-### Prosjektadmin
-Gammel Prosjektadmin-visning er deaktivert i UI.
+### Datoer
+CSV-datoer i formatet `DD.MM.YYYY` konverteres i preview til `YYYY-MM-DD`.
 
-Siden viser nå en ryddig placeholder for fremtidig:
+Mapping:
 
-- Prosjektimport
-- CSV/Excel-upload
-- forhåndsvisning
-- validering
-- opprettelse av prosjekter
+- Operation start -> prosjekt start / planned_start_date
+- Operation stop -> prosjekt slutt / planned_end_date
+- WS start -> workshop_start_date
+- WS stop -> workshop_end_date
 
-Importfunksjonen er ikke aktiv ennå.
+### Validering
+Preview markerer:
 
-### Ansattadmin
-Gammel Ansattadmin-visning er deaktivert i UI.
+- Ny
+- Eksisterer
+- Datoavvik
+- Mangler dato
+- Mangler navn
 
-Siden viser nå en ryddig placeholder for fremtidig redesign:
+Match mot eksisterende prosjekter gjøres på:
 
-- ansattoversikt
-- grupper og roller
-- aktiv/inaktiv
+- Project Name
 
-### Admin
-Gammel Admin-visning er deaktivert i UI.
+Ved eksisterende prosjekt sammenlignes:
 
-Siden viser nå en ryddig placeholder for fremtidig redesign:
+- Operation start mot planned_start_date
+- Operation stop mot planned_end_date
 
-- brukere og roller
-- systemstatus
-- importhistorikk
+## Viktig
+Denne versjonen lagrer/importerer ikke data.
 
-## Bevisst ikke endret
+Det er bevisst. Først skal vi verifisere:
+
+1. at CSV-en leses riktig
+2. at kolonnene mappes riktig
+3. at eksisterende prosjekter gjenkjennes
+4. at datoavvik vises riktig
+
+## Ikke endret
 
 - Supabase
 - database/datamodell
 - RLS
 - data.js
+- prosjektdata/fritekst
+- prosjektlogikk
 - Prosjektplan
 - Ansattplan
-- kalenderlogikk
-- prosjektdata/fritekst
 - drag/resize
 - workshop/feltlogikk
 - bemanningslogikk
 
-## Viktig teknisk merknad
+## Testpunkter
 
-Gammel kode er ikke hardt slettet ennå. Den er deaktivert/omgått slik at vi kan teste ny flyt uten å risikere unødvendig regresjon.
+1. Åpne Prosjektimport-fanen.
+2. Last opp `Project General.csv`.
+3. Sjekk at preview-tabellen vises.
+4. Sjekk at antall rader stemmer.
+5. Sjekk at Operation start/stop konverteres riktig.
+6. Sjekk at prosjekter uten Operation start/stop merkes som Mangler dato.
+7. Sjekk at eksisterende prosjekter vises som Eksisterer eller Datoavvik.
+8. Bekreft at ingen data lagres.
 
-Dette er bevisst gjort som et trygt mellomsteg:
-1. Skjul/deaktiver gammel UI
-2. Test at hovedsystemet fortsatt fungerer
-3. Design nye admin/import-sider
-4. Rydd eventuell gammel kode senere
+## Neste steg etter godkjent preview
 
-## Testpunkter i sandbox
+Neste naturlige versjon:
 
-1. Åpne dashboard/oppstart.
-2. Bekreft at Prosjektadmin og Ansattadmin ikke lenger vises som snarveier.
-3. Test Ansattplan.
-4. Test Prosjektplan.
-5. Test Uten bemanning.
-6. Åpne Prosjektadmin-fanen og se at Prosjektimport-placeholder vises.
-7. Åpne Ansattadmin-fanen og se at redesign-placeholder vises.
-8. Åpne Admin-fanen og se at redesign-placeholder vises.
-9. Bekreft at Supabase-data fortsatt lastes.
-10. Bekreft at prosjektdata/fritekst ikke er endret.
+- v18.37b-project-import-preview-selection-safe
 
-## Neste naturlige steg
+Mulig innhold:
 
-Neste anbefalte arbeid:
-
-1. Designe Prosjektimport-siden
-2. Avklare CSV/Excel-format
-3. Lage import-preview før lagring
-4. Redesigne Ansattadmin
-5. Redesigne Admin
+- checkbox for hvilke prosjekter som kan importeres senere
+- tydeligere filter for Ny / Eksisterer / Datoavvik / Mangler dato
+- export av valideringsrapport
+- deretter senere: faktisk import/lagring etter egen godkjenning
