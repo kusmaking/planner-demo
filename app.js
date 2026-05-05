@@ -5032,12 +5032,12 @@ async function deleteEditedEntry() {
       availability: employee?.availability?.label || ""
     });
     if (!employee) {
-      alert("Velg en ansatt fra listen først.");
+      alert(window.izomaxTranslateKey?.("selectEmployeeFirst") || "Velg en ansatt fra listen først.");
       return;
     }
     if (employee.availability?.label === "Opptatt") {
       projectPanelDebug("create blocked: employee busy", { employee: employee.name });
-      alert("Denne personen er opptatt i prosjektperioden.");
+      alert(window.izomaxTranslateKey?.("isBusy") || "Denne personen er opptatt i prosjektperioden.");
       return;
     }
 
@@ -5174,7 +5174,7 @@ async function deleteEditedEntry() {
             </label>
             <label style="display:flex !important;align-items:flex-start !important;gap:8px !important;color:#f8fbfd !important;font-size:12px !important;">
               <input id="projectInspectorCustomPeriodRadio" type="radio" name="projectInspectorPeriodMode" value="custom" ${state.projectInspectorAddUseCustomRange ? "checked" : ""} style="margin-top:2px !important;" />
-              <span><span style="display:block !important;font-weight:800 !important;color:#f8fbfd !important;">Egendefinert periode</span><span style="display:block !important;margin-top:2px !important;font-size:11px !important;color:rgba(232,244,248,0.72) !important;">Velg fra/til innenfor prosjektperioden.</span></span>
+              <span><span style="display:block !important;font-weight:800 !important;color:#f8fbfd !important;">Egendefinert periode</span><span style="display:block !important;margin-top:2px !important;font-size:11px !important;color:rgba(232,244,248,0.72) !important;">${window.izomaxTranslateKey?.("chooseWithinProjectPeriod") || "Velg fra/til innenfor prosjektperioden."}</span></span>
             </label>
             <div style="display:grid !important;grid-template-columns:repeat(2,minmax(0,1fr)) !important;gap:8px !important;opacity:${state.projectInspectorAddUseCustomRange ? "1" : "0.62"} !important;">
               <label style="display:grid !important;gap:4px !important;font-size:10px !important;font-weight:800 !important;text-transform:uppercase !important;letter-spacing:.04em !important;color:rgba(232,244,248,0.72) !important;">
@@ -5187,7 +5187,7 @@ async function deleteEditedEntry() {
               </label>
             </div>
           </div>
-          ${addCandidate.availability?.label === "Delvis ledig" ? `<div style="border:1px solid rgba(245,158,11,0.35) !important;background:rgba(245,158,11,0.12) !important;color:#fde68a !important;border-radius:4px !important;padding:8px !important;font-size:11px !important;line-height:1.35 !important;">Denne personen er delvis tilgjengelig. Velg riktig delperiode før du legger til.</div>` : ""}
+          ${addCandidate.availability?.label === "Delvis ledig" ? `<div style="border:1px solid rgba(245,158,11,0.35) !important;background:rgba(245,158,11,0.12) !important;color:#fde68a !important;border-radius:4px !important;padding:8px !important;font-size:11px !important;line-height:1.35 !important;">${window.izomaxTranslateKey?.("partlyAvailableHelp") || "Denne personen er delvis tilgjengelig. Velg riktig delperiode før du legger til."}</div>` : ""}
         </div>
         <div style="display:grid !important;grid-template-columns:repeat(2,minmax(0,1fr)) !important;gap:8px !important;margin-top:12px !important;">
           <button id="projectInspectorAddCancelBtn" type="button" style="border:1px solid rgba(132,204,222,0.28) !important;background:rgba(255,255,255,0.06) !important;color:#f8fbfd !important;border-radius:4px !important;padding:9px 10px !important;font-size:12px !important;font-weight:800 !important;cursor:pointer !important;">Avbryt</button>
@@ -5235,7 +5235,7 @@ async function deleteEditedEntry() {
             >
               <span style="font-size:18px !important;line-height:1 !important;">+</span>
               <span>${window.izomaxTranslateKey?.("addEmployee") || "Legg til ansatt"}</span>
-              <span style="font-size:11px !important;font-weight:600 !important;color:rgba(232,244,248,0.72) !important;">Velg fra tilgjengelige personer under · ${missingStaffCount} mangler</span>
+              <span style="font-size:11px !important;font-weight:600 !important;color:rgba(232,244,248,0.72) !important;">${window.izomaxTranslateKey?.("selectFromAvailable") || "Velg fra tilgjengelige personer under"} · ${missingStaffCount} ${window.izomaxTranslateKey?.("missing") || "mangler"}</span>
             </button>
           ` : ""}
         </div>
@@ -5245,12 +5245,12 @@ async function deleteEditedEntry() {
     const availableHtml = shouldShowAvailable ? `<!-- v18.16-add-box-moved-up --><!-- v18.12-dark-available-cards -->
       <section>
         <div class="mb-2 grid grid-cols-3 gap-1 text-[11px]">
-          <div class="rounded-lg border border-green-200 bg-green-50 px-2 py-1 text-center font-semibold text-green-700"><div>Ledig</div><div class="text-sm">${availabilitySummary.available}</div></div>
-          <div class="rounded-lg border border-amber-200 bg-amber-50 px-2 py-1 text-center font-semibold text-amber-700"><div>Delvis</div><div class="text-sm">${availabilitySummary.partial}</div></div>
-          <div class="rounded-lg border border-red-200 bg-red-50 px-2 py-1 text-center font-semibold text-red-700"><div>Opptatt</div><div class="text-sm">${availabilitySummary.busy}</div></div>
+          <div class="rounded-lg border border-green-200 bg-green-50 px-2 py-1 text-center font-semibold text-green-700"><div>${window.izomaxTranslateKey?.("available") || "Ledig"}</div><div class="text-sm">${availabilitySummary.available}</div></div>
+          <div class="rounded-lg border border-amber-200 bg-amber-50 px-2 py-1 text-center font-semibold text-amber-700"><div>${window.izomaxTranslateKey?.("partly") || "Delvis"}</div><div class="text-sm">${availabilitySummary.partial}</div></div>
+          <div class="rounded-lg border border-red-200 bg-red-50 px-2 py-1 text-center font-semibold text-red-700"><div>${window.izomaxTranslateKey?.("busy") || "Opptatt"}</div><div class="text-sm">${availabilitySummary.busy}</div></div>
         </div>
         <div class="mb-2 grid grid-cols-[1fr_auto] gap-2">
-          <input id="projectInspectorSearchInput" type="text" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs" placeholder="Søk navn, gruppe, tittel eller status" value="${escapeHtml(state.projectInspectorSearch || "")}" />
+          <input id="projectInspectorSearchInput" type="text" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs" placeholder="${window.izomaxTranslateKey?.("searchNameGroupTitleStatus") || "Søk navn, gruppe, tittel eller status"}" value="${escapeHtml(state.projectInspectorSearch || "")}" />
           <select id="projectInspectorGroupFilter" class="rounded-xl border border-slate-300 px-2 py-2 text-xs">${groupOptions}</select>
         </div>
         <div style="display:grid !important;gap:8px !important;background:transparent !important;border:0 !important;overflow:visible !important;">
@@ -5277,8 +5277,8 @@ async function deleteEditedEntry() {
                     </div>
                   </div>
                   <div style="display:flex !important;align-items:center !important;justify-content:flex-end !important;gap:8px !important;flex:0 0 auto !important;color:#f8fbfd !important;visibility:visible !important;opacity:1 !important;">
-                    <span style="display:inline-flex !important;align-items:center !important;justify-content:center !important;min-width:58px !important;font-size:12px !important;font-weight:850 !important;line-height:1.1 !important;color:${employee.availability.label === 'Ledig' ? '#15803d' : employee.availability.label === 'Delvis ledig' ? '#b45309' : '#b91c1c'} !important;visibility:visible !important;opacity:1 !important;">${escapeHtml(employee.availability.label)}</span>
-                    ${canAssign ? `<button data-project-inspector-select-employee="${escapeHtml(employee.name)}" data-project-inspector-select-role="${escapeHtml(getDefaultRoleForIndex(0))}" type="button" style="display:inline-flex !important;align-items:center !important;justify-content:center !important;border:1px solid rgba(132,204,222,0.32) !important;background:rgba(255,255,255,0.06) !important;color:#f8fbfd !important;border-radius:4px !important;padding:6px 9px !important;font-size:11px !important;font-weight:900 !important;cursor:pointer !important;visibility:visible !important;opacity:1 !important;">${isSelected ? "Valgt" : "Velg"}</button>` : `<span style="display:inline-flex !important;align-items:center !important;justify-content:center !important;border:1px solid #e2e8f0 !important;background:#f8fafc !important;color:#64748b !important;border-radius:4px !important;padding:6px 9px !important;font-size:11px !important;font-weight:900 !important;visibility:visible !important;opacity:1 !important;">Opptatt</span>`}
+                    <span style="display:inline-flex !important;align-items:center !important;justify-content:center !important;min-width:58px !important;font-size:12px !important;font-weight:850 !important;line-height:1.1 !important;color:${employee.availability.label === 'Ledig' ? '#15803d' : employee.availability.label === 'Delvis ledig' ? '#b45309' : '#b91c1c'} !important;visibility:visible !important;opacity:1 !important;">${escapeHtml(window.izomaxTranslateValue?.(employee.availability.label) || employee.availability.label)}</span>
+                    ${canAssign ? `<button data-project-inspector-select-employee="${escapeHtml(employee.name)}" data-project-inspector-select-role="${escapeHtml(getDefaultRoleForIndex(0))}" type="button" style="display:inline-flex !important;align-items:center !important;justify-content:center !important;border:1px solid rgba(132,204,222,0.32) !important;background:rgba(255,255,255,0.06) !important;color:#f8fbfd !important;border-radius:4px !important;padding:6px 9px !important;font-size:11px !important;font-weight:900 !important;cursor:pointer !important;visibility:visible !important;opacity:1 !important;">${isSelected ? "Valgt" : "Velg"}</button>` : `<span style="display:inline-flex !important;align-items:center !important;justify-content:center !important;border:1px solid #e2e8f0 !important;background:#f8fafc !important;color:#64748b !important;border-radius:4px !important;padding:6px 9px !important;font-size:11px !important;font-weight:900 !important;visibility:visible !important;opacity:1 !important;">${window.izomaxTranslateKey?.("busy") || "Opptatt"}</span>`}
                   </div>
                 </div>
                 <button
@@ -5312,12 +5312,12 @@ async function deleteEditedEntry() {
       <div class="flex h-full flex-col">
         <div class="flex items-start justify-between gap-3 border-b border-slate-200 p-4">
           <div class="min-w-0">
-            <h2 class="text-base font-semibold text-slate-950">Prosjektdetaljer</h2>
+            <h2 class="text-base font-semibold text-slate-950">${window.izomaxTranslateKey?.("projectDetails") || "Prosjektdetaljer"}</h2>
             <div class="mt-1 truncate text-sm font-medium text-slate-800">${escapeHtml(project.name)}</div>
             <div class="mt-1 text-xs font-medium ${staffingTone}">${escapeHtml(staffing.text)}${required ? ` (${assigned}/${required})` : ""}</div>
           </div>
           <div class="flex items-center gap-2 shrink-0">
-            <button data-calendar-panel-edit-project="${escapeHtml(project.id)}" type="button" class="rounded-xl border border-slate-300 bg-slate-900 px-3 py-1.5 text-sm font-semibold text-white hover:bg-slate-800">Rediger prosjekt</button>
+            <button data-calendar-panel-edit-project="${escapeHtml(project.id)}" type="button" class="rounded-xl border border-slate-300 bg-slate-900 px-3 py-1.5 text-sm font-semibold text-white hover:bg-slate-800">${window.izomaxTranslateKey?.("editProject") || "Rediger prosjekt"}</button>
             <button id="calendarProjectPanelCloseBtn" type="button" class="rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50">×</button>
           </div>
         </div>
@@ -5333,8 +5333,8 @@ async function deleteEditedEntry() {
               <span style="display:flex !important;align-items:center !important;gap:12px !important;min-width:0 !important;">
                 <span style="display:inline-flex !important;align-items:center !important;justify-content:center !important;width:32px !important;height:32px !important;border-radius:6px !important;background:rgba(255,255,255,0.12) !important;border:1px solid rgba(255,255,255,0.16) !important;font-size:16px !important;font-weight:900 !important;color:#50f0c7 !important;flex:0 0 auto !important;">✎</span>
                 <span style="display:block !important;min-width:0 !important;">
-                  <span style="display:block !important;font-size:14px !important;font-weight:900 !important;color:#f8fbfd !important;">Rediger prosjekt</span>
-                  <span style="display:block !important;margin-top:4px !important;font-size:11px !important;font-weight:650 !important;color:rgba(232,244,248,0.76) !important;">Feltperiode · workshop · ressursbehov</span>
+                  <span style="display:block !important;font-size:14px !important;font-weight:900 !important;color:#f8fbfd !important;">${window.izomaxTranslateKey?.("editProject") || "Rediger prosjekt"}</span>
+                  <span style="display:block !important;margin-top:4px !important;font-size:11px !important;font-weight:650 !important;color:rgba(232,244,248,0.76) !important;">${window.izomaxTranslateKey?.("fieldPeriodWorkshopResources") || "Feltperiode · workshop · ressursbehov"}</span>
                 </span>
               </span>
               <span style="display:inline-flex !important;align-items:center !important;justify-content:center !important;color:#50f0c7 !important;font-size:16px !important;font-weight:900 !important;flex:0 0 auto !important;">→</span>
@@ -5342,8 +5342,8 @@ async function deleteEditedEntry() {
           </div>
           <div class="grid grid-cols-2 gap-2">
             <div class="rounded-2xl border border-slate-200 bg-slate-50 p-3">
-              <div class="text-[11px] uppercase tracking-wide text-slate-500">Kategori</div>
-              <div class="mt-1 font-semibold text-slate-900">${escapeHtml(project.category || "Ikke satt")}</div>
+              <div class="text-[11px] uppercase tracking-wide text-slate-500">${window.izomaxTranslateKey?.("category") || "Kategori"}</div>
+              <div class="mt-1 font-semibold text-slate-900">${escapeHtml(window.izomaxTranslateValue?.(project.category || "Ikke satt") || project.category || "Ikke satt")}</div>
             </div>
             <div class="rounded-2xl border border-slate-200 bg-slate-50 p-3">
               <div class="text-[11px] uppercase tracking-wide text-slate-500">${window.izomaxTranslateKey?.("staffingNeed") || "Bemanningsbehov"}</div>
@@ -5380,8 +5380,8 @@ async function deleteEditedEntry() {
         </div>
 
         <div class="grid grid-cols-2 gap-2 border-t border-slate-200 p-4">
-          <button data-calendar-panel-edit-project="${escapeHtml(project.id)}" type="button" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">Rediger prosjekt</button>
-          <button data-calendar-panel-staff-project="${escapeHtml(project.id)}" type="button" class="rounded-xl bg-green-600 px-3 py-2 text-sm font-medium text-white hover:bg-green-700">Bemann</button>
+          <button data-calendar-panel-edit-project="${escapeHtml(project.id)}" type="button" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">${window.izomaxTranslateKey?.("editProject") || "Rediger prosjekt"}</button>
+          <button data-calendar-panel-staff-project="${escapeHtml(project.id)}" type="button" class="rounded-xl bg-green-600 px-3 py-2 text-sm font-medium text-white hover:bg-green-700">${window.izomaxTranslateKey?.("staff") || "Bemann"}</button>
         </div>
       </div>
     `;
@@ -5817,7 +5817,7 @@ async function deleteEditedEntry() {
     if (els.projectWorkspaceActions) {
       els.projectWorkspaceActions.innerHTML = `
         <button data-project-workspace-staff-id="${escapeHtml(project.id)}" class="rounded-2xl bg-slate-900 text-white px-4 py-2.5 text-sm font-medium shadow-sm">${window.izomaxTranslateKey?.("staffProject") || "Bemann prosjekt"}</button>
-        <button data-project-workspace-edit-id="${escapeHtml(project.id)}" class="rounded-2xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700">Rediger prosjekt</button>
+        <button data-project-workspace-edit-id="${escapeHtml(project.id)}" class="rounded-2xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700">${window.izomaxTranslateKey?.("editProject") || "Rediger prosjekt"}</button>
       `;
       const staffBtn = els.projectWorkspaceActions.querySelector('[data-project-workspace-staff-id]');
       const editBtn = els.projectWorkspaceActions.querySelector('[data-project-workspace-edit-id]');
