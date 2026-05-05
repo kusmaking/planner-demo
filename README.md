@@ -1,77 +1,39 @@
 # Izomax Personalplanlegger – Sandbox changelog
 
 ## Versjon
-v18.37a-project-import-csv-preview-safe
+v18.37b-project-import-csv-preview-visible-safe
 
 ## Base
-Bygger fra låst sandbox-base:
+Bygger videre på:
 
-- Locked-v18.36b-admin-screens-cleanup-safe
+- v18.37a-project-import-csv-preview-safe
+- med robust synliggjøring av Prosjektimport-siden
 
 ## Formål
-Første trygge steg for prosjektimport.
+Forrige versjon kunne fremstå uten synlig endring i sandbox fordi Prosjektimport-UI lå for mye bak JavaScript-rendering.
 
-Denne versjonen legger inn CSV-opplasting og preview/validering på Prosjektimport-siden, uten å lagre noe til Supabase.
+Denne versjonen gjør Prosjektimport synlig mer robust ved å legge import-UI direkte inn i `index.html`, i tillegg til JavaScript-funksjonene.
 
 ## Endret
 
 ### Prosjektimport
-Prosjektimport-siden har nå:
+Prosjektimport-siden viser nå direkte:
 
-- lokal CSV-filopplasting fra PC
-- lesing av CSV i nettleseren
-- preview-tabell
+- Velg CSV-fil
+- Nullstill preview
+- statusfelt
 - oppsummeringskort
-- validering mot eksisterende prosjekter i appen
+- preview-tabell
 
-### CSV-mapping
-Preview leser foreløpig disse kolonnene:
+### CSV-preview
+CSV-preview gjør fortsatt:
 
-- Project Name
-- Operation start
-- Operation stop
-- WS start
-- WS stop
-- Techs needed
-- Company
-
-### Datoer
-CSV-datoer i formatet `DD.MM.YYYY` konverteres i preview til `YYYY-MM-DD`.
-
-Mapping:
-
-- Operation start -> prosjekt start / planned_start_date
-- Operation stop -> prosjekt slutt / planned_end_date
-- WS start -> workshop_start_date
-- WS stop -> workshop_end_date
-
-### Validering
-Preview markerer:
-
-- Ny
-- Eksisterer
-- Datoavvik
-- Mangler dato
-- Mangler navn
-
-Match mot eksisterende prosjekter gjøres på:
-
-- Project Name
-
-Ved eksisterende prosjekt sammenlignes:
-
-- Operation start mot planned_start_date
-- Operation stop mot planned_end_date
-
-## Viktig
-Denne versjonen lagrer/importerer ikke data.
-
-Det er bevisst. Først skal vi verifisere:
-
-1. at CSV-en leses riktig
-2. at kolonnene mappes riktig
-3. at eksisterende prosjekter gjenkjennes
-4. at datoavvik vises riktig
+- leser CSV lokalt i nettleseren
+- lagrer ingenting
+- mapper Project Name, Operation start/stop, WS start/stop, Techs needed og Company
+- konverterer dato `DD.MM.YYYY` til `YYYY-MM-DD`
+- matcher mot eksisterende prosjekter på Project Name
+- viser Ny / Eksisterer / Datoavvik / Mangler dato / Mangler navn
 
 ## Ikke endret
 
@@ -79,34 +41,18 @@ Det er bevisst. Først skal vi verifisere:
 - database/datamodell
 - RLS
 - data.js
-- prosjektdata/fritekst
-- prosjektlogikk
 - Prosjektplan
 - Ansattplan
+- prosjektlogikk
 - drag/resize
 - workshop/feltlogikk
 - bemanningslogikk
 
 ## Testpunkter
 
-1. Åpne Prosjektimport-fanen.
-2. Last opp `Project General.csv`.
-3. Sjekk at preview-tabellen vises.
-4. Sjekk at antall rader stemmer.
-5. Sjekk at Operation start/stop konverteres riktig.
-6. Sjekk at prosjekter uten Operation start/stop merkes som Mangler dato.
-7. Sjekk at eksisterende prosjekter vises som Eksisterer eller Datoavvik.
-8. Bekreft at ingen data lagres.
-
-## Neste steg etter godkjent preview
-
-Neste naturlige versjon:
-
-- v18.37b-project-import-preview-selection-safe
-
-Mulig innhold:
-
-- checkbox for hvilke prosjekter som kan importeres senere
-- tydeligere filter for Ny / Eksisterer / Datoavvik / Mangler dato
-- export av valideringsrapport
-- deretter senere: faktisk import/lagring etter egen godkjenning
+1. Last opp i sandbox.
+2. Gå til Prosjektimport/Prosjektadmin-fanen i venstremenyen.
+3. Bekreft at CSV-opplastingen vises.
+4. Last opp `Project General.csv`.
+5. Sjekk at preview-tabell og oppsummering vises.
+6. Bekreft at ingen data lagres.

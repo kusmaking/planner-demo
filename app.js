@@ -1033,6 +1033,9 @@
   function setActiveTab(tabName) {
     state.activeTab = tabName;
     renderLayoutTabs();
+    if (tabName === "projects") {
+      setTimeout(() => bindProjectImportPreviewControls(), 0);
+    }
   }
 
   function getActiveNavigationKey() {
@@ -1782,6 +1785,7 @@
   }
 
   function bindEvents() {
+    bindProjectImportPreviewControls();
     window.addEventListener("izomax-language-changed", () => {
       refreshCalendarModeControls();
       renderLegend();
