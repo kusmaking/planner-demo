@@ -1080,6 +1080,55 @@
       box-shadow: 0 0 0 2px rgba(80, 240, 199, 0.28) inset !important;
     }
 
+    /* v18.31b: compact project plan rows and search autofill cleanup */
+    body.iz-compact-ui .project-plan-name-cell {
+      min-height: 40px !important;
+      padding-top: 6px !important;
+      padding-bottom: 5px !important;
+      line-height: 1.15 !important;
+    }
+    body.iz-compact-ui .project-plan-title {
+      font-size: 12px !important;
+      font-weight: 800 !important;
+      color: #0f172a !important;
+      line-height: 1.18 !important;
+      white-space: normal !important;
+      overflow: hidden !important;
+      display: -webkit-box !important;
+      -webkit-line-clamp: 2 !important;
+      -webkit-box-orient: vertical !important;
+    }
+    body.iz-compact-ui .project-plan-meta {
+      margin-top: 2px !important;
+      display: flex !important;
+      align-items: center !important;
+      gap: 4px !important;
+      flex-wrap: wrap !important;
+      font-size: 10px !important;
+      line-height: 1.15 !important;
+      color: #64748b !important;
+    }
+    body.iz-compact-ui .project-workshop-drop-row {
+      min-height: 40px !important;
+    }
+    body.iz-compact-ui .project-workshop-drop-row > div:last-child {
+      min-height: 40px !important;
+    }
+    body.iz-compact-ui .project-workshop-drop-row .entry-bar {
+      top: 4px !important;
+      bottom: 4px !important;
+      padding-top: 4px !important;
+      padding-bottom: 4px !important;
+    }
+    body.iz-compact-ui .project-workshop-drop-row .entry-bar .font-semibold {
+      font-size: 12px !important;
+      line-height: 1.15 !important;
+    }
+    body.iz-compact-ui .project-workshop-drop-row .entry-bar .text-\[11px\] {
+      font-size: 10px !important;
+      line-height: 1.1 !important;
+    }
+
   </style>
 </head>
 <body class="iz-compact-ui text-slate-900">

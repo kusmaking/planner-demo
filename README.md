@@ -1,9 +1,8 @@
-v18.31a sandbox drag workshop phase safe
-- Basert på v18.30h.
-- Første kontrollerte drag-steg for prosjektplanen.
-- Grønn workshopfase kan nå dras horisontalt i Prosjektplan.
-- Flytting beholder samme varighet og oppdaterer workshop_start_date og workshop_end_date.
-- Endringen lagres i planner_projects og skal være bevart etter refresh.
-- Gjelder foreløpig kun workshopfase i dag-/månedskalenderen, ikke resize og ikke år-visning.
-- Rød feltoppdragsblokk er ikke endret.
-- Ingen endring i bemanningslogikk, login/auth, dashboard, spotlight, personalblokk-popup eller grupper/ikoner/expand-collapse.
+v18.31b sandbox project plan compact search safe
+- Basert på v18.31a.
+- Komprimerer prosjektplanens venstre prosjektkolonne og prosjektradene.
+- Gir mer tekstplass til prosjektnavn ved å øke venstre prosjektkolonne til ca. 380px.
+- Reduserer vertikalt mellomrom mellom prosjekter i Prosjektplan.
+- Rydder metadata til én kompakt linje under prosjektnavnet.
+- Hindrer at e-post/autofill havner i Søk prosjekt-feltet.
+- Ingen endring i workshop drag, workshop persistence, bemanningslogikk, Supabase/datamodell, login/auth, spotlight, personalblokk-popup eller grupper/ikoner/expand-collapse.

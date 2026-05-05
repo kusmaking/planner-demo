@@ -1,5 +1,5 @@
 (() => {
-  // v18.31a-sandbox-drag-workshop-phase-safe
+  // v18.31b-sandbox-project-plan-compact-search-safe
   // v18.19-ansattplan-project-focus-toggle-safe
   // v18.11: plain visible available-row render for project inspector.
   const supabaseClient = window.supabase?.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -267,8 +267,15 @@
     els.searchInput.setAttribute("autocorrect", "off");
     els.searchInput.setAttribute("autocapitalize", "none");
     els.searchInput.setAttribute("spellcheck", "false");
-    els.searchInput.setAttribute("name", "planner_search_filter");
+    els.searchInput.setAttribute("name", "planner_search_filter_no_autofill");
     els.searchInput.setAttribute("data-lpignore", "true");
+    els.searchInput.addEventListener("focus", () => {
+      const currentSearchValue = String(els.searchInput.value || "").trim();
+      if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(currentSearchValue)) {
+        els.searchInput.value = "";
+        state.search = "";
+      }
+    });
   }
 
   function startOfWeekMonday(date) {
@@ -513,7 +520,20 @@
     const isProjectMode = state.calendarMode === "project";
     els.searchInput.placeholder = isProjectMode ? "Søk prosjekt" : "Søk ansatt";
     els.searchInput.setAttribute("aria-label", isProjectMode ? "Søk prosjekt" : "Søk ansatt");
-    els.searchInput.setAttribute("name", isProjectMode ? "planner_project_search_filter" : "planner_search_filter");
+    els.searchInput.setAttribute("name", isProjectMode ? "planner_project_search_filter_no_autofill" : "planner_search_filter_no_autofill");
+    els.searchInput.setAttribute("autocomplete", "off");
+    els.searchInput.setAttribute("autocorrect", "off");
+    els.searchInput.setAttribute("autocapitalize", "none");
+    els.searchInput.setAttribute("spellcheck", "false");
+    els.searchInput.setAttribute("data-lpignore", "true");
+
+    const currentSearchValue = String(els.searchInput.value || "").trim();
+    const looksLikeAutofilledEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(currentSearchValue);
+    if (isProjectMode && (looksLikeAutofilledEmail || currentSearchValue === String(state.currentUser?.email || "").trim())) {
+      els.searchInput.value = "";
+      state.search = "";
+    }
+
     if (els.groupFilterControl) els.groupFilterControl.classList.toggle("hidden", isProjectMode);
     if (els.projectFilterControl) els.projectFilterControl.classList.toggle("hidden", !isProjectMode);
     if (els.calendarNewProjectBtn) els.calendarNewProjectBtn.classList.toggle("hidden", !isProjectMode);
@@ -6004,7 +6024,7 @@ async function deleteEditedEntry() {
           html += `<div data-drop-slot-index="${i}" data-drop-date="${toIsoDate(day)}" data-today-column="${isTodayDate(day) ? "true" : "false"}" class="day-cell ${redDay ? "red-day" : ""}" style="position:absolute; left:${i * colWidth}px; width:${colWidth}px; border-right:${monthBoundary ? "2px solid #94a3b8" : "1px solid #e2e8f0"}; ${todayCellStyle}"></div>`;
         }
 
-        html += `<div style="position:relative; width:${totalWidth}px; min-height:52px;">`;
+        html += `<div style="position:relative; width:${totalWidth}px; min-height:40px;">`;
 
         for (const entry of employeeEntries) {
           const project = getProjectById(entry.project_id);
@@ -6173,7 +6193,7 @@ async function deleteEditedEntry() {
     const days = getDaysBetween(range.start, range.end);
     const projects = getProjectCalendarItems().filter(project => projectOverlapsRange(project, range.start, range.end));
 
-    const stickyWidth = 300;
+    const stickyWidth = 380;
     const colWidth = Math.max(28, state.viewMode === "Uke" ? 38 : 32);
     const totalWidth = colWidth * days.length;
 
@@ -6188,11 +6208,13 @@ async function deleteEditedEntry() {
       const projectPeriods = getProjectTimelinePeriodsWithWorkshop(project);
 
       html += `
-        <button type="button" data-project-list-row-id="${escapeHtml(project.id)}" class="sticky-col border-r border-b border-slate-200 px-3 py-2 text-left ${project.id === state.focusProjectId ? "bg-blue-50 ring-2 ring-blue-200" : isClosedProject(project) ? "bg-slate-100" : "bg-white"}">
-          <div class="font-medium">${escapeHtml(project.name)}</div>
-          <div class="text-xs text-slate-500">${escapeHtml(project.location || "")}</div>
-          <div class="text-xs ${staffing.variant} mt-1">${escapeHtml(staffing.text)}${required ? ` (${assigned}/${required})` : ""}</div>
-          ${project.has_multiple_periods && getProjectTimelinePeriods(project).length ? `<div class="text-[11px] text-slate-400 mt-1">${getProjectTimelinePeriods(project).length} feltperioder + workshop</div>` : ""}
+        <button type="button" data-project-list-row-id="${escapeHtml(project.id)}" class="sticky-col project-plan-name-cell border-r border-b border-slate-200 px-3 py-1.5 text-left ${project.id === state.focusProjectId ? "bg-blue-50 ring-2 ring-blue-200" : isClosedProject(project) ? "bg-slate-100" : "bg-white"}">
+          <div class="project-plan-title">${escapeHtml(project.name)}</div>
+          <div class="project-plan-meta">
+            <span class="${staffing.variant}">${escapeHtml(staffing.text)}${required ? ` (${assigned}/${required})` : ""}</span>
+            ${project.location ? `<span class="text-slate-400">·</span><span>${escapeHtml(project.location)}</span>` : ""}
+            ${project.has_multiple_periods && getProjectTimelinePeriods(project).length ? `<span class="text-slate-400">·</span><span>${getProjectTimelinePeriods(project).length} feltperioder + workshop</span>` : ""}
+          </div>
         </button>
       `;
 
