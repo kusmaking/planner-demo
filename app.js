@@ -223,10 +223,12 @@
 
     if (!isLoggedInUser()) {
       showStartPage();
+      window.izomaxApplyLanguage?.();
       return;
     }
 
     showPlannerApp();
+    window.izomaxApplyLanguage?.();
 
     if (supabaseClient?.auth) {
       supabaseClient.auth.onAuthStateChange((event) => {
@@ -1778,6 +1780,12 @@
   }
 
   function bindEvents() {
+    window.addEventListener("izomax-language-changed", () => {
+      refreshCalendarModeControls();
+      renderLegend();
+      window.izomaxApplyLanguage?.();
+    });
+
     els.searchInput.addEventListener("input", e => {
       state.search = e.target.value.trim().toLowerCase();
       renderStats();
@@ -4690,22 +4698,24 @@ async function deleteEditedEntry() {
     if (els.personalPlanQuickBtn) {
       const active = state.calendarMode === "personal";
       els.personalPlanQuickBtn.classList.toggle("is-active", active);
-      els.personalPlanQuickBtn.textContent = "Ansattplan";
-      els.personalPlanQuickBtn.title = "Vis ansattplan i kalenderen";
+      els.personalPlanQuickBtn.textContent = window.izomaxTranslateKey?.("employeePlan") || "Ansattplan";
+      els.personalPlanQuickBtn.title = window.izomaxTranslateKey?.("employeePlanTitle") || "Vis ansattplan i kalenderen";
     }
 
     if (els.projectPlanQuickBtn) {
       const active = state.calendarMode === "project" && state.projectListFilter !== "unstaffed";
       els.projectPlanQuickBtn.classList.toggle("is-active", active);
-      els.projectPlanQuickBtn.textContent = `Prosjektplan (${totalProjects})`;
-      els.projectPlanQuickBtn.title = "Åpne prosjektplan i kalenderen";
+      const projectPlanLabel = window.izomaxTranslateKey?.("projectPlan") || "Prosjektplan";
+      els.projectPlanQuickBtn.textContent = `${projectPlanLabel} (${totalProjects})`;
+      els.projectPlanQuickBtn.title = window.izomaxTranslateKey?.("projectPlanTitle") || "Åpne prosjektplan i kalenderen";
     }
 
     if (els.unstaffedProjectsQuickBtn) {
       const active = state.calendarMode === "project" && state.projectListFilter === "unstaffed";
       els.unstaffedProjectsQuickBtn.classList.toggle("is-active", active);
-      els.unstaffedProjectsQuickBtn.innerHTML = `Uten bemanning <span class="quick-count">${escapeHtml(String(missingStaffCount))}</span>`;
-      els.unstaffedProjectsQuickBtn.title = "Vis prosjekter som mangler bemanning i prosjektplanen for valgt periode";
+      const unstaffedLabel = window.izomaxTranslateKey?.("unstaffed") || "Uten bemanning";
+      els.unstaffedProjectsQuickBtn.innerHTML = `${escapeHtml(unstaffedLabel)} <span class="quick-count">${escapeHtml(String(missingStaffCount))}</span>`;
+      els.unstaffedProjectsQuickBtn.title = window.izomaxTranslateKey?.("unstaffedTitle") || "Vis prosjekter som mangler bemanning i prosjektplanen for valgt periode";
     }
   }
 

@@ -1538,6 +1538,7 @@
           <span id="ixLanguageLabel" class="iz-language-switch-label">Språk</span>
           <button id="ixLangNo" type="button" data-ix-lang="no" class="iz-language-option">NO</button>
           <button id="ixLangEn" type="button" data-ix-lang="en" class="iz-language-option">EN</button>
+          <span id="ixLanguageLockedStart" class="text-xs text-slate-500 ml-2"></span>
         </div>
       </div>
     </div>
@@ -1941,6 +1942,10 @@
           directBlockDescription: "Brukes for kurs, ferie, syk og avspasering direkte på personen, uten å gå via prosjektmodulen.",
           note: "Notat",
           saveBlock: "Lagre blokk i kalender",
+          employeePlanTitle: "Vis ansattplan i kalenderen",
+          projectPlanTitle: "Åpne prosjektplan i kalenderen",
+          unstaffedTitle: "Vis prosjekter som mangler bemanning i prosjektplanen for valgt periode",
+          languageLocked: "Språk låst",
           title: "Izomax Personalplanlegger"
         },
         en: {
@@ -1986,6 +1991,10 @@
           directBlockDescription: "Used for training, vacation, sick leave and time off directly on the person, without using the project module.",
           note: "Note",
           saveBlock: "Save block to calendar",
+          employeePlanTitle: "Show employee plan in calendar",
+          projectPlanTitle: "Open project plan in calendar",
+          unstaffedTitle: "Show projects that are missing staffing for the selected period",
+          languageLocked: "Language locked",
           title: "Izomax Personnel Planner"
         }
       };
@@ -2028,6 +2037,7 @@
         setText("startForgotPasswordBtn", t.forgot);
         setText("startAccessHelpBtn", t.access);
         setText("ixLanguageLabel", t.language);
+        setText("ixLanguageLockedStart", t.languageLocked);
 
         setText("ixAppTitle", t.appTitle);
         setText("ixAppSubtitle", t.appSubtitle);
@@ -2072,6 +2082,7 @@
           btn.classList.toggle("is-active", active);
           btn.setAttribute("aria-pressed", active ? "true" : "false");
         });
+        window.dispatchEvent(new CustomEvent("izomax-language-changed", { detail: { language: next } }));
       }
 
       window.izomaxTranslateKey = function (key) {
