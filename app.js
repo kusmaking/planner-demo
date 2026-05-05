@@ -15,7 +15,6 @@
     currentUserEmail: "",
     currentRole: "",
     authReady: false,
-    uiLanguage: load("planner_ui_language_v1", "no"),
     employeeFilter: "Alle ansatte",
     selectedEmployeeGroups: [],
     groupFilterSearch: "",
@@ -96,183 +95,6 @@
       summary: null
     }
   };
-
-
-  const LANGUAGE_STORAGE_KEY = "planner_ui_language_v1";
-  const I18N_CORE = {
-    no: {
-      product: "Personalplanlegger",
-      appTitle: "Personal planlegging",
-      appSubtitle: "Onshore • Offshore • Ressurser",
-      headline: "Én oversikt for personell, oppdrag og mobilisering.",
-      loginTitle: "Logg inn",
-      loginSub: "Bruk Izomax-brukeren din for å åpne riktig visning basert på tilgangsnivå.",
-      email: "E-post",
-      password: "Passord",
-      forgot: "Glemt passord?",
-      access: "Trenger tilgang?",
-      language: "Språk",
-      changePassword: "Endre passord",
-      logout: "Logg ut",
-      resetLink: "Send reset-link",
-      notLoggedIn: "Ikke innlogget",
-      home: "Oppstart",
-      employeePlan: "Ansattplan",
-      projectPlan: "Prosjektplan",
-      unstaffed: "Uten bemanning",
-      projectAdmin: "Prosjektadmin",
-      employeeAdmin: "Ansattadmin",
-      admin: "Admin",
-      loading: "Laster...",
-      ready: "Klar",
-      localFallback: "Lokal fallback",
-      emailFirst: "Legg inn e-postadressen din først.",
-      needAccessMessage: "Kontakt superadmin eller planner for å få opprettet tilgang.",
-      resetSent: "Reset-link er sendt på e-post.",
-      passwordMin: "Passordet må være minst 6 tegn."
-    },
-    en: {
-      product: "Personnel Planner",
-      appTitle: "Personnel planning",
-      appSubtitle: "Onshore • Offshore • Resources",
-      headline: "One overview for personnel, assignments and mobilization.",
-      loginTitle: "Log in",
-      loginSub: "Use your Izomax account to open the correct view based on access level.",
-      email: "Email",
-      password: "Password",
-      forgot: "Forgot password?",
-      access: "Need access?",
-      language: "Language",
-      changePassword: "Change password",
-      logout: "Log out",
-      resetLink: "Send reset link",
-      notLoggedIn: "Not signed in",
-      home: "Home",
-      employeePlan: "Employee plan",
-      projectPlan: "Project plan",
-      unstaffed: "Unstaffed",
-      projectAdmin: "Project admin",
-      employeeAdmin: "Employee admin",
-      admin: "Admin",
-      loading: "Loading...",
-      ready: "Ready",
-      localFallback: "Local fallback",
-      emailFirst: "Enter your email address first.",
-      needAccessMessage: "Contact a superadmin or planner to get access.",
-      resetSent: "Reset link has been sent by email.",
-      passwordMin: "Password must be at least 6 characters."
-    }
-  };
-
-  function getIzomaxLanguage() {
-    const lang = state.uiLanguage || load(LANGUAGE_STORAGE_KEY, "no");
-    return lang === "en" ? "en" : "no";
-  }
-
-  function coreText(key) {
-    const lang = getIzomaxLanguage();
-    return I18N_CORE[lang]?.[key] || I18N_CORE.no[key] || key;
-  }
-
-  function setCoreText(id, key) {
-    const el = document.getElementById(id);
-    if (el) el.textContent = coreText(key);
-  }
-
-  function setCorePlaceholder(id, key) {
-    const el = document.getElementById(id);
-    if (el) el.setAttribute("placeholder", coreText(key));
-  }
-
-  function setCoreTooltip(id, key) {
-    const el = document.getElementById(id);
-    if (!el) return;
-    const text = coreText(key);
-    el.setAttribute("data-tooltip", text);
-    el.setAttribute("aria-label", text);
-  }
-
-  function updateCoreLanguageButtons() {
-    const lang = getIzomaxLanguage();
-    document.querySelectorAll("[data-language-option]").forEach(btn => {
-      const active = btn.dataset.languageOption === lang;
-      btn.classList.toggle("is-active", active);
-      btn.setAttribute("aria-pressed", active ? "true" : "false");
-    });
-  }
-
-  function applyCoreLanguage() {
-    const lang = getIzomaxLanguage();
-    document.documentElement.lang = lang === "en" ? "en" : "no";
-    document.body?.setAttribute("data-ui-language", lang);
-    document.title = lang === "en" ? "Izomax Personnel Planner" : "Izomax Personalplanlegger";
-
-    setCoreText("i18nStartProduct", "product");
-    setCoreText("i18nStartHeadline", "headline");
-    setCoreText("i18nStartLoginTitle", "loginTitle");
-    setCoreText("i18nStartSub", "loginSub");
-    setCoreText("i18nStartEmailLabel", "email");
-    setCoreText("i18nStartPasswordLabel", "password");
-    setCorePlaceholder("startLoginPassword", "password");
-    const startLoginSubmit = document.getElementById("startLoginSubmitBtn");
-    if (startLoginSubmit) startLoginSubmit.textContent = coreText("loginTitle");
-    const forgot = document.getElementById("startForgotPasswordBtn");
-    if (forgot) forgot.textContent = coreText("forgot");
-    const access = document.getElementById("startAccessHelpBtn");
-    if (access) access.textContent = coreText("access");
-    setCoreText("i18nLanguageLabelStart", "language");
-
-    setCoreText("i18nAppTitle", "appTitle");
-    setCoreText("i18nAppSubtitle", "appSubtitle");
-    setCoreTooltip("tabHomeBtn", "home");
-    setCoreTooltip("tabCalendarBtn", "employeePlan");
-    setCoreTooltip("tabProjectPlanBtn", "projectPlan");
-    setCoreTooltip("tabUnstaffedBtn", "unstaffed");
-    setCoreTooltip("tabProjectsBtn", "projectAdmin");
-    setCoreTooltip("tabEmployeesBtn", "employeeAdmin");
-    setCoreTooltip("tabAdminBtn", "admin");
-
-    const loginBtn = document.getElementById("loginBtn");
-    if (loginBtn) loginBtn.textContent = coreText("loginTitle");
-    const langTitle = document.getElementById("accountLanguageTitle");
-    if (langTitle) langTitle.textContent = coreText("language");
-    const changePasswordBtn = document.getElementById("changePasswordBtn");
-    if (changePasswordBtn) changePasswordBtn.textContent = coreText("changePassword");
-    const logoutBtn = document.getElementById("logoutBtn");
-    if (logoutBtn) logoutBtn.textContent = coreText("logout");
-    const resetPasswordBtn = document.getElementById("resetPasswordBtn");
-    if (resetPasswordBtn) resetPasswordBtn.textContent = coreText("resetLink");
-
-    if (els.storageBadge && els.storageBadge.textContent) {
-      if (/Supabase/.test(els.storageBadge.textContent)) {
-        els.storageBadge.textContent = lang === "en" ? "Supabase active" : "Supabase aktiv";
-      } else {
-        els.storageBadge.textContent = coreText("localFallback");
-      }
-    }
-
-    updateCoreLanguageButtons();
-  }
-
-  function setIzomaxLanguage(lang) {
-    const next = lang === "en" ? "en" : "no";
-    state.uiLanguage = next;
-    save(LANGUAGE_STORAGE_KEY, next);
-    applyCoreLanguage();
-  }
-
-  window.setIzomaxLanguage = setIzomaxLanguage;
-
-  function setupCoreLanguageControls() {
-    document.addEventListener("click", event => {
-      const btn = event.target?.closest?.("[data-language-option]");
-      if (!btn) return;
-      event.preventDefault();
-      setIzomaxLanguage(btn.dataset.languageOption || "no");
-    });
-    applyCoreLanguage();
-  }
-
 
   const els = {};
   const PERSONAL_BLOCK_TYPES = ["Kurs", "Ferie", "Syk", "Avspasering", "Travel"];
@@ -392,7 +214,6 @@
     ensureAvailabilityPanel();
     setupStaticOptions();
     bindEvents();
-    setupCoreLanguageControls();
 
     state.viewMode = "Måned";
     state.startDate = startOfCurrentMonth();
@@ -774,14 +595,7 @@
           </span>
           <span class="account-caret text-xs ml-auto">▾</span>
         </button>
-        <div id="accountMenuDropdown" class="hidden absolute right-0 top-full mt-2 min-w-[210px] rounded-xl border border-slate-200 bg-white shadow-xl overflow-hidden z-[120]">
-          <div class="iz-language-menu border-b border-slate-200 px-3 py-3">
-            <div id="accountLanguageTitle" class="iz-language-title text-xs font-semibold text-slate-500 mb-2">Språk</div>
-            <div class="iz-language-options flex gap-2">
-              <button type="button" onclick="window.setIzomaxLanguage && window.setIzomaxLanguage('no')" data-language-option="no" class="iz-language-option">NO</button>
-              <button type="button" onclick="window.setIzomaxLanguage && window.setIzomaxLanguage('en')" data-language-option="en" class="iz-language-option">EN</button>
-            </div>
-          </div>
+        <div id="accountMenuDropdown" class="hidden absolute right-0 top-full mt-2 min-w-[170px] rounded-xl border border-slate-200 bg-white shadow-xl overflow-hidden z-[120]">
           <button id="changePasswordBtn" class="w-full text-left border-b border-slate-200 bg-white px-3 py-2 text-sm hover:bg-slate-50">Endre passord</button>
           <button id="logoutBtn" class="w-full text-left bg-white px-3 py-2 text-sm hover:bg-slate-50">Logg ut</button>
           <button id="resetPasswordBtn" class="hidden">Send reset-link</button>
@@ -1437,7 +1251,7 @@
 
     const email = els.startLoginEmail?.value?.trim() || "";
     if (!email) {
-      setStartLoginError(coreText("emailFirst"));
+      setStartLoginError("Legg inn e-postadressen din først.");
       return;
     }
 
@@ -1454,7 +1268,7 @@
   }
 
   function handleStartAccessHelp() {
-    setStartLoginError(coreText("needAccessMessage"));
+    setStartLoginError("Kontakt superadmin eller planner for å få opprettet tilgang.");
   }
 
   async function handleLogin() {
@@ -2325,7 +2139,7 @@
       state.storageMode = "local";
       state.supabaseReady = false;
       state.supabaseError = "Supabase-biblioteket ble ikke lastet.";
-      setSaveStatus(coreText("localFallback"), "warn");
+      setSaveStatus("Lokal fallback", "warn");
       updateBadge();
       return;
     }
@@ -2333,7 +2147,7 @@
     const ok = await testSupabase();
     if (!ok) {
       state.storageMode = "local";
-      setSaveStatus(coreText("localFallback"), "warn");
+      setSaveStatus("Lokal fallback", "warn");
       updateBadge();
       renderAll();
       return;
@@ -2353,7 +2167,7 @@
       await fetchFromSupabase();
     }
 
-    setSaveStatus(getIzomaxLanguage() === "en" ? "Saved" : "Lagret", "ok");
+    setSaveStatus("Lagret", "ok");
   }
 
   async function testSupabase() {
@@ -2580,7 +2394,7 @@
 
     if (variant === "ok") {
       saveStatusTimer = setTimeout(() => {
-        els.saveStatus.textContent = coreText("ready");
+        els.saveStatus.textContent = "Klar";
         els.saveStatus.className = base + map.neutral;
       }, 1800);
     }
@@ -2589,10 +2403,10 @@
   function updateBadge() {
     if (!els.storageBadge) return;
     if (state.storageMode === "supabase") {
-      els.storageBadge.textContent = getIzomaxLanguage() === "en" ? "Supabase active" : "Supabase aktiv";
+      els.storageBadge.textContent = "Supabase aktiv";
       els.storageBadge.className = "rounded-xl border border-green-300 bg-green-50 text-green-700 px-3 py-2 text-sm";
     } else {
-      els.storageBadge.textContent = coreText("localFallback");
+      els.storageBadge.textContent = "Lokal fallback";
       els.storageBadge.className = "rounded-xl border border-amber-300 bg-amber-50 text-amber-700 px-3 py-2 text-sm";
     }
   }
@@ -2600,17 +2414,17 @@
   async function saveRow(table, row) {
     saveAllLocal();
     if (!state.supabaseReady) {
-      setSaveStatus(getIzomaxLanguage() === "en" ? "Saved locally" : "Lagret lokalt", "warn");
+      setSaveStatus("Lagret lokalt", "warn");
       return { ok: true };
     }
 
-    setSaveStatus(getIzomaxLanguage() === "en" ? "Saving..." : "Lagrer...", "saving");
+    setSaveStatus("Lagrer...", "saving");
     const { error } = await supabaseClient.from(table).upsert(row);
     if (error) {
       state.supabaseError = error.message;
       state.storageMode = "local";
       updateBadge();
-      setSaveStatus(getIzomaxLanguage() === "en" ? "Save error" : "Feil ved lagring", "error");
+      setSaveStatus("Feil ved lagring", "error");
       renderSystemStatus();
       return { ok: false, error };
     }
@@ -2618,24 +2432,24 @@
     state.storageMode = "supabase";
     state.supabaseError = null;
     updateBadge();
-    setSaveStatus(getIzomaxLanguage() === "en" ? "Saved" : "Lagret", "ok");
+    setSaveStatus("Lagret", "ok");
     return { ok: true };
   }
 
   async function saveRows(table, rows) {
     saveAllLocal();
     if (!state.supabaseReady) {
-      setSaveStatus(getIzomaxLanguage() === "en" ? "Saved locally" : "Lagret lokalt", "warn");
+      setSaveStatus("Lagret lokalt", "warn");
       return { ok: true };
     }
 
-    setSaveStatus(getIzomaxLanguage() === "en" ? "Saving..." : "Lagrer...", "saving");
+    setSaveStatus("Lagrer...", "saving");
     const { error } = await supabaseClient.from(table).upsert(rows);
     if (error) {
       state.supabaseError = error.message;
       state.storageMode = "local";
       updateBadge();
-      setSaveStatus(getIzomaxLanguage() === "en" ? "Save error" : "Feil ved lagring", "error");
+      setSaveStatus("Feil ved lagring", "error");
       renderSystemStatus();
       return { ok: false, error };
     }
@@ -2643,7 +2457,7 @@
     state.storageMode = "supabase";
     state.supabaseError = null;
     updateBadge();
-    setSaveStatus(getIzomaxLanguage() === "en" ? "Saved" : "Lagret", "ok");
+    setSaveStatus("Lagret", "ok");
     return { ok: true };
   }
 
@@ -2654,7 +2468,7 @@
       return { ok: true };
     }
 
-    setSaveStatus(getIzomaxLanguage() === "en" ? "Saving..." : "Lagrer...", "saving");
+    setSaveStatus("Lagrer...", "saving");
     const { error } = await supabaseClient.from(table).delete().eq("id", id);
     if (error) {
       state.supabaseError = error.message;
@@ -2668,7 +2482,7 @@
     state.storageMode = "supabase";
     state.supabaseError = null;
     updateBadge();
-    setSaveStatus(getIzomaxLanguage() === "en" ? "Saved" : "Lagret", "ok");
+    setSaveStatus("Lagret", "ok");
     return { ok: true };
   }
 
@@ -2753,7 +2567,7 @@
       await seedDemoDataBatch();
       await fetchFromSupabase();
       rebuildDerivedState();
-      setSaveStatus(getIzomaxLanguage() === "en" ? "Saved" : "Lagret", "ok");
+      setSaveStatus("Lagret", "ok");
     }
 
     renderAll();
@@ -4469,7 +4283,6 @@ async function deleteEditedEntry() {
     updateAvailabilityAnalysis();
     applyRoleChrome();
     updateAvailabilityAnalysis();
-    applyCoreLanguage();
   }
 
   function populateDynamicSelects() {

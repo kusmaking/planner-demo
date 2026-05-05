@@ -1455,7 +1455,7 @@
       .iz-start-logo { width: 155px; }
     }
 
-    /* v18.33c core language switch - direct and safe */
+    /* v18.33d index-only language switch test */
     .iz-language-switch {
       display: inline-flex;
       align-items: center;
@@ -1465,14 +1465,12 @@
       border-top: 1px solid #e2e8f0;
       width: 100%;
     }
-
     .iz-language-switch-label {
       font-size: 12px;
       font-weight: 800;
       color: #64748b;
       margin-right: auto;
     }
-
     .iz-language-option {
       border: 1px solid #cbd5e1 !important;
       background: #ffffff !important;
@@ -1486,32 +1484,10 @@
       cursor: pointer;
       text-align: center !important;
     }
-
     .iz-language-option.is-active {
       background: #2f6f57 !important;
       color: #ffffff !important;
       border-color: #2f6f57 !important;
-    }
-
-    body.iz-compact-ui #accountMenuDropdown .iz-language-menu {
-      background: rgba(255,255,255,0.02) !important;
-      color: #0f172a;
-    }
-
-    body.iz-compact-ui #accountMenuDropdown .iz-language-title {
-      color: rgba(235,248,250,0.74) !important;
-    }
-
-    body.iz-compact-ui #accountMenuDropdown .iz-language-option {
-      background: rgba(255,255,255,0.08) !important;
-      color: #ffffff !important;
-      border-color: rgba(172,219,230,0.28) !important;
-    }
-
-    body.iz-compact-ui #accountMenuDropdown .iz-language-option.is-active {
-      background: var(--iz-green) !important;
-      color: #062531 !important;
-      border-color: var(--iz-green) !important;
     }
 
   </style>
@@ -1524,28 +1500,28 @@
         <img src="izomax-logo-ocean-light.png" alt="Izomax" class="iz-start-logo" />
         <div class="iz-start-brand-line" aria-hidden="true"></div>
         <div>
-          <div id="i18nStartProduct" class="iz-start-brand-title">Personalplanlegger</div>
+          <div id="ixProductTitle" class="iz-start-brand-title">Personalplanlegger</div>
           <div class="iz-start-brand-sub">Onshore • Offshore • Ressurser</div>
         </div>
       </div>
 
       <div class="iz-start-content">
-        <h1 id="i18nStartHeadline">Én oversikt for personell, oppdrag og mobilisering.</h1>
+        <h1 id="ixHeadline">Én oversikt for personell, oppdrag og mobilisering.</h1>
       </div>
     </div>
 
     <div class="iz-start-login-side">
       <div class="iz-start-login-card">
-        <h2 id="i18nStartLoginTitle">Logg inn</h2>
-        <div id="i18nStartSub" class="iz-start-sub">Bruk Izomax-brukeren din for å åpne riktig visning basert på tilgangsnivå.</div>
+        <h2 id="ixLoginTitle">Logg inn</h2>
+        <div id="ixLoginSub" class="iz-start-sub">Bruk Izomax-brukeren din for å åpne riktig visning basert på tilgangsnivå.</div>
 
         <div class="iz-start-form">
           <div>
-            <label id="i18nStartEmailLabel" for="startLoginEmail">E-post</label>
+            <label id="ixEmailLabel" for="startLoginEmail">E-post</label>
             <input id="startLoginEmail" type="email" placeholder="navn@izomax.com" autocomplete="username" />
           </div>
           <div>
-            <label id="i18nStartPasswordLabel" for="startLoginPassword">Passord</label>
+            <label id="ixPasswordLabel" for="startLoginPassword">Passord</label>
             <input id="startLoginPassword" type="password" placeholder="Passord" autocomplete="current-password" />
           </div>
           <button id="startLoginSubmitBtn" type="button" class="iz-start-login-btn">Logg inn</button>
@@ -1559,9 +1535,9 @@
         </div>
 
         <div class="iz-language-switch" aria-label="Språkvalg">
-          <span id="i18nLanguageLabelStart" class="iz-language-switch-label">Språk</span>
-          <button type="button" onclick="window.setIzomaxLanguage && window.setIzomaxLanguage('no')" data-language-option="no" class="iz-language-option">NO</button>
-          <button type="button" onclick="window.setIzomaxLanguage && window.setIzomaxLanguage('en')" data-language-option="en" class="iz-language-option">EN</button>
+          <span id="ixLanguageLabel" class="iz-language-switch-label">Språk</span>
+          <button id="ixLangNo" type="button" data-ix-lang="no" class="iz-language-option">NO</button>
+          <button id="ixLangEn" type="button" data-ix-lang="en" class="iz-language-option">EN</button>
         </div>
       </div>
     </div>
@@ -1572,8 +1548,8 @@
       <div class="iz-brand-wrap">
         <img src="izomax-logo-ocean-light.png" alt="Izomax" class="iz-logo" />
         <div class="iz-title-block">
-          <h1 id="i18nAppTitle">Personal planlegging</h1>
-          <p id="i18nAppSubtitle">Onshore • Offshore • Ressurser</p>
+          <h1>Personal planlegging</h1>
+          <p>Onshore • Offshore • Ressurser</p>
         </div>
       </div>
 
@@ -1587,13 +1563,13 @@
 
     <section id="plannerTabs" class="rounded-2xl bg-white border border-slate-200 shadow-sm p-3">
       <div class="flex flex-wrap gap-2">
-        <button id="tabHomeBtn" data-i18n-tooltip-key="home" class="rounded-2xl px-4 py-2 text-sm border border-slate-300 bg-white text-slate-700" data-tooltip="Oppstart" aria-label="Oppstart">⌂</button>
-        <button id="tabCalendarBtn" data-i18n-tooltip-key="employeePlan" class="rounded-2xl px-4 py-2 text-sm border border-slate-900 bg-slate-900 text-white" data-tooltip="Ansattplan" aria-label="Ansattplan">☷</button>
-        <button id="tabProjectPlanBtn" data-i18n-tooltip-key="projectPlan" class="rounded-2xl px-4 py-2 text-sm border border-slate-300 bg-white text-slate-700" data-tooltip="Prosjektplan" aria-label="Prosjektplan">▦</button>
-        <button id="tabUnstaffedBtn" data-i18n-tooltip-key="unstaffed" class="rounded-2xl px-4 py-2 text-sm border border-slate-300 bg-white text-slate-700" data-tooltip="Uten bemanning" aria-label="Uten bemanning">!</button>
-        <button id="tabProjectsBtn" data-i18n-tooltip-key="projectAdmin" class="rounded-2xl px-4 py-2 text-sm border border-slate-300 bg-white text-slate-700" data-tooltip="Prosjektadmin" aria-label="Prosjektadmin">♙</button>
-        <button id="tabEmployeesBtn" data-i18n-tooltip-key="employeeAdmin" class="rounded-2xl px-4 py-2 text-sm border border-slate-300 bg-white text-slate-700" data-tooltip="Ansattadmin" aria-label="Ansattadmin">◎</button>
-        <button id="tabAdminBtn" data-i18n-tooltip-key="admin" class="rounded-2xl px-4 py-2 text-sm border border-slate-300 bg-white text-slate-700" data-tooltip="Admin" aria-label="Admin">⚙</button>
+        <button id="tabHomeBtn" class="rounded-2xl px-4 py-2 text-sm border border-slate-300 bg-white text-slate-700" data-tooltip="Oppstart" aria-label="Oppstart">⌂</button>
+        <button id="tabCalendarBtn" class="rounded-2xl px-4 py-2 text-sm border border-slate-900 bg-slate-900 text-white" data-tooltip="Ansattplan" aria-label="Ansattplan">☷</button>
+        <button id="tabProjectPlanBtn" class="rounded-2xl px-4 py-2 text-sm border border-slate-300 bg-white text-slate-700" data-tooltip="Prosjektplan" aria-label="Prosjektplan">▦</button>
+        <button id="tabUnstaffedBtn" class="rounded-2xl px-4 py-2 text-sm border border-slate-300 bg-white text-slate-700" data-tooltip="Uten bemanning" aria-label="Uten bemanning">!</button>
+        <button id="tabProjectsBtn" class="rounded-2xl px-4 py-2 text-sm border border-slate-300 bg-white text-slate-700" data-tooltip="Prosjektadmin" aria-label="Prosjektadmin">♙</button>
+        <button id="tabEmployeesBtn" class="rounded-2xl px-4 py-2 text-sm border border-slate-300 bg-white text-slate-700" data-tooltip="Ansattadmin" aria-label="Ansattadmin">◎</button>
+        <button id="tabAdminBtn" class="rounded-2xl px-4 py-2 text-sm border border-slate-300 bg-white text-slate-700" data-tooltip="Admin" aria-label="Admin">⚙</button>
       </div>
     </section>
 
@@ -1924,5 +1900,80 @@
   <script src="./data.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="./app.js"></script>
+
+  <script>
+    (function () {
+      const dict = {
+        no: {
+          product: "Personalplanlegger",
+          headline: "Én oversikt for personell, oppdrag og mobilisering.",
+          loginTitle: "Logg inn",
+          loginSub: "Bruk Izomax-brukeren din for å åpne riktig visning basert på tilgangsnivå.",
+          email: "E-post",
+          password: "Passord",
+          forgot: "Glemt passord?",
+          access: "Trenger tilgang?",
+          language: "Språk",
+          title: "Izomax Personalplanlegger"
+        },
+        en: {
+          product: "Personnel Planner",
+          headline: "One overview for personnel, assignments and mobilization.",
+          loginTitle: "Log in",
+          loginSub: "Use your Izomax account to open the correct view based on access level.",
+          email: "Email",
+          password: "Password",
+          forgot: "Forgot password?",
+          access: "Need access?",
+          language: "Language",
+          title: "Izomax Personnel Planner"
+        }
+      };
+
+      function setText(id, value) {
+        const el = document.getElementById(id);
+        if (el) el.textContent = value;
+      }
+
+      function setLanguage(lang) {
+        const next = lang === "en" ? "en" : "no";
+        const t = dict[next];
+        localStorage.setItem("planner_ui_language_v1", next);
+        document.documentElement.lang = next === "en" ? "en" : "no";
+        document.title = t.title;
+        setText("ixProductTitle", t.product);
+        setText("ixHeadline", t.headline);
+        setText("ixLoginTitle", t.loginTitle);
+        setText("ixLoginSub", t.loginSub);
+        setText("ixEmailLabel", t.email);
+        setText("ixPasswordLabel", t.password);
+        setText("startLoginSubmitBtn", t.loginTitle);
+        setText("startForgotPasswordBtn", t.forgot);
+        setText("startAccessHelpBtn", t.access);
+        setText("ixLanguageLabel", t.language);
+        const pass = document.getElementById("startLoginPassword");
+        if (pass) pass.placeholder = t.password;
+        document.querySelectorAll("[data-ix-lang]").forEach(btn => {
+          const active = btn.dataset.ixLang === next;
+          btn.classList.toggle("is-active", active);
+          btn.setAttribute("aria-pressed", active ? "true" : "false");
+        });
+      }
+
+      window.izomaxSetStartLanguage = setLanguage;
+
+      document.addEventListener("DOMContentLoaded", function () {
+        document.querySelectorAll("[data-ix-lang]").forEach(btn => {
+          btn.addEventListener("click", function (event) {
+            event.preventDefault();
+            event.stopPropagation();
+            setLanguage(btn.dataset.ixLang || "no");
+          });
+        });
+        setLanguage(localStorage.getItem("planner_ui_language_v1") || "no");
+      });
+    })();
+  </script>
+
 </body>
 </html>
