@@ -1548,8 +1548,8 @@
       <div class="iz-brand-wrap">
         <img src="izomax-logo-ocean-light.png" alt="Izomax" class="iz-logo" />
         <div class="iz-title-block">
-          <h1>Personal planlegging</h1>
-          <p>Onshore • Offshore • Ressurser</p>
+          <h1 id="ixAppTitle">Personal planlegging</h1>
+          <p id="ixAppSubtitle">Onshore • Offshore • Ressurser</p>
         </div>
       </div>
 
@@ -1897,15 +1897,13 @@
     </div>
   </div>
 
-  <script src="./data.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="./app.js"></script>
-
   <script>
     (function () {
       const dict = {
         no: {
           product: "Personalplanlegger",
+          appTitle: "Personal planlegging",
+          appSubtitle: "Onshore • Offshore • Ressurser",
           headline: "Én oversikt for personell, oppdrag og mobilisering.",
           loginTitle: "Logg inn",
           loginSub: "Bruk Izomax-brukeren din for å åpne riktig visning basert på tilgangsnivå.",
@@ -1914,10 +1912,22 @@
           forgot: "Glemt passord?",
           access: "Trenger tilgang?",
           language: "Språk",
+          changePassword: "Endre passord",
+          logout: "Logg ut",
+          resetLink: "Send reset-link",
+          home: "Oppstart",
+          employeePlan: "Ansattplan",
+          projectPlan: "Prosjektplan",
+          unstaffed: "Uten bemanning",
+          projectAdmin: "Prosjektadmin",
+          employeeAdmin: "Ansattadmin",
+          admin: "Admin",
           title: "Izomax Personalplanlegger"
         },
         en: {
           product: "Personnel Planner",
+          appTitle: "Personnel planning",
+          appSubtitle: "Onshore • Offshore • Resources",
           headline: "One overview for personnel, assignments and mobilization.",
           loginTitle: "Log in",
           loginSub: "Use your Izomax account to open the correct view based on access level.",
@@ -1926,21 +1936,43 @@
           forgot: "Forgot password?",
           access: "Need access?",
           language: "Language",
+          changePassword: "Change password",
+          logout: "Log out",
+          resetLink: "Send reset link",
+          home: "Home",
+          employeePlan: "Employee plan",
+          projectPlan: "Project plan",
+          unstaffed: "Unstaffed",
+          projectAdmin: "Project admin",
+          employeeAdmin: "Employee admin",
+          admin: "Admin",
           title: "Izomax Personnel Planner"
         }
       };
+
+      function getLang() {
+        return localStorage.getItem("planner_ui_language_v1") === "en" ? "en" : "no";
+      }
 
       function setText(id, value) {
         const el = document.getElementById(id);
         if (el) el.textContent = value;
       }
 
+      function setTooltip(id, value) {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.setAttribute("data-tooltip", value);
+        el.setAttribute("aria-label", value);
+      }
+
       function setLanguage(lang) {
         const next = lang === "en" ? "en" : "no";
         const t = dict[next];
         localStorage.setItem("planner_ui_language_v1", next);
-        document.documentElement.lang = next === "en" ? "en" : "no";
+        document.documentElement.lang = next;
         document.title = t.title;
+
         setText("ixProductTitle", t.product);
         setText("ixHeadline", t.headline);
         setText("ixLoginTitle", t.loginTitle);
@@ -1951,8 +1983,27 @@
         setText("startForgotPasswordBtn", t.forgot);
         setText("startAccessHelpBtn", t.access);
         setText("ixLanguageLabel", t.language);
+
+        setText("ixAppTitle", t.appTitle);
+        setText("ixAppSubtitle", t.appSubtitle);
+
+        setTooltip("tabHomeBtn", t.home);
+        setTooltip("tabCalendarBtn", t.employeePlan);
+        setTooltip("tabProjectPlanBtn", t.projectPlan);
+        setTooltip("tabUnstaffedBtn", t.unstaffed);
+        setTooltip("tabProjectsBtn", t.projectAdmin);
+        setTooltip("tabEmployeesBtn", t.employeeAdmin);
+        setTooltip("tabAdminBtn", t.admin);
+
+        setText("loginBtn", t.loginTitle);
+        setText("ixAccountLanguageTitle", t.language);
+        setText("changePasswordBtn", t.changePassword);
+        setText("logoutBtn", t.logout);
+        setText("resetPasswordBtn", t.resetLink);
+
         const pass = document.getElementById("startLoginPassword");
         if (pass) pass.placeholder = t.password;
+
         document.querySelectorAll("[data-ix-lang]").forEach(btn => {
           const active = btn.dataset.ixLang === next;
           btn.classList.toggle("is-active", active);
@@ -1960,20 +2011,27 @@
         });
       }
 
-      window.izomaxSetStartLanguage = setLanguage;
+      window.izomaxSetLanguage = setLanguage;
+      window.izomaxApplyLanguage = function () { setLanguage(getLang()); };
 
       document.addEventListener("DOMContentLoaded", function () {
-        document.querySelectorAll("[data-ix-lang]").forEach(btn => {
-          btn.addEventListener("click", function (event) {
-            event.preventDefault();
-            event.stopPropagation();
-            setLanguage(btn.dataset.ixLang || "no");
-          });
+        document.addEventListener("click", function (event) {
+          const btn = event.target.closest("[data-ix-lang]");
+          if (!btn) return;
+          event.preventDefault();
+          event.stopPropagation();
+          setLanguage(btn.dataset.ixLang || "no");
         });
-        setLanguage(localStorage.getItem("planner_ui_language_v1") || "no");
+        setLanguage(getLang());
       });
     })();
   </script>
+
+  <script src="./data.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="./app.js"></script>
+
+
 
 </body>
 </html>

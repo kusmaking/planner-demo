@@ -578,6 +578,7 @@
         });
       }
       ensureLoginModal();
+      window.izomaxApplyLanguage?.();
       return;
     }
 
@@ -595,7 +596,14 @@
           </span>
           <span class="account-caret text-xs ml-auto">▾</span>
         </button>
-        <div id="accountMenuDropdown" class="hidden absolute right-0 top-full mt-2 min-w-[170px] rounded-xl border border-slate-200 bg-white shadow-xl overflow-hidden z-[120]">
+        <div id="accountMenuDropdown" class="hidden absolute right-0 top-full mt-2 min-w-[210px] rounded-xl border border-slate-200 bg-white shadow-xl overflow-hidden z-[120]">
+          <div class="iz-language-menu border-b border-slate-200 px-3 py-3">
+            <div id="ixAccountLanguageTitle" class="iz-language-title text-xs font-semibold text-slate-500 mb-2">Språk</div>
+            <div class="iz-language-options flex gap-2">
+              <button type="button" data-ix-lang="no" class="iz-language-option">NO</button>
+              <button type="button" data-ix-lang="en" class="iz-language-option">EN</button>
+            </div>
+          </div>
           <button id="changePasswordBtn" class="w-full text-left border-b border-slate-200 bg-white px-3 py-2 text-sm hover:bg-slate-50">Endre passord</button>
           <button id="logoutBtn" class="w-full text-left bg-white px-3 py-2 text-sm hover:bg-slate-50">Logg ut</button>
           <button id="resetPasswordBtn" class="hidden">Send reset-link</button>
@@ -637,6 +645,7 @@
     });
 
     ensureLoginModal();
+    window.izomaxApplyLanguage?.();
   }
 
 
@@ -1002,6 +1011,7 @@
     els.accountUserInfo.textContent = nameText;
     if (els.accountRoleInfo) els.accountRoleInfo.textContent = roleText;
     if (els.accountAvatar) els.accountAvatar.textContent = getAccountInitials(nameText);
+    window.izomaxApplyLanguage?.();
   }
 
   function bindTabEvents() {
