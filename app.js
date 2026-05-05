@@ -605,6 +605,7 @@
               <button type="button" data-ix-lang="no" class="iz-language-option">NO</button>
               <button type="button" data-ix-lang="en" class="iz-language-option">EN</button>
             </div>
+            <span id="ixAccountLanguageCurrent" class="iz-language-current">Valgt språk: Norsk</span>
           </div>
           <button id="changePasswordBtn" class="w-full text-left border-b border-slate-200 bg-white px-3 py-2 text-sm hover:bg-slate-50">Endre passord</button>
           <button id="logoutBtn" class="w-full text-left bg-white px-3 py-2 text-sm hover:bg-slate-50">Logg ut</button>

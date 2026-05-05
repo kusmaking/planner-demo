@@ -1490,6 +1490,19 @@
       border-color: #2f6f57 !important;
     }
 
+
+    .iz-language-current {
+      display: block;
+      margin-top: 8px;
+      font-size: 11px;
+      color: #64748b;
+      line-height: 1.35;
+    }
+
+    body.iz-compact-ui #accountMenuDropdown .iz-language-current {
+      color: rgba(235,248,250,0.72) !important;
+    }
+
   </style>
 </head>
 <body class="iz-compact-ui text-slate-900">
@@ -1946,6 +1959,9 @@
           projectPlanTitle: "Åpne prosjektplan i kalenderen",
           unstaffedTitle: "Vis prosjekter som mangler bemanning i prosjektplanen for valgt periode",
           languageLocked: "Språk låst",
+          currentLanguagePrefix: "Valgt språk:",
+          currentLanguageNo: "Norsk",
+          currentLanguageEn: "English",
           title: "Izomax Personalplanlegger"
         },
         en: {
@@ -1995,6 +2011,9 @@
           projectPlanTitle: "Open project plan in calendar",
           unstaffedTitle: "Show projects that are missing staffing for the selected period",
           languageLocked: "Language locked",
+          currentLanguagePrefix: "Selected language:",
+          currentLanguageNo: "Norwegian",
+          currentLanguageEn: "English",
           title: "Izomax Personnel Planner"
         }
       };
@@ -2038,6 +2057,8 @@
         setText("startAccessHelpBtn", t.access);
         setText("ixLanguageLabel", t.language);
         setText("ixLanguageLockedStart", t.languageLocked);
+        const currentLanguageText = `${t.currentLanguagePrefix} ${next === "en" ? t.currentLanguageEn : t.currentLanguageNo}`;
+        setText("ixAccountLanguageCurrent", currentLanguageText);
 
         setText("ixAppTitle", t.appTitle);
         setText("ixAppSubtitle", t.appSubtitle);
