@@ -1,4 +1,5 @@
 (() => {
+  // v18.39d-project-search-mode-and-clear-hard-reset-safe
   // v18.39c-project-search-clear-reset-safe
   // v18.39b-project-search-jump-to-project-period-safe
   // v18.39a-project-responsible-customer-fields-safe
@@ -549,11 +550,17 @@
     els.calendarNewProjectBtn = button;
   }
 
+  function getEffectiveCalendarMode() {
+    return state.calendarMode === "project" ? "project" : "personal";
+  }
+
   function updateCalendarSearchControls() {
     if (!els.searchInput) return;
-    const isProjectMode = state.calendarMode === "project";
-    els.searchInput.placeholder = isProjectMode ? "Søk prosjekt" : "Søk ansatt";
-    els.searchInput.setAttribute("aria-label", isProjectMode ? "Søk prosjekt" : "Søk ansatt");
+    const isProjectMode = getEffectiveCalendarMode() === "project";
+    const placeholder = isProjectMode ? "Søk prosjekt" : "Søk ansatt";
+
+    els.searchInput.placeholder = placeholder;
+    els.searchInput.setAttribute("aria-label", placeholder);
     els.searchInput.setAttribute("name", isProjectMode ? "planner_project_search_filter_no_autofill" : "planner_search_filter_no_autofill");
     els.searchInput.setAttribute("autocomplete", "off");
     els.searchInput.setAttribute("autocorrect", "off");
@@ -568,10 +575,15 @@
       state.search = "";
     }
 
+    if (!currentSearchValue && state.search) {
+      state.search = "";
+    }
+
     if (els.groupFilterControl) els.groupFilterControl.classList.toggle("hidden", isProjectMode);
     if (els.projectFilterControl) els.projectFilterControl.classList.toggle("hidden", !isProjectMode);
     if (els.calendarNewProjectBtn) els.calendarNewProjectBtn.classList.toggle("hidden", !isProjectMode);
   }
+
 
   function getProjectFilterOptions() {
     const categories = Array.from(new Set(getVisibleProjects().map(project => project.category).filter(Boolean)))
@@ -1816,7 +1828,7 @@
     });
 
     els.searchInput.addEventListener("input", e => {
-      state.search = e.target.value.trim().toLowerCase();
+      state.search = String(e.target.value || "").trim().toLowerCase();
 
       if (!state.search) {
         resetProjectCalendarSearchState();
@@ -1824,13 +1836,25 @@
         jumpProjectCalendarToSearchMatch();
       }
 
+      updateCalendarSearchControls();
       renderStats();
       renderCalendar();
     });
 
     els.searchInput.addEventListener("search", e => {
-      state.search = e.target.value.trim().toLowerCase();
+      state.search = String(e.target.value || "").trim().toLowerCase();
       if (!state.search) resetProjectCalendarSearchState();
+      updateCalendarSearchControls();
+      renderStats();
+      renderCalendar();
+    });
+
+    els.searchInput.addEventListener("keyup", e => {
+      if (e.key !== "Escape") return;
+      els.searchInput.value = "";
+      state.search = "";
+      resetProjectCalendarSearchState();
+      updateCalendarSearchControls();
       renderStats();
       renderCalendar();
     });
@@ -3429,11 +3453,23 @@
   }
 
 
+
+  function syncSearchStateFromInput() {
+    if (!els.searchInput) return;
+    const inputValue = String(els.searchInput.value || "").trim().toLowerCase();
+    if (inputValue !== state.search) {
+      state.search = inputValue;
+    }
+  }
+
   function resetProjectCalendarSearchState() {
     if (state.calendarMode !== "project") return;
     state.focusProjectId = "";
     state.calendarPanelOpen = false;
     state.projectSpotlightId = "";
+    if (els.searchInput && !String(els.searchInput.value || "").trim()) {
+      state.search = "";
+    }
   }
 
   function jumpProjectCalendarToSearchMatch() {
@@ -3467,7 +3503,8 @@
 
     return baseProjects.filter(project => {
       const categoryMatch = !state.projectFilterCategory || state.projectFilterCategory === "all" || project.category === state.projectFilterCategory;
-      const search = String(state.search || "").trim().toLowerCase();
+      const inputValue = els.searchInput ? String(els.searchInput.value || "").trim().toLowerCase() : "";
+      const search = inputValue || String(state.search || "").trim().toLowerCase();
       const searchMatch = !search || getProjectSearchableText(project).includes(search);
       return categoryMatch && searchMatch;
     });
@@ -7282,6 +7319,8 @@ async function deleteEditedEntry() {
 
   function renderCalendar() {
     if (!els.calendarWrap) return;
+    syncSearchStateFromInput();
+    updateCalendarSearchControls();
     const range = getCurrentRange();
     els.rangeTitle.innerHTML = getRangeTitle();
     renderHolidayInfo(range);
@@ -7517,6 +7556,9 @@ async function deleteEditedEntry() {
   }
 
   function renderProjectCalendar() {
+    state.calendarMode = "project";
+    if (els.calendarMode) els.calendarMode.value = "project";
+    updateCalendarSearchControls();
     const range = getCurrentRange();
     const warnings = [];
 

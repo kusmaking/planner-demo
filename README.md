@@ -1,28 +1,33 @@
 # Izomax Personalplanlegger – Sandbox changelog
 
 ## Versjon
-v18.39c-project-search-clear-reset-safe
+v18.39d-project-search-mode-and-clear-hard-reset-safe
 
 ## Base
 Bygger fra:
-- v18.39b-project-search-jump-to-project-period-safe
+- v18.39c-project-search-clear-reset-safe
 
 ## Formål
-Fikser bug der prosjekt-søk ikke nullstilte visningen når søkefeltet ble tømt.
+Fikser fortsatt bug i Prosjektplan-søk der søket kunne bli hengende etter at feltet var tømt, og søkefeltet kunne vise feil placeholder "Søk ansatt" i Prosjektplan.
 
 ## Endret
 
-### Prosjektplan-søk
+### Søkefelt
+- Search input er endret til type="search".
+- Statisk oversettelses-placeholder på input er fjernet, slik at appen selv styrer "Søk prosjekt" / "Søk ansatt".
+- Når Prosjektplan rendres, tvinges søkefeltet til Prosjektmodus.
+
+### Hard reset ved tomt søk
 Når søkefeltet tømmes:
 - state.search tømmes
-- prosjektfokus nullstilles
+- prosjektfokus fjernes
 - prosjektpanel lukkes
-- prosjekt-spotlight nullstilles
+- prosjekt-spotlight fjernes
 - kalenderen rendres på nytt
-- alle prosjekter vises igjen for valgt periode/filter
+- alle prosjekter i valgt periode/filter vises igjen
 
-### Search-event
-Lagt til støtte for browserens search-event i tillegg til input-event. Dette hjelper spesielt når søkefelt tømmes via clear/escape.
+### Defensiv filtrering
+Prosjektfilteret leser faktisk input-verdi og ignorerer gammel state.search hvis inputfeltet er tomt.
 
 ## Ikke endret
 - Supabase schema
@@ -37,7 +42,7 @@ Lagt til støtte for browserens search-event i tillegg til input-event. Dette hj
 
 ## Test
 1. Gå til Prosjektplan.
-2. Søk på en prosjektleder, f.eks. Erlend.
-3. Bekreft at treff vises.
-4. Tøm søkefeltet.
-5. Bekreft at alle prosjekter kommer tilbake uten refresh.
+2. Søk på prosjektleder, f.eks. Erlend.
+3. Slett hele søket.
+4. Bekreft at placeholder fortsatt er Søk prosjekt.
+5. Bekreft at alle prosjekter i perioden kommer tilbake uten refresh.
