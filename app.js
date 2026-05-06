@@ -1,4 +1,5 @@
 (() => {
+  // v18.38a-import-selected-projects-test-mode-safe
   // v18.37j-import-workshop-only-fleet-delta-preview-safe
   // v18.37i-import-worklist-norwegian-date-input-safe
   // v18.37h-import-worklist-responsible-clean-layout-safe
@@ -5884,8 +5885,9 @@ async function deleteEditedEntry() {
             <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
               <div class="text-sm font-semibold text-slate-900">3. Importstatus</div>
               <p class="mt-1 text-xs text-slate-600">Import/lagring bygges først etter at arbeidslisten er godkjent.</p>
-              <button type="button" disabled class="mt-3 w-full rounded-xl bg-slate-200 px-3 py-2 text-sm font-semibold text-slate-500 cursor-not-allowed">Import ikke aktiv ennå</button>
-              <div class="mt-2 text-xs text-slate-500">Du kan foreløpig kontrollere, redigere og velge rader i preview.</div>
+              <button id="projectImportTestImportBtn" type="button" class="mt-3 w-full rounded-xl bg-slate-900 px-3 py-2 text-sm font-semibold text-white hover:bg-slate-800">Importer valgte test</button>
+              <div class="mt-2 text-xs text-slate-500">Test mode: maks 3 valgte rader. Skriver til live database.</div>
+              <div id="projectImportTestResult" class="mt-3 text-xs text-slate-600"></div>
             </div>
           </div>
 
@@ -5905,6 +5907,7 @@ async function deleteEditedEntry() {
 
     bindProjectImportInlineControls();
     bindProjectImportApprovalListControls();
+    bindProjectImportTestControls();
   }
 
 
@@ -6374,6 +6377,269 @@ async function deleteEditedEntry() {
     };
   }
 
+
+
+  function bindProjectImportTestControls() {
+    const btn = document.getElementById("projectImportTestImportBtn");
+    if (!btn || btn.dataset.boundProjectImportTest) return;
+    btn.dataset.boundProjectImportTest = "true";
+    btn.addEventListener("click", () => {
+      void importSelectedProjectsTestMode();
+    });
+  }
+
+  function getSelectedProjectImportRows() {
+    const preview = getProjectImportPreviewState();
+    const selected = new Set(preview.selectedIds || []);
+    const rows = Array.isArray(preview.worklistRows) ? preview.worklistRows : [];
+    return rows.filter(row => selected.has(row.id));
+  }
+
+  function isProjectImportActionable(row) {
+    return row?.statusKey === "readyNew" || row?.statusKey === "workshopOnly" || row?.statusKey === "dateUpdate";
+  }
+
+  function buildCsvImportNotes(row, modeLabel = "Create") {
+    const raw = row?.raw || {};
+    const lines = [
+      "CSV_IMPORT_TEST",
+      "Imported from Project General CSV",
+      `Import mode: ${modeLabel}`
+    ];
+
+    const fields = [
+      ["Project Responsible", row?.projectResponsible || raw["Project Responsible"]],
+      ["Company", row?.company || raw["Company"]],
+      ["Activity", raw["Activity"]],
+      ["Responsible eng.", raw["Responsible eng."]],
+      ["Responsible procurement", raw["Responsible procurement"]],
+      ["BOM status", raw["BOM status"]],
+      ["AOGV Tool Register", raw["AOGV Tool Registrer"] || raw["AOGV Tool Register"]],
+      ["Link", raw["Link"]]
+    ];
+
+    fields.forEach(([label, value]) => {
+      const text = String(value || "").trim();
+      if (text) lines.push(`${label}: ${text}`);
+    });
+
+    return lines.join("\\n");
+  }
+
+  function buildProjectFromImportRow(row) {
+    const isWorkshopOnly = row.statusKey === "workshopOnly";
+    const hasWorkshop = Boolean(row.wsStart && row.wsStop);
+    const techsNumber = Number(String(row.techs || "0").replace(",", "."));
+    const safeTechs = Number.isFinite(techsNumber) ? Math.max(techsNumber, 0) : 0;
+
+    return {
+      id: crypto.randomUUID(),
+      name: String(row.name || "").trim(),
+      category: "Offshore",
+      status: isWorkshopOnly ? "Avventer" : "Planlagt",
+      planned_start_date: isWorkshopOnly ? null : (row.operationStart || null),
+      planned_end_date: isWorkshopOnly ? null : (row.operationStop || null),
+      has_multiple_periods: false,
+      project_periods_json: [],
+      location: row.company || "",
+      headcount_required: isWorkshopOnly ? 0 : safeTechs,
+      workshop_enabled: hasWorkshop,
+      workshop_start_date: hasWorkshop ? row.wsStart : null,
+      workshop_end_date: hasWorkshop ? row.wsStop : null,
+      workshop_headcount_required: isWorkshopOnly ? safeTechs : 2,
+      notes: buildCsvImportNotes(row, isWorkshopOnly ? "Create workshop-only" : "Create")
+    };
+  }
+
+  function updateExistingProjectDatesFromImportRow(project, row) {
+    if (!project || !row) return null;
+    const updated = { ...project };
+
+    if (row.operationStart && row.operationStop) {
+      updated.planned_start_date = row.operationStart;
+      updated.planned_end_date = row.operationStop;
+    }
+
+    const hasWorkshop = Boolean(row.wsStart && row.wsStop);
+    updated.workshop_enabled = hasWorkshop;
+    updated.workshop_start_date = hasWorkshop ? row.wsStart : null;
+    updated.workshop_end_date = hasWorkshop ? row.wsStop : null;
+
+    // Deliberately NOT updating Techs, notes, Project Responsible, Company, Activity, status or assignments.
+    return updated;
+  }
+
+  function getProjectImportExecutionPlan(rows) {
+    const actionableRows = rows.filter(isProjectImportActionable);
+    const createRows = actionableRows.filter(row => row.statusKey === "readyNew");
+    const workshopRows = actionableRows.filter(row => row.statusKey === "workshopOnly");
+    const updateRows = actionableRows.filter(row => row.statusKey === "dateUpdate");
+    const skippedRows = rows.filter(row => !isProjectImportActionable(row));
+
+    return {
+      actionableRows,
+      createRows,
+      workshopRows,
+      updateRows,
+      skippedRows
+    };
+  }
+
+  async function importSelectedProjectsTestMode() {
+    if (!canEditApp()) {
+      alert("Du har ikke tilgang til å importere prosjekter.");
+      return;
+    }
+
+    const selectedRows = getSelectedProjectImportRows();
+    const plan = getProjectImportExecutionPlan(selectedRows);
+    const selectedActionableCount = plan.actionableRows.length;
+
+    if (!selectedRows.length) {
+      alert("Ingen prosjekter er valgt.");
+      return;
+    }
+
+    if (!selectedActionableCount) {
+      alert("Ingen valgte rader kan importeres. Skip/ikke-klare rader importeres ikke.");
+      return;
+    }
+
+    if (selectedActionableCount > 3) {
+      alert(`Test mode: maks 3 prosjekter per import. Du har valgt ${selectedActionableCount}. Velg færre rader og prøv igjen.`);
+      return;
+    }
+
+    const confirmText = [
+      "LIVE DATABASE – TESTIMPORT",
+      "",
+      "Du er i ferd med å:",
+      `- opprette ${plan.createRows.length} nye feltprosjekter`,
+      `- opprette ${plan.workshopRows.length} workshop-only prosjekter`,
+      `- oppdatere datoer på ${plan.updateRows.length} eksisterende prosjekter`,
+      `- ignorere ${plan.skippedRows.length} valgte Skip/ikke-klare rader`,
+      "",
+      "Nye prosjekter merkes med CSV_IMPORT_TEST i notes.",
+      "Eksisterende prosjekter får kun datoer oppdatert.",
+      "",
+      "Fortsette?"
+    ].join("\\n");
+
+    if (!confirm(confirmText)) return;
+
+    const result = {
+      created: [],
+      updated: [],
+      skipped: [],
+      errors: []
+    };
+
+    const projectsByName = new Map(state.projects.map(project => [normalizeProjectImportInlineName(project.name), project]));
+
+    for (const row of plan.actionableRows) {
+      const nameKey = normalizeProjectImportInlineName(row.name);
+      const existing = projectsByName.get(nameKey);
+
+      try {
+        if (row.statusKey === "readyNew" || row.statusKey === "workshopOnly") {
+          if (existing) {
+            result.skipped.push(`${row.name}: finnes allerede, opprettet ikke duplikat`);
+            continue;
+          }
+
+          const project = buildProjectFromImportRow(row);
+          state.projects.push(project);
+          state.projects = normalizeProjects(state.projects);
+          state.projects.sort((a, b) => compareProjectDates(a, b));
+          rebuildDerivedState();
+
+          const saveResult = await saveRow("planner_projects", project);
+          if (!saveResult.ok) {
+            state.projects = state.projects.filter(item => item.id !== project.id);
+            rebuildDerivedState();
+            result.errors.push(`${row.name}: ${saveResult.error?.message || "kunne ikke lagre"}`);
+            continue;
+          }
+
+          projectsByName.set(nameKey, project);
+          result.created.push(row.name);
+          continue;
+        }
+
+        if (row.statusKey === "dateUpdate") {
+          const target = existing || state.projects.find(project => project.id === row.existingProjectId);
+          if (!target) {
+            result.skipped.push(`${row.name}: fant ikke eksisterende prosjekt for datooppdatering`);
+            continue;
+          }
+
+          const updated = updateExistingProjectDatesFromImportRow(target, row);
+          if (!updated) {
+            result.skipped.push(`${row.name}: kunne ikke bygge datooppdatering`);
+            continue;
+          }
+
+          const index = state.projects.findIndex(project => project.id === target.id);
+          if (index === -1) {
+            result.skipped.push(`${row.name}: prosjekt ikke funnet i state`);
+            continue;
+          }
+
+          const previous = { ...state.projects[index] };
+          state.projects[index] = updated;
+          state.projects = normalizeProjects(state.projects);
+          state.projects.sort((a, b) => compareProjectDates(a, b));
+          rebuildDerivedState();
+
+          const saveResult = await saveRow("planner_projects", updated);
+          if (!saveResult.ok) {
+            const rollbackIndex = state.projects.findIndex(project => project.id === previous.id);
+            if (rollbackIndex >= 0) state.projects[rollbackIndex] = previous;
+            state.projects = normalizeProjects(state.projects);
+            rebuildDerivedState();
+            result.errors.push(`${row.name}: ${saveResult.error?.message || "kunne ikke oppdatere"}`);
+            continue;
+          }
+
+          result.updated.push(row.name);
+          continue;
+        }
+
+        result.skipped.push(`${row.name}: ikke håndtert status ${row.statusKey}`);
+      } catch (error) {
+        result.errors.push(`${row.name}: ${error?.message || error}`);
+      }
+    }
+
+    state.projects = normalizeProjects(state.projects);
+    state.projects.sort((a, b) => compareProjectDates(a, b));
+    rebuildDerivedState();
+    renderAll();
+
+    const resultText = [
+      "Testimport fullført.",
+      `Opprettet: ${result.created.length}`,
+      `Oppdatert: ${result.updated.length}`,
+      `Hoppet over: ${result.skipped.length}`,
+      `Feil: ${result.errors.length}`
+    ].join("\\n");
+
+    const detailText = [
+      result.created.length ? `\\nOpprettet:\\n- ${result.created.join("\\n- ")}` : "",
+      result.updated.length ? `\\nOppdatert:\\n- ${result.updated.join("\\n- ")}` : "",
+      result.skipped.length ? `\\nHoppet over:\\n- ${result.skipped.join("\\n- ")}` : "",
+      result.errors.length ? `\\nFeil:\\n- ${result.errors.join("\\n- ")}` : ""
+    ].filter(Boolean).join("\\n");
+
+    alert(`${resultText}${detailText}`);
+
+    const resultEl = document.getElementById("projectImportTestResult");
+    if (resultEl) {
+      resultEl.textContent = `Opprettet ${result.created.length}, oppdatert ${result.updated.length}, hoppet over ${result.skipped.length}, feil ${result.errors.length}.`;
+    }
+
+    void addAudit(`CSV testimport: opprettet ${result.created.length}, oppdatert ${result.updated.length}, hoppet over ${result.skipped.length}, feil ${result.errors.length}`);
+  }
 
   function renderProjectImportInlineSummaryCards(counts = {}) {
     const cards = [

@@ -1,93 +1,99 @@
 # Izomax Personalplanlegger – Sandbox changelog
 
 ## Versjon
-v18.37j-import-workshop-only-fleet-delta-preview-safe
+v18.38a-import-selected-projects-test-mode-safe
 
 ## Base
-Bygger fra:
+Bygger fra låst base:
 
-- v18.37i-import-worklist-norwegian-date-input-safe
+- Locked-v18.37j-import-workshop-only-fleet-delta-preview-safe
 
 ## Formål
-Gjør import-previewen mer egnet som synkroniseringsverktøy mellom prosjektstyringssystemet og planleggingssystemet.
+Første ekte importversjon, men kun i begrenset test mode fordi sandbox og main bruker samme live Supabase-database.
+
+## Viktig
+Dette skriver til live database når importknappen brukes.
+
+Derfor er importen strengt begrenset.
 
 ## Endret
 
-### Ny status
-Lagt til status:
+### Importknapp
+Lagt til knapp i Prosjektimport:
 
-- Workshop-only
+- Importer valgte test
 
-Brukes for Fleet/workshop-prosjekter som:
-- har Fleet i Project Name
-- mangler Operation start/stop
-- har gyldig WS start/stop
-- har Techs needed
+### Test mode-begrensning
+Import tillater maks 3 valgte, handlingsbare rader per kjøring.
 
-Disse markeres som workshop-only og skal senere kunne opprettes med grønn workshopfase uten rød feltperiode.
+Hvis flere enn 3 handlingsbare rader er valgt, stoppes importen.
 
-### Tydelig handling per rad
-Arbeidslisten viser nå handling:
+### Kun valgte rader
+Import bruker bare rader som er huket av i arbeidslisten.
 
-- Create
-- Update dates only
-- Skip
+### Skip ignoreres
+Rader med handling/status som ikke er handlingsbare importeres ikke.
 
-Regel:
-- Nye prosjekter = Create
-- Workshop-only/Fleet = Create
-- Eksisterende prosjekter med datoendring = Update dates only
-- Eksisterende prosjekter uten endring = Skip
-- Ikke-klare rader = Skip
+### Nye prosjekter
+For nye prosjekter:
+- opprettes som nye planner-prosjekter
+- får Project Name
+- får Operation start/stop
+- får WS start/stop hvis finnes
+- får Techs needed
+- får Project Responsible, Company, Activity, Link osv. lagt i notes
+- notes merkes med CSV_IMPORT_TEST
 
-### Sikker synkroniseringsregel
-For eksisterende prosjekter skal CSV senere kun kunne oppdatere datoer:
+### Workshop-only / Fleet
+For Workshop-only:
+- opprettes med status Avventer
+- får ingen rød feltperiode
+- får grønn workshopperiode fra WS start/stop
+- Techs brukes som workshopressursbehov
+- notes merkes med CSV_IMPORT_TEST
 
+### Eksisterende prosjekter
+For Update dates only:
+- oppdaterer kun datoer
 - Operation start
 - Operation stop
 - WS start
 - WS stop
 - workshop_enabled
 
-CSV skal ikke overskrive for eksisterende prosjekter:
-
-- Techs needed
+Importen endrer IKKE:
+- Techs
 - notes
 - Project Responsible
 - Company
 - Activity
 - bemanning
-- andre manuelle felt
+- status
+- manuelle felt
 
-### Techs
-Techs vises fortsatt i arbeidslisten, men markeres som:
-
-- brukes ved create
-- endres ikke ved update
+### Duplikatsikring
+Hvis Project Name finnes fra før, opprettes ikke nytt prosjekt med samme navn.
 
 ## Ikke endret
-
-- Supabase
-- database/datamodell
+- Supabase schema
 - RLS
 - data.js
 - index.html
-- login/auth
 - Ansattplan
 - Prosjektplan
-- faktisk import/lagring
-- drag/resize
-- workshop/feltlogikk
+- bemanningslogikk
+- datamodell
 
-## Viktig
-Dette er fortsatt preview only. Ingen data lagres eller importeres.
+## Testanbefaling
+Første test:
+1. Velg kun 1 nytt, ufarlig prosjekt.
+2. Trykk Importer valgte test.
+3. Bekreft dialogen.
+4. Sjekk at prosjektet opprettes.
+5. Sjekk notes for CSV_IMPORT_TEST.
+6. Sjekk at ingen duplikater opprettes.
 
-## Test
-
-1. Login.
-2. Åpne Prosjektimport.
-3. Last opp CSV.
-4. Sjekk filteret Workshop-only.
-5. Sjekk at Fleet-prosjekter med WS-datoer og Techs vises som Workshop-only.
-6. Sjekk at eksisterende prosjekter med datoendring viser Update dates only.
-7. Sjekk at Techs viser at det ikke oppdateres på eksisterende prosjekter.
+Andre test:
+1. Velg kun 1 eksisterende prosjekt med datooppdatering.
+2. Bekreft at kun datoene endres.
+3. Bekreft at Techs/notes/bemanning ikke endres.
