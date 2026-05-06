@@ -1,67 +1,62 @@
 # Izomax Personalplanlegger – Sandbox changelog
 
 ## Versjon
-v18.38d-import-duplicate-match-project-code-safe
+v18.39a-project-responsible-customer-fields-safe
 
 ## Base
 Bygger fra:
+- v18.38e-import-notes-project-responsible-only-safe
 
-- v18.38c-import-batch-notes-confirmation-safe
+## Forutsetning i Supabase
+Feltet er lagt til i public.planner_projects:
+
+project_responsible text null
 
 ## Formål
-Fikser svakhet i duplikatsjekk ved import.
-
-Tidligere ble duplikater kun sjekket på full Project Name. Hvis prosjektteksten var litt forskjellig, kunne samme IZO-prosjekt opprettes som duplikat.
+Legger Prosjektleder og Kunde inn som tydelige prosjektfelt.
 
 ## Endret
 
-### Prosjektkode-match
-Import-preview og import bruker nå prosjektkode som primær match:
+### Prosjektmodal
+- Obsolete Feltoppdrag-dropdown er skjult/fjernet fra brukerflyten.
+- Nytt felt: Prosjektleder.
+- Feltet Lokasjon/feltoppdrag er endret til Kunde.
+- Prosjektkategori settes fortsatt fast til Offshore/Feltoppdrag internt.
 
-- IZO-30109
-- IZO-30235
-- osv.
+### Prosjektkort / Prosjektoversikt
+Prosjektkortet viser nå:
+- Prosjektleder
+- Kunde
 
-Hvis både CSV-rad og eksisterende prosjekt har samme IZO-kode, behandles de som samme prosjekt selv om navnet ellers er forskjellig.
+### Supabase / prosjektdata
+Appen leser og lagrer:
+- project_responsible
 
-Eksempel som nå fanges:
-- IZO-30109 03CL150 Oseberg Sør Sjøvannstre...
-- IZO-30109 03CL150 Oseberg
+### CSV-import
+For nye prosjekter:
+- Project Responsible fra CSV settes til project_responsible.
+- Company fra CSV settes fortsatt til Kunde/location.
 
-Disse regnes nå som samme prosjekt.
-
-### Match-rekkefølge
-1. Match på IZO-prosjektkode
-2. Hvis ingen kode finnes: match på normalisert full Project Name
-
-### Preview
-Arbeidslisten viser nå prosjektkode under Project Name når kode finnes.
-
-Hvis raden er matchet på kode, vises:
-- Matchet på kode
-
-### Import
-Create blokkeres dersom samme IZO-kode finnes fra før.
-
-Det skal ikke opprettes nytt prosjekt når prosjektkode allerede finnes i planner.
+For eksisterende prosjekter:
+- Import med Update dates only oppdaterer fortsatt kun datoer.
+- Project Responsible og Kunde overskrives ikke på eksisterende prosjekter.
 
 ## Ikke endret
-
-- Supabase schema
 - RLS
 - data.js
-- index.html
-- importgrense
+- importgrense maks 10
 - default deselect
-- CSV_IMPORT notes
-- eksisterende prosjekter oppdaterer fortsatt kun datoer
+- duplikatsikring med IZO-kode
 - Ansattplan
 - Prosjektplan
+- bemanning
+- eksisterende prosjekters notes/Techs/Project Responsible/Kunde ved datooppdatering
 
 ## Test
-
-1. Last opp CSV.
-2. Finn et prosjekt der eksisterende planner-navn og CSV-navn er litt ulike, men har samme IZO-kode.
-3. Bekreft at raden ikke vises som nytt prosjekt.
-4. Bekreft at den vises som eksisterende/datooppdatering eller ingen endring.
-5. Kjør ikke import før du har bekreftet at IZO-kode-match ser riktig ut.
+1. Åpne et eksisterende prosjekt og sjekk at Prosjektleder-feltet finnes.
+2. Legg inn Prosjektleder manuelt og lagre.
+3. Åpne prosjektet igjen og sjekk at feltet står.
+4. Last opp CSV og importer ett nytt prosjekt.
+5. Bekreft at Project Responsible fra CSV havner i Prosjektleder.
+6. Bekreft at Company fra CSV havner i Kunde.
+7. Test Update dates only og bekreft at Prosjektleder/Kunde ikke overskrives.

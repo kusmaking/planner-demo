@@ -1,4 +1,6 @@
 (() => {
+  // v18.39a-project-responsible-customer-fields-safe
+  // v18.38e-import-notes-project-responsible-only-safe
   // v18.38d-import-duplicate-match-project-code-safe
   // v18.38c-import-batch-notes-confirmation-safe
   // v18.38b-import-default-deselected-safe
@@ -277,7 +279,7 @@
       "saveStatus", "plannerTabs", "tabHomeBtn", "tabProjectPlanBtn", "tabUnstaffedBtn", "tabCalendarBtn", "tabProjectsBtn", "tabEmployeesBtn", "tabAdminBtn", "tabHomeSection", "homeDashboard", "tabCalendarSection", "tabProjectsSection", "tabEmployeesSection", "tabAdminSection", "calendarMainCol", "calendarPanelCol", "calendarPanelHandleBtn", "calendarPanelCloseBtn", "calendarPanelContent", "newProjectBtn", "projectModal", "projectModalTitle", "closeProjectModalBtn",
       "projectName", "projectCategory", "projectStatus", "projectPlannedStart", "projectPlannedEnd", "projectHasMultiplePeriods", "projectPeriodsSection", "projectPeriodsList", "addProjectPeriodBtn",
       "projectWorkshopEnabled", "projectWorkshopStart", "projectWorkshopEnd", "projectWorkshopHeadcount", "projectWorkshopAddBtn", "projectWorkshopRemoveBtn",
-      "projectLocation", "projectHeadcount", "projectNotes", "saveProjectBtn", "deleteProjectBtn",
+      "projectResponsible", "projectLocation", "projectHeadcount", "projectNotes", "saveProjectBtn", "deleteProjectBtn",
       "newEmployeeBtn", "employeeModal", "employeeModalTitle", "closeEmployeeModalBtn",
       "employeeName", "employeeEmail", "employeePhone", "employeeTitle", "employeeGroup", "employeeActive", "saveEmployeeBtn", "deleteEmployeeBtn",
       "calendarContextMenu", "contextMenuEmployee", "contextMenuStart", "contextMenuEnd", "contextMenuType", "contextMenuNotes", "contextMenuAddBtn", "contextMenuCloseBtn",
@@ -1490,7 +1492,7 @@
   }
 
   function setupStaticOptions() {
-    fillSelect(els.projectCategory, [{ id: "Offshore", name: "Feltoppdrag" }], "Offshore", "name", "id");
+    if (els.projectCategory) els.projectCategory.value = "Offshore";
     fillSelect(els.projectStatus, PROJECT_STATUS_OPTIONS, "Planlagt");
     fillSelect(els.editRole, ROLE_OPTIONS, "Supervisor");
     fillSelect(els.personalBlockType, getPersonalBlockTypeOptions());
@@ -2333,6 +2335,7 @@
       status: normalizeProjectStatus(project?.status || "Planlagt"),
       has_multiple_periods: Boolean(project?.has_multiple_periods),
       project_periods_json: normalizeProjectPeriods(project?.project_periods_json || []),
+      project_responsible: project?.project_responsible || "",
       workshop_enabled: project?.workshop_enabled !== false,
       workshop_start_date: project?.workshop_start_date || null,
       workshop_end_date: project?.workshop_end_date || null,
@@ -2885,7 +2888,8 @@
           <div class="text-base font-semibold text-slate-950">${escapeHtml(project.name)}</div>
           <div class="mt-1 flex flex-wrap gap-2 text-xs">
             <span class="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-slate-600">${escapeHtml(project.category || "Uten kategori")}</span>
-            ${project.location ? `<span class="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-slate-600">${escapeHtml(project.location)}</span>` : ""}
+            ${project.location ? `<span class="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-slate-600">Kunde: ${escapeHtml(project.location)}</span>` : ""}
+            ${project.project_responsible ? `<span class="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-slate-600">Prosjektleder: ${escapeHtml(project.project_responsible)}</span>` : ""}
             <span class="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-slate-600">${escapeHtml(project.status || "Uten status")}</span>
           </div>
         </div>
@@ -3899,7 +3903,7 @@ async function deleteEditedEntry() {
 
     els.projectModalTitle.textContent = project ? (window.izomaxTranslateKey?.("editProject") || "Rediger prosjekt") : (window.izomaxTranslateKey?.("newProject") || "Nytt prosjekt");
     els.projectName.value = project?.name || "";
-    fillSelect(els.projectCategory, [{ id: "Offshore", name: "Feltoppdrag" }], "Offshore", "name", "id");
+    if (els.projectCategory) els.projectCategory.value = "Offshore";
     fillSelect(els.projectStatus, PROJECT_STATUS_OPTIONS, normalizeProjectStatus(project?.status || "Planlagt"));
     els.projectPlannedStart.value = project?.planned_start_date || "";
     els.projectPlannedEnd.value = project?.planned_end_date || "";
@@ -3915,6 +3919,7 @@ async function deleteEditedEntry() {
     if (els.projectWorkshopHeadcount) els.projectWorkshopHeadcount.value = project?.workshop_headcount_required ?? 2;
     setWorkshopModalEnabled(project?.workshop_enabled !== false, false);
     state.projectModalPeriods = normalizeProjectPeriods(project?.project_periods_json || []);
+    if (els.projectResponsible) els.projectResponsible.value = project?.project_responsible || "";
     els.projectLocation.value = project?.location || "";
     els.projectHeadcount.value = project?.headcount_required ?? "";
     els.projectNotes.value = project?.notes || "";
@@ -3943,6 +3948,7 @@ async function deleteEditedEntry() {
     const singlePlannedStart = els.projectPlannedStart.value;
     const singlePlannedEnd = els.projectPlannedEnd.value;
     const hasMultiplePeriods = Boolean(els.projectHasMultiplePeriods?.checked);
+    const projectResponsible = els.projectResponsible?.value?.trim() || "";
     const location = els.projectLocation.value.trim();
     const headcountRequired = Number(els.projectHeadcount.value || 0);
     const workshopEnabled = els.projectWorkshopEnabled ? Boolean(els.projectWorkshopEnabled.checked) : true;
@@ -4025,6 +4031,7 @@ async function deleteEditedEntry() {
       project.has_multiple_periods = hasMultiplePeriods;
       project.project_periods_json = hasMultiplePeriods ? projectPeriods : [];
       project.location = location;
+      project.project_responsible = projectResponsible;
       project.headcount_required = headcountRequired;
       project.workshop_enabled = workshopEnabled;
       project.workshop_start_date = workshopEnabled ? (workshopStartDate || null) : null;
@@ -4042,6 +4049,7 @@ async function deleteEditedEntry() {
         has_multiple_periods: hasMultiplePeriods,
         project_periods_json: hasMultiplePeriods ? projectPeriods : [],
         location,
+        project_responsible: projectResponsible,
         headcount_required: headcountRequired,
         workshop_enabled: workshopEnabled,
         workshop_start_date: workshopEnabled ? (workshopStartDate || null) : null,
@@ -5768,8 +5776,9 @@ async function deleteEditedEntry() {
       els.projectWorkspaceMeta.innerHTML = `
         <div class="flex flex-wrap gap-2">
           <span class="rounded-full border px-3 py-1 text-xs font-medium ${STATUS_COLORS[project.status] || "bg-slate-100 border-slate-200 text-slate-700"}">${escapeHtml(project.status)}</span>
-          <span class="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-700">${escapeHtml(project.category || "Uten kategori")}</span>
-          ${project.location ? `<span class="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-700">Lokasjon: ${escapeHtml(project.location)}</span>` : ""}
+          <span class="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-700">${escapeHtml(project.category || "Feltoppdrag")}</span>
+          ${project.project_responsible ? `<span class="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-700">Prosjektleder: ${escapeHtml(project.project_responsible)}</span>` : ""}
+          ${project.location ? `<span class="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-700">Kunde: ${escapeHtml(project.location)}</span>` : ""}
           <span class="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-700">Bemanningsbehov: ${required}</span>
           ${periodStatuses.length ? `<span class="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-700">Flere perioder: ${periodStatuses.length}</span>` : ''}
         </div>
@@ -5786,7 +5795,7 @@ async function deleteEditedEntry() {
           <div class="rounded-[22px] border border-slate-200 bg-slate-50 px-4 py-4">
             <div class="text-xs font-semibold uppercase tracking-wide text-slate-500">Status</div>
             <div class="mt-2 text-base font-semibold text-slate-900">${escapeHtml(project.status)}</div>
-            <div class="mt-1 text-sm text-slate-500">${escapeHtml(project.location || 'Lokasjon ikke satt')}</div>
+            <div class="mt-1 text-sm text-slate-500">${escapeHtml(project.location ? `Kunde: ${project.location}` : 'Kunde ikke satt')}</div>
           </div>
         </div>
         ${periodStatuses.length ? `
@@ -6408,55 +6417,8 @@ async function deleteEditedEntry() {
 
   function buildCsvImportNotes(row, modeLabel = "Create") {
     const raw = row?.raw || {};
-    const now = new Date().toISOString();
-    const importedBy = state.currentUser || state.currentUserEmail || "Ukjent bruker";
-    const isWorkshopOnly = row?.statusKey === "workshopOnly";
-
-    const lines = [
-      "CSV_IMPORT",
-      "Source: Project General CSV",
-      `Imported at: ${now}`,
-      `Imported by: ${importedBy}`,
-      `Import action: ${modeLabel}`,
-      `Project type: ${isWorkshopOnly ? "Workshop-only / Fleet" : "Field project"}`,
-      "",
-      "Imported values:",
-      `Project Name: ${row?.name || ""}`,
-      `Operation start: ${row?.operationStart || ""}`,
-      `Operation stop: ${row?.operationStop || ""}`,
-      `WS start: ${row?.wsStart || ""}`,
-      `WS stop: ${row?.wsStop || ""}`,
-      `Techs needed: ${row?.techs ?? ""}`,
-      `Project Responsible: ${row?.projectResponsible || raw["Project Responsible"] || ""}`,
-      `Company: ${row?.company || raw["Company"] || ""}`
-    ];
-
-    const optionalFields = [
-      ["Activity", raw["Activity"]],
-      ["Responsible eng.", raw["Responsible eng."]],
-      ["Responsible procurement", raw["Responsible procurement"]],
-      ["BOM status", raw["BOM status"]],
-      ["AOGV Tool Register", raw["AOGV Tool Registrer"] || raw["AOGV Tool Register"]],
-      ["Link", raw["Link"]]
-    ];
-
-    const optionalLines = optionalFields
-      .map(([label, value]) => [label, String(value || "").trim()])
-      .filter(([, value]) => value)
-      .map(([label, value]) => `${label}: ${value}`);
-
-    if (optionalLines.length) {
-      lines.push("", "Additional CSV data:", ...optionalLines);
-    }
-
-    lines.push(
-      "",
-      "Import safety:",
-      "Created from CSV import. Existing planner projects are not overwritten by this note.",
-      "For existing projects, CSV import is limited to date updates only."
-    );
-
-    return lines.join("\\n");
+    const responsible = String(row?.projectResponsible || raw["Project Responsible"] || "").trim();
+    return responsible ? `Project Responsible: ${responsible}` : "Project Responsible:";
   }
 
   
@@ -6476,6 +6438,7 @@ async function deleteEditedEntry() {
       has_multiple_periods: false,
       project_periods_json: [],
       location: row.company || "",
+      project_responsible: row.projectResponsible || "",
       headcount_required: isWorkshopOnly ? 0 : safeTechs,
       workshop_enabled: hasWorkshop,
       workshop_start_date: hasWorkshop ? row.wsStart : null,
@@ -6566,7 +6529,7 @@ async function deleteEditedEntry() {
       "Sikkerhetsregler:",
       "- kun hukede rader behandles",
       "- maks 10 handlingsbare rader per import",
-      "- nye prosjekter får CSV_IMPORT i notes",
+      "- nye prosjekter får Project Responsible i notes",
       "- eksisterende prosjekter får kun datoer oppdatert",
       "- Techs, notes, Project Responsible og bemanning overskrives ikke på eksisterende prosjekter",
       "",

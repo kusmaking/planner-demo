@@ -1857,7 +1857,8 @@
       </div>
       <div class="p-4 space-y-4">
         <input id="projectName" class="w-full rounded-2xl border border-slate-300 px-3 py-2" placeholder="Prosjektnavn" />
-        <select id="projectCategory" class="w-full rounded-2xl border border-slate-300 px-3 py-2"></select>
+        <input id="projectCategory" type="hidden" value="Offshore" />
+        <input id="projectResponsible" class="w-full rounded-2xl border border-slate-300 px-3 py-2" placeholder="Prosjektleder" />
         <select id="projectStatus" class="w-full rounded-2xl border border-slate-300 px-3 py-2"></select>
         <div class="grid grid-cols-2 gap-2">
           <input id="projectPlannedStart" type="date" class="rounded-2xl border border-slate-300 px-3 py-2" />
@@ -1881,10 +1882,13 @@
           <div class="flex items-start justify-between gap-3">
             <div>
               <div id="ixProjectFieldTitle" class="text-sm font-semibold text-red-950">Feltoppdrag</div>
-              <div id="ixProjectFieldHelp" class="text-xs text-red-800 mt-1">Ressursbehov for selve prosjektperioden i felt.</div>
+              <div id="ixProjectFieldHelp" class="text-xs text-red-800 mt-1">Kunde og ressursbehov for selve prosjektperioden i felt.</div>
             </div>
           </div>
-          <input id="projectLocation" class="w-full rounded-2xl border border-red-200 bg-white px-3 py-2" placeholder="Lokasjon / feltoppdrag" />
+          <label class="block">
+            <span class="block text-xs text-red-800 mb-1">Kunde</span>
+            <input id="projectLocation" class="w-full rounded-2xl border border-red-200 bg-white px-3 py-2" placeholder="Kunde" />
+          </label>
           <label class="block">
             <span id="ixProjectFieldHeadcountLabel" class="block text-xs text-red-800 mb-1">Behov for antall personer i felt</span>
             <input id="projectHeadcount" type="number" min="0" class="w-full rounded-2xl border border-red-200 bg-white px-3 py-2" placeholder="F.eks. 2" />
