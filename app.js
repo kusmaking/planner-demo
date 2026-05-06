@@ -1,4 +1,5 @@
 (() => {
+  // v18.37j-import-workshop-only-fleet-delta-preview-safe
   // v18.37i-import-worklist-norwegian-date-input-safe
   // v18.37h-import-worklist-responsible-clean-layout-safe
   // v18.37g-import-worklist-full-width-preview-only-safe
@@ -89,8 +90,8 @@
     projectImportPreview: {
       fileName: "",
       rowCount: 0,
-      counts: { total: 0, readyNew: 0, noChange: 0, dateUpdate: 0, missingOperationDate: 0, missingHeadcount: 0, workshopDateError: 0, notReady: 0 },
-      examples: { readyNew: [], noChange: [], dateUpdate: [], missingOperationDate: [], missingHeadcount: [], workshopDateError: [], notReady: [] },
+      counts: { total: 0, readyNew: 0, workshopOnly: 0, noChange: 0, dateUpdate: 0, missingOperationDate: 0, missingHeadcount: 0, workshopDateError: 0, notReady: 0 },
+      examples: { readyNew: [], workshopOnly: [], noChange: [], dateUpdate: [], missingOperationDate: [], missingHeadcount: [], workshopDateError: [], notReady: [] },
       approvalRows: [],
       selectedIds: [],
       statusText: "Ingen fil valgt."
@@ -5944,6 +5945,7 @@ async function deleteEditedEntry() {
     if (!rowCount) return "Ingen preview kjørt.";
     const labels = [
       ["readyNew", "Ny – klar"],
+      ["workshopOnly", "Workshop-only"],
       ["dateUpdate", "Datooppdatering"],
       ["noChange", "Eksisterer – ingen endring"],
       ["missingOperationDate", "Mangler operasjonsdato"],
@@ -5962,6 +5964,7 @@ async function deleteEditedEntry() {
   function getProjectImportStatusLabel(statusKey) {
     const labels = {
       readyNew: "Ny – klar",
+      workshopOnly: "Workshop-only",
       dateUpdate: "Eksisterer – datooppdatering",
       noChange: "Eksisterer – ingen endring",
       missingOperationDate: "Mangler operasjonsdato",
@@ -5975,6 +5978,7 @@ async function deleteEditedEntry() {
   function getProjectImportStatusBadgeClass(statusKey) {
     const classes = {
       readyNew: "border-green-200 bg-green-50 text-green-700",
+      workshopOnly: "border-emerald-200 bg-emerald-50 text-emerald-700",
       dateUpdate: "border-blue-200 bg-blue-50 text-blue-700",
       noChange: "border-slate-200 bg-slate-50 text-slate-700",
       missingOperationDate: "border-amber-200 bg-amber-50 text-amber-800",
@@ -5990,6 +5994,7 @@ async function deleteEditedEntry() {
     const filterDefs = [
       ["all", "Alle", rows.length],
       ["readyNew", "Klar", rows.filter(row => row.statusKey === "readyNew").length],
+      ["workshopOnly", "Workshop-only", rows.filter(row => row.statusKey === "workshopOnly").length],
       ["dateUpdate", "Datooppdatering", rows.filter(row => row.statusKey === "dateUpdate").length],
       ["missingOperationDate", "Mangler dato", rows.filter(row => row.statusKey === "missingOperationDate").length],
       ["missingHeadcount", "Mangler techs", rows.filter(row => row.statusKey === "missingHeadcount").length],
@@ -6061,6 +6066,28 @@ async function deleteEditedEntry() {
       && date.getUTCDate() === Number(match[3]);
   }
 
+
+  function isProjectImportFleetRow(row) {
+    const name = String(row?.name || "").toLowerCase();
+    return name.includes("fleet");
+  }
+
+  function getProjectImportActionLabel(row) {
+    if (!row) return "Skip";
+    if (row.statusKey === "readyNew" || row.statusKey === "workshopOnly") return "Create";
+    if (row.statusKey === "dateUpdate") return "Update dates only";
+    return "Skip";
+  }
+
+  function getProjectImportActionHint(row) {
+    if (!row) return "";
+    if (row.statusKey === "readyNew") return "nytt feltprosjekt";
+    if (row.statusKey === "workshopOnly") return "grønn workshop only";
+    if (row.statusKey === "dateUpdate") return "kun datoer, ikke techs";
+    if (row.statusKey === "noChange") return "ingen endring";
+    return "ikke klar";
+  }
+
   function renderProjectImportApprovalListHtml(preview = getProjectImportPreviewState()) {
     const worklistRows = Array.isArray(preview.worklistRows) ? preview.worklistRows : [];
     const selectedIds = new Set(preview.selectedIds || []);
@@ -6090,18 +6117,19 @@ async function deleteEditedEntry() {
           <div class="text-xs text-slate-500">Preview only</div>
         </div>
         <div class="overflow-auto max-h-[640px]">
-          <table class="min-w-[1680px] w-full text-xs">
+          <table class="min-w-[1840px] w-full text-xs">
             <thead class="sticky top-0 z-10 bg-slate-100 text-slate-700">
               <tr>
                 <th class="px-3 py-2 text-left font-semibold w-[56px]">Velg</th>
                 <th class="px-3 py-2 text-left font-semibold w-[170px]">Status</th>
+                <th class="px-3 py-2 text-left font-semibold w-[150px]">Handling</th>
                 <th class="px-3 py-2 text-left font-semibold min-w-[330px]">Project Name</th>
                 <th class="px-3 py-2 text-left font-semibold min-w-[190px]">Project Responsible</th>
                 <th class="px-3 py-2 text-left font-semibold w-[150px]">Operation start</th>
                 <th class="px-3 py-2 text-left font-semibold w-[150px]">Operation stop</th>
                 <th class="px-3 py-2 text-left font-semibold w-[150px]">WS start</th>
                 <th class="px-3 py-2 text-left font-semibold w-[150px]">WS stop</th>
-                <th class="px-3 py-2 text-left font-semibold w-[105px]">Techs</th>
+                <th class="px-3 py-2 text-left font-semibold w-[125px]">Techs<br><span class="font-normal text-slate-500">nye only</span></th>
                 <th class="px-3 py-2 text-left font-semibold min-w-[260px]">Kommentar</th>
               </tr>
             </thead>
@@ -6117,6 +6145,10 @@ async function deleteEditedEntry() {
                     </td>
                     <td class="px-3 py-2 align-top">
                       <span class="inline-flex rounded-full border px-2 py-1 text-[11px] font-semibold ${getProjectImportStatusBadgeClass(row.statusKey)}">${escapeHtml(getProjectImportStatusLabel(row.statusKey))}</span>
+                    </td>
+                    <td class="px-3 py-2 align-top">
+                      <div class="font-semibold text-slate-900">${escapeHtml(getProjectImportActionLabel(row))}</div>
+                      <div class="mt-1 text-[11px] text-slate-500">${escapeHtml(getProjectImportActionHint(row))}</div>
                     </td>
                     <td class="px-3 py-2 align-top">
                       <div class="font-semibold text-slate-900">${escapeHtml(row.name || "-")}</div>
@@ -6139,6 +6171,7 @@ async function deleteEditedEntry() {
                     </td>
                     <td class="px-3 py-2 align-top">
                       <input data-project-import-edit data-field="techs" data-row-id="${escapeHtml(row.id)}" type="number" min="0" step="1" value="${escapeHtml(String(row.techs ?? ""))}" class="w-full rounded-lg border border-slate-300 bg-white px-2 py-1 font-semibold text-slate-950" />
+                      <div class="mt-1 text-[10px] text-slate-500">${escapeHtml(row.existingProjectId ? "endres ikke ved update" : "brukes ved create")}</div>
                     </td>
                     <td class="px-3 py-2 align-top text-slate-600">${escapeHtml(row.comment || "")}</td>
                   </tr>
@@ -6211,8 +6244,8 @@ async function deleteEditedEntry() {
     const existingByName = new Map(
       state.projects.map(project => [normalizeProjectImportInlineName(project.name), project])
     );
-    const counts = { total: worklistRows.length, readyNew: 0, noChange: 0, dateUpdate: 0, missingOperationDate: 0, missingHeadcount: 0, workshopDateError: 0, notReady: 0 };
-    const examples = { readyNew: [], noChange: [], dateUpdate: [], missingOperationDate: [], missingHeadcount: [], workshopDateError: [], notReady: [] };
+    const counts = { total: worklistRows.length, readyNew: 0, workshopOnly: 0, noChange: 0, dateUpdate: 0, missingOperationDate: 0, missingHeadcount: 0, workshopDateError: 0, notReady: 0 };
+    const examples = { readyNew: [], workshopOnly: [], noChange: [], dateUpdate: [], missingOperationDate: [], missingHeadcount: [], workshopDateError: [], notReady: [] };
     const selected = new Set(previousPreview.selectedIds || []);
 
     const nextRows = worklistRows.map(row => {
@@ -6221,7 +6254,7 @@ async function deleteEditedEntry() {
       const nextRow = {
         ...row,
         existingProjectId: existing?.id || "",
-        action: statusKey === "dateUpdate" ? "update" : statusKey === "readyNew" ? "create" : "",
+        action: statusKey === "dateUpdate" ? "update" : (statusKey === "readyNew" || statusKey === "workshopOnly") ? "create" : "",
         statusKey,
         comment: getProjectImportWorklistComment(statusKey, existing)
       };
@@ -6229,7 +6262,7 @@ async function deleteEditedEntry() {
       if (examples[statusKey] && examples[statusKey].length < 5) {
         examples[statusKey].push(nextRow.name || "Uten navn");
       }
-      if (statusKey === "readyNew" || statusKey === "dateUpdate") selected.add(nextRow.id);
+      if (statusKey === "readyNew" || statusKey === "workshopOnly" || statusKey === "dateUpdate") selected.add(nextRow.id);
       if (statusKey === "noChange") selected.delete(nextRow.id);
       return nextRow;
     });
@@ -6240,7 +6273,7 @@ async function deleteEditedEntry() {
       counts,
       examples,
       worklistRows: nextRows,
-      approvalRows: nextRows.filter(row => row.statusKey === "readyNew" || row.statusKey === "dateUpdate"),
+      approvalRows: nextRows.filter(row => row.statusKey === "readyNew" || row.statusKey === "workshopOnly" || row.statusKey === "dateUpdate"),
       selectedIds: Array.from(selected).filter(id => nextRows.some(row => row.id === id)),
       statusText: previousPreview.statusText || "CSV lest. Ingen data er lagret."
     };
@@ -6254,12 +6287,28 @@ async function deleteEditedEntry() {
     const wsStop = String(row.wsStop || "").trim();
     const techsRaw = String(row.techs ?? "").trim();
     const techsNumber = techsRaw === "" ? null : Number(techsRaw.replace(",", "."));
+    const hasOperationDates = Boolean(operationStart && operationStop);
+    const hasWorkshopDates = Boolean(wsStart && wsStop);
+    const hasAnyDate = Boolean(operationStart || operationStop || wsStart || wsStop);
+    const hasValidTechs = techsRaw !== "" && Number.isFinite(techsNumber);
+    const isFleet = isProjectImportFleetRow(row);
 
     if (!name) return "notReady";
-    if (!operationStart || !operationStop) return "missingOperationDate";
-    if (operationStart > operationStop) return "notReady";
-    if (techsRaw === "" || !Number.isFinite(techsNumber)) return "missingHeadcount";
+    if (!hasAnyDate && !hasValidTechs) return "notReady";
     if ((wsStart || wsStop) && (!wsStart || !wsStop || wsStart > wsStop)) return "workshopDateError";
+
+    if (!hasOperationDates) {
+      if (isFleet && hasWorkshopDates && hasValidTechs) {
+        return existing ? "dateUpdate" : "workshopOnly";
+      }
+      return "notReady";
+    }
+
+    if (operationStart > operationStop) return "notReady";
+
+    if (!existing && !hasValidTechs) {
+      return "missingHeadcount";
+    }
 
     if (existing) {
       const operationChanged = String(existing.planned_start_date || "") !== operationStart || String(existing.planned_end_date || "") !== operationStop;
@@ -6276,11 +6325,12 @@ async function deleteEditedEntry() {
 
   function getProjectImportWorklistComment(statusKey, existing = null) {
     const comments = {
-      readyNew: "Kan senere opprettes som nytt prosjekt.",
-      dateUpdate: "Kan senere oppdatere eksisterende prosjekt etter godkjenning.",
+      readyNew: "Nytt feltprosjekt. Techs brukes kun ved opprettelse.",
+      workshopOnly: "Nytt workshop-only/Fleet-prosjekt. Ingen rød feltperiode.",
+      dateUpdate: "Eksisterende prosjekt. Kun datoer skal kunne oppdateres senere.",
       noChange: "Finnes allerede med samme datoer. Ingen import nødvendig.",
-      missingOperationDate: "Mangler Operation start/stop.",
-      missingHeadcount: "Mangler Techs needed.",
+      missingOperationDate: "Mangler Operation start/stop og er ikke gyldig workshop-only.",
+      missingHeadcount: "Mangler Techs needed for nytt prosjekt.",
       workshopDateError: "Workshopdato mangler eller WS start er etter WS stop.",
       notReady: "Raden er ikke klar for import."
     };
@@ -6329,6 +6379,7 @@ async function deleteEditedEntry() {
     const cards = [
       ["Totalt", counts.total || 0],
       ["Ny – klar", counts.readyNew || 0],
+      ["Workshop-only", counts.workshopOnly || 0],
       ["Datooppdatering", counts.dateUpdate || 0],
       ["Ingen endring", counts.noChange || 0],
       ["Mangler dato", counts.missingOperationDate || 0],
