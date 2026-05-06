@@ -1,4 +1,5 @@
 (() => {
+  // v18.40a-import-selection-summary-and-row-status-safe
   // v18.39b-clean-project-search-and-phase-filter-safe
   // v18.39a-project-responsible-customer-fields-safe
   // v18.38e-import-notes-project-responsible-only-safe
@@ -102,6 +103,8 @@
       examples: { readyNew: [], workshopOnly: [], noChange: [], dateUpdate: [], missingOperationDate: [], missingHeadcount: [], workshopDateError: [], notReady: [] },
       approvalRows: [],
       selectedIds: [],
+      importResults: {},
+      lastImportSummary: null,
       statusText: "Ingen fil valgt."
     },
     contextMenu: {
@@ -6032,6 +6035,10 @@ async function deleteEditedEntry() {
                 ${renderProjectImportWorklistFilters(preview.worklistFilter || "all", preview)}
               </div>
             </div>
+            <div class="mb-4 space-y-3">
+              ${renderSelectedProjectImportSummaryHtml(preview)}
+              ${renderProjectImportLastSummaryHtml(preview)}
+            </div>
             <div id="projectImportInlineApprovalList">${renderProjectImportApprovalListHtml(preview)}</div>
           </div>
         </div>
@@ -6069,6 +6076,8 @@ async function deleteEditedEntry() {
       approvalRows: Array.isArray(current.approvalRows) ? current.approvalRows : [],
       worklistRows: Array.isArray(current.worklistRows) ? current.worklistRows : [],
       selectedIds: Array.isArray(current.selectedIds) ? current.selectedIds : [],
+      importResults: current.importResults && typeof current.importResults === "object" ? current.importResults : {},
+      lastImportSummary: current.lastImportSummary || null,
       worklistFilter: current.worklistFilter || "all"
     };
   }
@@ -6224,6 +6233,81 @@ async function deleteEditedEntry() {
     return "ikke klar";
   }
 
+
+  function getProjectImportRowResult(row, preview = getProjectImportPreviewState()) {
+    return preview.importResults?.[row?.id || ""] || null;
+  }
+
+  function getProjectImportRowResultHtml(row, preview = getProjectImportPreviewState()) {
+    const result = getProjectImportRowResult(row, preview);
+    if (!result) return "";
+    const tone = result.type === "created"
+      ? "border-green-200 bg-green-50 text-green-800"
+      : result.type === "updated"
+        ? "border-blue-200 bg-blue-50 text-blue-800"
+        : result.type === "error"
+          ? "border-rose-200 bg-rose-50 text-rose-800"
+          : "border-slate-200 bg-slate-50 text-slate-700";
+    return `<div class="mt-2 inline-flex rounded-full border px-2 py-1 text-[10px] font-semibold ${tone}">${escapeHtml(result.label || "Behandlet")}</div>`;
+  }
+
+  function getSelectedProjectImportSummary(preview = getProjectImportPreviewState()) {
+    const selected = new Set(preview.selectedIds || []);
+    const rows = (preview.worklistRows || []).filter(row => selected.has(row.id));
+    const plan = getProjectImportExecutionPlan(rows);
+    return { rows, plan };
+  }
+
+  function renderSelectedProjectImportSummaryHtml(preview = getProjectImportPreviewState()) {
+    const { rows, plan } = getSelectedProjectImportSummary(preview);
+    if (!preview.rowCount) return "";
+
+    if (!rows.length) {
+      return `
+        <div class="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-4 text-sm text-slate-600">
+          <div class="font-semibold text-slate-900">Valgt for import: 0</div>
+          <div class="mt-1 text-xs">Huk av rader i arbeidslisten før import. Ingen rader velges automatisk.</div>
+        </div>
+      `;
+    }
+
+    const sampleNames = rows.slice(0, 8).map(row => row.name || "Uten navn");
+    const moreCount = Math.max(rows.length - sampleNames.length, 0);
+
+    return `
+      <div class="rounded-2xl border border-blue-200 bg-blue-50/70 px-4 py-4 text-sm text-blue-950">
+        <div class="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
+          <div>
+            <div class="font-semibold">Valgt for import: ${rows.length}</div>
+            <div class="mt-1 text-xs text-blue-900">
+              Create: ${plan.createRows.length} · Workshop-only: ${plan.workshopRows.length} · Update dates only: ${plan.updateRows.length} · Skip/ikke klar: ${plan.skippedRows.length}
+            </div>
+            <div class="mt-3 grid gap-1 text-xs">
+              ${sampleNames.map(name => `<div>• ${escapeHtml(name)}</div>`).join("")}
+              ${moreCount ? `<div>• +${moreCount} flere valgt</div>` : ""}
+            </div>
+          </div>
+          <div class="shrink-0 rounded-xl border border-blue-200 bg-white/80 px-3 py-2 text-xs font-semibold text-blue-900">
+            Maks 10 handlingsbare rader per import
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  function renderProjectImportLastSummaryHtml(preview = getProjectImportPreviewState()) {
+    const summary = preview.lastImportSummary;
+    if (!summary) return "";
+    return `
+      <div class="rounded-2xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-900">
+        <div class="font-semibold">Siste importstatus</div>
+        <div class="mt-1 text-xs">
+          Opprettet: ${summary.created || 0} · Oppdatert: ${summary.updated || 0} · Hoppet over: ${summary.skipped || 0} · Feil: ${summary.errors || 0}
+        </div>
+      </div>
+    `;
+  }
+
   function renderProjectImportApprovalListHtml(preview = getProjectImportPreviewState()) {
     const worklistRows = Array.isArray(preview.worklistRows) ? preview.worklistRows : [];
     const selectedIds = new Set(preview.selectedIds || []);
@@ -6248,7 +6332,7 @@ async function deleteEditedEntry() {
         <div class="flex flex-col gap-2 border-b border-slate-200 bg-slate-50 px-4 py-3 md:flex-row md:items-center md:justify-between">
           <div>
             <div class="text-sm font-semibold text-slate-900">Arbeidsliste før eventuell import</div>
-            <div class="text-xs text-slate-500 mt-1">${selectedCount} av ${worklistRows.length} valgt. Ingen rader velges automatisk.</div>
+            <div class="text-xs text-slate-500 mt-1">${selectedCount} av ${worklistRows.length} valgt. Vellykket importerte rader fjernes automatisk fra valgt-listen.</div>
           </div>
           <div class="text-xs text-slate-500">Preview only</div>
         </div>
@@ -6272,8 +6356,11 @@ async function deleteEditedEntry() {
             <tbody class="divide-y divide-slate-100">
               ${visibleRows.map(row => {
                 const checked = selectedIds.has(row.id) ? "checked" : "";
-                const disabled = row.statusKey === "noChange" ? "disabled" : "";
-                const rowTone = selectedIds.has(row.id) ? "bg-white" : "bg-slate-50/70";
+                const rowResult = getProjectImportRowResult(row, preview);
+                const disabled = (row.statusKey === "noChange" || rowResult?.type === "created" || rowResult?.type === "updated") ? "disabled" : "";
+                const rowTone = rowResult?.type === "created" || rowResult?.type === "updated"
+                  ? "bg-green-50/70"
+                  : selectedIds.has(row.id) ? "bg-white" : "bg-slate-50/70";
                 return `
                   <tr class="${rowTone} hover:bg-slate-50">
                     <td class="px-3 py-2 align-top">
@@ -6281,6 +6368,7 @@ async function deleteEditedEntry() {
                     </td>
                     <td class="px-3 py-2 align-top">
                       <span class="inline-flex rounded-full border px-2 py-1 text-[11px] font-semibold ${getProjectImportStatusBadgeClass(row.statusKey)}">${escapeHtml(getProjectImportStatusLabel(row.statusKey))}</span>
+                      ${getProjectImportRowResultHtml(row, preview)}
                     </td>
                     <td class="px-3 py-2 align-top">
                       <div class="font-semibold text-slate-900">${escapeHtml(getProjectImportActionLabel(row))}</div>
@@ -6413,7 +6501,9 @@ async function deleteEditedEntry() {
       examples,
       worklistRows: nextRows,
       approvalRows: nextRows.filter(row => row.statusKey === "readyNew" || row.statusKey === "workshopOnly" || row.statusKey === "dateUpdate"),
-      selectedIds: Array.from(selected).filter(id => nextRows.some(row => row.id === id)),
+      selectedIds: Array.from(selected).filter(id => nextRows.some(row => row.id === id) && !previousPreview.importResults?.[id]),
+      importResults: previousPreview.importResults || {},
+      lastImportSummary: previousPreview.lastImportSummary || null,
       statusText: previousPreview.statusText || "CSV lest. Ingen data er lagret."
     };
   }
@@ -6603,6 +6693,32 @@ async function deleteEditedEntry() {
     };
   }
 
+
+  function setProjectImportRowResult(rowId, type, label, detail = "") {
+    const preview = getProjectImportPreviewState();
+    state.projectImportPreview = {
+      ...preview,
+      importResults: {
+        ...(preview.importResults || {}),
+        [rowId]: { type, label, detail, at: new Date().toISOString() }
+      }
+    };
+  }
+
+  function clearSuccessfulProjectImportSelections() {
+    const preview = getProjectImportPreviewState();
+    const successIds = new Set(
+      Object.entries(preview.importResults || {})
+        .filter(([, result]) => result?.type === "created" || result?.type === "updated")
+        .map(([id]) => id)
+    );
+    if (!successIds.size) return;
+    state.projectImportPreview = {
+      ...preview,
+      selectedIds: (preview.selectedIds || []).filter(id => !successIds.has(id))
+    };
+  }
+
   async function importSelectedProjectsTestMode() {
     if (!canEditApp()) {
       alert("Du har ikke tilgang til å importere prosjekter.");
@@ -6676,6 +6792,7 @@ async function deleteEditedEntry() {
         if (row.statusKey === "readyNew" || row.statusKey === "workshopOnly") {
           if (existing) {
             result.skipped.push(`${row.name}: finnes allerede${match.matchType === "projectCode" ? ` med prosjektkode ${match.code}` : ""}, opprettet ikke duplikat`);
+            setProjectImportRowResult(row.id, "skipped", "Hoppet over", "Finnes allerede – opprettet ikke duplikat");
             continue;
           }
 
@@ -6690,6 +6807,7 @@ async function deleteEditedEntry() {
             state.projects = state.projects.filter(item => item.id !== project.id);
             rebuildDerivedState();
             result.errors.push(`${row.name}: ${saveResult.error?.message || "kunne ikke lagre"}`);
+            setProjectImportRowResult(row.id, "error", "Feil", saveResult.error?.message || "Kunne ikke lagre");
             continue;
           }
 
@@ -6698,6 +6816,7 @@ async function deleteEditedEntry() {
           const projectCode = extractProjectImportCode(project.name);
           if (projectCode) existingMaps.byCode.set(projectCode, project);
           result.created.push(row.name);
+          setProjectImportRowResult(row.id, "created", "Opprettet", "Nytt prosjekt opprettet");
           continue;
         }
 
@@ -6705,18 +6824,21 @@ async function deleteEditedEntry() {
           const target = existing || state.projects.find(project => project.id === row.existingProjectId);
           if (!target) {
             result.skipped.push(`${row.name}: fant ikke eksisterende prosjekt for datooppdatering`);
+            setProjectImportRowResult(row.id, "skipped", "Hoppet over", "Fant ikke eksisterende prosjekt");
             continue;
           }
 
           const updated = updateExistingProjectDatesFromImportRow(target, row);
           if (!updated) {
             result.skipped.push(`${row.name}: kunne ikke bygge datooppdatering`);
+            setProjectImportRowResult(row.id, "skipped", "Hoppet over", "Kunne ikke bygge datooppdatering");
             continue;
           }
 
           const index = state.projects.findIndex(project => project.id === target.id);
           if (index === -1) {
             result.skipped.push(`${row.name}: prosjekt ikke funnet i state`);
+            setProjectImportRowResult(row.id, "skipped", "Hoppet over", "Prosjekt ikke funnet i state");
             continue;
           }
 
@@ -6733,18 +6855,38 @@ async function deleteEditedEntry() {
             state.projects = normalizeProjects(state.projects);
             rebuildDerivedState();
             result.errors.push(`${row.name}: ${saveResult.error?.message || "kunne ikke oppdatere"}`);
+            setProjectImportRowResult(row.id, "error", "Feil", saveResult.error?.message || "Kunne ikke oppdatere");
             continue;
           }
 
           result.updated.push(row.name);
+          setProjectImportRowResult(row.id, "updated", "Oppdatert", "Datoer oppdatert");
           continue;
         }
 
         result.skipped.push(`${row.name}: ikke håndtert status ${row.statusKey}`);
+        setProjectImportRowResult(row.id, "skipped", "Hoppet over", `Ikke håndtert status ${row.statusKey}`);
       } catch (error) {
         result.errors.push(`${row.name}: ${error?.message || error}`);
+        setProjectImportRowResult(row.id, "error", "Feil", error?.message || String(error));
       }
     }
+
+    for (const row of plan.skippedRows) {
+      setProjectImportRowResult(row.id, "skipped", "Hoppet over", "Skip/ikke klar ble ikke importert");
+    }
+
+    const latestPreview = getProjectImportPreviewState();
+    state.projectImportPreview = {
+      ...latestPreview,
+      lastImportSummary: {
+        created: result.created.length,
+        updated: result.updated.length,
+        skipped: result.skipped.length + plan.skippedRows.length,
+        errors: result.errors.length
+      }
+    };
+    clearSuccessfulProjectImportSelections();
 
     state.projects = normalizeProjects(state.projects);
     state.projects.sort((a, b) => compareProjectDates(a, b));
@@ -6755,7 +6897,7 @@ async function deleteEditedEntry() {
       "Import fullført.",
       `Opprettet: ${result.created.length}`,
       `Oppdatert: ${result.updated.length}`,
-      `Hoppet over: ${result.skipped.length}`,
+      `Hoppet over: ${result.skipped.length + plan.skippedRows.length}`,
       `Feil: ${result.errors.length}`
     ].join("\\n");
 
@@ -6770,10 +6912,12 @@ async function deleteEditedEntry() {
 
     const resultEl = document.getElementById("projectImportTestResult");
     if (resultEl) {
-      resultEl.textContent = `Import fullført: opprettet ${result.created.length}, oppdatert ${result.updated.length}, hoppet over ${result.skipped.length}, feil ${result.errors.length}.`;
+      resultEl.textContent = `Import fullført: opprettet ${result.created.length}, oppdatert ${result.updated.length}, hoppet over ${result.skipped.length + plan.skippedRows.length}, feil ${result.errors.length}.`;
     }
 
-    void addAudit(`CSV safe import: opprettet ${result.created.length}, oppdatert ${result.updated.length}, hoppet over ${result.skipped.length}, feil ${result.errors.length}`);
+    renderProjectImportInlineCards();
+
+    void addAudit(`CSV safe import: opprettet ${result.created.length}, oppdatert ${result.updated.length}, hoppet over ${result.skipped.length + plan.skippedRows.length}, feil ${result.errors.length}`);
   }
 
   function renderProjectImportInlineSummaryCards(counts = {}) {

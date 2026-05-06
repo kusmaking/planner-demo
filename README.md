@@ -1,79 +1,79 @@
 # Izomax Personalplanlegger – Sandbox changelog
 
 ## Versjon
-v18.39b-clean-project-search-and-phase-filter-safe
+v18.40a-import-selection-summary-and-row-status-safe
 
 ## Base
-Bygger fra:
-- v18.39a-project-responsible-customer-fields-safe
+Bygger fra låst base:
+- Locked-v18.39b-clean-project-search-and-phase-filter-safe
 
 ## Formål
-Ren videreføring fra stabil v18.39a, uten å bygge videre på de forkastede søkefixene v18.39b/c/d.
+Gjør CSV-import tryggere og tydeligere før og etter import.
 
-Denne versjonen gjør to ting:
-1. Legger inn ren prosjekt-søkeflyt.
-2. Endrer prosjekt-dropdown fra kategori-filter til fasefilter.
+Problemet som løses:
+- Det var vanskelig å se hvor mange prosjekter som var huket av før import.
+- Valgte rader kunne ligge skjult i forskjellige filtre.
+- Etter import kunne det se ut som prosjektet fortsatt ikke var importert, fordi raden lå igjen i listen uten tydelig status.
 
 ## Endret
 
-### Prosjekt-søk
-Når du står i Prosjektplan:
-- søk kan finne prosjekt på prosjektnavn
-- IZO-kode
-- Kunde
-- Prosjektleder
-- status/kategori
+### Valgt for import-oppsummering
+Over arbeidslisten vises nå en egen boks:
 
-Hvis prosjektet ligger utenfor synlig periode:
-- kalenderen hopper til prosjektets periode
-- perioden du stod i før søket lagres
+- Valgt for import: X
+- Create: X
+- Workshop-only: X
+- Update dates only: X
+- Skip/ikke klar: X
+- Liste med inntil 8 valgte prosjekter
+- Tekst hvis flere er valgt
 
-Når søket tømmes:
-- søket nullstilles
-- prosjektfokus/panel/spotlight nullstilles
-- kalenderen hopper tilbake til perioden du stod i før søket
-- alle prosjekter vises igjen for valgt filter
+Dette gjør at brukeren kan kontrollere valgene før import.
 
-### Søkefelt
-Søkefeltet er satt til type search og statisk placeholder-key er fjernet fra HTML for å unngå konflikt med Prosjektplan/Ansattplan-modus.
+### Etter import
+Etter import settes status per rad i arbeidslisten:
 
-### Fasefilter i Prosjektplan
-Dropdownen er endret fra kategori-filter til fasefilter:
+- Opprettet
+- Oppdatert
+- Hoppet over
+- Feil
 
-- Alle prosjektfaser
-- Feltperiode
-- Workshop / mobilisering
-- Workshop-only
+### Valgte rader etter import
+Vellykket importerte rader:
+- fjernes automatisk fra valgt-listen
+- checkbox deaktiveres i preview
+- får grønn/tydelig importstatus
 
-Dette endrer kun visning/filter i Prosjektplan. Det endrer ikke prosjektdata.
+Dette reduserer risikoen for at samme rad importeres igjen ved et uhell.
 
-### Fasefilterlogikk
-- Feltperiode viser bare feltperioder/røde blokker.
-- Workshop / mobilisering viser bare workshop/grønne blokker.
-- Workshop-only viser kun prosjekter som har workshopfase, men ingen feltperiode.
-- Alle prosjektfaser viser begge faser som før.
+### Siste importstatus
+Over arbeidslisten vises siste importoppsummering:
+
+- Opprettet
+- Oppdatert
+- Hoppet over
+- Feil
 
 ## Ikke endret
+
 - Supabase schema
 - RLS
 - data.js
-- importlogikk
-- prosjektdata
-- Prosjektleder/Kunde-felt
+- importregler
+- maks 10 handlingsbare rader
+- default deselect
 - IZO-duplikatsikring
+- Prosjektleder/Kunde-felt
+- Prosjektplan
 - Ansattplan
 - bemanning
-- drag/resize
 
 ## Test
-1. Gå til Prosjektplan.
-2. Test dropdown:
-   - Alle prosjektfaser
-   - Feltperiode
-   - Workshop / mobilisering
-   - Workshop-only
-3. Søk på en prosjektleder eller IZO-kode som ligger utenfor perioden.
-4. Bekreft at kalenderen hopper til prosjektperioden.
-5. Tøm søket.
-6. Bekreft at kalenderen går tilbake til perioden du stod i før søket.
-7. Bekreft at alle prosjekter vises igjen uten refresh.
+
+1. Last opp CSV.
+2. Huk av prosjekter fra flere filtre/kategorier.
+3. Bekreft at boksen "Valgt for import" viser riktig total og riktig fordeling.
+4. Importer 1–3 rader først.
+5. Bekreft at importerte rader får status Opprettet/Oppdatert.
+6. Bekreft at vellykket importerte rader ikke lenger er huket av.
+7. Bekreft at Siste importstatus viser riktig tall.
