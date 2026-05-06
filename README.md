@@ -1,62 +1,79 @@
 # Izomax Personalplanlegger – Sandbox changelog
 
 ## Versjon
-v18.39a-project-responsible-customer-fields-safe
+v18.39b-clean-project-search-and-phase-filter-safe
 
 ## Base
 Bygger fra:
-- v18.38e-import-notes-project-responsible-only-safe
-
-## Forutsetning i Supabase
-Feltet er lagt til i public.planner_projects:
-
-project_responsible text null
+- v18.39a-project-responsible-customer-fields-safe
 
 ## Formål
-Legger Prosjektleder og Kunde inn som tydelige prosjektfelt.
+Ren videreføring fra stabil v18.39a, uten å bygge videre på de forkastede søkefixene v18.39b/c/d.
+
+Denne versjonen gjør to ting:
+1. Legger inn ren prosjekt-søkeflyt.
+2. Endrer prosjekt-dropdown fra kategori-filter til fasefilter.
 
 ## Endret
 
-### Prosjektmodal
-- Obsolete Feltoppdrag-dropdown er skjult/fjernet fra brukerflyten.
-- Nytt felt: Prosjektleder.
-- Feltet Lokasjon/feltoppdrag er endret til Kunde.
-- Prosjektkategori settes fortsatt fast til Offshore/Feltoppdrag internt.
-
-### Prosjektkort / Prosjektoversikt
-Prosjektkortet viser nå:
-- Prosjektleder
+### Prosjekt-søk
+Når du står i Prosjektplan:
+- søk kan finne prosjekt på prosjektnavn
+- IZO-kode
 - Kunde
+- Prosjektleder
+- status/kategori
 
-### Supabase / prosjektdata
-Appen leser og lagrer:
-- project_responsible
+Hvis prosjektet ligger utenfor synlig periode:
+- kalenderen hopper til prosjektets periode
+- perioden du stod i før søket lagres
 
-### CSV-import
-For nye prosjekter:
-- Project Responsible fra CSV settes til project_responsible.
-- Company fra CSV settes fortsatt til Kunde/location.
+Når søket tømmes:
+- søket nullstilles
+- prosjektfokus/panel/spotlight nullstilles
+- kalenderen hopper tilbake til perioden du stod i før søket
+- alle prosjekter vises igjen for valgt filter
 
-For eksisterende prosjekter:
-- Import med Update dates only oppdaterer fortsatt kun datoer.
-- Project Responsible og Kunde overskrives ikke på eksisterende prosjekter.
+### Søkefelt
+Søkefeltet er satt til type search og statisk placeholder-key er fjernet fra HTML for å unngå konflikt med Prosjektplan/Ansattplan-modus.
+
+### Fasefilter i Prosjektplan
+Dropdownen er endret fra kategori-filter til fasefilter:
+
+- Alle prosjektfaser
+- Feltperiode
+- Workshop / mobilisering
+- Workshop-only
+
+Dette endrer kun visning/filter i Prosjektplan. Det endrer ikke prosjektdata.
+
+### Fasefilterlogikk
+- Feltperiode viser bare feltperioder/røde blokker.
+- Workshop / mobilisering viser bare workshop/grønne blokker.
+- Workshop-only viser kun prosjekter som har workshopfase, men ingen feltperiode.
+- Alle prosjektfaser viser begge faser som før.
 
 ## Ikke endret
+- Supabase schema
 - RLS
 - data.js
-- importgrense maks 10
-- default deselect
-- duplikatsikring med IZO-kode
+- importlogikk
+- prosjektdata
+- Prosjektleder/Kunde-felt
+- IZO-duplikatsikring
 - Ansattplan
-- Prosjektplan
 - bemanning
-- eksisterende prosjekters notes/Techs/Project Responsible/Kunde ved datooppdatering
+- drag/resize
 
 ## Test
-1. Åpne et eksisterende prosjekt og sjekk at Prosjektleder-feltet finnes.
-2. Legg inn Prosjektleder manuelt og lagre.
-3. Åpne prosjektet igjen og sjekk at feltet står.
-4. Last opp CSV og importer ett nytt prosjekt.
-5. Bekreft at Project Responsible fra CSV havner i Prosjektleder.
-6. Bekreft at Company fra CSV havner i Kunde.
-7. Test Update dates only og bekreft at Prosjektleder/Kunde ikke overskrives.
+1. Gå til Prosjektplan.
+2. Test dropdown:
+   - Alle prosjektfaser
+   - Feltperiode
+   - Workshop / mobilisering
+   - Workshop-only
+3. Søk på en prosjektleder eller IZO-kode som ligger utenfor perioden.
+4. Bekreft at kalenderen hopper til prosjektperioden.
+5. Tøm søket.
+6. Bekreft at kalenderen går tilbake til perioden du stod i før søket.
+7. Bekreft at alle prosjekter vises igjen uten refresh.

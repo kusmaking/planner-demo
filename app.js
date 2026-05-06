@@ -1,4 +1,5 @@
 (() => {
+  // v18.39b-clean-project-search-and-phase-filter-safe
   // v18.39a-project-responsible-customer-fields-safe
   // v18.38e-import-notes-project-responsible-only-safe
   // v18.38d-import-duplicate-match-project-code-safe
@@ -82,7 +83,8 @@
     activeTab: "home",
     calendarPanelOpen: false,
     projectListFilter: "all",
-    projectFilterCategory: "all",
+    projectPhaseFilter: "all",
+    projectSearchReturnStartDate: null,
     dashboardEmployeeFilter: "",
     dashboardEmployeeFilterLabel: "",
     projectInspectorSearch: "",
@@ -301,6 +303,7 @@
     els.searchInput.setAttribute("spellcheck", "false");
     els.searchInput.setAttribute("name", "planner_search_filter_no_autofill");
     els.searchInput.setAttribute("data-lpignore", "true");
+    els.searchInput.removeAttribute("data-ix-placeholder-key");
     els.searchInput.addEventListener("focus", () => {
       const currentSearchValue = String(els.searchInput.value || "").trim();
       if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(currentSearchValue)) {
@@ -572,13 +575,117 @@
   }
 
   function getProjectFilterOptions() {
-    const categories = Array.from(new Set(getVisibleProjects().map(project => project.category).filter(Boolean)))
-      .sort((a, b) => a.localeCompare(b, "no"));
     return [
-      { id: "all", name: window.izomaxTranslateKey?.("allProjectsCategories") || "Alle prosjekter / kategorier" },
-      ...categories.map(category => ({ id: category, name: category }))
+      { id: "all", name: "Alle prosjektfaser" },
+      { id: "field", name: "Feltperiode" },
+      { id: "workshop", name: "Workshop / mobilisering" },
+      { id: "workshopOnly", name: "Workshop-only" }
     ];
   }
+
+  function getProjectTimelinePhaseTypes(project) {
+    const periods = getProjectTimelinePeriodsWithWorkshop(project);
+    const hasField = periods.some(period => period.phase !== "workshop");
+    const hasWorkshop = periods.some(period => period.phase === "workshop");
+    return { hasField, hasWorkshop, isWorkshopOnly: hasWorkshop && !hasField };
+  }
+
+  function projectMatchesPhaseFilter(project, filter = state.projectPhaseFilter || "all") {
+    if (!filter || filter === "all") return true;
+    const phases = getProjectTimelinePhaseTypes(project);
+    if (filter === "field") return phases.hasField;
+    if (filter === "workshop") return phases.hasWorkshop;
+    if (filter === "workshopOnly") return phases.isWorkshopOnly;
+    return true;
+  }
+
+  function filterProjectPeriodsByPhase(project, periods) {
+    const filter = state.projectPhaseFilter || "all";
+    if (!filter || filter === "all") return periods;
+    if (filter === "field") return periods.filter(period => period.phase !== "workshop");
+    if (filter === "workshop" || filter === "workshopOnly") return periods.filter(period => period.phase === "workshop");
+    return periods;
+  }
+
+  function getProjectSearchableText(project) {
+    return [
+      project?.name,
+      project?.category,
+      project?.location,
+      project?.project_responsible,
+      project?.status,
+      extractProjectImportCode(project?.name || "")
+    ].filter(Boolean).join(" ").toLowerCase();
+  }
+
+  function getProjectPrimaryTimelineDate(project) {
+    const periods = getProjectTimelinePeriodsWithWorkshop(project)
+      .filter(period => period?.start && period?.end)
+      .slice()
+      .sort((a, b) => String(a.start).localeCompare(String(b.start)) || String(a.end).localeCompare(String(b.end)));
+    return periods[0]?.start || project?.planned_start_date || project?.workshop_start_date || "";
+  }
+
+  function setCalendarStartDateForTargetIso(targetIso) {
+    const targetDate = asLocalDate(targetIso);
+    if (!targetDate) return false;
+    if (state.viewMode === "Uke") state.startDate = startOfWeek(targetDate);
+    else if (state.viewMode === "År") state.startDate = new Date(targetDate.getFullYear(), 0, 1);
+    else state.startDate = new Date(targetDate.getFullYear(), targetDate.getMonth(), 1);
+    persistUiState();
+    return true;
+  }
+
+  function isDateInsideCurrentRange(targetIso) {
+    const targetDate = asLocalDate(targetIso);
+    if (!targetDate) return true;
+    const range = getCurrentRange();
+    return targetDate >= range.start && targetDate <= range.end;
+  }
+
+  function resetProjectSearchIfEmpty() {
+    if (state.calendarMode !== "project") return;
+    state.search = "";
+    if (els.searchInput) els.searchInput.value = "";
+    state.focusProjectId = "";
+    state.calendarPanelOpen = false;
+    state.projectSpotlightId = "";
+    if (state.projectSearchReturnStartDate) {
+      const returnDate = asLocalDate(state.projectSearchReturnStartDate);
+      if (returnDate) state.startDate = returnDate;
+      state.projectSearchReturnStartDate = null;
+      persistUiState();
+    }
+  }
+
+  function jumpProjectCalendarToSearchMatch() {
+    if (state.calendarMode !== "project") return;
+    const search = String(state.search || "").trim().toLowerCase();
+    if (!search) {
+      resetProjectSearchIfEmpty();
+      return;
+    }
+    if (search.length < 3) return;
+
+    const project = getVisibleProjects()
+      .slice()
+      .sort((a, b) => compareProjectDates(a, b))
+      .find(item => getProjectSearchableText(item).includes(search));
+
+    if (!project) return;
+
+    const targetIso = getProjectPrimaryTimelineDate(project);
+    if (!targetIso || isDateInsideCurrentRange(targetIso)) return;
+
+    if (!state.projectSearchReturnStartDate) {
+      state.projectSearchReturnStartDate = toIsoDate(state.startDate);
+    }
+
+    state.focusProjectId = project.id;
+    state.calendarPanelOpen = true;
+    setCalendarStartDateForTargetIso(targetIso);
+  }
+
 
   function ensureAccountPanel() {
     if (document.getElementById("accountPanel")) {
@@ -1814,7 +1921,20 @@
     });
 
     els.searchInput.addEventListener("input", e => {
-      state.search = e.target.value.trim().toLowerCase();
+      state.search = String(e.target.value || "").trim().toLowerCase();
+      if (state.calendarMode === "project") {
+        if (state.search) jumpProjectCalendarToSearchMatch();
+        else resetProjectSearchIfEmpty();
+      }
+      updateCalendarSearchControls();
+      renderStats();
+      renderCalendar();
+    });
+
+    els.searchInput.addEventListener("search", e => {
+      state.search = String(e.target.value || "").trim().toLowerCase();
+      if (state.calendarMode === "project" && !state.search) resetProjectSearchIfEmpty();
+      updateCalendarSearchControls();
       renderStats();
       renderCalendar();
     });
@@ -1883,7 +2003,7 @@
 
     if (els.projectFilterControl) {
       els.projectFilterControl.addEventListener("change", e => {
-        state.projectFilterCategory = e.target.value || "all";
+        state.projectPhaseFilter = e.target.value || "all";
         renderStats();
         renderCalendar();
       });
@@ -1904,6 +2024,7 @@
       els.calendarMode.addEventListener("change", e => {
         state.calendarMode = e.target.value;
         if (state.calendarMode !== "personal") state.projectSpotlightId = "";
+        state.projectSearchReturnStartDate = null;
         if (state.calendarMode === "personal") {
           state.projectListFilter = "all";
           state.calendarPanelOpen = false;
@@ -3317,6 +3438,7 @@
     state.calendarMode = "project";
     state.projectListFilter = filter === "unstaffed" ? "unstaffed" : "all";
     state.projectSpotlightId = "";
+    state.projectSearchReturnStartDate = null;
     state.calendarPanelOpen = false;
     state.focusProjectId = "";
     if (els.calendarMode) els.calendarMode.value = "project";
@@ -3338,6 +3460,7 @@
     state.dashboardEmployeeFilter = filterType;
     state.dashboardEmployeeFilterLabel = label || "";
     state.calendarMode = "personal";
+    state.projectSearchReturnStartDate = null;
     state.projectListFilter = "all";
     state.calendarPanelOpen = false;
     state.focusProjectId = "";
@@ -3374,12 +3497,10 @@
       : getVisibleProjects().slice();
 
     return baseProjects.filter(project => {
-      const categoryMatch = !state.projectFilterCategory || state.projectFilterCategory === "all" || project.category === state.projectFilterCategory;
+      const phaseMatch = projectMatchesPhaseFilter(project);
       const search = String(state.search || "").trim().toLowerCase();
-      const searchMatch = !search || [project.name, project.category, project.location, project.status]
-        .filter(Boolean)
-        .some(value => String(value).toLowerCase().includes(search));
-      return categoryMatch && searchMatch;
+      const searchMatch = !search || getProjectSearchableText(project).includes(search);
+      return phaseMatch && searchMatch;
     });
   }
 
@@ -4359,7 +4480,7 @@ async function deleteEditedEntry() {
 
     fillSelect(els.employeeFilter, employeeFilterItems, state.employeeFilter, "name", "id");
     if (els.projectFilterControl) {
-      fillSelect(els.projectFilterControl, getProjectFilterOptions(), state.projectFilterCategory || "all", "name", "id");
+      fillSelect(els.projectFilterControl, getProjectFilterOptions(), state.projectPhaseFilter || "all", "name", "id");
     }
     updateCalendarSearchControls();
     renderEmployeeGroupFilterControl();
@@ -7454,7 +7575,7 @@ async function deleteEditedEntry() {
       const assigned = getProjectAssignedCount(project.id);
       const required = Number(project.headcount_required || 0);
       const staffing = getProjectStaffingLabel(project.id, required);
-      const projectPeriods = getProjectTimelinePeriodsWithWorkshop(project);
+      const projectPeriods = filterProjectPeriodsByPhase(project, getProjectTimelinePeriodsWithWorkshop(project));
 
       html += `
         <button type="button" data-project-list-row-id="${escapeHtml(project.id)}" class="sticky-col project-plan-name-cell border-r border-b border-slate-200 px-3 py-1.5 text-left ${project.id === state.focusProjectId ? "bg-blue-50 ring-2 ring-blue-200" : isClosedProject(project) ? "bg-slate-100" : "bg-white"}">
@@ -7572,7 +7693,7 @@ async function deleteEditedEntry() {
 
       html += `<div style="position:relative; width:${totalWidth}px; min-height:56px;">`;
 
-      const yearPeriods = getProjectTimelinePeriodsWithWorkshop(project).filter(period => overlaps(period.start, period.end, new Date(year, 0, 1), new Date(year, 11, 31)));
+      const yearPeriods = filterProjectPeriodsByPhase(project, getProjectTimelinePeriodsWithWorkshop(project)).filter(period => overlaps(period.start, period.end, new Date(year, 0, 1), new Date(year, 11, 31)));
       for (const period of yearPeriods) {
         const start = asLocalDate(period.start);
         const end = asLocalDate(period.end);
@@ -8469,7 +8590,7 @@ function getDashboardAnalysisRange() {
   }
 
   function projectOverlapsRange(project, rangeStart, rangeEnd) {
-    const periods = getProjectTimelinePeriodsWithWorkshop(project);
+    const periods = filterProjectPeriodsByPhase(project, getProjectTimelinePeriodsWithWorkshop(project));
     if (!periods.length) return false;
     return periods.some(period => overlaps(period.start, period.end, rangeStart, rangeEnd));
   }
