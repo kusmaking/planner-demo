@@ -1,48 +1,62 @@
 # Izomax Personalplanlegger – Sandbox changelog
 
 ## Versjon
-v18.39d-project-search-mode-and-clear-hard-reset-safe
+v18.39a-project-responsible-customer-fields-safe
 
 ## Base
 Bygger fra:
-- v18.39c-project-search-clear-reset-safe
+- v18.38e-import-notes-project-responsible-only-safe
+
+## Forutsetning i Supabase
+Feltet er lagt til i public.planner_projects:
+
+project_responsible text null
 
 ## Formål
-Fikser fortsatt bug i Prosjektplan-søk der søket kunne bli hengende etter at feltet var tømt, og søkefeltet kunne vise feil placeholder "Søk ansatt" i Prosjektplan.
+Legger Prosjektleder og Kunde inn som tydelige prosjektfelt.
 
 ## Endret
 
-### Søkefelt
-- Search input er endret til type="search".
-- Statisk oversettelses-placeholder på input er fjernet, slik at appen selv styrer "Søk prosjekt" / "Søk ansatt".
-- Når Prosjektplan rendres, tvinges søkefeltet til Prosjektmodus.
+### Prosjektmodal
+- Obsolete Feltoppdrag-dropdown er skjult/fjernet fra brukerflyten.
+- Nytt felt: Prosjektleder.
+- Feltet Lokasjon/feltoppdrag er endret til Kunde.
+- Prosjektkategori settes fortsatt fast til Offshore/Feltoppdrag internt.
 
-### Hard reset ved tomt søk
-Når søkefeltet tømmes:
-- state.search tømmes
-- prosjektfokus fjernes
-- prosjektpanel lukkes
-- prosjekt-spotlight fjernes
-- kalenderen rendres på nytt
-- alle prosjekter i valgt periode/filter vises igjen
+### Prosjektkort / Prosjektoversikt
+Prosjektkortet viser nå:
+- Prosjektleder
+- Kunde
 
-### Defensiv filtrering
-Prosjektfilteret leser faktisk input-verdi og ignorerer gammel state.search hvis inputfeltet er tomt.
+### Supabase / prosjektdata
+Appen leser og lagrer:
+- project_responsible
+
+### CSV-import
+For nye prosjekter:
+- Project Responsible fra CSV settes til project_responsible.
+- Company fra CSV settes fortsatt til Kunde/location.
+
+For eksisterende prosjekter:
+- Import med Update dates only oppdaterer fortsatt kun datoer.
+- Project Responsible og Kunde overskrives ikke på eksisterende prosjekter.
 
 ## Ikke endret
-- Supabase schema
 - RLS
 - data.js
-- importlogikk
-- prosjektdata
-- Prosjektleder/Kunde-felt
-- IZO-kode-søk
+- importgrense maks 10
+- default deselect
+- duplikatsikring med IZO-kode
 - Ansattplan
+- Prosjektplan
 - bemanning
+- eksisterende prosjekters notes/Techs/Project Responsible/Kunde ved datooppdatering
 
 ## Test
-1. Gå til Prosjektplan.
-2. Søk på prosjektleder, f.eks. Erlend.
-3. Slett hele søket.
-4. Bekreft at placeholder fortsatt er Søk prosjekt.
-5. Bekreft at alle prosjekter i perioden kommer tilbake uten refresh.
+1. Åpne et eksisterende prosjekt og sjekk at Prosjektleder-feltet finnes.
+2. Legg inn Prosjektleder manuelt og lagre.
+3. Åpne prosjektet igjen og sjekk at feltet står.
+4. Last opp CSV og importer ett nytt prosjekt.
+5. Bekreft at Project Responsible fra CSV havner i Prosjektleder.
+6. Bekreft at Company fra CSV havner i Kunde.
+7. Test Update dates only og bekreft at Prosjektleder/Kunde ikke overskrives.
