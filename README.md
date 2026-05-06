@@ -1,62 +1,52 @@
 # Izomax Personalplanlegger – Sandbox changelog
 
 ## Versjon
-v18.39a-project-responsible-customer-fields-safe
+v18.39b-project-search-jump-to-project-period-safe
 
 ## Base
 Bygger fra:
-- v18.38e-import-notes-project-responsible-only-safe
-
-## Forutsetning i Supabase
-Feltet er lagt til i public.planner_projects:
-
-project_responsible text null
+- v18.39a-project-responsible-customer-fields-safe
 
 ## Formål
-Legger Prosjektleder og Kunde inn som tydelige prosjektfelt.
+Fikser at prosjekt-søk i Prosjektplan ikke viser prosjektet hvis brukeren står i feil periode.
 
 ## Endret
 
-### Prosjektmodal
-- Obsolete Feltoppdrag-dropdown er skjult/fjernet fra brukerflyten.
-- Nytt felt: Prosjektleder.
-- Feltet Lokasjon/feltoppdrag er endret til Kunde.
-- Prosjektkategori settes fortsatt fast til Offshore/Feltoppdrag internt.
+### Prosjektplan-søk
+Når kalenderen står i Prosjektplan og brukeren søker etter et prosjekt, hopper kalenderen automatisk til prosjektets periode hvis prosjektet ligger utenfor synlig tidsperiode.
 
-### Prosjektkort / Prosjektoversikt
-Prosjektkortet viser nå:
-- Prosjektleder
+Eksempel:
+- Søk på IZO-30208
+- Hvis prosjektet finnes i oktober 2026, men kalenderen står i mai 2026, flyttes kalenderen til oktober 2026
+
+### Dato som brukes for hopp
+Systemet bruker første relevante prosjektperiode:
+1. Workshop-periode hvis den er tidligst
+2. Feltperiode
+3. Planlagt start
+4. Workshop start
+
+### Søket inkluderer nå
+- Project Name
+- Project Code, f.eks. IZO-30208
 - Kunde
-
-### Supabase / prosjektdata
-Appen leser og lagrer:
-- project_responsible
-
-### CSV-import
-For nye prosjekter:
-- Project Responsible fra CSV settes til project_responsible.
-- Company fra CSV settes fortsatt til Kunde/location.
-
-For eksisterende prosjekter:
-- Import med Update dates only oppdaterer fortsatt kun datoer.
-- Project Responsible og Kunde overskrives ikke på eksisterende prosjekter.
+- Prosjektleder
+- Status
+- Kategori
 
 ## Ikke endret
+- Supabase schema
 - RLS
 - data.js
-- importgrense maks 10
-- default deselect
-- duplikatsikring med IZO-kode
+- importlogikk
 - Ansattplan
-- Prosjektplan
 - bemanning
-- eksisterende prosjekters notes/Techs/Project Responsible/Kunde ved datooppdatering
+- prosjektdata
+- drag/resize
 
 ## Test
-1. Åpne et eksisterende prosjekt og sjekk at Prosjektleder-feltet finnes.
-2. Legg inn Prosjektleder manuelt og lagre.
-3. Åpne prosjektet igjen og sjekk at feltet står.
-4. Last opp CSV og importer ett nytt prosjekt.
-5. Bekreft at Project Responsible fra CSV havner i Prosjektleder.
-6. Bekreft at Company fra CSV havner i Kunde.
-7. Test Update dates only og bekreft at Prosjektleder/Kunde ikke overskrives.
+1. Gå til Prosjektplan.
+2. Sett kalenderen til en periode der et kjent prosjekt ikke vises.
+3. Søk på IZO-koden.
+4. Bekreft at kalenderen hopper til perioden der prosjektet finnes.
+5. Bekreft at prosjektet vises i listen.

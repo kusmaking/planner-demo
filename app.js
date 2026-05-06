@@ -1,4 +1,5 @@
 (() => {
+  // v18.39b-project-search-jump-to-project-period-safe
   // v18.39a-project-responsible-customer-fields-safe
   // v18.38e-import-notes-project-responsible-only-safe
   // v18.38d-import-duplicate-match-project-code-safe
@@ -1815,6 +1816,7 @@
 
     els.searchInput.addEventListener("input", e => {
       state.search = e.target.value.trim().toLowerCase();
+      jumpProjectCalendarToSearchMatch();
       renderStats();
       renderCalendar();
     });
@@ -3368,6 +3370,70 @@
     renderCalendar();
   }
 
+
+  function getProjectSearchableText(project) {
+    return [
+      project?.name,
+      project?.category,
+      project?.location,
+      project?.project_responsible,
+      project?.status,
+      extractProjectImportCode(project?.name || "")
+    ].filter(Boolean).join(" ").toLowerCase();
+  }
+
+  function getProjectPrimaryTimelineDate(project) {
+    const periods = getProjectTimelinePeriodsWithWorkshop(project)
+      .filter(period => period?.start && period?.end)
+      .slice()
+      .sort((a, b) => String(a.start).localeCompare(String(b.start)) || String(a.end).localeCompare(String(b.end)));
+
+    return periods[0]?.start || project?.planned_start_date || project?.workshop_start_date || "";
+  }
+
+  function setCalendarStartDateForTargetIso(targetIso) {
+    const targetDate = asLocalDate(targetIso);
+    if (!targetDate) return false;
+
+    if (state.viewMode === "Uke") {
+      state.startDate = startOfWeek(targetDate);
+    } else if (state.viewMode === "År") {
+      state.startDate = new Date(targetDate.getFullYear(), 0, 1);
+    } else {
+      state.startDate = new Date(targetDate.getFullYear(), targetDate.getMonth(), 1);
+    }
+
+    persistUiState();
+    return true;
+  }
+
+  function isDateInsideCurrentRange(targetIso) {
+    const targetDate = asLocalDate(targetIso);
+    if (!targetDate) return true;
+    const range = getCurrentRange();
+    return targetDate >= range.start && targetDate <= range.end;
+  }
+
+  function jumpProjectCalendarToSearchMatch() {
+    if (state.calendarMode !== "project") return;
+    const search = String(state.search || "").trim().toLowerCase();
+    if (search.length < 3) return;
+
+    const project = getVisibleProjects()
+      .slice()
+      .sort((a, b) => compareProjectDates(a, b))
+      .find(item => getProjectSearchableText(item).includes(search));
+
+    if (!project) return;
+
+    const targetIso = getProjectPrimaryTimelineDate(project);
+    if (!targetIso || isDateInsideCurrentRange(targetIso)) return;
+
+    state.focusProjectId = project.id;
+    state.calendarPanelOpen = true;
+    setCalendarStartDateForTargetIso(targetIso);
+  }
+
   function getProjectCalendarItems() {
     const baseProjects = state.projectListFilter === "unstaffed"
       ? getUnstaffedProjectsForCurrentCalendarRange()
@@ -3376,9 +3442,7 @@
     return baseProjects.filter(project => {
       const categoryMatch = !state.projectFilterCategory || state.projectFilterCategory === "all" || project.category === state.projectFilterCategory;
       const search = String(state.search || "").trim().toLowerCase();
-      const searchMatch = !search || [project.name, project.category, project.location, project.status]
-        .filter(Boolean)
-        .some(value => String(value).toLowerCase().includes(search));
+      const searchMatch = !search || getProjectSearchableText(project).includes(search);
       return categoryMatch && searchMatch;
     });
   }
