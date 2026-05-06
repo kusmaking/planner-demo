@@ -1,39 +1,44 @@
 # Izomax Personalplanlegger – Sandbox changelog
 
 ## Versjon
-v18.40b-import-workshop-only-no-change-detection-safe
+v18.40c-import-workshop-date-only-create-safe
 
 ## Base
 Bygger fra:
-- v18.40a-import-selection-summary-and-row-status-safe
+- v18.40b-import-workshop-only-no-change-detection-safe
 
 ## Formål
-Fikser preview/analyse for eksisterende Fleet/workshop-only-prosjekter.
+Gjør importanalysen bedre for prosjekter som kun har WS start/stop og ingen Operation start/stop.
 
-Problemet:
-- Fleet-prosjekter uten Operation start/stop, men med WS start/stop, ble vist som Datooppdatering hver gang CSV ble lastet opp på nytt.
-- Dette skjedde selv når WS-datoene allerede var oppdatert i planner.
+Tidligere måtte prosjektet i praksis identifiseres som Fleet/workshop-only for å bli klar. Det er for snevert, fordi noen prosjekter kan være rene workshop-prosjekter uten at navnet inneholder Fleet.
 
 ## Endret
 
-### Workshop-only / Fleet no-change detection
-For eksisterende Fleet/workshop-only-prosjekter sjekker systemet nå:
+### Ny workshop-only-regel
+Hvis en CSV-rad:
+- har Project Name
+- mangler Operation start/stop
+- har WS start/stop
 
-- WS start
-- WS stop
-- workshop_enabled
+så klassifiseres den som:
+- Workshop-only hvis prosjektet ikke finnes fra før
+- Datooppdatering hvis eksisterende WS-datoer er annerledes
+- Ingen endring hvis eksisterende WS-datoer matcher planner
 
-Regel:
-- Hvis WS start/stop matcher planner: Ingen endring
-- Hvis WS start/stop avviker: Datooppdatering
+Dette gjelder uavhengig av om prosjektnavnet inneholder Fleet.
+
+### Senere feltperiode
+Hvis samme prosjekt senere får Operation start/stop i CSV:
+- samme IZO-kode matches
+- eksisterende prosjekt oppdateres med feltperiode
+- det opprettes ikke duplikat
 
 ## Ikke endret
 
 - Supabase schema
 - RLS
 - data.js
-- importregler
-- maks 10 handlingsbare rader
+- importgrense maks 10
 - default deselect
 - import selection summary
 - row import status
@@ -46,6 +51,9 @@ Regel:
 ## Test
 
 1. Last opp CSV.
-2. Finn Fleet/workshop-only-prosjektene som allerede er oppdatert.
-3. Bekreft at de vises som Ingen endring når WS start/stop er lik planner.
-4. Endre eventuelt WS-dato i CSV/preview og bekreft at de da vises som Datooppdatering.
+2. Finn et prosjekt som kun har WS start/stop og ingen Operation start/stop.
+3. Bekreft at det vises som Workshop-only hvis det ikke finnes fra før.
+4. Importer ett slikt prosjekt.
+5. Last opp CSV på nytt.
+6. Bekreft at prosjektet vises som Ingen endring hvis WS-datoene matcher.
+7. Hvis prosjektet senere får Operation start/stop, bekreft at det vises som Datooppdatering og ikke nytt prosjekt.

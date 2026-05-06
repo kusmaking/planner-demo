@@ -1,4 +1,5 @@
 (() => {
+  // v18.40c-import-workshop-date-only-create-safe
   // v18.40b-import-workshop-only-no-change-detection-safe
   // v18.40a-import-selection-summary-and-row-status-safe
   // v18.39b-clean-project-search-and-phase-filter-safe
@@ -6521,14 +6522,13 @@ async function deleteEditedEntry() {
     const hasWorkshopDates = Boolean(wsStart && wsStop);
     const hasAnyDate = Boolean(operationStart || operationStop || wsStart || wsStop);
     const hasValidTechs = techsRaw !== "" && Number.isFinite(techsNumber);
-    const isFleet = isProjectImportFleetRow(row);
 
     if (!name) return "notReady";
     if (!hasAnyDate && !hasValidTechs) return "notReady";
     if ((wsStart || wsStop) && (!wsStart || !wsStop || wsStart > wsStop)) return "workshopDateError";
 
     if (!hasOperationDates) {
-      if (isFleet && hasWorkshopDates && hasValidTechs) {
+      if (hasWorkshopDates) {
         if (!existing) return "workshopOnly";
 
         const existingWorkshopEnabled = existing.workshop_enabled !== false && Boolean(existing.workshop_start_date || existing.workshop_end_date);
@@ -6565,10 +6565,10 @@ async function deleteEditedEntry() {
   function getProjectImportWorklistComment(statusKey, existing = null, matchType = "") {
     const comments = {
       readyNew: "Nytt feltprosjekt. Techs brukes kun ved opprettelse.",
-      workshopOnly: "Nytt workshop-only/Fleet-prosjekt. Ingen rød feltperiode.",
+      workshopOnly: "Nytt workshop-only-prosjekt basert på WS start/stop. Ingen rød feltperiode.",
       dateUpdate: "Eksisterende prosjekt. Kun datoer skal kunne oppdateres senere.",
       noChange: "Finnes allerede med samme datoer. Ingen import nødvendig.",
-      missingOperationDate: "Mangler Operation start/stop og er ikke gyldig workshop-only.",
+      missingOperationDate: "Mangler Operation start/stop og WS start/stop.",
       missingHeadcount: "Mangler Techs needed for nytt prosjekt.",
       workshopDateError: "Workshopdato mangler eller WS start er etter WS stop.",
       notReady: "Raden er ikke klar for import."
@@ -6765,12 +6765,12 @@ async function deleteEditedEntry() {
       "",
       "Du er i ferd med å:",
       `- opprette ${plan.createRows.length} nye feltprosjekter`,
-      `- opprette ${plan.workshopRows.length} workshop-only/Fleet-prosjekter`,
+      `- opprette ${plan.workshopRows.length} workshop-only-prosjekter`,
       `- oppdatere datoer på ${plan.updateRows.length} eksisterende prosjekter`,
       `- ignorere ${plan.skippedRows.length} valgte Skip/ikke-klare rader`,
       "",
       createNames.length ? `Nye feltprosjekter:\\n- ${createNames.join("\\n- ")}` : "",
-      workshopNames.length ? `Workshop-only/Fleet:\\n- ${workshopNames.join("\\n- ")}` : "",
+      workshopNames.length ? `Workshop-only:\\n- ${workshopNames.join("\\n- ")}` : "",
       updateNames.length ? `Datooppdateringer:\\n- ${updateNames.join("\\n- ")}` : "",
       "",
       "Sikkerhetsregler:",
