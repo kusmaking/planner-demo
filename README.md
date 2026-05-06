@@ -1,58 +1,31 @@
 # Izomax Personalplanlegger – Sandbox changelog
 
 ## Versjon
-v18.40a-import-selection-summary-and-row-status-safe
+v18.40b-import-workshop-only-no-change-detection-safe
 
 ## Base
-Bygger fra låst base:
-- Locked-v18.39b-clean-project-search-and-phase-filter-safe
+Bygger fra:
+- v18.40a-import-selection-summary-and-row-status-safe
 
 ## Formål
-Gjør CSV-import tryggere og tydeligere før og etter import.
+Fikser preview/analyse for eksisterende Fleet/workshop-only-prosjekter.
 
-Problemet som løses:
-- Det var vanskelig å se hvor mange prosjekter som var huket av før import.
-- Valgte rader kunne ligge skjult i forskjellige filtre.
-- Etter import kunne det se ut som prosjektet fortsatt ikke var importert, fordi raden lå igjen i listen uten tydelig status.
+Problemet:
+- Fleet-prosjekter uten Operation start/stop, men med WS start/stop, ble vist som Datooppdatering hver gang CSV ble lastet opp på nytt.
+- Dette skjedde selv når WS-datoene allerede var oppdatert i planner.
 
 ## Endret
 
-### Valgt for import-oppsummering
-Over arbeidslisten vises nå en egen boks:
+### Workshop-only / Fleet no-change detection
+For eksisterende Fleet/workshop-only-prosjekter sjekker systemet nå:
 
-- Valgt for import: X
-- Create: X
-- Workshop-only: X
-- Update dates only: X
-- Skip/ikke klar: X
-- Liste med inntil 8 valgte prosjekter
-- Tekst hvis flere er valgt
+- WS start
+- WS stop
+- workshop_enabled
 
-Dette gjør at brukeren kan kontrollere valgene før import.
-
-### Etter import
-Etter import settes status per rad i arbeidslisten:
-
-- Opprettet
-- Oppdatert
-- Hoppet over
-- Feil
-
-### Valgte rader etter import
-Vellykket importerte rader:
-- fjernes automatisk fra valgt-listen
-- checkbox deaktiveres i preview
-- får grønn/tydelig importstatus
-
-Dette reduserer risikoen for at samme rad importeres igjen ved et uhell.
-
-### Siste importstatus
-Over arbeidslisten vises siste importoppsummering:
-
-- Opprettet
-- Oppdatert
-- Hoppet over
-- Feil
+Regel:
+- Hvis WS start/stop matcher planner: Ingen endring
+- Hvis WS start/stop avviker: Datooppdatering
 
 ## Ikke endret
 
@@ -62,6 +35,8 @@ Over arbeidslisten vises siste importoppsummering:
 - importregler
 - maks 10 handlingsbare rader
 - default deselect
+- import selection summary
+- row import status
 - IZO-duplikatsikring
 - Prosjektleder/Kunde-felt
 - Prosjektplan
@@ -71,9 +46,6 @@ Over arbeidslisten vises siste importoppsummering:
 ## Test
 
 1. Last opp CSV.
-2. Huk av prosjekter fra flere filtre/kategorier.
-3. Bekreft at boksen "Valgt for import" viser riktig total og riktig fordeling.
-4. Importer 1–3 rader først.
-5. Bekreft at importerte rader får status Opprettet/Oppdatert.
-6. Bekreft at vellykket importerte rader ikke lenger er huket av.
-7. Bekreft at Siste importstatus viser riktig tall.
+2. Finn Fleet/workshop-only-prosjektene som allerede er oppdatert.
+3. Bekreft at de vises som Ingen endring når WS start/stop er lik planner.
+4. Endre eventuelt WS-dato i CSV/preview og bekreft at de da vises som Datooppdatering.

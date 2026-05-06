@@ -1,4 +1,5 @@
 (() => {
+  // v18.40b-import-workshop-only-no-change-detection-safe
   // v18.40a-import-selection-summary-and-row-status-safe
   // v18.39b-clean-project-search-and-phase-filter-safe
   // v18.39a-project-responsible-customer-fields-safe
@@ -6528,7 +6529,16 @@ async function deleteEditedEntry() {
 
     if (!hasOperationDates) {
       if (isFleet && hasWorkshopDates && hasValidTechs) {
-        return existing ? "dateUpdate" : "workshopOnly";
+        if (!existing) return "workshopOnly";
+
+        const existingWorkshopEnabled = existing.workshop_enabled !== false && Boolean(existing.workshop_start_date || existing.workshop_end_date);
+        const existingWsStart = String(existing.workshop_start_date || "");
+        const existingWsStop = String(existing.workshop_end_date || "");
+        const workshopChanged = !existingWorkshopEnabled
+          || existingWsStart !== String(wsStart || "")
+          || existingWsStop !== String(wsStop || "");
+
+        return workshopChanged ? "dateUpdate" : "noChange";
       }
       return "notReady";
     }
