@@ -1,4 +1,5 @@
 (() => {
+  // v18.37f-import-approval-list-preview-only-safe
   // v18.37e-keep-import-preview-state-safe
   // v18.32b-final-login-startpage-gradient-safe
   // v18.31g-sandbox-project-modal-scroll-safe
@@ -85,8 +86,10 @@
     projectImportPreview: {
       fileName: "",
       rowCount: 0,
-      counts: { total: 0, newCount: 0, existing: 0, mismatch: 0, missing: 0 },
-      examples: { newCount: [], existing: [], mismatch: [], missing: [] },
+      counts: { total: 0, readyNew: 0, noChange: 0, dateUpdate: 0, missingOperationDate: 0, missingHeadcount: 0, workshopDateError: 0, notReady: 0 },
+      examples: { readyNew: [], noChange: [], dateUpdate: [], missingOperationDate: [], missingHeadcount: [], workshopDateError: [], notReady: [] },
+      approvalRows: [],
+      selectedIds: [],
       statusText: "Ingen fil valgt."
     },
     contextMenu: {
@@ -5873,6 +5876,7 @@ async function deleteEditedEntry() {
                 ${renderProjectImportInlineSummaryCards(preview.counts)}
               </div>
               <div id="projectImportInlineDetails" class="mt-4 text-xs text-slate-500">${renderProjectImportInlineDetailsHtml(preview.examples, preview.rowCount)}</div>
+              <div id="projectImportInlineApprovalList">${renderProjectImportApprovalListHtml(preview)}</div>
             </div>
 
             <div class="rounded-2xl border border-slate-200 bg-slate-50 p-5">
@@ -5887,6 +5891,7 @@ async function deleteEditedEntry() {
     `;
 
     bindProjectImportInlineControls();
+    bindProjectImportApprovalListControls();
   }
 
 
@@ -5894,8 +5899,10 @@ async function deleteEditedEntry() {
     return {
       fileName: "",
       rowCount: 0,
-      counts: { total: 0, newCount: 0, existing: 0, mismatch: 0, missing: 0 },
-      examples: { newCount: [], existing: [], mismatch: [], missing: [] },
+      counts: { total: 0, readyNew: 0, noChange: 0, dateUpdate: 0, missingOperationDate: 0, missingHeadcount: 0, workshopDateError: 0, notReady: 0 },
+      examples: { readyNew: [], noChange: [], dateUpdate: [], missingOperationDate: [], missingHeadcount: [], workshopDateError: [], notReady: [] },
+      approvalRows: [],
+      selectedIds: [],
       statusText: "Ingen fil valgt."
     };
   }
@@ -5907,7 +5914,9 @@ async function deleteEditedEntry() {
       ...fallback,
       ...current,
       counts: { ...fallback.counts, ...(current.counts || {}) },
-      examples: { ...fallback.examples, ...(current.examples || {}) }
+      examples: { ...fallback.examples, ...(current.examples || {}) },
+      approvalRows: Array.isArray(current.approvalRows) ? current.approvalRows : [],
+      selectedIds: Array.isArray(current.selectedIds) ? current.selectedIds : []
     };
   }
 
@@ -5917,23 +5926,146 @@ async function deleteEditedEntry() {
 
   function renderProjectImportInlineDetailsHtml(examples = {}, rowCount = 0) {
     if (!rowCount) return "Ingen preview kjørt.";
-    const lines = [];
-    if (examples.newCount?.length) lines.push(`Nye eksempler: ${examples.newCount.join(", ")}`);
-    if (examples.existing?.length) lines.push(`Eksisterer: ${examples.existing.join(", ")}`);
-    if (examples.mismatch?.length) lines.push(`Datoavvik: ${examples.mismatch.join(", ")}`);
-    if (examples.missing?.length) lines.push(`Mangler dato/navn: ${examples.missing.join(", ")}`);
+    const labels = [
+      ["readyNew", "Ny – klar"],
+      ["dateUpdate", "Datooppdatering"],
+      ["noChange", "Eksisterer – ingen endring"],
+      ["missingOperationDate", "Mangler operasjonsdato"],
+      ["missingHeadcount", "Mangler ressursbehov"],
+      ["workshopDateError", "Workshop datoavvik"],
+      ["notReady", "Ikke klar"]
+    ];
+    const lines = labels
+      .filter(([key]) => examples[key]?.length)
+      .map(([key, label]) => `${label}: ${examples[key].join(", ")}`);
     return lines.length
       ? lines.map(line => `<div class="mb-1">${escapeHtml(line)}</div>`).join("")
       : "CSV lest, men ingen rader kunne klassifiseres.";
   }
 
+  function renderProjectImportApprovalListHtml(preview = getProjectImportPreviewState()) {
+    const approvalRows = Array.isArray(preview.approvalRows) ? preview.approvalRows : [];
+    const selectedIds = new Set(preview.selectedIds || []);
+    if (!preview.rowCount) {
+      return `<div class="mt-4 rounded-xl border border-dashed border-slate-300 bg-slate-50 px-3 py-3 text-xs text-slate-500">Last opp CSV for å se prosjekter som kan importeres eller oppdateres.</div>`;
+    }
+    if (!approvalRows.length) {
+      return `<div class="mt-4 rounded-xl border border-dashed border-amber-300 bg-amber-50 px-3 py-3 text-xs text-amber-800">Ingen rader er klare for import eller datooppdatering i denne previewen.</div>`;
+    }
+
+    const selectedCount = approvalRows.filter(row => selectedIds.has(row.id)).length;
+
+    return `
+      <div class="mt-5 border-t border-slate-200 pt-4">
+        <div class="flex items-center justify-between gap-3">
+          <div>
+            <div class="text-sm font-semibold text-slate-900">Klar for import / oppdatering</div>
+            <div class="text-xs text-slate-500 mt-1">${selectedCount} av ${approvalRows.length} valgt. Dette er fortsatt kun preview.</div>
+          </div>
+        </div>
+        <div class="mt-3 max-h-[360px] overflow-auto space-y-2 pr-1">
+          ${approvalRows.map(row => {
+            const checked = selectedIds.has(row.id) ? "checked" : "";
+            const statusTone = row.action === "update"
+              ? "border-blue-200 bg-blue-50 text-blue-700"
+              : "border-green-200 bg-green-50 text-green-700";
+            return `
+              <label class="block rounded-xl border border-slate-200 bg-white px-3 py-3 text-xs hover:bg-slate-50">
+                <div class="flex items-start gap-3">
+                  <input data-project-import-approval-checkbox type="checkbox" value="${escapeHtml(row.id)}" ${checked} class="mt-1" />
+                  <div class="min-w-0 flex-1">
+                    <div class="flex flex-wrap items-center gap-2">
+                      <span class="font-semibold text-slate-900 truncate">${escapeHtml(row.name)}</span>
+                      <span class="rounded-full border px-2 py-0.5 text-[11px] font-semibold ${statusTone}">${escapeHtml(row.statusLabel)}</span>
+                    </div>
+                    <div class="mt-1 text-slate-600">
+                      Operasjon: ${escapeHtml(row.operationText || "-")}
+                    </div>
+                    <div class="mt-1 text-slate-600">
+                      Workshop: ${escapeHtml(row.workshopText || "-")} • Techs: ${escapeHtml(String(row.techs || "-"))}
+                    </div>
+                    <div class="mt-1 text-slate-500">${escapeHtml(row.comment || "")}</div>
+                  </div>
+                </div>
+              </label>
+            `;
+          }).join("")}
+        </div>
+      </div>
+    `;
+  }
+
+  function bindProjectImportApprovalListControls() {
+    const wrap = document.getElementById("projectImportInlineApprovalList");
+    if (!wrap || wrap.dataset.boundProjectImportApproval) return;
+    wrap.dataset.boundProjectImportApproval = "true";
+    wrap.addEventListener("change", event => {
+      const checkbox = event.target.closest("[data-project-import-approval-checkbox]");
+      if (!checkbox) return;
+      const preview = getProjectImportPreviewState();
+      const selected = new Set(preview.selectedIds || []);
+      if (checkbox.checked) selected.add(checkbox.value);
+      else selected.delete(checkbox.value);
+      state.projectImportPreview = {
+        ...preview,
+        selectedIds: Array.from(selected)
+      };
+      const target = document.getElementById("projectImportInlineApprovalList");
+      if (target) {
+        target.innerHTML = renderProjectImportApprovalListHtml(getProjectImportPreviewState());
+        bindProjectImportApprovalListControls();
+      }
+    });
+  }
+
+  function getProjectImportStatusTone(statusKey) {
+    const tones = {
+      readyNew: "green",
+      dateUpdate: "blue",
+      noChange: "slate",
+      missingOperationDate: "amber",
+      missingHeadcount: "amber",
+      workshopDateError: "rose",
+      notReady: "rose"
+    };
+    return tones[statusKey] || "slate";
+  }
+
+  function formatImportRangeText(start, end) {
+    if (!start && !end) return "-";
+    return `${start || "?"} → ${end || "?"}`;
+  }
+
+  function buildProjectImportApprovalRow({ rowIndex, name, existing, operationStart, operationStop, wsStart, wsStop, techs, statusKey }) {
+    const isUpdate = statusKey === "dateUpdate";
+    return {
+      id: `${isUpdate ? "update" : "new"}-${rowIndex}-${name}`,
+      action: isUpdate ? "update" : "create",
+      statusKey,
+      statusLabel: isUpdate ? "Eksisterer – datooppdatering" : "Ny – klar",
+      name,
+      operationText: isUpdate && existing
+        ? `${existing.planned_start_date || "?"} / ${existing.planned_end_date || "?"} → ${operationStart || "?"} / ${operationStop || "?"}`
+        : formatImportRangeText(operationStart, operationStop),
+      workshopText: isUpdate && existing
+        ? `${existing.workshop_start_date || "-"} / ${existing.workshop_end_date || "-"} → ${wsStart || "-"} / ${wsStop || "-"}`
+        : formatImportRangeText(wsStart, wsStop),
+      techs,
+      comment: isUpdate ? "Kan senere oppdatere eksisterende prosjekt etter godkjenning." : "Kan senere opprettes som nytt prosjekt."
+    };
+  }
+
+
   function renderProjectImportInlineSummaryCards(counts = {}) {
     const cards = [
       ["Totalt", counts.total || 0],
-      ["Ny", counts.newCount || 0],
-      ["Eksisterer", counts.existing || 0],
-      ["Datoavvik", counts.mismatch || 0],
-      ["Mangler dato/navn", counts.missing || 0]
+      ["Ny – klar", counts.readyNew || 0],
+      ["Datooppdatering", counts.dateUpdate || 0],
+      ["Ingen endring", counts.noChange || 0],
+      ["Mangler dato", counts.missingOperationDate || 0],
+      ["Mangler techs", counts.missingHeadcount || 0],
+      ["WS-feil", counts.workshopDateError || 0],
+      ["Ikke klar", counts.notReady || 0]
     ];
     return cards.map(([label, value]) => `
       <div class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
@@ -6062,12 +6194,14 @@ async function deleteEditedEntry() {
     const status = document.getElementById("projectImportInlineFileStatus");
     const summary = document.getElementById("projectImportInlineSummary");
     const details = document.getElementById("projectImportInlineDetails");
+    const approvalWrap = document.getElementById("projectImportInlineApprovalList");
 
     if (!rows.length) {
       state.projectImportPreview = getDefaultProjectImportPreviewState();
       if (status) status.textContent = state.projectImportPreview.statusText;
       if (summary) summary.innerHTML = renderProjectImportInlineSummaryCards(state.projectImportPreview.counts);
       if (details) details.innerHTML = renderProjectImportInlineDetailsHtml(state.projectImportPreview.examples, state.projectImportPreview.rowCount);
+      if (approvalWrap) approvalWrap.innerHTML = renderProjectImportApprovalListHtml(state.projectImportPreview);
       return;
     }
 
@@ -6075,40 +6209,62 @@ async function deleteEditedEntry() {
       state.projects.map(project => [normalizeProjectImportInlineName(project.name), project])
     );
 
-    const counts = { total: rows.length, newCount: 0, existing: 0, mismatch: 0, missing: 0 };
-    const examples = {
-      newCount: [],
-      existing: [],
-      mismatch: [],
-      missing: []
-    };
+    const counts = { total: rows.length, readyNew: 0, noChange: 0, dateUpdate: 0, missingOperationDate: 0, missingHeadcount: 0, workshopDateError: 0, notReady: 0 };
+    const examples = { readyNew: [], noChange: [], dateUpdate: [], missingOperationDate: [], missingHeadcount: [], workshopDateError: [], notReady: [] };
+    const approvalRows = [];
 
-    rows.forEach(row => {
+    rows.forEach((row, rowIndex) => {
       const name = row["Project Name"] || row["Project"] || row["Name"] || "";
       const operationStart = parseProjectImportInlineDate(row["Operation start"]);
       const operationStop = parseProjectImportInlineDate(row["Operation stop"]);
+      const wsStartRaw = row["WS start"] || "";
+      const wsStopRaw = row["WS stop"] || "";
+      const wsStart = parseProjectImportInlineDate(wsStartRaw);
+      const wsStop = parseProjectImportInlineDate(wsStopRaw);
+      const techsRaw = String(row["Techs needed"] || row["Techs"] || "").trim();
+      const techsNumber = techsRaw === "" ? null : Number(techsRaw.replace(",", "."));
       const existing = existingByName.get(normalizeProjectImportInlineName(name));
 
-      if (!name || !operationStart || !operationStop) {
-        counts.missing += 1;
-        if (examples.missing.length < 3) examples.missing.push(name || "Uten navn");
-        return;
+      let statusKey = "readyNew";
+
+      if (!name) {
+        statusKey = "notReady";
+      } else if (!operationStart || !operationStop) {
+        statusKey = "missingOperationDate";
+      } else if (operationStart > operationStop) {
+        statusKey = "notReady";
+      } else if (techsRaw === "" || !Number.isFinite(techsNumber)) {
+        statusKey = "missingHeadcount";
+      } else if ((wsStartRaw || wsStopRaw) && (!wsStart || !wsStop || wsStart > wsStop)) {
+        statusKey = "workshopDateError";
+      } else if (existing) {
+        const operationChanged = String(existing.planned_start_date || "") !== operationStart || String(existing.planned_end_date || "") !== operationStop;
+        const existingWorkshopEnabled = existing.workshop_enabled !== false && Boolean(existing.workshop_start_date || existing.workshop_end_date);
+        const csvWorkshopEnabled = Boolean(wsStart && wsStop);
+        const workshopChanged = existingWorkshopEnabled !== csvWorkshopEnabled
+          || String(existing.workshop_start_date || "") !== String(wsStart || "")
+          || String(existing.workshop_end_date || "") !== String(wsStop || "");
+        statusKey = (operationChanged || workshopChanged) ? "dateUpdate" : "noChange";
       }
 
-      if (existing) {
-        const mismatch = String(existing.planned_start_date || "") !== operationStart || String(existing.planned_end_date || "") !== operationStop;
-        if (mismatch) {
-          counts.mismatch += 1;
-          if (examples.mismatch.length < 3) examples.mismatch.push(name);
-        } else {
-          counts.existing += 1;
-          if (examples.existing.length < 3) examples.existing.push(name);
-        }
-        return;
+      counts[statusKey] = (counts[statusKey] || 0) + 1;
+      if (examples[statusKey] && examples[statusKey].length < 5) {
+        examples[statusKey].push(name || "Uten navn");
       }
 
-      counts.newCount += 1;
-      if (examples.newCount.length < 3) examples.newCount.push(name);
+      if (statusKey === "readyNew" || statusKey === "dateUpdate") {
+        approvalRows.push(buildProjectImportApprovalRow({
+          rowIndex,
+          name,
+          existing,
+          operationStart,
+          operationStop,
+          wsStart,
+          wsStop,
+          techs: techsRaw,
+          statusKey
+        }));
+      }
     });
 
     state.projectImportPreview = {
@@ -6116,12 +6272,18 @@ async function deleteEditedEntry() {
       rowCount: rows.length,
       counts,
       examples,
+      approvalRows,
+      selectedIds: approvalRows.map(row => row.id),
       statusText: `${fileName || "CSV"} lest. ${rows.length} rader funnet. Ingen data er lagret.`
     };
 
     if (status) status.textContent = state.projectImportPreview.statusText;
     if (summary) summary.innerHTML = renderProjectImportInlineSummaryCards(counts);
     if (details) details.innerHTML = renderProjectImportInlineDetailsHtml(examples, rows.length);
+    if (approvalWrap) {
+      approvalWrap.innerHTML = renderProjectImportApprovalListHtml(state.projectImportPreview);
+      bindProjectImportApprovalListControls();
+    }
   }
 
 
