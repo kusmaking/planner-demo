@@ -1,4 +1,5 @@
 (() => {
+  // v18.38b-import-default-deselected-safe
   // v18.38a-import-selected-projects-test-mode-safe
   // v18.37j-import-workshop-only-fleet-delta-preview-safe
   // v18.37i-import-worklist-norwegian-date-input-safe
@@ -5886,7 +5887,7 @@ async function deleteEditedEntry() {
               <div class="text-sm font-semibold text-slate-900">3. Importstatus</div>
               <p class="mt-1 text-xs text-slate-600">Import/lagring bygges først etter at arbeidslisten er godkjent.</p>
               <button id="projectImportTestImportBtn" type="button" class="mt-3 w-full rounded-xl bg-slate-900 px-3 py-2 text-sm font-semibold text-white hover:bg-slate-800">Importer valgte test</button>
-              <div class="mt-2 text-xs text-slate-500">Test mode: maks 3 valgte rader. Skriver til live database.</div>
+              <div class="mt-2 text-xs text-slate-500">Test mode: maks 3 valgte rader. Ingen rader er valgt som standard. Skriver til live database.</div>
               <div id="projectImportTestResult" class="mt-3 text-xs text-slate-600"></div>
             </div>
           </div>
@@ -6115,7 +6116,7 @@ async function deleteEditedEntry() {
         <div class="flex flex-col gap-2 border-b border-slate-200 bg-slate-50 px-4 py-3 md:flex-row md:items-center md:justify-between">
           <div>
             <div class="text-sm font-semibold text-slate-900">Arbeidsliste før eventuell import</div>
-            <div class="text-xs text-slate-500 mt-1">${selectedCount} av ${worklistRows.length} valgt. Redigering her lagres ikke i systemet.</div>
+            <div class="text-xs text-slate-500 mt-1">${selectedCount} av ${worklistRows.length} valgt. Ingen rader velges automatisk.</div>
           </div>
           <div class="text-xs text-slate-500">Preview only</div>
         </div>
@@ -6265,7 +6266,8 @@ async function deleteEditedEntry() {
       if (examples[statusKey] && examples[statusKey].length < 5) {
         examples[statusKey].push(nextRow.name || "Uten navn");
       }
-      if (statusKey === "readyNew" || statusKey === "workshopOnly" || statusKey === "dateUpdate") selected.add(nextRow.id);
+      // Safety: never auto-select rows for live import.
+      // User must actively tick rows before import.
       if (statusKey === "noChange") selected.delete(nextRow.id);
       return nextRow;
     });
