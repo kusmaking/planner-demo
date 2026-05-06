@@ -2519,6 +2519,20 @@
     </section>
 
     <section id="tabAdminSection" class="grid grid-cols-1 xl:grid-cols-3 gap-4" style="display:none;">
+      <div class="xl:col-span-3 rounded-2xl bg-white border border-slate-200 shadow-sm">
+        <div class="p-4 border-b border-slate-200 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div>
+            <h2 class="font-semibold">Tilgangssøknader</h2>
+            <p class="mt-1 text-sm text-slate-500">Se og marker søknader som godkjent eller avslått. Dette oppretter ikke brukere automatisk.</p>
+          </div>
+          <div class="flex items-center gap-3">
+            <span id="accessApprovalStatus" class="text-xs text-slate-500"></span>
+            <button id="accessApprovalRefreshBtn" type="button" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm">Oppdater</button>
+          </div>
+        </div>
+        <div id="accessApprovalList" class="p-4 space-y-3 max-h-[520px] overflow-auto scrollbar-thin"></div>
+      </div>
+
       <div class="rounded-2xl bg-white border border-slate-200 shadow-sm">
         <div class="p-4 border-b border-slate-200"><h2 class="font-semibold">Kanban – prosjekter</h2></div>
         <div id="kanbanBoard" class="p-4 grid grid-cols-1 gap-4"></div>

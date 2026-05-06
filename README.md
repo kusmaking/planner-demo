@@ -1,3 +1,45 @@
+# Locked-v18.42-access-approval-v1-safe
+
+Basert på `Locked-v18.41-access-request-submit-safe`.
+
+Endring i denne pakken:
+
+- Superadmin/admin får en ny lesende/behandlende seksjon i Admin-fanen: **Tilgangssøknader**.
+- Listen henter rader fra `public.access_requests`.
+- Søknader kan markeres som `approved` eller `rejected`.
+- Ved behandling settes `reviewed_at`, `reviewed_by` og `review_note`.
+- Det opprettes ikke Supabase Auth-bruker automatisk.
+- Det endres ikke rolle i `user_profiles` automatisk.
+- Det kobles ikke ansattprofil automatisk.
+
+Ikke endret:
+
+- CSV-import
+- prosjektplan
+- bemanning/tildeling
+- eksisterende planner/admin/superadmin-flyt
+- eksisterende RLS på planner-tabeller
+- `data.js`
+
+Test:
+
+1. Logg inn som superadmin/admin.
+2. Åpne Admin-fanen.
+3. Kontroller at **Tilgangssøknader** viser pending-søknader.
+4. Trykk Godkjenn eller Avslå på en testsøknad.
+5. Kjør i Supabase:
+
+```sql
+select full_name, email, requested_access, status, reviewed_at, reviewed_by, review_note
+from public.access_requests
+order by created_at desc
+limit 10;
+```
+
+Forventet: status er oppdatert, men ingen bruker/rolle/ansatt er opprettet automatisk.
+
+---
+
 # Izomax Personalplanlegger – Sandbox changelog
 
 ## Versjon

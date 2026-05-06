@@ -1,4 +1,5 @@
 (() => {
+  // v18.42-access-approval-v1-safe
   // v18.41-access-request-v1-safe
   // v18.40c-import-workshop-date-only-create-safe
   // v18.40b-import-workshop-only-no-change-detection-safe
@@ -30,6 +31,7 @@
     notificationLog: [],
     currentUser: "Ikke innlogget",
     currentUserEmail: "",
+    currentUserId: "",
     currentRole: "",
     authReady: false,
     employeePortalSelectedProjectId: "",
@@ -123,6 +125,12 @@
       available: [],
       unavailable: [],
       summary: null
+    },
+    accessRequests: {
+      rows: [],
+      loading: false,
+      error: "",
+      lastLoadedAt: ""
     }
   };
 
@@ -296,7 +304,7 @@
       "newEmployeeBtn", "employeeModal", "employeeModalTitle", "closeEmployeeModalBtn",
       "employeeName", "employeeEmail", "employeePhone", "employeeTitle", "employeeGroup", "employeeActive", "saveEmployeeBtn", "deleteEmployeeBtn",
       "calendarContextMenu", "contextMenuEmployee", "contextMenuStart", "contextMenuEnd", "contextMenuType", "contextMenuNotes", "contextMenuAddBtn", "contextMenuCloseBtn",
-      "employeePortalShell", "employeePortalContent", "employeePortalTopInitials", "employeePortalTopName", "employeePortalLogoutBtn", "plannerStartPage", "plannerAppShell", "startLoginEmail", "startLoginPassword", "startLoginSubmitBtn", "startForgotPasswordBtn", "startAccessHelpBtn", "startLoginError", "accessRequestModal", "accessRequestCloseBtn", "accessRequestCancelBtn", "accessRequestSubmitBtn", "accessRequestName", "accessRequestEmail", "accessRequestPhone", "accessRequestType", "accessRequestMessage", "accessRequestFeedback", "accountPanel", "accountUserInfo", "changePasswordBtn", "resetPasswordBtn", "logoutBtn", "loginBtn", "loginModal", "closeLoginModalBtn", "loginEmail", "loginPassword", "loginSubmitBtn", "forgotPasswordBtn"
+      "employeePortalShell", "employeePortalContent", "employeePortalTopInitials", "employeePortalTopName", "employeePortalLogoutBtn", "plannerStartPage", "plannerAppShell", "startLoginEmail", "startLoginPassword", "startLoginSubmitBtn", "startForgotPasswordBtn", "startAccessHelpBtn", "startLoginError", "accessRequestModal", "accessRequestCloseBtn", "accessRequestCancelBtn", "accessRequestSubmitBtn", "accessRequestName", "accessRequestEmail", "accessRequestPhone", "accessRequestType", "accessRequestMessage", "accessRequestFeedback", "accessApprovalList", "accessApprovalRefreshBtn", "accessApprovalStatus", "accountPanel", "accountUserInfo", "changePasswordBtn", "resetPasswordBtn", "logoutBtn", "loginBtn", "loginModal", "closeLoginModalBtn", "loginEmail", "loginPassword", "loginSubmitBtn", "forgotPasswordBtn"
     ];
 
     ids.forEach(id => els[id] = document.getElementById(id));
@@ -1038,6 +1046,7 @@
 
       const user = userData?.user || null;
       state.currentUserEmail = user?.email || "";
+      state.currentUserId = user?.id || "";
       state.currentUser = user?.user_metadata?.full_name || user?.email || "Ikke innlogget";
       state.currentRole = "";
 
@@ -1072,6 +1081,14 @@
 
   function isSuperadmin() {
     return normalizeRoleValue(state.currentRole) === "superadmin";
+  }
+
+  function isAdminUser() {
+    return normalizeRoleValue(state.currentRole) === "admin";
+  }
+
+  function canApproveAccessRequests() {
+    return isSuperadmin() || isAdminUser();
   }
 
   function isPlanner() {
@@ -1601,6 +1618,7 @@
 
       state.currentUser = "Ikke innlogget";
       state.currentUserEmail = "";
+      state.currentUserId = "";
       state.currentRole = "";
       closeLoginModal();
       if (els.loginEmail) els.loginEmail.value = "";
@@ -1786,6 +1804,168 @@
         els.accessRequestSubmitBtn.disabled = false;
         els.accessRequestSubmitBtn.textContent = "Send søknad";
       }
+    }
+  }
+
+  function formatAccessRequestDate(value) {
+    if (!value) return "-";
+    try {
+      return new Intl.DateTimeFormat("no-NO", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit"
+      }).format(new Date(value));
+    } catch (_) {
+      return String(value || "-");
+    }
+  }
+
+  function formatAccessRequestStatus(status) {
+    const normalized = String(status || "pending").toLowerCase();
+    if (normalized === "approved") return "Godkjent";
+    if (normalized === "rejected") return "Avslått";
+    return "Venter";
+  }
+
+  function formatRequestedAccess(value) {
+    const normalized = String(value || "").toLowerCase();
+    if (normalized === "employee") return "Ansatt / Min side";
+    if (normalized === "reader") return "Lesetilgang";
+    if (normalized === "planner") return "Planlegger";
+    if (normalized === "admin") return "Admin";
+    return value || "Ikke valgt";
+  }
+
+  async function fetchAccessRequests(options = {}) {
+    const silent = Boolean(options.silent);
+    if (!supabaseClient || !canApproveAccessRequests()) {
+      state.accessRequests.rows = [];
+      state.accessRequests.error = "";
+      return;
+    }
+
+    state.accessRequests.loading = true;
+    if (!silent) renderAccessRequests();
+
+    try {
+      const { data, error } = await supabaseClient
+        .from("access_requests")
+        .select("id, full_name, email, phone, requested_access, message, status, created_at, reviewed_at, reviewed_by, review_note")
+        .order("created_at", { ascending: false })
+        .limit(100);
+
+      if (error) throw error;
+      state.accessRequests.rows = data || [];
+      state.accessRequests.error = "";
+      state.accessRequests.lastLoadedAt = new Date().toISOString();
+    } catch (error) {
+      state.accessRequests.error = error?.message || "Kunne ikke hente tilgangssøknader.";
+    } finally {
+      state.accessRequests.loading = false;
+      renderAccessRequests();
+    }
+  }
+
+  function refreshAccessRequests() {
+    return fetchAccessRequests({ silent: false });
+  }
+
+  function getAccessRequestBadgeClass(status) {
+    const normalized = String(status || "pending").toLowerCase();
+    if (normalized === "approved") return "border-emerald-200 bg-emerald-50 text-emerald-700";
+    if (normalized === "rejected") return "border-rose-200 bg-rose-50 text-rose-700";
+    return "border-amber-200 bg-amber-50 text-amber-700";
+  }
+
+  function renderAccessRequests() {
+    if (!els.accessApprovalList) return;
+
+    const allowed = canApproveAccessRequests();
+    const card = els.accessApprovalList.closest(".rounded-2xl");
+    if (card) card.style.display = allowed ? "" : "none";
+    if (!allowed) return;
+
+    const rows = state.accessRequests.rows || [];
+    const pendingCount = rows.filter(row => String(row.status || "pending").toLowerCase() === "pending").length;
+
+    if (els.accessApprovalStatus) {
+      const loadedText = state.accessRequests.lastLoadedAt ? `Sist hentet ${formatAccessRequestDate(state.accessRequests.lastLoadedAt)}` : "Ikke hentet ennå";
+      els.accessApprovalStatus.textContent = state.accessRequests.loading ? "Henter søknader..." : `${pendingCount} ventende • ${loadedText}`;
+    }
+
+    if (state.accessRequests.loading && !rows.length) {
+      els.accessApprovalList.innerHTML = `<div class="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">Henter tilgangssøknader...</div>`;
+      return;
+    }
+
+    if (state.accessRequests.error) {
+      els.accessApprovalList.innerHTML = `<div class="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">Kunne ikke hente tilgangssøknader: ${escapeHtml(state.accessRequests.error)}</div>`;
+      return;
+    }
+
+    if (!rows.length) {
+      els.accessApprovalList.innerHTML = `<div class="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">Ingen tilgangssøknader ennå.</div>`;
+      return;
+    }
+
+    els.accessApprovalList.innerHTML = rows.map(row => {
+      const status = String(row.status || "pending").toLowerCase();
+      const isPending = status === "pending";
+      return `
+        <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+          <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+            <div class="min-w-0 space-y-1">
+              <div class="flex flex-wrap items-center gap-2">
+                <div class="font-semibold text-slate-900">${escapeHtml(row.full_name || "Uten navn")}</div>
+                <span class="rounded-full border px-2.5 py-1 text-xs font-semibold ${getAccessRequestBadgeClass(status)}">${escapeHtml(formatAccessRequestStatus(status))}</span>
+              </div>
+              <div class="text-sm text-slate-600">${escapeHtml(row.email || "Ingen e-post")}${row.phone ? ` • ${escapeHtml(row.phone)}` : ""}</div>
+              <div class="text-sm text-slate-700"><span class="font-medium">Ønsket tilgang:</span> ${escapeHtml(formatRequestedAccess(row.requested_access))}</div>
+              ${row.message ? `<div class="mt-2 rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-700">${escapeHtml(row.message)}</div>` : ""}
+              <div class="text-xs text-slate-500">Sendt ${escapeHtml(formatAccessRequestDate(row.created_at))}${row.reviewed_at ? ` • Behandlet ${escapeHtml(formatAccessRequestDate(row.reviewed_at))}` : ""}</div>
+            </div>
+            <div class="flex shrink-0 flex-wrap gap-2">
+              <button type="button" data-access-action="approved" data-access-request-id="${escapeHtml(row.id)}" class="rounded-xl bg-slate-900 px-3 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-40" ${isPending ? "" : "disabled"}>Godkjenn</button>
+              <button type="button" data-access-action="rejected" data-access-request-id="${escapeHtml(row.id)}" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 disabled:cursor-not-allowed disabled:opacity-40" ${isPending ? "" : "disabled"}>Avslå</button>
+            </div>
+          </div>
+        </div>
+      `;
+    }).join("");
+  }
+
+  async function updateAccessRequestStatus(requestId, status) {
+    const nextStatus = String(status || "").toLowerCase();
+    if (!canApproveAccessRequests()) {
+      alert("Kun superadmin/admin kan behandle tilgangssøknader.");
+      return;
+    }
+    if (!["approved", "rejected"].includes(nextStatus)) return;
+
+    const request = (state.accessRequests.rows || []).find(row => row.id === requestId);
+    const label = nextStatus === "approved" ? "godkjenne" : "avslå";
+    const name = request?.full_name || request?.email || "denne søknaden";
+    const ok = window.confirm(`Vil du ${label} tilgangssøknaden for ${name}?\n\nDette endrer kun søknadsstatus. Det oppretter ikke bruker, rolle eller ansattkobling.`);
+    if (!ok) return;
+
+    try {
+      const { error } = await supabaseClient
+        .from("access_requests")
+        .update({
+          status: nextStatus,
+          reviewed_at: new Date().toISOString(),
+          reviewed_by: state.currentUserId || null,
+          review_note: nextStatus === "approved" ? "Godkjent i access approval v1. Bruker/rolle må settes opp manuelt i neste steg." : "Avslått i access approval v1."
+        })
+        .eq("id", requestId)
+        .eq("status", "pending");
+
+      if (error) throw error;
+      await fetchAccessRequests({ silent: true });
+    } catch (error) {
+      alert(`Kunne ikke oppdatere søknad: ${error?.message || "Ukjent feil"}`);
     }
   }
 
@@ -2636,6 +2816,20 @@
       });
     }
 
+    if (els.accessApprovalRefreshBtn) {
+      els.accessApprovalRefreshBtn.addEventListener("click", () => refreshAccessRequests());
+    }
+
+    if (els.accessApprovalList) {
+      els.accessApprovalList.addEventListener("click", event => {
+        const button = event.target?.closest?.("[data-access-action]");
+        if (!button) return;
+        const requestId = button.dataset.accessRequestId || "";
+        const action = button.dataset.accessAction || "";
+        if (requestId && action) updateAccessRequestStatus(requestId, action);
+      });
+    }
+
     if (els.startLoginPassword) {
       els.startLoginPassword.addEventListener("keydown", e => {
         if (e.key === "Enter") handleStartLogin();
@@ -2725,6 +2919,7 @@
     }
 
     await fetchFromSupabase();
+    await fetchAccessRequests({ silent: true });
 
     const hasMainData = state.employees.length || state.projects.length || state.entries.length;
     if (!hasMainData) {
@@ -4864,6 +5059,7 @@ async function deleteEditedEntry() {
     renderNotifications();
     renderAudit();
     renderSystemStatus();
+    renderAccessRequests();
     updateBadge();
     updateAvailabilityAnalysis();
     applyRoleChrome();
