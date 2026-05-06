@@ -1,4 +1,5 @@
 (() => {
+  // v18.39c-project-search-clear-reset-safe
   // v18.39b-project-search-jump-to-project-period-safe
   // v18.39a-project-responsible-customer-fields-safe
   // v18.38e-import-notes-project-responsible-only-safe
@@ -1816,7 +1817,20 @@
 
     els.searchInput.addEventListener("input", e => {
       state.search = e.target.value.trim().toLowerCase();
-      jumpProjectCalendarToSearchMatch();
+
+      if (!state.search) {
+        resetProjectCalendarSearchState();
+      } else {
+        jumpProjectCalendarToSearchMatch();
+      }
+
+      renderStats();
+      renderCalendar();
+    });
+
+    els.searchInput.addEventListener("search", e => {
+      state.search = e.target.value.trim().toLowerCase();
+      if (!state.search) resetProjectCalendarSearchState();
       renderStats();
       renderCalendar();
     });
@@ -3414,9 +3428,21 @@
     return targetDate >= range.start && targetDate <= range.end;
   }
 
+
+  function resetProjectCalendarSearchState() {
+    if (state.calendarMode !== "project") return;
+    state.focusProjectId = "";
+    state.calendarPanelOpen = false;
+    state.projectSpotlightId = "";
+  }
+
   function jumpProjectCalendarToSearchMatch() {
     if (state.calendarMode !== "project") return;
     const search = String(state.search || "").trim().toLowerCase();
+    if (!search) {
+      resetProjectCalendarSearchState();
+      return;
+    }
     if (search.length < 3) return;
 
     const project = getVisibleProjects()

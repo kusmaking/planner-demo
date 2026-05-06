@@ -1,52 +1,43 @@
 # Izomax Personalplanlegger – Sandbox changelog
 
 ## Versjon
-v18.39b-project-search-jump-to-project-period-safe
+v18.39c-project-search-clear-reset-safe
 
 ## Base
 Bygger fra:
-- v18.39a-project-responsible-customer-fields-safe
+- v18.39b-project-search-jump-to-project-period-safe
 
 ## Formål
-Fikser at prosjekt-søk i Prosjektplan ikke viser prosjektet hvis brukeren står i feil periode.
+Fikser bug der prosjekt-søk ikke nullstilte visningen når søkefeltet ble tømt.
 
 ## Endret
 
 ### Prosjektplan-søk
-Når kalenderen står i Prosjektplan og brukeren søker etter et prosjekt, hopper kalenderen automatisk til prosjektets periode hvis prosjektet ligger utenfor synlig tidsperiode.
+Når søkefeltet tømmes:
+- state.search tømmes
+- prosjektfokus nullstilles
+- prosjektpanel lukkes
+- prosjekt-spotlight nullstilles
+- kalenderen rendres på nytt
+- alle prosjekter vises igjen for valgt periode/filter
 
-Eksempel:
-- Søk på IZO-30208
-- Hvis prosjektet finnes i oktober 2026, men kalenderen står i mai 2026, flyttes kalenderen til oktober 2026
-
-### Dato som brukes for hopp
-Systemet bruker første relevante prosjektperiode:
-1. Workshop-periode hvis den er tidligst
-2. Feltperiode
-3. Planlagt start
-4. Workshop start
-
-### Søket inkluderer nå
-- Project Name
-- Project Code, f.eks. IZO-30208
-- Kunde
-- Prosjektleder
-- Status
-- Kategori
+### Search-event
+Lagt til støtte for browserens search-event i tillegg til input-event. Dette hjelper spesielt når søkefelt tømmes via clear/escape.
 
 ## Ikke endret
 - Supabase schema
 - RLS
 - data.js
 - importlogikk
+- prosjektdata
+- Prosjektleder/Kunde-felt
+- IZO-kode-søk
 - Ansattplan
 - bemanning
-- prosjektdata
-- drag/resize
 
 ## Test
 1. Gå til Prosjektplan.
-2. Sett kalenderen til en periode der et kjent prosjekt ikke vises.
-3. Søk på IZO-koden.
-4. Bekreft at kalenderen hopper til perioden der prosjektet finnes.
-5. Bekreft at prosjektet vises i listen.
+2. Søk på en prosjektleder, f.eks. Erlend.
+3. Bekreft at treff vises.
+4. Tøm søkefeltet.
+5. Bekreft at alle prosjekter kommer tilbake uten refresh.
