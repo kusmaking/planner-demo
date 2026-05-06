@@ -1,4 +1,5 @@
 (() => {
+  // v18.41-access-request-v1-safe
   // v18.40c-import-workshop-date-only-create-safe
   // v18.40b-import-workshop-only-no-change-detection-safe
   // v18.40a-import-selection-summary-and-row-status-safe
@@ -295,7 +296,7 @@
       "newEmployeeBtn", "employeeModal", "employeeModalTitle", "closeEmployeeModalBtn",
       "employeeName", "employeeEmail", "employeePhone", "employeeTitle", "employeeGroup", "employeeActive", "saveEmployeeBtn", "deleteEmployeeBtn",
       "calendarContextMenu", "contextMenuEmployee", "contextMenuStart", "contextMenuEnd", "contextMenuType", "contextMenuNotes", "contextMenuAddBtn", "contextMenuCloseBtn",
-      "employeePortalShell", "employeePortalContent", "employeePortalTopInitials", "employeePortalTopName", "employeePortalLogoutBtn", "plannerStartPage", "plannerAppShell", "startLoginEmail", "startLoginPassword", "startLoginSubmitBtn", "startForgotPasswordBtn", "startAccessHelpBtn", "startLoginError", "accountPanel", "accountUserInfo", "changePasswordBtn", "resetPasswordBtn", "logoutBtn", "loginBtn", "loginModal", "closeLoginModalBtn", "loginEmail", "loginPassword", "loginSubmitBtn", "forgotPasswordBtn"
+      "employeePortalShell", "employeePortalContent", "employeePortalTopInitials", "employeePortalTopName", "employeePortalLogoutBtn", "plannerStartPage", "plannerAppShell", "startLoginEmail", "startLoginPassword", "startLoginSubmitBtn", "startForgotPasswordBtn", "startAccessHelpBtn", "startLoginError", "accessRequestModal", "accessRequestCloseBtn", "accessRequestCancelBtn", "accessRequestSubmitBtn", "accessRequestName", "accessRequestEmail", "accessRequestPhone", "accessRequestType", "accessRequestMessage", "accessRequestFeedback", "accountPanel", "accountUserInfo", "changePasswordBtn", "resetPasswordBtn", "logoutBtn", "loginBtn", "loginModal", "closeLoginModalBtn", "loginEmail", "loginPassword", "loginSubmitBtn", "forgotPasswordBtn"
     ];
 
     ids.forEach(id => els[id] = document.getElementById(id));
@@ -1687,8 +1688,105 @@
     setStartLoginError("Reset-link er sendt hvis e-postadressen finnes i systemet.");
   }
 
+  function setAccessRequestFeedback(message = "", variant = "neutral") {
+    if (!els.accessRequestFeedback) return;
+    els.accessRequestFeedback.textContent = message;
+    els.accessRequestFeedback.classList.toggle("visible", Boolean(message));
+    els.accessRequestFeedback.classList.toggle("success", variant === "success");
+    els.accessRequestFeedback.classList.toggle("error", variant === "error");
+  }
+
+  function openAccessRequestModal() {
+    if (!els.accessRequestModal) return;
+    setStartLoginError("");
+    setAccessRequestFeedback("");
+    if (els.accessRequestName) els.accessRequestName.value = "";
+    if (els.accessRequestEmail) els.accessRequestEmail.value = els.startLoginEmail?.value?.trim() || "";
+    if (els.accessRequestPhone) els.accessRequestPhone.value = "";
+    if (els.accessRequestType) els.accessRequestType.value = "employee";
+    if (els.accessRequestMessage) els.accessRequestMessage.value = "";
+    if (els.accessRequestSubmitBtn) {
+      els.accessRequestSubmitBtn.disabled = false;
+      els.accessRequestSubmitBtn.textContent = "Send søknad";
+    }
+    els.accessRequestModal.classList.add("visible");
+    els.accessRequestModal.setAttribute("aria-hidden", "false");
+    setTimeout(() => els.accessRequestName?.focus(), 0);
+  }
+
+  function closeAccessRequestModal() {
+    if (!els.accessRequestModal) return;
+    els.accessRequestModal.classList.remove("visible");
+    els.accessRequestModal.setAttribute("aria-hidden", "true");
+    setAccessRequestFeedback("");
+  }
+
   function handleStartAccessHelp() {
-    setStartLoginError("Kontakt superadmin eller planner for å få opprettet tilgang.");
+    openAccessRequestModal();
+  }
+
+  async function submitAccessRequest() {
+    if (!supabaseClient) {
+      setAccessRequestFeedback("Supabase er ikke konfigurert i denne versjonen.", "error");
+      return;
+    }
+
+    const fullName = els.accessRequestName?.value?.trim() || "";
+    const email = els.accessRequestEmail?.value?.trim().toLowerCase() || "";
+    const phone = els.accessRequestPhone?.value?.trim() || "";
+    const requestedAccess = els.accessRequestType?.value || "employee";
+    const message = els.accessRequestMessage?.value?.trim() || "";
+
+    if (!fullName) {
+      setAccessRequestFeedback("Legg inn navn.", "error");
+      els.accessRequestName?.focus();
+      return;
+    }
+
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setAccessRequestFeedback("Legg inn en gyldig e-postadresse.", "error");
+      els.accessRequestEmail?.focus();
+      return;
+    }
+
+    if (!["employee", "reader", "planner", "admin"].includes(requestedAccess)) {
+      setAccessRequestFeedback("Velg ønsket tilgang.", "error");
+      els.accessRequestType?.focus();
+      return;
+    }
+
+    const row = {
+      full_name: fullName,
+      email,
+      phone: phone || null,
+      requested_access: requestedAccess,
+      message: message || null,
+      status: "pending"
+    };
+
+    if (els.accessRequestSubmitBtn) {
+      els.accessRequestSubmitBtn.disabled = true;
+      els.accessRequestSubmitBtn.textContent = "Sender...";
+    }
+
+    setAccessRequestFeedback("");
+
+    try {
+      const { error } = await supabaseClient.from("access_requests").insert(row);
+      if (error) throw error;
+
+      setAccessRequestFeedback("Søknad sendt. Superadmin må godkjenne tilgangen før brukeren kan åpne systemet.", "success");
+      if (els.accessRequestSubmitBtn) {
+        els.accessRequestSubmitBtn.textContent = "Sendt";
+      }
+      if (els.startLoginEmail) els.startLoginEmail.value = email;
+    } catch (error) {
+      setAccessRequestFeedback(`Kunne ikke sende søknad: ${error?.message || "Ukjent feil"}`, "error");
+      if (els.accessRequestSubmitBtn) {
+        els.accessRequestSubmitBtn.disabled = false;
+        els.accessRequestSubmitBtn.textContent = "Send søknad";
+      }
+    }
   }
 
   async function handleLogin() {
@@ -2510,6 +2608,32 @@
 
     if (els.startAccessHelpBtn) {
       els.startAccessHelpBtn.addEventListener("click", handleStartAccessHelp);
+    }
+
+    if (els.accessRequestCloseBtn) {
+      els.accessRequestCloseBtn.addEventListener("click", closeAccessRequestModal);
+    }
+
+    if (els.accessRequestCancelBtn) {
+      els.accessRequestCancelBtn.addEventListener("click", closeAccessRequestModal);
+    }
+
+    if (els.accessRequestSubmitBtn) {
+      els.accessRequestSubmitBtn.addEventListener("click", submitAccessRequest);
+    }
+
+    if (els.accessRequestModal) {
+      els.accessRequestModal.addEventListener("click", event => {
+        if (event.target === els.accessRequestModal) closeAccessRequestModal();
+      });
+    }
+
+    if (els.accessRequestMessage) {
+      els.accessRequestMessage.addEventListener("keydown", event => {
+        if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
+          submitAccessRequest();
+        }
+      });
     }
 
     if (els.startLoginPassword) {

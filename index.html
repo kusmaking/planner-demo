@@ -1426,6 +1426,180 @@
 
     .iz-start-error.visible { display: block; }
 
+
+    .iz-access-modal {
+      position: fixed;
+      inset: 0;
+      z-index: 90;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      background: rgba(2, 8, 14, 0.62);
+      backdrop-filter: blur(6px);
+    }
+
+    .iz-access-modal.visible { display: flex; }
+
+    .iz-access-card {
+      width: min(560px, 100%);
+      background: #ffffff;
+      border: 1px solid #cbd5e1;
+      box-shadow: 0 22px 56px rgba(2, 8, 14, 0.34);
+      color: #0f172a;
+      padding: 30px;
+      border-radius: 4px;
+    }
+
+    .iz-access-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 18px;
+      margin-bottom: 18px;
+    }
+
+    .iz-access-head h2 {
+      margin: 0;
+      font-size: 28px;
+      line-height: 1.1;
+      font-weight: 900;
+      letter-spacing: -.5px;
+    }
+
+    .iz-access-head p {
+      margin: 10px 0 0;
+      color: #475569;
+      font-size: 14px;
+      line-height: 1.45;
+    }
+
+    .iz-access-close {
+      border: 1px solid #cbd5e1;
+      background: #ffffff;
+      color: #0f172a;
+      width: 36px;
+      height: 36px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 20px;
+      line-height: 1;
+    }
+
+    .iz-access-form {
+      display: grid;
+      gap: 14px;
+      margin-top: 16px;
+    }
+
+    .iz-access-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+    }
+
+    .iz-access-form label {
+      display: block;
+      font-size: 13px;
+      font-weight: 900;
+      color: #1e293b;
+      margin-bottom: 7px;
+    }
+
+    .iz-access-form input,
+    .iz-access-form select,
+    .iz-access-form textarea {
+      width: 100%;
+      border: 1px solid #cbd5e1;
+      padding: 0 12px;
+      font-size: 15px;
+      border-radius: 4px;
+      outline: none;
+      background: #f8fafc;
+      color: #0f172a;
+      box-shadow: inset 0 1px 2px rgba(15,23,42,0.04);
+    }
+
+    .iz-access-form input,
+    .iz-access-form select {
+      height: 46px;
+    }
+
+    .iz-access-form textarea {
+      min-height: 92px;
+      padding-top: 11px;
+      resize: vertical;
+    }
+
+    .iz-access-form input:focus,
+    .iz-access-form select:focus,
+    .iz-access-form textarea:focus {
+      border-color: #2f6f57;
+      box-shadow: 0 0 0 3px rgba(75,143,115,0.14);
+      background: #ffffff;
+    }
+
+    .iz-access-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      margin-top: 8px;
+    }
+
+    .iz-access-secondary,
+    .iz-access-primary {
+      height: 44px;
+      padding: 0 18px;
+      border-radius: 4px;
+      font-weight: 900;
+      cursor: pointer;
+    }
+
+    .iz-access-secondary {
+      border: 1px solid #cbd5e1;
+      background: #ffffff;
+      color: #334155;
+    }
+
+    .iz-access-primary {
+      border: 1px solid #2f6f57;
+      background: #2f6f57;
+      color: #ffffff;
+    }
+
+    .iz-access-primary:disabled {
+      opacity: .72;
+      cursor: wait;
+    }
+
+    .iz-access-feedback {
+      display: none;
+      margin-top: 14px;
+      border: 1px solid #cbd5e1;
+      background: #f8fafc;
+      color: #334155;
+      padding: 11px 12px;
+      font-size: 13px;
+      line-height: 1.4;
+    }
+
+    .iz-access-feedback.visible { display: block; }
+    .iz-access-feedback.success {
+      border-color: #bbf7d0;
+      background: #f0fdf4;
+      color: #166534;
+    }
+    .iz-access-feedback.error {
+      border-color: #fecaca;
+      background: #fef2f2;
+      color: #991b1b;
+    }
+
+    @media (max-width: 760px) {
+      .iz-access-card { padding: 22px; }
+      .iz-access-grid { grid-template-columns: 1fr; }
+    }
+
     @media (max-width: 1100px) {
       #plannerStartPage {
         grid-template-columns: 1fr;
@@ -2062,6 +2236,59 @@
           <button id="ixLangNo" type="button" data-ix-lang="no" class="iz-language-option">NO</button>
           <button id="ixLangEn" type="button" data-ix-lang="en" class="iz-language-option">EN</button>
           <span id="ixLanguageLockedStart" class="text-xs text-slate-500 ml-2"></span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="accessRequestModal" class="iz-access-modal" aria-label="Søk om tilgang" aria-hidden="true">
+    <div class="iz-access-card" role="dialog" aria-modal="true" aria-labelledby="accessRequestTitle">
+      <div class="iz-access-head">
+        <div>
+          <h2 id="accessRequestTitle">Søk om tilgang</h2>
+          <p>Send en kort søknad. Superadmin vurderer og setter riktig tilgang før du kan bruke systemet.</p>
+        </div>
+        <button id="accessRequestCloseBtn" type="button" class="iz-access-close" aria-label="Lukk">×</button>
+      </div>
+
+      <div class="iz-access-form">
+        <div class="iz-access-grid">
+          <div>
+            <label for="accessRequestName">Navn</label>
+            <input id="accessRequestName" type="text" placeholder="Ola Nordmann" autocomplete="name" />
+          </div>
+          <div>
+            <label for="accessRequestEmail">E-post</label>
+            <input id="accessRequestEmail" type="email" placeholder="navn@izomax.com" autocomplete="email" />
+          </div>
+        </div>
+
+        <div class="iz-access-grid">
+          <div>
+            <label for="accessRequestPhone">Telefon <span class="text-slate-400">(valgfritt)</span></label>
+            <input id="accessRequestPhone" type="tel" placeholder="+47 ..." autocomplete="tel" />
+          </div>
+          <div>
+            <label for="accessRequestType">Ønsket tilgang</label>
+            <select id="accessRequestType">
+              <option value="employee">Ansatt / Min side</option>
+              <option value="reader">Lesetilgang</option>
+              <option value="planner">Planlegger</option>
+              <option value="admin">Admin</option>
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label for="accessRequestMessage">Kommentar <span class="text-slate-400">(valgfritt)</span></label>
+          <textarea id="accessRequestMessage" placeholder="Kort forklaring på hvorfor du trenger tilgang"></textarea>
+        </div>
+
+        <div id="accessRequestFeedback" class="iz-access-feedback"></div>
+
+        <div class="iz-access-actions">
+          <button id="accessRequestCancelBtn" type="button" class="iz-access-secondary">Avbryt</button>
+          <button id="accessRequestSubmitBtn" type="button" class="iz-access-primary">Send søknad</button>
         </div>
       </div>
     </div>

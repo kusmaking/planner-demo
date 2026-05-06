@@ -89,3 +89,47 @@ Merk:
 - Denne versjonen bruker e-postmatch mellom innlogget bruker og `planner_employees.email`.
 - Hvis e-post ikke matcher en ansatt, vises en trygg melding om at ansattprofil ikke er koblet.
 - En mer robust senere løsning kan være `planner_employees.user_id = auth.users.id`, men det krever egen Supabase/RLS-runde.
+
+## v18.41-access-request-v1-safe
+
+Denne pakken legger inn første kontrollerte del av tilgangsflyten.
+
+Scope:
+- Knappen `Trenger tilgang?` på oppstart/login åpner et søknadsskjema.
+- Søknaden lagres i ny Supabase-tabell `access_requests`.
+- Brukeren får bekreftelse når søknaden er sendt.
+- Søknaden får alltid status `pending` fra frontend.
+
+Ikke endret:
+- Planner/admin/superadmin-flyt.
+- Ansattportal-logikk.
+- CSV-import.
+- Prosjektplan.
+- Bemanning/tildeling.
+- Eksisterende tabeller og eksisterende RLS.
+- Automatisk rolleendring eller automatisk tilgangsgodkjenning.
+
+Forutsetning i Supabase:
+- Tabellen `public.access_requests` må være opprettet.
+- RLS må være aktivert.
+- Insert-policy for `anon, authenticated` må tillate nye rader med `status = 'pending'`.
+- Select/update-policy for admin/superadmin er klargjort for neste steg.
+
+Test:
+1. Åpne login-siden.
+2. Trykk `Trenger tilgang?`.
+3. Fyll ut navn, e-post og ønsket tilgang.
+4. Trykk `Send søknad`.
+5. Sjekk i Supabase:
+
+```sql
+select full_name, email, requested_access, status, created_at
+from public.access_requests
+order by created_at desc
+limit 10;
+```
+
+Forventet:
+- Ny rad med `status = pending`.
+- Ingen brukerrolle endres.
+- Ingen ny tilgang gis automatisk.
