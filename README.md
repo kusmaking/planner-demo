@@ -1,74 +1,41 @@
 # Izomax Personalplanlegger – Sandbox changelog
 
 ## Versjon
-v18.37g-import-worklist-full-width-preview-only-safe
+v18.37h-import-worklist-responsible-clean-layout-safe
 
 ## Base
 Bygger fra:
 
-- v18.37f-import-approval-list-preview-only-safe
+- v18.37g-import-worklist-full-width-preview-only-safe
 
 ## Formål
-Forbedrer Prosjektimport-layouten slik at CSV-radene kan kontrolleres i en fullbredde arbeidsliste, i stedet for et lite scrollfelt inne i forhåndsvisningskortet.
+Rydder Prosjektimport-layouten og legger Project Responsible inn i arbeidslisten.
 
 ## Endret
 
 ### Layout
-Prosjektimport-siden har nå:
-
-1. Last opp fil
-2. Analyse / oppsummering
-3. Importstatus
-
-Under toppkortene brukes hele bredden til:
-
-- Prosjekter fra CSV
-- filterknapper
-- stor arbeidsliste
+- Fjernet den støyende tekstlisten/eksempellisten under "Prosjekter fra CSV".
+- Filterknappene er flyttet til venstre over arbeidslisten.
+- Arbeidslisten er fortsatt fullbredde.
 
 ### Arbeidsliste
-Arbeidslisten viser:
+Lagt til egen kolonne:
 
-- Velg
-- Status
-- Project Name
-- Company
-- Operation start
-- Operation stop
-- WS start
-- WS stop
-- Techs
-- Kommentar
+- Project Responsible
 
-### Preview-redigering
-Følgende felt kan justeres i preview:
+Denne hentes fra CSV-kolonnen:
+
+- Project Responsible
+
+### Auto-utfylling
+Følgende felt fylles fortsatt automatisk fra CSV i preview:
 
 - Operation start
 - Operation stop
 - WS start
 - WS stop
-- Techs
-
-Endringer i preview oppdaterer status i skjermen.
-
-### Filter
-Arbeidslisten kan filtreres på:
-
-- Alle
-- Klar
-- Datooppdatering
-- Mangler dato
-- Mangler techs
-- WS-feil
-- Ingen endring
-- Ikke klar
-
-## Viktig
-Dette er fortsatt preview only.
-
-Ingen data importeres.
-Ingen data lagres.
-Ingen Supabase-kall for import er lagt til.
+- Techs needed
+- Project Responsible
 
 ## Ikke endret
 
@@ -84,13 +51,15 @@ Ingen Supabase-kall for import er lagt til.
 - drag/resize
 - workshop/feltlogikk
 
+## Viktig
+Dette er fortsatt preview only. Ingen data lagres eller importeres.
+
 ## Test
 
 1. Login.
 2. Åpne Prosjektimport.
 3. Last opp CSV.
-4. Sjekk at arbeidslisten vises i full bredde.
-5. Filtrer mellom statusene.
-6. Endre en dato eller Techs i listen.
-7. Sjekk at status/valg oppdateres.
-8. Bekreft at ingenting lagres.
+4. Bekreft at filterknappene ligger til venstre.
+5. Bekreft at den støyende eksempellisten er borte.
+6. Bekreft at Project Responsible vises som egen kolonne.
+7. Bekreft at datoer og Techs fortsatt er fylt inn.

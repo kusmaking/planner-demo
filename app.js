@@ -1,4 +1,5 @@
 (() => {
+  // v18.37h-import-worklist-responsible-clean-layout-safe
   // v18.37g-import-worklist-full-width-preview-only-safe
   // v18.37f-import-approval-list-preview-only-safe
   // v18.37e-keep-import-preview-state-safe
@@ -5887,12 +5888,10 @@ async function deleteEditedEntry() {
           </div>
 
           <div class="border-t border-slate-200 bg-white p-5">
-            <div class="mb-4 flex flex-col gap-3 xl:flex-row xl:items-end xl:justify-between">
-              <div>
-                <h3 class="text-base font-semibold text-slate-900">Prosjekter fra CSV</h3>
-                <div id="projectImportInlineDetails" class="mt-1 text-xs text-slate-500">${renderProjectImportInlineDetailsHtml(preview.examples, preview.rowCount)}</div>
-              </div>
-              <div class="flex flex-wrap gap-2 text-xs">
+            <div class="mb-4">
+              <h3 class="text-base font-semibold text-slate-900">Arbeidsliste før eventuell import</h3>
+              <div id="projectImportInlineDetails" class="hidden">${renderProjectImportInlineDetailsHtml(preview.examples, preview.rowCount)}</div>
+              <div class="mt-3 flex flex-wrap justify-start gap-2 text-xs">
                 ${renderProjectImportWorklistFilters(preview.worklistFilter || "all", preview)}
               </div>
             </div>
@@ -6034,12 +6033,13 @@ async function deleteEditedEntry() {
           <div class="text-xs text-slate-500">Preview only</div>
         </div>
         <div class="overflow-auto max-h-[640px]">
-          <table class="min-w-[1500px] w-full text-xs">
+          <table class="min-w-[1680px] w-full text-xs">
             <thead class="sticky top-0 z-10 bg-slate-100 text-slate-700">
               <tr>
                 <th class="px-3 py-2 text-left font-semibold w-[56px]">Velg</th>
                 <th class="px-3 py-2 text-left font-semibold w-[170px]">Status</th>
                 <th class="px-3 py-2 text-left font-semibold min-w-[330px]">Project Name</th>
+                <th class="px-3 py-2 text-left font-semibold min-w-[190px]">Project Responsible</th>
                 <th class="px-3 py-2 text-left font-semibold w-[150px]">Operation start</th>
                 <th class="px-3 py-2 text-left font-semibold w-[150px]">Operation stop</th>
                 <th class="px-3 py-2 text-left font-semibold w-[150px]">WS start</th>
@@ -6064,6 +6064,9 @@ async function deleteEditedEntry() {
                     <td class="px-3 py-2 align-top">
                       <div class="font-semibold text-slate-900">${escapeHtml(row.name || "-")}</div>
                       ${row.company ? `<div class="mt-1 text-slate-500">${escapeHtml(row.company)}</div>` : ""}
+                    </td>
+                    <td class="px-3 py-2 align-top text-slate-700">
+                      ${escapeHtml(row.projectResponsible || "-")}
                     </td>
                     <td class="px-3 py-2 align-top">
                       <input data-project-import-edit data-field="operationStart" data-row-id="${escapeHtml(row.id)}" type="date" value="${escapeHtml(row.operationStart || "")}" class="w-full rounded-lg border border-slate-300 bg-white px-2 py-1" />
@@ -6422,6 +6425,7 @@ async function deleteEditedEntry() {
         rowIndex,
         name,
         company: row["Company"] || "",
+        projectResponsible: row["Project Responsible"] || row["Project responsible"] || row["Responsible"] || "",
         operationStart,
         operationStop,
         wsStart,
