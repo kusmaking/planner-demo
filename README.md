@@ -1,84 +1,49 @@
 # Izomax Personalplanlegger – Sandbox changelog
 
 ## Versjon
-v18.38c-import-batch-notes-confirmation-safe
+v18.38d-import-duplicate-match-project-code-safe
 
 ## Base
-Bygger fra låst base:
+Bygger fra:
 
-- Locked-v18.38b-import-default-deselected-safe
+- v18.38c-import-batch-notes-confirmation-safe
 
 ## Formål
-Åpner forsiktig for større import og gjør importmeldinger/notes tydeligere for sluttbruker.
+Fikser svakhet i duplikatsjekk ved import.
+
+Tidligere ble duplikater kun sjekket på full Project Name. Hvis prosjektteksten var litt forskjellig, kunne samme IZO-prosjekt opprettes som duplikat.
 
 ## Endret
 
-### Importgrense
-Importgrensen er økt fra maks 3 til maks 10 handlingsbare rader per import.
+### Prosjektkode-match
+Import-preview og import bruker nå prosjektkode som primær match:
 
-Dette er fortsatt en sikker begrensning fordi sandbox og main bruker samme live database.
+- IZO-30109
+- IZO-30235
+- osv.
 
-### Default valg
-Ingen rader er valgt som standard.
+Hvis både CSV-rad og eksisterende prosjekt har samme IZO-kode, behandles de som samme prosjekt selv om navnet ellers er forskjellig.
 
-Bruker må fortsatt aktivt huke av rader før import.
+Eksempel som nå fanges:
+- IZO-30109 03CL150 Oseberg Sør Sjøvannstre...
+- IZO-30109 03CL150 Oseberg
 
-### Bekreftelse før import
-Bekreftelsesdialogen er gjort tydeligere:
+Disse regnes nå som samme prosjekt.
 
-- varsler at import skriver til live database
-- viser antall nye feltprosjekter
-- viser antall workshop-only/Fleet-prosjekter
-- viser antall datooppdateringer
-- viser antall Skip/ikke-klare rader
-- viser navn på prosjekter i hver kategori
-- viser sikkerhetsregler før import
+### Match-rekkefølge
+1. Match på IZO-prosjektkode
+2. Hvis ingen kode finnes: match på normalisert full Project Name
 
-### Resultat etter import
-Resultatdialogen er gjort tydeligere:
+### Preview
+Arbeidslisten viser nå prosjektkode under Project Name når kode finnes.
 
-- opprettet
-- oppdatert
-- hoppet over
-- feil
-- navn på berørte prosjekter
+Hvis raden er matchet på kode, vises:
+- Matchet på kode
 
-### Notes på nye prosjekter
-Nye prosjekter får bedre notes med:
+### Import
+Create blokkeres dersom samme IZO-kode finnes fra før.
 
-- CSV_IMPORT
-- Source: Project General CSV
-- Imported at
-- Imported by
-- Import action
-- Project type
-- Project Name
-- Operation start/stop
-- WS start/stop
-- Techs needed
-- Project Responsible
-- Company
-- Activity
-- Responsible eng.
-- Responsible procurement
-- BOM status
-- AOGV Tool Register
-- Link
-- Import safety-tekst
-
-### Eksisterende prosjekter
-Eksisterende prosjekter oppdateres fortsatt kun med datoer.
-
-Import endrer fortsatt IKKE på eksisterende prosjekter:
-
-- Techs
-- notes
-- Project Responsible
-- Company
-- Activity
-- bemanning
-- status
-- andre manuelle felt
+Det skal ikke opprettes nytt prosjekt når prosjektkode allerede finnes i planner.
 
 ## Ikke endret
 
@@ -86,19 +51,17 @@ Import endrer fortsatt IKKE på eksisterende prosjekter:
 - RLS
 - data.js
 - index.html
+- importgrense
+- default deselect
+- CSV_IMPORT notes
+- eksisterende prosjekter oppdaterer fortsatt kun datoer
 - Ansattplan
 - Prosjektplan
-- datamodell
-- duplikatsikring
-- default deselect
 
-## Testanbefaling
+## Test
 
 1. Last opp CSV.
-2. Velg 2–5 rader manuelt.
-3. Trykk Importer valgte.
-4. Les bekreftelsesdialogen nøye.
-5. Importer.
-6. Sjekk notes på nye prosjekter.
-7. Sjekk at eksisterende prosjekter kun får datoer oppdatert.
-8. Ikke kjør større batch før dette er verifisert.
+2. Finn et prosjekt der eksisterende planner-navn og CSV-navn er litt ulike, men har samme IZO-kode.
+3. Bekreft at raden ikke vises som nytt prosjekt.
+4. Bekreft at den vises som eksisterende/datooppdatering eller ingen endring.
+5. Kjør ikke import før du har bekreftet at IZO-kode-match ser riktig ut.

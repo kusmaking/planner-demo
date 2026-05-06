@@ -1,4 +1,5 @@
 (() => {
+  // v18.38d-import-duplicate-match-project-code-safe
   // v18.38c-import-batch-notes-confirmation-safe
   // v18.38b-import-default-deselected-safe
   // v18.38a-import-selected-projects-test-mode-safe
@@ -6158,6 +6159,7 @@ async function deleteEditedEntry() {
                     <td class="px-3 py-2 align-top">
                       <div class="font-semibold text-slate-900">${escapeHtml(row.name || "-")}</div>
                       ${row.company ? `<div class="mt-1 text-slate-500">${escapeHtml(row.company)}</div>` : ""}
+                      ${row.projectCode ? `<div class="mt-1 text-[11px] text-slate-500">Kode: ${escapeHtml(row.projectCode)}${row.matchType === "projectCode" ? " · Matchet på kode" : ""}</div>` : ""}
                     </td>
                     <td class="px-3 py-2 align-top text-slate-700">
                       ${escapeHtml(row.projectResponsible || "-")}
@@ -6246,22 +6248,23 @@ async function deleteEditedEntry() {
   }
 
   function recalculateProjectImportPreviewFromWorklist(worklistRows, previousPreview = getProjectImportPreviewState()) {
-    const existingByName = new Map(
-      state.projects.map(project => [normalizeProjectImportInlineName(project.name), project])
-    );
+    const existingMaps = buildProjectImportExistingMaps();
     const counts = { total: worklistRows.length, readyNew: 0, workshopOnly: 0, noChange: 0, dateUpdate: 0, missingOperationDate: 0, missingHeadcount: 0, workshopDateError: 0, notReady: 0 };
     const examples = { readyNew: [], workshopOnly: [], noChange: [], dateUpdate: [], missingOperationDate: [], missingHeadcount: [], workshopDateError: [], notReady: [] };
     const selected = new Set(previousPreview.selectedIds || []);
 
     const nextRows = worklistRows.map(row => {
-      const existing = existingByName.get(normalizeProjectImportInlineName(row.name));
+      const match = findExistingProjectForImportName(row.name, existingMaps);
+      const existing = match.project;
       const statusKey = classifyProjectImportWorklistRow(row, existing);
       const nextRow = {
         ...row,
         existingProjectId: existing?.id || "",
+        matchType: match.matchType || "",
+        projectCode: match.code || extractProjectImportCode(row.name),
         action: statusKey === "dateUpdate" ? "update" : (statusKey === "readyNew" || statusKey === "workshopOnly") ? "create" : "",
         statusKey,
-        comment: getProjectImportWorklistComment(statusKey, existing)
+        comment: getProjectImportWorklistComment(statusKey, existing, match.matchType)
       };
       counts[statusKey] = (counts[statusKey] || 0) + 1;
       if (examples[statusKey] && examples[statusKey].length < 5) {
@@ -6329,7 +6332,7 @@ async function deleteEditedEntry() {
     return "readyNew";
   }
 
-  function getProjectImportWorklistComment(statusKey, existing = null) {
+  function getProjectImportWorklistComment(statusKey, existing = null, matchType = "") {
     const comments = {
       readyNew: "Nytt feltprosjekt. Techs brukes kun ved opprettelse.",
       workshopOnly: "Nytt workshop-only/Fleet-prosjekt. Ingen rød feltperiode.",
@@ -6340,7 +6343,8 @@ async function deleteEditedEntry() {
       workshopDateError: "Workshopdato mangler eller WS start er etter WS stop.",
       notReady: "Raden er ikke klar for import."
     };
-    return comments[statusKey] || comments.notReady;
+    const base = comments[statusKey] || comments.notReady;
+    return matchType === "projectCode" ? `${base} Matchet på prosjektkode.` : base;
   }
 
   function getProjectImportStatusTone(statusKey) {
@@ -6578,16 +6582,16 @@ async function deleteEditedEntry() {
       errors: []
     };
 
-    const projectsByName = new Map(state.projects.map(project => [normalizeProjectImportInlineName(project.name), project]));
+    const existingMaps = buildProjectImportExistingMaps();
 
     for (const row of plan.actionableRows) {
-      const nameKey = normalizeProjectImportInlineName(row.name);
-      const existing = projectsByName.get(nameKey);
+      const match = findExistingProjectForImportName(row.name, existingMaps);
+      const existing = match.project;
 
       try {
         if (row.statusKey === "readyNew" || row.statusKey === "workshopOnly") {
           if (existing) {
-            result.skipped.push(`${row.name}: finnes allerede, opprettet ikke duplikat`);
+            result.skipped.push(`${row.name}: finnes allerede${match.matchType === "projectCode" ? ` med prosjektkode ${match.code}` : ""}, opprettet ikke duplikat`);
             continue;
           }
 
@@ -6605,7 +6609,10 @@ async function deleteEditedEntry() {
             continue;
           }
 
-          projectsByName.set(nameKey, project);
+          const normalizedName = normalizeProjectImportInlineName(project.name);
+          if (normalizedName) existingMaps.byName.set(normalizedName, project);
+          const projectCode = extractProjectImportCode(project.name);
+          if (projectCode) existingMaps.byCode.set(projectCode, project);
           result.created.push(row.name);
           continue;
         }
@@ -6819,6 +6826,42 @@ async function deleteEditedEntry() {
   function normalizeProjectImportInlineName(value) {
     return String(value || "").trim().replace(/\s+/g, " ").toLowerCase();
   }
+
+  function extractProjectImportCode(value) {
+    const match = String(value || "").toUpperCase().match(/\bIZO[-\s]?(\d{5})\b/);
+    return match ? `IZO-${match[1]}` : "";
+  }
+
+  function buildProjectImportExistingMaps() {
+    const byName = new Map();
+    const byCode = new Map();
+
+    state.projects.forEach(project => {
+      const normalizedName = normalizeProjectImportInlineName(project.name);
+      if (normalizedName) byName.set(normalizedName, project);
+
+      const code = extractProjectImportCode(project.name);
+      if (code && !byCode.has(code)) byCode.set(code, project);
+    });
+
+    return { byName, byCode };
+  }
+
+  function findExistingProjectForImportName(name, maps = buildProjectImportExistingMaps()) {
+    const code = extractProjectImportCode(name);
+    if (code && maps.byCode.has(code)) {
+      return { project: maps.byCode.get(code), matchType: "projectCode", code };
+    }
+
+    const normalizedName = normalizeProjectImportInlineName(name);
+    if (normalizedName && maps.byName.has(normalizedName)) {
+      return { project: maps.byName.get(normalizedName), matchType: "exactName", code: "" };
+    }
+
+    return { project: null, matchType: "", code };
+  }
+
+
 
   function renderProjectImportInlineResult(rows, fileName = "") {
     const status = document.getElementById("projectImportInlineFileStatus");
