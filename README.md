@@ -1,62 +1,74 @@
 # Izomax Personalplanlegger – Sandbox changelog
 
 ## Versjon
-v18.37f-import-approval-list-preview-only-safe
+v18.37g-import-worklist-full-width-preview-only-safe
 
 ## Base
-Bygger fra låst base:
+Bygger fra:
 
-- Locked-v18.37e-import-preview-state-safe
+- v18.37f-import-approval-list-preview-only-safe
 
 ## Formål
-Legger til en godkjenningsliste i CSV-forhåndsvisningen, fortsatt uten import eller lagring.
+Forbedrer Prosjektimport-layouten slik at CSV-radene kan kontrolleres i en fullbredde arbeidsliste, i stedet for et lite scrollfelt inne i forhåndsvisningskortet.
 
 ## Endret
 
-### Prosjektimport / Forhåndsvisning
-Preview viser nå mer presise statuskategorier:
+### Layout
+Prosjektimport-siden har nå:
 
-- Ny – klar
-- Eksisterer – ingen endring
-- Eksisterer – datooppdatering
-- Mangler operasjonsdato
-- Mangler ressursbehov
-- Workshop datoavvik
+1. Last opp fil
+2. Analyse / oppsummering
+3. Importstatus
+
+Under toppkortene brukes hele bredden til:
+
+- Prosjekter fra CSV
+- filterknapper
+- stor arbeidsliste
+
+### Arbeidsliste
+Arbeidslisten viser:
+
+- Velg
+- Status
+- Project Name
+- Company
+- Operation start
+- Operation stop
+- WS start
+- WS stop
+- Techs
+- Kommentar
+
+### Preview-redigering
+Følgende felt kan justeres i preview:
+
+- Operation start
+- Operation stop
+- WS start
+- WS stop
+- Techs
+
+Endringer i preview oppdaterer status i skjermen.
+
+### Filter
+Arbeidslisten kan filtreres på:
+
+- Alle
+- Klar
+- Datooppdatering
+- Mangler dato
+- Mangler techs
+- WS-feil
+- Ingen endring
 - Ikke klar
 
-### Godkjenningsliste
-Under forhåndsvisningen vises en liste:
+## Viktig
+Dette er fortsatt preview only.
 
-- Klar for import / oppdatering
-
-Listen inkluderer kun:
-
-- Ny – klar
-- Eksisterer – datooppdatering
-
-Hver rad viser:
-
-- checkbox
-- prosjektnavn
-- status
-- operasjonsdatoer
-- workshopdatoer
-- Techs needed
-- kort kommentar
-
-Checkboxene er kun preview/valg i skjermbildet. De skriver ikke data.
-
-## Viktige regler
-
-Hvis Project Name finnes fra før:
-
-- samme Operation start/stop og WS start/stop = Eksisterer – ingen endring
-- nye Operation start/stop eller WS start/stop = Eksisterer – datooppdatering
-- prosjektet skal ikke dupliseres
-
-Hvis Project Name ikke finnes:
-
-- gyldig Project Name + Operation start/stop + Techs needed = Ny – klar
+Ingen data importeres.
+Ingen data lagres.
+Ingen Supabase-kall for import er lagt til.
 
 ## Ikke endret
 
@@ -77,8 +89,8 @@ Hvis Project Name ikke finnes:
 1. Login.
 2. Åpne Prosjektimport.
 3. Last opp CSV.
-4. Se oppsummering.
-5. Se listen Klar for import / oppdatering.
-6. Huk av/på noen rader.
-7. Bekreft at ingenting lagres.
-8. Bytt fane og tilbake, sjekk at preview fortsatt står.
+4. Sjekk at arbeidslisten vises i full bredde.
+5. Filtrer mellom statusene.
+6. Endre en dato eller Techs i listen.
+7. Sjekk at status/valg oppdateres.
+8. Bekreft at ingenting lagres.
