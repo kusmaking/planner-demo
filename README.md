@@ -57,3 +57,35 @@ Hvis samme prosjekt senere får Operation start/stop i CSV:
 5. Last opp CSV på nytt.
 6. Bekreft at prosjektet vises som Ingen endring hvis WS-datoene matcher.
 7. Hvis prosjektet senere får Operation start/stop, bekreft at det vises som Datooppdatering og ikke nytt prosjekt.
+
+
+## v18.40c-employee-portal-v1
+
+Denne pakken legger inn en separat ansattportal for brukere med rolle `employee`.
+
+Scope:
+- Planner/admin/superadmin skal fortsatt åpne dagens planlegger som før.
+- Rollen `employee` åpner ny `Min side` / ansattprofil.
+- Ansattprofilen er kun lesende.
+- Ingen endring i CSV-import, prosjektplan, bemanning, Supabase-tabeller eller RLS.
+
+Ansattprofilen viser:
+- Neste prosjekt.
+- Prosjektperiode.
+- Rolle på prosjekt.
+- Workshop/feltperiode.
+- Prosjektkalender/tidslinje.
+- Andre personer på samme prosjekt.
+- Enkel prosjekthistorikk.
+
+Testbruker:
+1. Opprett bruker i Supabase Authentication.
+2. Gi brukeren rolle `employee` i eksisterende profil-/rolleoppsett som `get_my_profile()` leser fra.
+3. Sett samme e-postadresse på en eksisterende rad i `planner_employees.email`.
+4. Legg denne ansatte på et prosjekt i dagens planner/admin-visning.
+5. Logg inn med testbrukeren. Brukeren skal da lande på ansattportalen, ikke full planner.
+
+Merk:
+- Denne versjonen bruker e-postmatch mellom innlogget bruker og `planner_employees.email`.
+- Hvis e-post ikke matcher en ansatt, vises en trygg melding om at ansattprofil ikke er koblet.
+- En mer robust senere løsning kan være `planner_employees.user_id = auth.users.id`, men det krever egen Supabase/RLS-runde.

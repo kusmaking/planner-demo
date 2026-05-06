@@ -31,6 +31,7 @@
     currentUserEmail: "",
     currentRole: "",
     authReady: false,
+    employeePortalSelectedProjectId: "",
     employeeFilter: "Alle ansatte",
     selectedEmployeeGroups: [],
     groupFilterSearch: "",
@@ -269,9 +270,13 @@
     await bootData();
     rebuildDerivedState();
     renderAll();
-    clearAssignForm();
-    clearPersonalBlockForm();
-    applyRoleChrome();
+
+    if (!isEmployeePortalUser()) {
+      clearAssignForm();
+      clearPersonalBlockForm();
+      applyRoleChrome();
+    }
+
     startRemoteSync();
   }
 
@@ -290,7 +295,7 @@
       "newEmployeeBtn", "employeeModal", "employeeModalTitle", "closeEmployeeModalBtn",
       "employeeName", "employeeEmail", "employeePhone", "employeeTitle", "employeeGroup", "employeeActive", "saveEmployeeBtn", "deleteEmployeeBtn",
       "calendarContextMenu", "contextMenuEmployee", "contextMenuStart", "contextMenuEnd", "contextMenuType", "contextMenuNotes", "contextMenuAddBtn", "contextMenuCloseBtn",
-      "plannerStartPage", "plannerAppShell", "startLoginEmail", "startLoginPassword", "startLoginSubmitBtn", "startForgotPasswordBtn", "startAccessHelpBtn", "startLoginError", "accountPanel", "accountUserInfo", "changePasswordBtn", "resetPasswordBtn", "logoutBtn", "loginBtn", "loginModal", "closeLoginModalBtn", "loginEmail", "loginPassword", "loginSubmitBtn", "forgotPasswordBtn"
+      "employeePortalShell", "employeePortalContent", "employeePortalTopInitials", "employeePortalTopName", "employeePortalLogoutBtn", "plannerStartPage", "plannerAppShell", "startLoginEmail", "startLoginPassword", "startLoginSubmitBtn", "startForgotPasswordBtn", "startAccessHelpBtn", "startLoginError", "accountPanel", "accountUserInfo", "changePasswordBtn", "resetPasswordBtn", "logoutBtn", "loginBtn", "loginModal", "closeLoginModalBtn", "loginEmail", "loginPassword", "loginSubmitBtn", "forgotPasswordBtn"
     ];
 
     ids.forEach(id => els[id] = document.getElementById(id));
@@ -1056,7 +1061,12 @@
   function normalizeRoleValue(role) {
     const normalized = String(role || "").trim().toLowerCase();
     if (normalized === "planlegger") return "planner";
+    if (["ansatt", "employee", "medarbeider", "user"].includes(normalized)) return "employee";
     return normalized;
+  }
+
+  function isEmployeePortalUser() {
+    return normalizeRoleValue(state.currentRole) === "employee";
   }
 
   function isSuperadmin() {
@@ -1236,6 +1246,267 @@
     }
   }
 
+
+
+  function showEmployeePortal() {
+    if (!els.employeePortalShell) return;
+    els.employeePortalShell.classList.add("iz-employee-active");
+    const plannerElements = [
+      document.querySelector("#plannerAppShell > header.iz-app-header"),
+      els.statsRow,
+      els.plannerTabs,
+      els.tabHomeSection,
+      els.tabCalendarSection,
+      els.tabProjectsSection,
+      els.tabEmployeesSection,
+      els.tabAdminSection
+    ];
+    plannerElements.forEach(element => {
+      if (!element) return;
+      element.style.display = "none";
+      element.classList.add("hidden");
+    });
+  }
+
+  function hideEmployeePortal() {
+    if (els.employeePortalShell) els.employeePortalShell.classList.remove("iz-employee-active");
+  }
+
+  function normalizeComparableText(value) {
+    return String(value || "").trim().toLowerCase();
+  }
+
+  function getEmployeePortalEmployee() {
+    const email = normalizeComparableText(state.currentUserEmail);
+    const currentName = normalizeComparableText(state.currentUser);
+    const byEmail = (state.employees || []).find(employee => normalizeComparableText(employee.email) === email);
+    if (byEmail) return byEmail;
+    const byName = (state.employees || []).find(employee => normalizeComparableText(employee.name) === currentName);
+    if (byName) return byName;
+    return null;
+  }
+
+  function getProjectDateBounds(project) {
+    const periods = getProjectTimelinePeriodsWithWorkshop(project).filter(period => period.start && period.end);
+    if (periods.length) {
+      const starts = periods.map(period => period.start).sort();
+      const ends = periods.map(period => period.end).sort();
+      return { start: starts[0], end: ends[ends.length - 1] };
+    }
+    return {
+      start: project?.planned_start_date || project?.workshop_start_date || "",
+      end: project?.planned_end_date || project?.workshop_end_date || ""
+    };
+  }
+
+  function getEmployeePortalAssignments(employee) {
+    if (!employee?.name) return [];
+    return (state.entries || [])
+      .filter(entry => entry?.employee_name === employee.name)
+      .map(entry => ({ ...entry, project: getProjectById(entry.project_id) }))
+      .filter(item => item.project && !isSystemPersonalProject(item.project));
+  }
+
+  function getEmployeePortalNextAssignment(assignments) {
+    const todayIso = toIsoDate(new Date());
+    return assignments
+      .filter(item => String(item.end_date || "") >= todayIso)
+      .sort((a, b) => String(a.start_date || "9999-12-31").localeCompare(String(b.start_date || "9999-12-31")) || String(a.end_date || "9999-12-31").localeCompare(String(b.end_date || "9999-12-31")))[0] || null;
+  }
+
+  function getEmployeePortalHistory(assignments) {
+    const todayIso = toIsoDate(new Date());
+    return assignments
+      .filter(item => String(item.end_date || "") < todayIso)
+      .sort((a, b) => String(b.end_date || "").localeCompare(String(a.end_date || "")))
+      .slice(0, 3);
+  }
+
+  function extractProjectCode(name) {
+    const text = String(name || "").trim();
+    const match = text.match(/\b(?:PRJ|IZO)[-\s]?\d+[A-Z0-9-]*\b/i);
+    return match ? match[0].replace(/\s+/, "-").toUpperCase() : "";
+  }
+
+  function getProjectNameWithoutCode(name) {
+    const code = extractProjectCode(name);
+    let text = String(name || "").trim();
+    if (code) text = text.replace(new RegExp(code.replace("-", "[-\\s]?"), "i"), "").trim();
+    return text.replace(/^[-–—:|\s]+/, "") || text || "Prosjekt";
+  }
+
+  function getEmployeePortalProjectTitle(project) {
+    const name = displayProjectName(project) || "Neste prosjekt";
+    const code = extractProjectCode(name) || String(project?.id || "").slice(0, 8).toUpperCase();
+    const cleanName = getProjectNameWithoutCode(name);
+    return { code, cleanName, full: `${code}  ${cleanName}`.trim() };
+  }
+
+  function getWorkshopText(project) {
+    const workshop = getDefaultWorkshopPeriodForProject(project, getProjectTimelinePeriods(project));
+    if (workshop?.start && workshop?.end) return `${formatDate(workshop.start)} – ${formatDate(workshop.end)}`;
+    if (project?.workshop_start_date && project?.workshop_end_date) return `${formatDate(project.workshop_start_date)} – ${formatDate(project.workshop_end_date)}`;
+    return "Ikke satt";
+  }
+
+  function getEmployeePortalTeam(projectId, currentEmployeeName) {
+    const byName = new Map();
+    (state.entries || [])
+      .filter(entry => entry?.project_id === projectId && entry.employee_name && entry.employee_name !== currentEmployeeName)
+      .forEach(entry => {
+        if (!byName.has(entry.employee_name)) byName.set(entry.employee_name, entry);
+      });
+    return [...byName.values()].slice(0, 4);
+  }
+
+  function getTimelineMonths(startIso, endIso) {
+    const fallbackStart = startIso || endIso || toIsoDate(new Date());
+    const startDate = asLocalDate(fallbackStart) || new Date();
+    const months = [];
+    const base = new Date(startDate.getFullYear(), Math.max(0, startDate.getMonth()), 1);
+    for (let i = 0; i < 7; i += 1) {
+      const date = new Date(base.getFullYear(), base.getMonth() + i, 1);
+      months.push({ date, label: capitalize(monthShort(date)).replace(".", "") });
+    }
+    return months;
+  }
+
+  function getTimelinePercent(dateIso, months) {
+    if (!dateIso || !months?.length) return 0;
+    const start = months[0].date;
+    const end = new Date(months[months.length - 1].date.getFullYear(), months[months.length - 1].date.getMonth() + 1, 0);
+    const target = asLocalDate(dateIso) || start;
+    const total = Math.max(end.getTime() - start.getTime(), 1);
+    const pct = ((target.getTime() - start.getTime()) / total) * 100;
+    return Math.max(0, Math.min(100, pct));
+  }
+
+  function renderEmployeePortalTimeline(project) {
+    const bounds = getProjectDateBounds(project);
+    const months = getTimelineMonths(bounds.start, bounds.end);
+    const workshop = getDefaultWorkshopPeriodForProject(project, getProjectTimelinePeriods(project));
+    const wsStart = workshop?.start || project?.workshop_start_date || bounds.start;
+    const wsEnd = workshop?.end || project?.workshop_end_date || wsStart;
+    const wsLeft = getTimelinePercent(wsStart, months);
+    const wsRight = getTimelinePercent(wsEnd, months);
+    const wsWidth = Math.max(wsRight - wsLeft, 3);
+
+    return `
+      <section class="iz-emp-card iz-emp-section-card">
+        <div class="iz-emp-section-head">
+          <div class="iz-emp-section-icon">▣</div>
+          <div class="iz-emp-section-title">Prosjektkalender</div>
+        </div>
+        <div class="iz-emp-timeline" aria-label="Prosjektkalender">
+          ${months.map(month => `<div class="iz-emp-month">${escapeHtml(month.label)}</div>`).join("")}
+          <div class="iz-emp-timeline-track">
+            <div class="iz-emp-line"></div>
+            <div class="iz-emp-workshop-line" style="left:${wsLeft}%; width:${wsWidth}%;"></div>
+          </div>
+        </div>
+        <div class="iz-emp-legend"><span><i></i>Prosjektperiode</span><span><i></i>Workshop / feltperiode</span></div>
+      </section>
+    `;
+  }
+
+  function renderEmployeePortalEmpty(message) {
+    return `
+      <div class="iz-emp-topbar">
+        <div class="iz-emp-brand"><div class="iz-emp-brand-main">IZOMAX</div><div class="iz-emp-brand-sub">Planner</div></div>
+      </div>
+      <div class="iz-emp-page"><div class="iz-emp-empty">${escapeHtml(message)}</div></div>
+    `;
+  }
+
+  function renderEmployeePortal() {
+    if (!els.employeePortalContent) return;
+    const employee = getEmployeePortalEmployee();
+    const displayName = employee?.name || getAccountDisplayName();
+    const initials = getInitials(displayName);
+    if (els.employeePortalTopInitials) els.employeePortalTopInitials.textContent = initials;
+    if (els.employeePortalTopName) els.employeePortalTopName.textContent = displayName;
+
+    if (!employee) {
+      els.employeePortalContent.innerHTML = `<div class="iz-emp-empty">Fant ikke ansattprofil koblet til ${escapeHtml(state.currentUserEmail || "innlogget bruker")}. Opprett en ansatt med samme e-postadresse, eller koble brukeren til ansattprofilen.</div>`;
+      return;
+    }
+
+    const assignments = getEmployeePortalAssignments(employee);
+    const next = getEmployeePortalNextAssignment(assignments);
+    const history = getEmployeePortalHistory(assignments);
+
+    if (!next) {
+      els.employeePortalContent.innerHTML = `
+        <section class="iz-emp-card iz-emp-project-card">
+          <div class="iz-emp-project-icon">⌁</div>
+          <div>
+            <div class="iz-emp-eyebrow">Min side</div>
+            <div class="iz-emp-title">Ingen kommende prosjekter</div>
+            <div class="iz-emp-empty">Du har ingen aktive eller kommende prosjekt-tildelinger registrert.</div>
+          </div>
+        </section>
+        ${renderEmployeePortalHistory(history)}
+      `;
+      return;
+    }
+
+    const project = next.project;
+    const title = getEmployeePortalProjectTitle(project);
+    const bounds = getProjectDateBounds(project);
+    const team = getEmployeePortalTeam(project.id, employee.name);
+    const periodText = bounds.start && bounds.end ? `${formatDate(bounds.start)} – ${formatDate(bounds.end)}` : `${formatDate(next.start_date)} – ${formatDate(next.end_date)}`;
+    const roleText = next.role || employee.title || "Ikke satt";
+
+    els.employeePortalContent.innerHTML = `
+      <section class="iz-emp-card iz-emp-project-card">
+        <div class="iz-emp-project-icon">♒</div>
+        <div>
+          <div class="iz-emp-eyebrow">Neste prosjekt</div>
+          <div class="iz-emp-title">${escapeHtml(title.full)}</div>
+          <div class="iz-emp-meta-row">
+            <div class="iz-emp-meta-item"><div class="iz-emp-meta-icon">▣</div><div><div class="iz-emp-meta-label">Periode</div><div class="iz-emp-meta-value">${escapeHtml(periodText)}</div></div></div>
+            <div class="iz-emp-meta-item"><div class="iz-emp-meta-icon">♙</div><div><div class="iz-emp-meta-label">Rolle</div><div class="iz-emp-meta-value">${escapeHtml(roleText)}</div></div></div>
+            <div class="iz-emp-meta-item"><div class="iz-emp-meta-icon">⌖</div><div><div class="iz-emp-meta-label">Workshop / feltperiode</div><div class="iz-emp-meta-value">${escapeHtml(getWorkshopText(project))}</div></div></div>
+          </div>
+        </div>
+        <button type="button" class="iz-emp-open-project" aria-label="Åpne prosjekt">Åpne prosjekt ›</button>
+      </section>
+      ${renderEmployeePortalTimeline(project)}
+      ${renderEmployeePortalTeam(team)}
+      ${renderEmployeePortalHistory(history)}
+    `;
+  }
+
+  function renderEmployeePortalTeam(team) {
+    const items = (team || []).slice(0, 4);
+    return `
+      <section class="iz-emp-card iz-emp-section-card">
+        <div class="iz-emp-section-head"><div class="iz-emp-section-icon">♙</div><div class="iz-emp-section-title">Prosjektteam</div></div>
+        ${items.length ? `<div class="iz-emp-team-grid">${items.map(entry => `
+          <div class="iz-emp-member">
+            <div class="iz-emp-member-avatar">${escapeHtml(getInitials(entry.employee_name))}</div>
+            <div class="min-w-0"><div class="iz-emp-member-name">${escapeHtml(entry.employee_name)}</div><div class="iz-emp-member-role">${escapeHtml(entry.role || "Tildelt")}</div></div>
+          </div>
+        `).join("")}</div>` : `<div class="iz-emp-empty">Ingen andre registrert på prosjektet ennå.</div>`}
+      </section>
+    `;
+  }
+
+  function renderEmployeePortalHistory(history) {
+    const rows = (history || []).slice(0, 3);
+    return `
+      <section class="iz-emp-card iz-emp-history-card">
+        <div>
+          <div class="iz-emp-section-head"><div class="iz-emp-section-icon">◴</div><div class="iz-emp-section-title">Historikk</div></div>
+          ${rows.length ? `<div class="iz-emp-history-list">${rows.map(item => {
+            const title = getEmployeePortalProjectTitle(item.project);
+            return `<div class="iz-emp-history-row"><div class="iz-emp-history-code">${escapeHtml(title.code)}</div><div class="iz-emp-history-name">${escapeHtml(title.cleanName)}</div><div class="iz-emp-history-date">${escapeHtml(formatDate(item.start_date))} – ${escapeHtml(formatDate(item.end_date))}</div></div>`;
+          }).join("")}</div>` : `<div class="iz-emp-empty">Ingen tidligere prosjekter registrert.</div>`}
+        </div>
+        <button type="button" class="iz-emp-view-all">Vis alle ›</button>
+      </section>
+    `;
+  }
 
   function applyRoleChrome() {
     updateAccountPanel();
@@ -4450,6 +4721,13 @@ async function deleteEditedEntry() {
   }
 
   function renderAll() {
+    if (isEmployeePortalUser()) {
+      renderEmployeePortal();
+      showEmployeePortal();
+      return;
+    }
+
+    hideEmployeePortal();
     populateDynamicSelects();
     renderStats();
     renderHomeDashboard();
