@@ -1,4 +1,5 @@
 (() => {
+  // v18.38c-import-batch-notes-confirmation-safe
   // v18.38b-import-default-deselected-safe
   // v18.38a-import-selected-projects-test-mode-safe
   // v18.37j-import-workshop-only-fleet-delta-preview-safe
@@ -5886,8 +5887,8 @@ async function deleteEditedEntry() {
             <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
               <div class="text-sm font-semibold text-slate-900">3. Importstatus</div>
               <p class="mt-1 text-xs text-slate-600">Import/lagring bygges først etter at arbeidslisten er godkjent.</p>
-              <button id="projectImportTestImportBtn" type="button" class="mt-3 w-full rounded-xl bg-slate-900 px-3 py-2 text-sm font-semibold text-white hover:bg-slate-800">Importer valgte test</button>
-              <div class="mt-2 text-xs text-slate-500">Test mode: maks 3 valgte rader. Ingen rader er valgt som standard. Skriver til live database.</div>
+              <button id="projectImportTestImportBtn" type="button" class="mt-3 w-full rounded-xl bg-slate-900 px-3 py-2 text-sm font-semibold text-white hover:bg-slate-800">Importer valgte</button>
+              <div class="mt-2 text-xs text-slate-500">Safe import: maks 10 valgte rader. Ingen rader er valgt som standard. Skriver til live database.</div>
               <div id="projectImportTestResult" class="mt-3 text-xs text-slate-600"></div>
             </div>
           </div>
@@ -6403,15 +6404,30 @@ async function deleteEditedEntry() {
 
   function buildCsvImportNotes(row, modeLabel = "Create") {
     const raw = row?.raw || {};
+    const now = new Date().toISOString();
+    const importedBy = state.currentUser || state.currentUserEmail || "Ukjent bruker";
+    const isWorkshopOnly = row?.statusKey === "workshopOnly";
+
     const lines = [
-      "CSV_IMPORT_TEST",
-      "Imported from Project General CSV",
-      `Import mode: ${modeLabel}`
+      "CSV_IMPORT",
+      "Source: Project General CSV",
+      `Imported at: ${now}`,
+      `Imported by: ${importedBy}`,
+      `Import action: ${modeLabel}`,
+      `Project type: ${isWorkshopOnly ? "Workshop-only / Fleet" : "Field project"}`,
+      "",
+      "Imported values:",
+      `Project Name: ${row?.name || ""}`,
+      `Operation start: ${row?.operationStart || ""}`,
+      `Operation stop: ${row?.operationStop || ""}`,
+      `WS start: ${row?.wsStart || ""}`,
+      `WS stop: ${row?.wsStop || ""}`,
+      `Techs needed: ${row?.techs ?? ""}`,
+      `Project Responsible: ${row?.projectResponsible || raw["Project Responsible"] || ""}`,
+      `Company: ${row?.company || raw["Company"] || ""}`
     ];
 
-    const fields = [
-      ["Project Responsible", row?.projectResponsible || raw["Project Responsible"]],
-      ["Company", row?.company || raw["Company"]],
+    const optionalFields = [
       ["Activity", raw["Activity"]],
       ["Responsible eng.", raw["Responsible eng."]],
       ["Responsible procurement", raw["Responsible procurement"]],
@@ -6420,14 +6436,26 @@ async function deleteEditedEntry() {
       ["Link", raw["Link"]]
     ];
 
-    fields.forEach(([label, value]) => {
-      const text = String(value || "").trim();
-      if (text) lines.push(`${label}: ${text}`);
-    });
+    const optionalLines = optionalFields
+      .map(([label, value]) => [label, String(value || "").trim()])
+      .filter(([, value]) => value)
+      .map(([label, value]) => `${label}: ${value}`);
+
+    if (optionalLines.length) {
+      lines.push("", "Additional CSV data:", ...optionalLines);
+    }
+
+    lines.push(
+      "",
+      "Import safety:",
+      "Created from CSV import. Existing planner projects are not overwritten by this note.",
+      "For existing projects, CSV import is limited to date updates only."
+    );
 
     return lines.join("\\n");
   }
 
+  
   function buildProjectFromImportRow(row) {
     const isWorkshopOnly = row.statusKey === "workshopOnly";
     const hasWorkshop = Boolean(row.wsStart && row.wsStop);
@@ -6507,25 +6535,39 @@ async function deleteEditedEntry() {
       return;
     }
 
-    if (selectedActionableCount > 3) {
-      alert(`Test mode: maks 3 prosjekter per import. Du har valgt ${selectedActionableCount}. Velg færre rader og prøv igjen.`);
+    if (selectedActionableCount > 10) {
+      alert(`Safe import: maks 10 prosjekter per import. Du har valgt ${selectedActionableCount}. Velg færre rader og prøv igjen.`);
       return;
     }
 
+    const createNames = plan.createRows.map(row => row.name).slice(0, 10);
+    const workshopNames = plan.workshopRows.map(row => row.name).slice(0, 10);
+    const updateNames = plan.updateRows.map(row => row.name).slice(0, 10);
+
     const confirmText = [
-      "LIVE DATABASE – TESTIMPORT",
+      "LIVE DATABASE – SAFE IMPORT",
+      "",
+      "Dette vil skrive til den aktive Supabase-databasen som også brukes av main/production.",
       "",
       "Du er i ferd med å:",
       `- opprette ${plan.createRows.length} nye feltprosjekter`,
-      `- opprette ${plan.workshopRows.length} workshop-only prosjekter`,
+      `- opprette ${plan.workshopRows.length} workshop-only/Fleet-prosjekter`,
       `- oppdatere datoer på ${plan.updateRows.length} eksisterende prosjekter`,
       `- ignorere ${plan.skippedRows.length} valgte Skip/ikke-klare rader`,
       "",
-      "Nye prosjekter merkes med CSV_IMPORT_TEST i notes.",
-      "Eksisterende prosjekter får kun datoer oppdatert.",
+      createNames.length ? `Nye feltprosjekter:\\n- ${createNames.join("\\n- ")}` : "",
+      workshopNames.length ? `Workshop-only/Fleet:\\n- ${workshopNames.join("\\n- ")}` : "",
+      updateNames.length ? `Datooppdateringer:\\n- ${updateNames.join("\\n- ")}` : "",
       "",
-      "Fortsette?"
-    ].join("\\n");
+      "Sikkerhetsregler:",
+      "- kun hukede rader behandles",
+      "- maks 10 handlingsbare rader per import",
+      "- nye prosjekter får CSV_IMPORT i notes",
+      "- eksisterende prosjekter får kun datoer oppdatert",
+      "- Techs, notes, Project Responsible og bemanning overskrives ikke på eksisterende prosjekter",
+      "",
+      "Fortsette import?"
+    ].filter(Boolean).join("\\n");
 
     if (!confirm(confirmText)) return;
 
@@ -6619,7 +6661,7 @@ async function deleteEditedEntry() {
     renderAll();
 
     const resultText = [
-      "Testimport fullført.",
+      "Import fullført.",
       `Opprettet: ${result.created.length}`,
       `Oppdatert: ${result.updated.length}`,
       `Hoppet over: ${result.skipped.length}`,
@@ -6637,10 +6679,10 @@ async function deleteEditedEntry() {
 
     const resultEl = document.getElementById("projectImportTestResult");
     if (resultEl) {
-      resultEl.textContent = `Opprettet ${result.created.length}, oppdatert ${result.updated.length}, hoppet over ${result.skipped.length}, feil ${result.errors.length}.`;
+      resultEl.textContent = `Import fullført: opprettet ${result.created.length}, oppdatert ${result.updated.length}, hoppet over ${result.skipped.length}, feil ${result.errors.length}.`;
     }
 
-    void addAudit(`CSV testimport: opprettet ${result.created.length}, oppdatert ${result.updated.length}, hoppet over ${result.skipped.length}, feil ${result.errors.length}`);
+    void addAudit(`CSV safe import: opprettet ${result.created.length}, oppdatert ${result.updated.length}, hoppet over ${result.skipped.length}, feil ${result.errors.length}`);
   }
 
   function renderProjectImportInlineSummaryCards(counts = {}) {
