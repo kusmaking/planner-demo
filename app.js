@@ -1,4 +1,5 @@
 (() => {
+  // v18.37i-import-worklist-norwegian-date-input-safe
   // v18.37h-import-worklist-responsible-clean-layout-safe
   // v18.37g-import-worklist-full-width-preview-only-safe
   // v18.37f-import-approval-list-preview-only-safe
@@ -6004,6 +6005,62 @@ async function deleteEditedEntry() {
     `).join("");
   }
 
+
+  function formatProjectImportNorwegianDate(value) {
+    const raw = String(value || "").trim();
+    const match = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (!match) return raw || "";
+    return `${match[3]}.${match[2]}.${match[1].slice(2)}`;
+  }
+
+  function parseProjectImportNorwegianDateInput(value) {
+    const raw = String(value || "").trim();
+    if (!raw) return "";
+
+    const digits = raw.replace(/[^\d]/g, "");
+
+    if (/^\d{6}$/.test(digits)) {
+      const day = digits.slice(0, 2);
+      const month = digits.slice(2, 4);
+      const year = `20${digits.slice(4, 6)}`;
+      return isValidProjectImportIsoDate(`${year}-${month}-${day}`) ? `${year}-${month}-${day}` : "";
+    }
+
+    if (/^\d{8}$/.test(digits)) {
+      const day = digits.slice(0, 2);
+      const month = digits.slice(2, 4);
+      const year = digits.slice(4, 8);
+      return isValidProjectImportIsoDate(`${year}-${month}-${day}`) ? `${year}-${month}-${day}` : "";
+    }
+
+    const iso = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (iso) {
+      return isValidProjectImportIsoDate(raw) ? raw : "";
+    }
+
+    const dotted = raw.match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{2}|\d{4})$/);
+    if (dotted) {
+      const day = dotted[1].padStart(2, "0");
+      const month = dotted[2].padStart(2, "0");
+      const year = dotted[3].length === 2 ? `20${dotted[3]}` : dotted[3];
+      const isoValue = `${year}-${month}-${day}`;
+      return isValidProjectImportIsoDate(isoValue) ? isoValue : "";
+    }
+
+    return "";
+  }
+
+  function isValidProjectImportIsoDate(value) {
+    const raw = String(value || "").trim();
+    const match = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (!match) return false;
+    const date = new Date(`${raw}T00:00:00`);
+    return Number.isFinite(date.getTime())
+      && date.getUTCFullYear() === Number(match[1])
+      && date.getUTCMonth() + 1 === Number(match[2])
+      && date.getUTCDate() === Number(match[3]);
+  }
+
   function renderProjectImportApprovalListHtml(preview = getProjectImportPreviewState()) {
     const worklistRows = Array.isArray(preview.worklistRows) ? preview.worklistRows : [];
     const selectedIds = new Set(preview.selectedIds || []);
@@ -6069,19 +6126,19 @@ async function deleteEditedEntry() {
                       ${escapeHtml(row.projectResponsible || "-")}
                     </td>
                     <td class="px-3 py-2 align-top">
-                      <input data-project-import-edit data-field="operationStart" data-row-id="${escapeHtml(row.id)}" type="date" value="${escapeHtml(row.operationStart || "")}" class="w-full rounded-lg border border-slate-300 bg-white px-2 py-1" />
+                      <input data-project-import-edit data-date-field="true" data-field="operationStart" data-row-id="${escapeHtml(row.id)}" type="text" inputmode="numeric" placeholder="DDMMYY" value="${escapeHtml(formatProjectImportNorwegianDate(row.operationStart))}" class="w-full rounded-lg border border-slate-300 bg-white px-2 py-1 font-semibold text-slate-950 placeholder:text-slate-400" />
                     </td>
                     <td class="px-3 py-2 align-top">
-                      <input data-project-import-edit data-field="operationStop" data-row-id="${escapeHtml(row.id)}" type="date" value="${escapeHtml(row.operationStop || "")}" class="w-full rounded-lg border border-slate-300 bg-white px-2 py-1" />
+                      <input data-project-import-edit data-date-field="true" data-field="operationStop" data-row-id="${escapeHtml(row.id)}" type="text" inputmode="numeric" placeholder="DDMMYY" value="${escapeHtml(formatProjectImportNorwegianDate(row.operationStop))}" class="w-full rounded-lg border border-slate-300 bg-white px-2 py-1 font-semibold text-slate-950 placeholder:text-slate-400" />
                     </td>
                     <td class="px-3 py-2 align-top">
-                      <input data-project-import-edit data-field="wsStart" data-row-id="${escapeHtml(row.id)}" type="date" value="${escapeHtml(row.wsStart || "")}" class="w-full rounded-lg border border-slate-300 bg-white px-2 py-1" />
+                      <input data-project-import-edit data-date-field="true" data-field="wsStart" data-row-id="${escapeHtml(row.id)}" type="text" inputmode="numeric" placeholder="DDMMYY" value="${escapeHtml(formatProjectImportNorwegianDate(row.wsStart))}" class="w-full rounded-lg border border-slate-300 bg-white px-2 py-1 font-semibold text-slate-950 placeholder:text-slate-400" />
                     </td>
                     <td class="px-3 py-2 align-top">
-                      <input data-project-import-edit data-field="wsStop" data-row-id="${escapeHtml(row.id)}" type="date" value="${escapeHtml(row.wsStop || "")}" class="w-full rounded-lg border border-slate-300 bg-white px-2 py-1" />
+                      <input data-project-import-edit data-date-field="true" data-field="wsStop" data-row-id="${escapeHtml(row.id)}" type="text" inputmode="numeric" placeholder="DDMMYY" value="${escapeHtml(formatProjectImportNorwegianDate(row.wsStop))}" class="w-full rounded-lg border border-slate-300 bg-white px-2 py-1 font-semibold text-slate-950 placeholder:text-slate-400" />
                     </td>
                     <td class="px-3 py-2 align-top">
-                      <input data-project-import-edit data-field="techs" data-row-id="${escapeHtml(row.id)}" type="number" min="0" step="1" value="${escapeHtml(String(row.techs ?? ""))}" class="w-full rounded-lg border border-slate-300 bg-white px-2 py-1" />
+                      <input data-project-import-edit data-field="techs" data-row-id="${escapeHtml(row.id)}" type="number" min="0" step="1" value="${escapeHtml(String(row.techs ?? ""))}" class="w-full rounded-lg border border-slate-300 bg-white px-2 py-1 font-semibold text-slate-950" />
                     </td>
                     <td class="px-3 py-2 align-top text-slate-600">${escapeHtml(row.comment || "")}</td>
                   </tr>
@@ -6128,7 +6185,11 @@ async function deleteEditedEntry() {
 
       const editInput = event.target.closest("[data-project-import-edit]");
       if (editInput) {
-        updateProjectImportWorklistRow(editInput.dataset.rowId || "", editInput.dataset.field || "", editInput.value || "");
+        const normalizedValue = editInput.dataset.dateField === "true"
+          ? parseProjectImportNorwegianDateInput(editInput.value || "")
+          : (editInput.value || "");
+        updateProjectImportWorklistRow(editInput.dataset.rowId || "", editInput.dataset.field || "", normalizedValue);
+        return;
       }
     });
   }
