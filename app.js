@@ -1360,6 +1360,13 @@
       .sort((a, b) => String(a.start_date || "9999-12-31").localeCompare(String(b.start_date || "9999-12-31")) || String(a.end_date || "9999-12-31").localeCompare(String(b.end_date || "9999-12-31")))[0] || null;
   }
 
+  function getEmployeePortalUpcomingAssignments(assignments) {
+    const todayIso = toIsoDate(new Date());
+    return (assignments || [])
+      .filter(item => String(item.end_date || "") >= todayIso)
+      .sort((a, b) => String(a.start_date || "9999-12-31").localeCompare(String(b.start_date || "9999-12-31")) || String(a.end_date || "9999-12-31").localeCompare(String(b.end_date || "9999-12-31")));
+  }
+
   function getEmployeePortalHistory(assignments) {
     const todayIso = toIsoDate(new Date());
     return assignments
@@ -1533,7 +1540,8 @@
     }
 
     const assignments = getEmployeePortalAssignments(employee);
-    const next = getEmployeePortalNextAssignment(assignments);
+    const upcomingAssignments = getEmployeePortalUpcomingAssignments(assignments);
+    const next = upcomingAssignments[0] || null;
     const history = getEmployeePortalHistory(assignments);
 
     if (!next) {
@@ -1583,8 +1591,37 @@
         <button type="button" class="iz-emp-open-project" aria-label="Åpne prosjekt">Åpne prosjekt ›</button>
       </section>
       ${renderEmployeePortalTimeline(project)}
+      ${renderEmployeePortalUpcoming(upcomingAssignments, next.id)}
       ${renderEmployeePortalTeam(team)}
       ${renderEmployeePortalHistory(history)}
+    `;
+  }
+
+  function renderEmployeePortalUpcoming(assignments, nextEntryId) {
+    const upcoming = (assignments || []).filter(item => item?.id !== nextEntryId);
+    return `
+      <section class="iz-emp-card iz-emp-section-card iz-emp-upcoming-card">
+        <div class="iz-emp-section-head">
+          <div class="iz-emp-section-icon">▦</div>
+          <div>
+            <div class="iz-emp-section-title">Kommende prosjekter</div>
+            <div class="iz-emp-section-subtitle">Alle kommende tildelinger som ligger registrert på deg.</div>
+          </div>
+        </div>
+        ${upcoming.length ? `<div class="iz-emp-upcoming-list">${upcoming.map(item => {
+          const title = getEmployeePortalProjectTitle(item.project);
+          const period = item.start_date && item.end_date ? `${formatDate(item.start_date)} – ${formatDate(item.end_date)}` : "Dato ikke satt";
+          const customer = getEmployeePortalCustomerText(item.project);
+          const responsible = getEmployeePortalResponsibleText(item.project);
+          return `<div class="iz-emp-upcoming-row">
+            <div class="iz-emp-upcoming-date">${escapeHtml(period)}</div>
+            <div class="iz-emp-upcoming-main">
+              <div class="iz-emp-upcoming-title">${title.code ? `<span>${escapeHtml(title.code)}</span> ` : ""}${escapeHtml(title.cleanName)}</div>
+              <div class="iz-emp-upcoming-meta">${escapeHtml(item.role || "Rolle ikke satt")}${customer !== "Ikke satt" ? ` · ${escapeHtml(customer)}` : ""}${responsible !== "Ikke satt" ? ` · PL: ${escapeHtml(responsible)}` : ""}</div>
+            </div>
+          </div>`;
+        }).join("")}</div>` : `<div class="iz-emp-empty">Ingen andre kommende prosjekter registrert.</div>`}
+      </section>
     `;
   }
 

@@ -2175,6 +2175,68 @@
 
     .iz-emp-legend span:last-child i { background: #16813a; }
 
+    .iz-emp-section-subtitle {
+      margin-top: 4px;
+      font-size: 13px;
+      font-weight: 500;
+      letter-spacing: normal;
+      text-transform: none;
+      color: #64748b;
+    }
+
+    .iz-emp-upcoming-card {
+      padding-bottom: 24px;
+    }
+
+    .iz-emp-upcoming-list {
+      display: grid;
+      gap: 0;
+      border-top: 1px solid #dde2e8;
+    }
+
+    .iz-emp-upcoming-row {
+      display: grid;
+      grid-template-columns: 230px minmax(0, 1fr);
+      gap: 24px;
+      align-items: start;
+      padding: 16px 0;
+      border-bottom: 1px solid #eef2f6;
+    }
+
+    .iz-emp-upcoming-date {
+      color: #374151;
+      font-size: 14px;
+      font-weight: 750;
+      white-space: nowrap;
+    }
+
+    .iz-emp-upcoming-main {
+      min-width: 0;
+    }
+
+    .iz-emp-upcoming-title {
+      color: #111827;
+      font-size: 15px;
+      font-weight: 800;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .iz-emp-upcoming-title span {
+      color: #0f7a35;
+      letter-spacing: 0.02em;
+    }
+
+    .iz-emp-upcoming-meta {
+      margin-top: 4px;
+      color: #64748b;
+      font-size: 13px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
     .iz-emp-team-grid {
       display: grid;
       grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -2281,6 +2343,8 @@
       .iz-emp-meta-row, .iz-emp-meta-row-detailed { grid-template-columns: 1fr; }
       .iz-emp-meta-item + .iz-emp-meta-item, .iz-emp-meta-row-detailed .iz-emp-meta-item:nth-child(4) { border-left: 0; padding-left: 0; }
       .iz-emp-meta-row-detailed .iz-emp-meta-item:nth-child(n+2) { border-top: 1px solid #eef2f6; padding-top: 18px; }
+      .iz-emp-upcoming-row { grid-template-columns: 1fr; gap: 6px; }
+      .iz-emp-upcoming-date { white-space: normal; }
       .iz-emp-team-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); row-gap: 22px; }
       .iz-emp-member:nth-child(odd) { border-left: 0; padding-left: 0; }
       .iz-emp-history-row { grid-template-columns: 120px 1fr; }

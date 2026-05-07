@@ -1,48 +1,25 @@
-# Locked-v18.45b-employee-project-details-v1-safe
+# Locked-v18.45c-employee-upcoming-projects-list-v1-safe
 
-Base: `Locked-v18.45-employee-dashboard-polish-safe`.
+Base: `Locked-v18.45b-employee-project-details-v1-safe`.
 
-## Endret
-
-- `app.js`
-- `index.html`
-- `README.md`
-
-## Scope
-
-Dette er en kontrollert visningsforbedring av ansattportalen / Employee Min side.
-
-## Hva er forbedret
-
-- Neste prosjekt-kortet viser mer relevant prosjektdetalj.
-- Prosjekttittel bygges som `IZO-XXXXX Prosjektnavn` når prosjektkode finnes.
-- Intern prosjekt-ID/UUID-lignende tekst fjernes fra employee-visningens tittel-fallback.
-- Viser nå tydeligere:
-  - Din periode
-  - Prosjektperiode
-  - Rolle
-  - Prosjektleder
-  - Kunde
-  - Workshop / feltperiode
-  - Fase/status-linje når data finnes
-- Layouten er strammet opp med detaljert metagruppe i employee-portalen.
+## Endring
+- Ansattportalen viser nå både `Neste prosjekt` og en egen liste med `Kommende prosjekter`.
+- Listen viser alle fremtidige tildelinger registrert på den ansatte, uten en hard periodebegrensning.
+- Første kommende tildeling vises fortsatt som hovedkortet `Neste prosjekt`.
+- Øvrige kommende tildelinger vises med periode, prosjektkode/navn, rolle, kunde og prosjektleder når data finnes.
 
 ## Ikke endret
-
 - Supabase/RLS
-- Tilgangssøknader/godkjenning
-- Brukerroller
-- Import
-- Prosjektplan
-- Bemanning/tildeling
-- Admin/planner/superadmin-flyt
-- `data.js`
+- tilgangssøknader/godkjenning
+- brukerroller
+- import
+- prosjektplan
+- bemanning/tildeling
+- admin/planner/superadmin-flyt
+- data.js
 
 ## Test
-
 1. Logg inn som employee-testbruker.
-2. Bekreft at neste prosjekt vises.
-3. Bekreft at tittel ikke viser intern UUID/id.
-4. Bekreft at Prosjektleder og Kunde vises hvis prosjektet har disse feltene.
-5. Test Logg ut.
-6. Logg inn som superadmin/planner og bekreft at vanlig planlegger fortsatt fungerer.
+2. Bekreft at nærmeste prosjekt vises som `Neste prosjekt`.
+3. Bekreft at senere prosjekter vises under `Kommende prosjekter`.
+4. Bekreft at planner/admin fortsatt viser alle ansatte/prosjekter i separat browser/profil.
