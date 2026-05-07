@@ -1,4 +1,5 @@
 (() => {
+  // v18.43-access-management-v1-safe
   // v18.42-access-approval-v1-safe
   // v18.41-access-request-v1-safe
   // v18.40c-import-workshop-date-only-create-safe
@@ -33,6 +34,7 @@
     currentUserEmail: "",
     currentUserId: "",
     currentRole: "",
+    currentUserIsActive: true,
     authReady: false,
     employeePortalSelectedProjectId: "",
     employeeFilter: "Alle ansatte",
@@ -127,6 +129,12 @@
       summary: null
     },
     accessRequests: {
+      rows: [],
+      loading: false,
+      error: "",
+      lastLoadedAt: ""
+    },
+    accessUsers: {
       rows: [],
       loading: false,
       error: "",
@@ -259,6 +267,19 @@
 
     await loadAuthUser();
 
+    if (isLoggedInUser() && state.currentUserIsActive === false) {
+      await supabaseClient?.auth?.signOut?.();
+      state.currentUser = "Ikke innlogget";
+      state.currentUserEmail = "";
+      state.currentUserId = "";
+      state.currentRole = "";
+      state.currentUserIsActive = true;
+      showStartPage();
+      setStartLoginError("Tilgangen din er deaktivert. Kontakt superadmin.");
+      window.izomaxApplyLanguage?.();
+      return;
+    }
+
     if (!isLoggedInUser()) {
       showStartPage();
       window.izomaxApplyLanguage?.();
@@ -304,7 +325,7 @@
       "newEmployeeBtn", "employeeModal", "employeeModalTitle", "closeEmployeeModalBtn",
       "employeeName", "employeeEmail", "employeePhone", "employeeTitle", "employeeGroup", "employeeActive", "saveEmployeeBtn", "deleteEmployeeBtn",
       "calendarContextMenu", "contextMenuEmployee", "contextMenuStart", "contextMenuEnd", "contextMenuType", "contextMenuNotes", "contextMenuAddBtn", "contextMenuCloseBtn",
-      "employeePortalShell", "employeePortalContent", "employeePortalTopInitials", "employeePortalTopName", "employeePortalLogoutBtn", "plannerStartPage", "plannerAppShell", "startLoginEmail", "startLoginPassword", "startLoginSubmitBtn", "startForgotPasswordBtn", "startAccessHelpBtn", "startLoginError", "accessRequestModal", "accessRequestCloseBtn", "accessRequestCancelBtn", "accessRequestSubmitBtn", "accessRequestName", "accessRequestEmail", "accessRequestPhone", "accessRequestType", "accessRequestMessage", "accessRequestFeedback", "accessApprovalList", "accessApprovalRefreshBtn", "accessApprovalStatus", "accountPanel", "accountUserInfo", "changePasswordBtn", "resetPasswordBtn", "logoutBtn", "loginBtn", "loginModal", "closeLoginModalBtn", "loginEmail", "loginPassword", "loginSubmitBtn", "forgotPasswordBtn"
+      "employeePortalShell", "employeePortalContent", "employeePortalTopInitials", "employeePortalTopName", "employeePortalLogoutBtn", "plannerStartPage", "plannerAppShell", "startLoginEmail", "startLoginPassword", "startLoginSubmitBtn", "startForgotPasswordBtn", "startAccessHelpBtn", "startLoginError", "accessRequestModal", "accessRequestCloseBtn", "accessRequestCancelBtn", "accessRequestSubmitBtn", "accessRequestName", "accessRequestEmail", "accessRequestPhone", "accessRequestType", "accessRequestMessage", "accessRequestFeedback", "accessApprovalList", "accessApprovalRefreshBtn", "accessApprovalStatus", "accessUsersList", "accessUsersRefreshBtn", "accessUsersStatus", "accountPanel", "accountUserInfo", "changePasswordBtn", "resetPasswordBtn", "logoutBtn", "loginBtn", "loginModal", "closeLoginModalBtn", "loginEmail", "loginPassword", "loginSubmitBtn", "forgotPasswordBtn"
     ];
 
     ids.forEach(id => els[id] = document.getElementById(id));
@@ -1049,11 +1070,13 @@
       state.currentUserId = user?.id || "";
       state.currentUser = user?.user_metadata?.full_name || user?.email || "Ikke innlogget";
       state.currentRole = "";
+      state.currentUserIsActive = true;
 
       try {
         const { data, error } = await supabaseClient.rpc("get_my_profile");
         if (!error && Array.isArray(data) && data[0]) {
           state.currentRole = normalizeRoleValue(data[0].role || "");
+          state.currentUserIsActive = data[0].is_active !== false;
           if (data[0].full_name) state.currentUser = data[0].full_name;
           if (data[0].email) state.currentUserEmail = data[0].email;
         }
@@ -1089,6 +1112,10 @@
 
   function canApproveAccessRequests() {
     return isSuperadmin() || isAdminUser();
+  }
+
+  function canManageUserAccess() {
+    return isSuperadmin();
   }
 
   function isPlanner() {
@@ -1969,6 +1996,143 @@
     }
   }
 
+
+
+  async function fetchAccessUsers(options = {}) {
+    const silent = Boolean(options.silent);
+    if (!supabaseClient || !canManageUserAccess()) {
+      state.accessUsers.rows = [];
+      state.accessUsers.error = "";
+      return;
+    }
+
+    state.accessUsers.loading = true;
+    if (!silent) renderAccessUsers();
+
+    try {
+      const { data, error } = await supabaseClient
+        .from("user_profiles")
+        .select("id, email, full_name, role, is_active, created_at, updated_at")
+        .order("email", { ascending: true });
+
+      if (error) throw error;
+      state.accessUsers.rows = data || [];
+      state.accessUsers.error = "";
+      state.accessUsers.lastLoadedAt = new Date().toISOString();
+    } catch (error) {
+      state.accessUsers.error = error?.message || "Kunne ikke hente brukertilganger.";
+    } finally {
+      state.accessUsers.loading = false;
+      renderAccessUsers();
+    }
+  }
+
+  function refreshAccessUsers() {
+    return fetchAccessUsers({ silent: false });
+  }
+
+  function getAccessUserStatusBadgeClass(isActive) {
+    return isActive === false
+      ? "border-rose-200 bg-rose-50 text-rose-700"
+      : "border-emerald-200 bg-emerald-50 text-emerald-700";
+  }
+
+  function renderAccessUsers() {
+    if (!els.accessUsersList) return;
+
+    const allowed = canManageUserAccess();
+    const card = els.accessUsersList.closest(".rounded-2xl");
+    if (card) card.style.display = allowed ? "" : "none";
+    if (!allowed) return;
+
+    const rows = state.accessUsers.rows || [];
+    const activeCount = rows.filter(row => row.is_active !== false).length;
+    const inactiveCount = rows.filter(row => row.is_active === false).length;
+
+    if (els.accessUsersStatus) {
+      const loadedText = state.accessUsers.lastLoadedAt ? `Sist hentet ${formatAccessRequestDate(state.accessUsers.lastLoadedAt)}` : "Ikke hentet ennå";
+      els.accessUsersStatus.textContent = state.accessUsers.loading ? "Henter brukere..." : `${activeCount} aktive • ${inactiveCount} deaktivert • ${loadedText}`;
+    }
+
+    if (state.accessUsers.loading && !rows.length) {
+      els.accessUsersList.innerHTML = `<div class="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">Henter brukertilganger...</div>`;
+      return;
+    }
+
+    if (state.accessUsers.error) {
+      els.accessUsersList.innerHTML = `<div class="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">Kunne ikke hente brukertilganger: ${escapeHtml(state.accessUsers.error)}</div>`;
+      return;
+    }
+
+    if (!rows.length) {
+      els.accessUsersList.innerHTML = `<div class="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">Ingen brukere funnet.</div>`;
+      return;
+    }
+
+    els.accessUsersList.innerHTML = rows.map(row => {
+      const isCurrentUser = row.id === state.currentUserId;
+      const isActive = row.is_active !== false;
+      const actionLabel = isActive ? "Deaktiver" : "Aktiver";
+      const nextActive = isActive ? "false" : "true";
+      const disabled = isCurrentUser ? "disabled" : "";
+      const disabledHint = isCurrentUser ? `<div class="text-xs text-slate-400">Du kan ikke deaktivere egen superadmin-bruker.</div>` : "";
+      return `
+        <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+          <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div class="min-w-0 space-y-1">
+              <div class="flex flex-wrap items-center gap-2">
+                <div class="font-semibold text-slate-900">${escapeHtml(row.full_name || row.email || "Uten navn")}</div>
+                <span class="rounded-full border px-2.5 py-1 text-xs font-semibold ${getAccessUserStatusBadgeClass(row.is_active)}">${isActive ? "Aktiv" : "Deaktivert"}</span>
+                <span class="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-semibold text-slate-600">${escapeHtml(formatRoleLabel(row.role))}</span>
+              </div>
+              <div class="text-sm text-slate-600">${escapeHtml(row.email || "Ingen e-post")}</div>
+              <div class="text-xs text-slate-500">Opprettet ${escapeHtml(formatAccessRequestDate(row.created_at))}${row.updated_at ? ` • Sist endret ${escapeHtml(formatAccessRequestDate(row.updated_at))}` : ""}</div>
+              ${disabledHint}
+            </div>
+            <div class="flex shrink-0 flex-wrap gap-2">
+              <button type="button" data-access-user-action="toggle-active" data-access-user-id="${escapeHtml(row.id)}" data-access-user-next-active="${nextActive}" class="rounded-xl ${isActive ? "border border-rose-200 bg-rose-50 text-rose-700" : "border border-emerald-200 bg-emerald-50 text-emerald-700"} px-3 py-2 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-40" ${disabled}>${actionLabel}</button>
+            </div>
+          </div>
+        </div>
+      `;
+    }).join("");
+  }
+
+  async function updateAccessUserActive(userId, nextActiveRaw) {
+    if (!canManageUserAccess()) {
+      alert("Kun superadmin kan administrere brukertilganger.");
+      return;
+    }
+    if (!userId) return;
+    if (userId === state.currentUserId) {
+      alert("Du kan ikke deaktivere din egen superadmin-bruker.");
+      return;
+    }
+
+    const nextActive = String(nextActiveRaw) === "true";
+    const user = (state.accessUsers.rows || []).find(row => row.id === userId);
+    const name = user?.full_name || user?.email || "denne brukeren";
+    const actionText = nextActive ? "aktivere" : "deaktivere";
+    const ok = window.confirm(`Vil du ${actionText} tilgangen for ${name}?\n\nDette sletter ikke Auth-brukeren. Det endrer kun user_profiles.is_active.`);
+    if (!ok) return;
+
+    try {
+      const { error } = await supabaseClient
+        .from("user_profiles")
+        .update({
+          is_active: nextActive,
+          updated_at: new Date().toISOString(),
+          updated_by: state.currentUserId || null
+        })
+        .eq("id", userId);
+
+      if (error) throw error;
+      await fetchAccessUsers({ silent: true });
+    } catch (error) {
+      alert(`Kunne ikke oppdatere brukertilgang: ${error?.message || "Ukjent feil"}`);
+    }
+  }
+
   async function handleLogin() {
     if (!supabaseClient?.auth) return;
 
@@ -2830,6 +2994,20 @@
       });
     }
 
+    if (els.accessUsersRefreshBtn) {
+      els.accessUsersRefreshBtn.addEventListener("click", () => refreshAccessUsers());
+    }
+
+    if (els.accessUsersList) {
+      els.accessUsersList.addEventListener("click", event => {
+        const button = event.target?.closest?.("[data-access-user-action]");
+        if (!button) return;
+        const userId = button.dataset.accessUserId || "";
+        const nextActive = button.dataset.accessUserNextActive || "";
+        if (userId) updateAccessUserActive(userId, nextActive);
+      });
+    }
+
     if (els.startLoginPassword) {
       els.startLoginPassword.addEventListener("keydown", e => {
         if (e.key === "Enter") handleStartLogin();
@@ -2920,6 +3098,7 @@
 
     await fetchFromSupabase();
     await fetchAccessRequests({ silent: true });
+    await fetchAccessUsers({ silent: true });
 
     const hasMainData = state.employees.length || state.projects.length || state.entries.length;
     if (!hasMainData) {
@@ -5060,6 +5239,7 @@ async function deleteEditedEntry() {
     renderAudit();
     renderSystemStatus();
     renderAccessRequests();
+    renderAccessUsers();
     updateBadge();
     updateAvailabilityAnalysis();
     applyRoleChrome();

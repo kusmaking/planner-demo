@@ -175,3 +175,25 @@ Forventet:
 - Ny rad med `status = pending`.
 - Ingen brukerrolle endres.
 - Ingen ny tilgang gis automatisk.
+
+
+## v18.43-access-management-v1-safe
+
+Kontrollert tilgangsadministrasjon lagt til i Admin-fanen.
+
+Endret:
+- Admin -> Brukertilganger
+- Superadmin kan aktivere/deaktivere eksisterende brukere i `public.user_profiles`
+- Deaktivering setter kun `is_active = false`
+- Aktivering setter `is_active = true`
+- Egen innlogget superadmin-bruker kan ikke deaktiveres fra UI
+- Inaktive brukere stoppes ved innlogging og sendes tilbake til startsiden med melding
+
+Ikke endret:
+- Supabase Auth-brukere slettes ikke
+- Roller endres ikke
+- Ansattkobling endres ikke
+- CSV-import, prosjektplan, bemanning og ansattportal-logikk er ikke endret
+
+Merk:
+- Denne versjonen forutsetter at superadmin har RLS-rettighet til å lese og oppdatere `public.user_profiles`. Hvis listen viser RLS-/permission-feil, legg inn en egen policy/RPC før videre bruk.
