@@ -58,3 +58,10 @@ Testing:
    - project timeline shows all upcoming assignments by month/week
    - clicking timeline/list rows changes the selected project card
 3. Log in as planner/admin and verify all employees/projects still appear.
+
+## v18.47 employee portal web redesign
+
+- Web/desktop ansattportal er redesignet mot valgt mørk Izomax-dashboard mockup.
+- Ansattportal har nå venstre profil-/neste-prosjekt-kolonne og hovedfelt med kommende kalender, kommende prosjekter og siste aktivitet.
+- Mobile CSS er forbedret for stablet webvisning, men videre mobilpolish tas senere.
+- Ikke endret: Supabase/RLS, tilgangsflyt, import, prosjektplan, bemanning eller admin/planner/superadmin-flyt.

@@ -2683,6 +2683,553 @@
     }
 
 
+    /* v18.47: employee portal web design - dark Izomax dashboard concept */
+    body.iz-compact-ui #employeePortalShell {
+      min-height: calc(100vh - 24px);
+      color: rgba(238, 251, 249, 0.94);
+    }
+
+    body.iz-compact-ui #employeePortalShell.iz-employee-active {
+      display: block;
+    }
+
+    body.iz-compact-ui .iz-emp-topbar {
+      height: 92px;
+      min-height: 92px;
+      padding: 0 28px 20px 28px;
+      align-items: flex-end;
+      border-bottom: 1px solid rgba(255,255,255,0.12);
+    }
+
+    body.iz-compact-ui .iz-emp-topbar .iz-title-block h1 {
+      color: #ffffff;
+      font-size: 30px;
+      line-height: 1.05;
+      letter-spacing: -0.03em;
+      margin: 0;
+    }
+
+    body.iz-compact-ui .iz-emp-topbar .iz-title-block p {
+      color: rgba(207, 238, 233, 0.72);
+      font-size: 11px;
+      line-height: 1.2;
+      font-weight: 900;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      margin-top: 5px;
+    }
+
+    body.iz-compact-ui .iz-emp-topbar .iz-brand-wrap {
+      gap: 26px;
+    }
+
+    body.iz-compact-ui .iz-emp-topbar .iz-logo {
+      width: 185px;
+      filter: drop-shadow(0 12px 22px rgba(0,0,0,0.18));
+    }
+
+    body.iz-compact-ui .iz-emp-user {
+      align-self: flex-end;
+      min-width: 190px;
+      border: 1px solid rgba(115, 255, 217, 0.18);
+      background: rgba(2, 25, 32, 0.54);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.06);
+    }
+
+    body.iz-compact-ui .iz-emp-avatar {
+      border-radius: 999px;
+      background: rgba(31, 153, 119, 0.36);
+      border-color: rgba(113, 255, 215, 0.30);
+      color: #eafff7;
+    }
+
+    body.iz-compact-ui .iz-emp-logout {
+      border-radius: 0;
+      background: rgba(2, 20, 28, 0.36);
+      color: rgba(255,255,255,0.92);
+      border-color: rgba(255,255,255,0.18);
+      margin-left: 8px;
+    }
+
+    body.iz-compact-ui .iz-emp-side-nav {
+      display: none;
+    }
+
+    body.iz-compact-ui .iz-emp-page {
+      margin-left: 0;
+      padding: 24px 26px 54px 26px;
+      max-width: 1540px;
+      margin-right: auto;
+      display: block;
+    }
+
+    body.iz-compact-ui .iz-emp-dashboard {
+      display: grid;
+      grid-template-columns: minmax(290px, 360px) minmax(0, 1fr);
+      gap: 26px;
+      align-items: start;
+    }
+
+    body.iz-compact-ui .iz-emp-dashboard-single {
+      grid-template-columns: 1fr;
+    }
+
+    body.iz-compact-ui .iz-emp-left-col,
+    body.iz-compact-ui .iz-emp-main-col {
+      display: grid;
+      gap: 22px;
+      min-width: 0;
+    }
+
+    body.iz-compact-ui .iz-emp-content-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.08fr) minmax(330px, 0.92fr);
+      gap: 22px;
+      align-items: start;
+    }
+
+    body.iz-compact-ui .iz-emp-card {
+      border-radius: 5px;
+      border: 1px solid rgba(170, 229, 218, 0.16);
+      background: linear-gradient(180deg, rgba(9, 43, 52, 0.74), rgba(5, 31, 39, 0.66));
+      box-shadow: 0 18px 46px rgba(0, 0, 0, 0.22), inset 0 1px 0 rgba(255,255,255,0.04);
+      color: rgba(238, 251, 249, 0.94);
+      backdrop-filter: blur(10px);
+    }
+
+    body.iz-compact-ui .iz-emp-profile-card,
+    body.iz-compact-ui .iz-emp-next-card,
+    body.iz-compact-ui .iz-emp-section-card,
+    body.iz-compact-ui .iz-emp-history-card {
+      padding: 24px;
+    }
+
+    body.iz-compact-ui .iz-emp-section-head-compact,
+    body.iz-compact-ui .iz-emp-section-head {
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 18px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid rgba(232, 255, 249, 0.08);
+    }
+
+    body.iz-compact-ui .iz-emp-section-icon {
+      background: transparent;
+      border: 0;
+      width: 24px;
+      height: 24px;
+      color: rgba(203, 244, 235, 0.86);
+      font-size: 17px;
+    }
+
+    body.iz-compact-ui .iz-emp-section-title,
+    body.iz-compact-ui .iz-emp-eyebrow {
+      color: rgba(240, 255, 251, 0.95);
+      font-size: 12px;
+      font-weight: 950;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+    }
+
+    body.iz-compact-ui .iz-emp-section-subtitle {
+      color: rgba(205, 230, 225, 0.62);
+    }
+
+    body.iz-compact-ui .iz-emp-profile-body {
+      display: grid;
+      grid-template-columns: 88px minmax(0, 1fr);
+      gap: 18px;
+      align-items: center;
+    }
+
+    body.iz-compact-ui .iz-emp-profile-avatar {
+      width: 84px;
+      height: 84px;
+      display: grid;
+      place-items: center;
+      border-radius: 999px;
+      background: radial-gradient(circle at 30% 20%, rgba(61, 210, 154, 0.42), rgba(10, 105, 82, 0.72));
+      border: 1px solid rgba(107, 244, 198, 0.25);
+      color: #eafff7;
+      font-size: 34px;
+      font-weight: 950;
+      letter-spacing: -0.05em;
+    }
+
+    body.iz-compact-ui .iz-emp-profile-name {
+      color: #ffffff;
+      font-size: 18px;
+      font-weight: 950;
+      line-height: 1.12;
+    }
+
+    body.iz-compact-ui .iz-emp-profile-role {
+      color: rgba(222, 246, 241, 0.72);
+      font-size: 14px;
+      margin-top: 4px;
+    }
+
+    body.iz-compact-ui .iz-emp-profile-line {
+      color: rgba(215, 241, 236, 0.68);
+      font-size: 13px;
+      margin-top: 10px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    body.iz-compact-ui .iz-emp-next-body {
+      display: grid;
+      gap: 18px;
+    }
+
+    body.iz-compact-ui .iz-emp-project-icon-small,
+    body.iz-compact-ui .iz-emp-project-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 5px;
+      background: linear-gradient(180deg, #8457f0, #5f31be);
+      border: 1px solid rgba(220, 209, 255, 0.28);
+      color: white;
+      font-size: 24px;
+      box-shadow: 0 10px 22px rgba(70, 35, 135, 0.28);
+    }
+
+    body.iz-compact-ui .iz-emp-next-title {
+      color: #ffffff;
+      font-size: 26px;
+      line-height: 1.12;
+      letter-spacing: -0.035em;
+      font-weight: 950;
+    }
+
+    body.iz-compact-ui .iz-emp-next-title span {
+      color: #ffffff;
+    }
+
+    body.iz-compact-ui .iz-emp-next-meta {
+      display: grid;
+      gap: 14px;
+      padding-top: 4px;
+    }
+
+    body.iz-compact-ui .iz-emp-next-meta div {
+      display: grid;
+      gap: 4px;
+    }
+
+    body.iz-compact-ui .iz-emp-next-meta span {
+      color: rgba(202, 231, 226, 0.58);
+      font-size: 12px;
+      line-height: 1.1;
+    }
+
+    body.iz-compact-ui .iz-emp-next-meta strong {
+      color: rgba(255,255,255,0.95);
+      font-size: 14px;
+      line-height: 1.25;
+    }
+
+    body.iz-compact-ui .iz-emp-open-project-wide {
+      width: 100%;
+      justify-content: center;
+      color: #ffffff;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(215, 255, 245, 0.12);
+      border-radius: 4px;
+      padding: 13px 16px;
+    }
+
+    body.iz-compact-ui .iz-emp-plan-card {
+      min-height: 265px;
+    }
+
+    body.iz-compact-ui .iz-emp-plan-scroll {
+      overflow-x: auto;
+      border: 0;
+      background: rgba(0, 0, 0, 0.05);
+      border-radius: 0;
+      padding: 12px 4px 0 4px;
+    }
+
+    body.iz-compact-ui .iz-emp-plan-timeline {
+      min-width: 680px;
+    }
+
+    body.iz-compact-ui .iz-emp-plan-month-label {
+      color: rgba(238, 251, 249, 0.82);
+      font-weight: 900;
+    }
+
+    body.iz-compact-ui .iz-emp-plan-weeks span {
+      color: rgba(208, 234, 229, 0.48);
+    }
+
+    body.iz-compact-ui .iz-emp-plan-track {
+      background: transparent;
+      border-top: 1px solid rgba(205, 245, 234, 0.13);
+    }
+
+    body.iz-compact-ui .iz-emp-plan-month-grid {
+      border-left: 1px dashed rgba(203, 244, 235, 0.16);
+    }
+
+    body.iz-compact-ui .iz-emp-plan-bar {
+      border-radius: 5px;
+      background: linear-gradient(180deg, rgba(25, 148, 88, 0.94), rgba(11, 111, 70, 0.94));
+      color: #ffffff;
+      border: 1px solid rgba(118, 255, 197, 0.18);
+      box-shadow: 0 10px 18px rgba(0,0,0,0.20);
+    }
+
+    body.iz-compact-ui .iz-emp-plan-bar-active {
+      background: linear-gradient(180deg, rgba(32, 170, 99, 0.98), rgba(9, 128, 74, 0.98));
+      box-shadow: 0 14px 26px rgba(0,0,0,0.24), inset 0 0 0 2px rgba(174, 255, 213, 0.20);
+    }
+
+    body.iz-compact-ui .iz-emp-upcoming-card,
+    body.iz-compact-ui .iz-emp-history-card {
+      min-height: 390px;
+    }
+
+    body.iz-compact-ui .iz-emp-upcoming-list,
+    body.iz-compact-ui .iz-emp-history-list {
+      display: grid;
+      gap: 0;
+    }
+
+    body.iz-compact-ui .iz-emp-upcoming-row {
+      grid-template-columns: 78px 42px minmax(0, 1fr) auto;
+      gap: 14px;
+      align-items: center;
+      border: 0;
+      border-radius: 0;
+      background: transparent;
+      color: rgba(238, 251, 249, 0.94);
+      border-bottom: 1px solid rgba(232, 255, 249, 0.08);
+      padding: 14px 0;
+      box-shadow: none;
+    }
+
+    body.iz-compact-ui .iz-emp-upcoming-row::before {
+      content: "♒";
+      width: 36px;
+      height: 36px;
+      display: grid;
+      place-items: center;
+      border-radius: 5px;
+      color: white;
+      background: linear-gradient(180deg, #8457f0, #5f31be);
+      grid-column: 2;
+      grid-row: 1;
+    }
+
+    body.iz-compact-ui .iz-emp-upcoming-row-active {
+      background: rgba(69, 231, 154, 0.05);
+      box-shadow: none;
+    }
+
+    body.iz-compact-ui .iz-emp-upcoming-date {
+      grid-column: 1;
+      color: rgba(238, 251, 249, 0.86);
+      white-space: normal;
+      font-weight: 900;
+      font-size: 12px;
+      line-height: 1.25;
+    }
+
+    body.iz-compact-ui .iz-emp-upcoming-main {
+      grid-column: 3;
+    }
+
+    body.iz-compact-ui .iz-emp-upcoming-title,
+    body.iz-compact-ui .iz-emp-history-code,
+    body.iz-compact-ui .iz-emp-history-name {
+      color: #ffffff;
+      font-weight: 950;
+    }
+
+    body.iz-compact-ui .iz-emp-upcoming-meta,
+    body.iz-compact-ui .iz-emp-history-date {
+      color: rgba(210, 236, 231, 0.66);
+    }
+
+    body.iz-compact-ui .iz-emp-upcoming-action {
+      grid-column: 4;
+      border: 1px solid rgba(102, 245, 187, 0.20);
+      color: #67f0ba;
+      background: rgba(34, 197, 94, 0.08);
+      border-radius: 4px;
+      padding: 5px 8px;
+      font-size: 11px;
+      font-weight: 950;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    body.iz-compact-ui .iz-emp-history-card {
+      display: block;
+    }
+
+    body.iz-compact-ui .iz-emp-history-row {
+      display: grid;
+      grid-template-columns: 48px minmax(0, 1fr) auto;
+      gap: 12px;
+      align-items: center;
+      padding: 14px 0;
+      border-bottom: 1px solid rgba(232, 255, 249, 0.08);
+    }
+
+    body.iz-compact-ui .iz-emp-history-row::before {
+      content: "♒";
+      width: 36px;
+      height: 36px;
+      display: grid;
+      place-items: center;
+      border-radius: 5px;
+      color: white;
+      background: linear-gradient(180deg, #8457f0, #5f31be);
+      grid-column: 1;
+    }
+
+    body.iz-compact-ui .iz-emp-history-code {
+      grid-column: 2;
+    }
+
+    body.iz-compact-ui .iz-emp-history-name {
+      grid-column: 2;
+      color: rgba(219, 244, 239, 0.74);
+      font-weight: 600;
+      margin-top: 18px;
+    }
+
+    body.iz-compact-ui .iz-emp-history-date {
+      grid-column: 3;
+      grid-row: 1 / span 2;
+      text-align: right;
+      font-size: 12px;
+    }
+
+    body.iz-compact-ui .iz-emp-view-all {
+      margin-top: 18px;
+      color: #63f0b6;
+      justify-self: stretch;
+      width: 100%;
+      text-align: left;
+      padding: 0;
+    }
+
+    body.iz-compact-ui .iz-emp-empty,
+    body.iz-compact-ui .iz-emp-empty-dark {
+      border: 1px dashed rgba(198, 233, 226, 0.18);
+      background: rgba(255,255,255,0.04);
+      color: rgba(225, 246, 242, 0.72);
+      border-radius: 4px;
+    }
+
+    @media (max-width: 1120px) {
+      body.iz-compact-ui .iz-emp-dashboard {
+        grid-template-columns: 1fr;
+      }
+
+      body.iz-compact-ui .iz-emp-left-col {
+        grid-template-columns: minmax(0, 0.7fr) minmax(0, 1fr);
+      }
+
+      body.iz-compact-ui .iz-emp-content-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 760px) {
+      body.iz-compact-ui #employeePortalShell {
+        margin: -14px -18px -14px -18px;
+        padding: 0 0 24px 0;
+      }
+
+      body.iz-compact-ui .iz-emp-topbar {
+        height: auto;
+        min-height: 86px;
+        padding: 16px 18px;
+        flex-direction: row;
+        align-items: center;
+      }
+
+      body.iz-compact-ui .iz-emp-topbar .iz-logo {
+        width: 145px;
+      }
+
+      body.iz-compact-ui .iz-emp-topbar .iz-title-block h1 {
+        font-size: 24px;
+      }
+
+      body.iz-compact-ui .iz-emp-topbar .iz-title-block p {
+        display: none;
+      }
+
+      body.iz-compact-ui .iz-emp-user {
+        min-width: auto;
+        width: auto;
+        padding: 6px;
+      }
+
+      body.iz-compact-ui #employeePortalTopName,
+      body.iz-compact-ui .iz-emp-logout {
+        display: none;
+      }
+
+      body.iz-compact-ui .iz-emp-page {
+        padding: 18px;
+      }
+
+      body.iz-compact-ui .iz-emp-left-col,
+      body.iz-compact-ui .iz-emp-content-grid {
+        grid-template-columns: 1fr;
+      }
+
+      body.iz-compact-ui .iz-emp-dashboard {
+        gap: 16px;
+      }
+
+      body.iz-compact-ui .iz-emp-profile-card {
+        display: none;
+      }
+
+      body.iz-compact-ui .iz-emp-next-title {
+        font-size: 24px;
+      }
+
+      body.iz-compact-ui .iz-emp-upcoming-row {
+        grid-template-columns: 1fr 40px;
+        gap: 8px;
+      }
+
+      body.iz-compact-ui .iz-emp-upcoming-row::before {
+        display: none;
+      }
+
+      body.iz-compact-ui .iz-emp-upcoming-date,
+      body.iz-compact-ui .iz-emp-upcoming-main,
+      body.iz-compact-ui .iz-emp-upcoming-action {
+        grid-column: 1;
+      }
+
+      body.iz-compact-ui .iz-emp-upcoming-action {
+        justify-self: start;
+      }
+
+      body.iz-compact-ui .iz-emp-history-row {
+        grid-template-columns: 40px minmax(0, 1fr);
+      }
+
+      body.iz-compact-ui .iz-emp-history-date {
+        grid-column: 2;
+        grid-row: auto;
+        text-align: left;
+      }
+    }
+
+
   </style>
 </head>
 <body class="iz-compact-ui text-slate-900">

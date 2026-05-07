@@ -1597,6 +1597,71 @@
     `;
   }
 
+
+  function renderEmployeePortalProfileCard(employee, displayName) {
+    const title = employee?.title || employee?.employee_type || "Ansatt";
+    const email = employee?.email || state.currentUserEmail || "";
+    const phone = employee?.phone || "";
+    return `
+      <section class="iz-emp-card iz-emp-profile-card">
+        <div class="iz-emp-section-head iz-emp-section-head-compact">
+          <div class="iz-emp-section-icon">♙</div>
+          <div class="iz-emp-section-title">Min profil</div>
+        </div>
+        <div class="iz-emp-profile-body">
+          <div class="iz-emp-profile-avatar">${escapeHtml(getInitials(displayName))}</div>
+          <div class="iz-emp-profile-info">
+            <div class="iz-emp-profile-name">${escapeHtml(displayName)}</div>
+            <div class="iz-emp-profile-role">${escapeHtml(title)}</div>
+            ${email ? `<div class="iz-emp-profile-line">✉ ${escapeHtml(email)}</div>` : ""}
+            ${phone ? `<div class="iz-emp-profile-line">☎ ${escapeHtml(phone)}</div>` : ""}
+          </div>
+        </div>
+      </section>
+    `;
+  }
+
+  function renderEmployeePortalSelectedProjectCard(selectedAssignment, employee, upcomingAssignments) {
+    if (!selectedAssignment) {
+      return `
+        <section class="iz-emp-card iz-emp-next-card">
+          <div class="iz-emp-section-head iz-emp-section-head-compact">
+            <div class="iz-emp-section-icon">▣</div>
+            <div class="iz-emp-section-title">Neste prosjekt</div>
+          </div>
+          <div class="iz-emp-empty iz-emp-empty-dark">Ingen kommende prosjekter registrert.</div>
+        </section>
+      `;
+    }
+    const project = selectedAssignment.project;
+    const title = getEmployeePortalProjectTitle(project);
+    const assignmentPeriodText = selectedAssignment.start_date && selectedAssignment.end_date ? `${formatDate(selectedAssignment.start_date)} – ${formatDate(selectedAssignment.end_date)}` : "Ikke satt";
+    const roleText = selectedAssignment.role || employee?.title || "Ikke satt";
+    const responsibleText = getEmployeePortalResponsibleText(project);
+    const customerText = getEmployeePortalCustomerText(project);
+    const isNext = selectedAssignment.id === upcomingAssignments[0]?.id;
+    return `
+      <section class="iz-emp-card iz-emp-next-card">
+        <div class="iz-emp-section-head iz-emp-section-head-compact">
+          <div class="iz-emp-section-icon">▣</div>
+          <div class="iz-emp-section-title">${isNext ? "Neste prosjekt" : "Valgt prosjekt"}</div>
+        </div>
+        <div class="iz-emp-next-body">
+          <div class="iz-emp-project-icon iz-emp-project-icon-small">♒</div>
+          <div class="iz-emp-next-title">${title.code ? `<span>${escapeHtml(title.code)}</span> ` : ""}${escapeHtml(title.cleanName)}</div>
+          <div class="iz-emp-next-meta">
+            <div><span>Prosjektleder</span><strong>${escapeHtml(responsibleText)}</strong></div>
+            <div><span>Kunde</span><strong>${escapeHtml(customerText)}</strong></div>
+            <div><span>Din rolle</span><strong>${escapeHtml(roleText)}</strong></div>
+            <div><span>Periode</span><strong>${escapeHtml(assignmentPeriodText)}</strong></div>
+            <div><span>Workshop / feltperiode</span><strong>${escapeHtml(getWorkshopText(project))}</strong></div>
+          </div>
+          <button type="button" class="iz-emp-open-project iz-emp-open-project-wide">Åpne prosjekt →</button>
+        </div>
+      </section>
+    `;
+  }
+
   function renderEmployeePortal() {
     if (!els.employeePortalContent) return;
     const employee = getEmployeePortalEmployee();
@@ -1607,14 +1672,16 @@
 
     if (!employee) {
       els.employeePortalContent.innerHTML = `
-        <section class="iz-emp-card iz-emp-project-card iz-emp-empty-state-card">
-          <div class="iz-emp-project-icon iz-emp-muted-icon">!</div>
-          <div>
-            <div class="iz-emp-eyebrow">Min side</div>
-            <div class="iz-emp-title">Ansattprofil mangler</div>
-            <div class="iz-emp-empty">Fant ikke ansattprofil koblet til ${escapeHtml(state.currentUserEmail || "innlogget bruker")}. Be administrator koble brukeren til riktig ansattprofil.</div>
-          </div>
-        </section>
+        <div class="iz-emp-dashboard iz-emp-dashboard-single">
+          <section class="iz-emp-card iz-emp-project-card iz-emp-empty-state-card">
+            <div class="iz-emp-project-icon iz-emp-muted-icon">!</div>
+            <div>
+              <div class="iz-emp-eyebrow">Min side</div>
+              <div class="iz-emp-title">Ansattprofil mangler</div>
+              <div class="iz-emp-empty">Fant ikke ansattprofil koblet til ${escapeHtml(state.currentUserEmail || "innlogget bruker")}. Be administrator koble brukeren til riktig ansattprofil.</div>
+            </div>
+          </section>
+        </div>
       `;
       return;
     }
@@ -1631,15 +1698,19 @@
 
     if (!selectedAssignment) {
       els.employeePortalContent.innerHTML = `
-        <section class="iz-emp-card iz-emp-project-card">
-          <div class="iz-emp-project-icon">⌁</div>
-          <div>
-            <div class="iz-emp-eyebrow">Min side</div>
-            <div class="iz-emp-title">Ingen kommende prosjekter</div>
-            <div class="iz-emp-empty">Du har ingen aktive eller kommende prosjekt-tildelinger registrert.</div>
-          </div>
-        </section>
-        ${renderEmployeePortalHistory(history)}
+        <div class="iz-emp-dashboard">
+          <aside class="iz-emp-left-col">
+            ${renderEmployeePortalProfileCard(employee, displayName)}
+            ${renderEmployeePortalSelectedProjectCard(null, employee, upcomingAssignments)}
+          </aside>
+          <section class="iz-emp-main-col">
+            ${renderEmployeePortalTimeline([], "")}
+            <div class="iz-emp-content-grid">
+              ${renderEmployeePortalUpcoming([], "")}
+              ${renderEmployeePortalHistory(history)}
+            </div>
+          </section>
+        </div>
       `;
       return;
     }
@@ -1658,27 +1729,19 @@
     const hasCode = Boolean(title.code);
 
     els.employeePortalContent.innerHTML = `
-      <section class="iz-emp-card iz-emp-project-card iz-emp-project-card-detailed">
-        <div class="iz-emp-project-icon">♒</div>
-        <div class="min-w-0">
-          <div class="iz-emp-eyebrow">${selectedAssignment.id === upcomingAssignments[0]?.id ? "Neste prosjekt" : "Valgt prosjekt"}</div>
-          <div class="iz-emp-title iz-emp-title-detailed">${hasCode ? `<span class="iz-emp-title-code">${escapeHtml(title.code)}</span> ` : ""}<span>${escapeHtml(title.cleanName)}</span></div>
-          <div class="iz-emp-project-subline">${escapeHtml(phaseText)}${statusText !== "Ikke satt" ? ` · ${escapeHtml(statusText)}` : ""}</div>
-          <div class="iz-emp-meta-row iz-emp-meta-row-detailed">
-            <div class="iz-emp-meta-item"><div class="iz-emp-meta-icon">▣</div><div><div class="iz-emp-meta-label">Din periode</div><div class="iz-emp-meta-value">${escapeHtml(assignmentPeriodText)}</div></div></div>
-            <div class="iz-emp-meta-item"><div class="iz-emp-meta-icon">◇</div><div><div class="iz-emp-meta-label">Prosjektperiode</div><div class="iz-emp-meta-value">${escapeHtml(projectPeriodText)}</div></div></div>
-            <div class="iz-emp-meta-item"><div class="iz-emp-meta-icon">♙</div><div><div class="iz-emp-meta-label">Rolle</div><div class="iz-emp-meta-value">${escapeHtml(roleText)}</div></div></div>
-            <div class="iz-emp-meta-item"><div class="iz-emp-meta-icon">◎</div><div><div class="iz-emp-meta-label">Prosjektleder</div><div class="iz-emp-meta-value">${escapeHtml(responsibleText)}</div></div></div>
-            <div class="iz-emp-meta-item"><div class="iz-emp-meta-icon">⌂</div><div><div class="iz-emp-meta-label">Kunde</div><div class="iz-emp-meta-value">${escapeHtml(customerText)}</div></div></div>
-            <div class="iz-emp-meta-item"><div class="iz-emp-meta-icon">⌖</div><div><div class="iz-emp-meta-label">Workshop / feltperiode</div><div class="iz-emp-meta-value">${escapeHtml(getWorkshopText(project))}</div></div></div>
+      <div class="iz-emp-dashboard">
+        <aside class="iz-emp-left-col">
+          ${renderEmployeePortalProfileCard(employee, displayName)}
+          ${renderEmployeePortalSelectedProjectCard(selectedAssignment, employee, upcomingAssignments)}
+        </aside>
+        <section class="iz-emp-main-col">
+          ${renderEmployeePortalTimeline(upcomingAssignments, selectedAssignment.id)}
+          <div class="iz-emp-content-grid">
+            ${renderEmployeePortalUpcoming(upcomingAssignments, selectedAssignment.id)}
+            ${renderEmployeePortalHistory(history)}
           </div>
-        </div>
-        <button type="button" class="iz-emp-open-project" aria-label="Åpne prosjekt">Åpne prosjekt ›</button>
-      </section>
-      ${renderEmployeePortalTimeline(upcomingAssignments, selectedAssignment.id)}
-      ${renderEmployeePortalUpcoming(upcomingAssignments, selectedAssignment.id)}
-      ${renderEmployeePortalTeam(team)}
-      ${renderEmployeePortalHistory(history)}
+        </section>
+      </div>
     `;
   }
 
@@ -1732,13 +1795,13 @@
     return `
       <section class="iz-emp-card iz-emp-history-card">
         <div>
-          <div class="iz-emp-section-head"><div class="iz-emp-section-icon">◴</div><div class="iz-emp-section-title">Historikk</div></div>
+          <div class="iz-emp-section-head"><div class="iz-emp-section-icon">◴</div><div class="iz-emp-section-title">Siste aktivitet</div></div>
           ${rows.length ? `<div class="iz-emp-history-list">${rows.map(item => {
             const title = getEmployeePortalProjectTitle(item.project);
             return `<div class="iz-emp-history-row"><div class="iz-emp-history-code">${escapeHtml(title.code)}</div><div class="iz-emp-history-name">${escapeHtml(title.cleanName)}</div><div class="iz-emp-history-date">${escapeHtml(formatDate(item.start_date))} – ${escapeHtml(formatDate(item.end_date))}</div></div>`;
-          }).join("")}</div>` : `<div class="iz-emp-empty">Ingen tidligere prosjekter registrert.</div>`}
+          }).join("")}</div>` : `<div class="iz-emp-empty">Ingen historikk registrert.</div>`}
         </div>
-        <button type="button" class="iz-emp-view-all">Vis alle ›</button>
+        <button type="button" class="iz-emp-view-all">Se all historikk ›</button>
       </section>
     `;
   }
