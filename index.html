@@ -1600,6 +1600,74 @@
       .iz-access-grid { grid-template-columns: 1fr; }
     }
 
+
+    /* v18.45 employee dashboard polish: tighter, cleaner employee startup page */
+    #employeePortalShell {
+      background: #f3f5f7;
+    }
+
+    .iz-emp-page {
+      max-width: 1500px;
+      gap: 16px;
+    }
+
+    .iz-emp-card {
+      border-color: #d7dde5;
+      border-radius: 5px;
+      box-shadow: 0 8px 22px rgba(15, 23, 42, 0.035);
+    }
+
+    .iz-emp-project-card {
+      min-height: 190px;
+      padding: 30px 34px;
+      grid-template-columns: 92px minmax(0, 1fr) auto;
+    }
+
+    .iz-emp-project-icon {
+      width: 64px;
+      height: 64px;
+      font-size: 30px;
+      border-radius: 5px;
+      background: #f7fbf8;
+    }
+
+    .iz-emp-muted-icon {
+      color: #64748b;
+      border-color: #cbd5e1;
+      background: #f8fafc;
+      font-weight: 900;
+      font-size: 24px;
+    }
+
+    .iz-emp-title {
+      font-size: clamp(28px, 2.45vw, 40px);
+      letter-spacing: -0.03em;
+      margin-bottom: 20px;
+      max-width: 1100px;
+    }
+
+    .iz-emp-meta-row {
+      max-width: 1040px;
+    }
+
+    .iz-emp-section-card {
+      padding: 26px 32px;
+    }
+
+    .iz-emp-section-head {
+      margin-bottom: 24px;
+    }
+
+    .iz-emp-empty {
+      border-color: #cfd8e3;
+      background: #f8fafc;
+      color: #52647a;
+    }
+
+    .iz-emp-empty-state-card {
+      align-items: center;
+    }
+
     @media (max-width: 1100px) {
       #plannerStartPage {
         grid-template-columns: 1fr;

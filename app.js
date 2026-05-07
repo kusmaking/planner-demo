@@ -1381,11 +1381,32 @@
     return text.replace(/^[-–—:|\s]+/, "") || text || "Prosjekt";
   }
 
+  function getExplicitProjectCode(project, name) {
+    const candidates = [
+      project?.project_code,
+      project?.izo_code,
+      project?.izo,
+      project?.code,
+      project?.projectCode,
+      name
+    ];
+    for (const candidate of candidates) {
+      const code = extractProjectCode(candidate);
+      if (code) return code;
+    }
+    return "";
+  }
+
   function getEmployeePortalProjectTitle(project) {
-    const name = displayProjectName(project) || "Neste prosjekt";
-    const code = extractProjectCode(name) || String(project?.id || "").slice(0, 8).toUpperCase();
+    const name = displayProjectName(project) || "Prosjekt";
+    const code = getExplicitProjectCode(project, name);
     const cleanName = getProjectNameWithoutCode(name);
-    return { code, cleanName, full: `${code}  ${cleanName}`.trim() };
+    const fallbackName = cleanName || name || "Prosjekt";
+    return {
+      code,
+      cleanName: fallbackName,
+      full: code ? `${code}  ${fallbackName}`.trim() : fallbackName
+    };
   }
 
   function getWorkshopText(project) {
@@ -1473,7 +1494,16 @@
     if (els.employeePortalTopName) els.employeePortalTopName.textContent = displayName;
 
     if (!employee) {
-      els.employeePortalContent.innerHTML = `<div class="iz-emp-empty">Fant ikke ansattprofil koblet til ${escapeHtml(state.currentUserEmail || "innlogget bruker")}. Opprett en ansatt med samme e-postadresse, eller koble brukeren til ansattprofilen.</div>`;
+      els.employeePortalContent.innerHTML = `
+        <section class="iz-emp-card iz-emp-project-card iz-emp-empty-state-card">
+          <div class="iz-emp-project-icon iz-emp-muted-icon">!</div>
+          <div>
+            <div class="iz-emp-eyebrow">Min side</div>
+            <div class="iz-emp-title">Ansattprofil mangler</div>
+            <div class="iz-emp-empty">Fant ikke ansattprofil koblet til ${escapeHtml(state.currentUserEmail || "innlogget bruker")}. Be administrator koble brukeren til riktig ansattprofil.</div>
+          </div>
+        </section>
+      `;
       return;
     }
 
@@ -1533,7 +1563,7 @@
             <div class="iz-emp-member-avatar">${escapeHtml(getInitials(entry.employee_name))}</div>
             <div class="min-w-0"><div class="iz-emp-member-name">${escapeHtml(entry.employee_name)}</div><div class="iz-emp-member-role">${escapeHtml(entry.role || "Tildelt")}</div></div>
           </div>
-        `).join("")}</div>` : `<div class="iz-emp-empty">Ingen andre registrert på prosjektet ennå.</div>`}
+        `).join("")}</div>` : `<div class="iz-emp-empty">Prosjektteam vises når flere tildelte ressurser er tilgjengelige for din visning.</div>`}
       </section>
     `;
   }
