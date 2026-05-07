@@ -2150,6 +2150,122 @@
       border-radius: 999px;
     }
 
+    .iz-emp-plan-card {
+      overflow: hidden;
+    }
+
+    .iz-emp-plan-scroll {
+      overflow-x: auto;
+      overflow-y: hidden;
+      padding: 2px 4px 12px;
+      scrollbar-width: thin;
+    }
+
+    .iz-emp-plan-timeline {
+      min-width: 100%;
+    }
+
+    .iz-emp-plan-months {
+      display: grid;
+      border: 1px solid #dbe2ea;
+      border-bottom: 0;
+      background: #f8fafc;
+    }
+
+    .iz-emp-plan-month {
+      min-height: 68px;
+      border-right: 1px solid #dbe2ea;
+      padding: 12px 12px 10px;
+    }
+
+    .iz-emp-plan-month:last-child {
+      border-right: 0;
+    }
+
+    .iz-emp-plan-month-label {
+      font-size: 12px;
+      font-weight: 850;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #111827;
+      margin-bottom: 12px;
+    }
+
+    .iz-emp-plan-weeks {
+      display: flex;
+      justify-content: space-between;
+      gap: 6px;
+      color: #64748b;
+      font-size: 10px;
+      font-weight: 750;
+      white-space: nowrap;
+    }
+
+    .iz-emp-plan-track {
+      position: relative;
+      border: 1px solid #dbe2ea;
+      background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
+    }
+
+    .iz-emp-plan-month-grid {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      border-right: 1px dashed #d9dee5;
+      pointer-events: none;
+    }
+
+    .iz-emp-plan-month-grid:last-child {
+      border-right: 0;
+    }
+
+    .iz-emp-plan-bar {
+      position: absolute;
+      min-width: 48px;
+      height: 30px;
+      border: 1px solid #9fd1ad;
+      background: #e9f7ed;
+      color: #0f3f22;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 0 10px;
+      box-shadow: 0 4px 12px rgba(17, 24, 39, 0.08);
+      text-align: left;
+      cursor: pointer;
+      overflow: hidden;
+      transition: transform .15s ease, box-shadow .15s ease, background-color .15s ease;
+    }
+
+    .iz-emp-plan-bar:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 8px 18px rgba(17, 24, 39, 0.12);
+    }
+
+    .iz-emp-plan-bar-active {
+      border-color: #16813a;
+      background: #16813a;
+      color: #ffffff;
+    }
+
+    .iz-emp-plan-bar span {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-size: 12px;
+      font-weight: 850;
+    }
+
+    .iz-emp-plan-bar small {
+      flex: 0 0 auto;
+      font-size: 10px;
+      font-weight: 750;
+      opacity: .8;
+      white-space: nowrap;
+    }
+
     .iz-emp-legend {
       display: flex;
       gap: 42px;
@@ -2389,6 +2505,184 @@
       .iz-emp-member { border-left: 0; padding-left: 0; }
     }
 
+
+    /* v18.46: employee portal aligned with main Izomax planner frame */
+    body.iz-compact-ui #employeePortalShell {
+      display: none;
+      min-height: 100vh;
+      margin: -14px -18px -14px 0;
+      padding: 14px 18px 22px 0;
+      background: transparent !important;
+      color: var(--iz-text);
+    }
+
+    body.iz-compact-ui #employeePortalShell.iz-employee-active { display: block; }
+
+    body.iz-compact-ui .iz-emp-topbar {
+      height: 74px;
+      min-height: 74px;
+      padding: 0 22px 14px 22px;
+      background: transparent !important;
+      color: #ffffff;
+      border: 0;
+      box-shadow: none;
+    }
+
+    body.iz-compact-ui .iz-emp-topbar .iz-brand-wrap {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      min-width: 0;
+    }
+
+    body.iz-compact-ui .iz-emp-topbar .iz-logo {
+      width: 205px;
+      height: auto;
+      object-fit: contain;
+    }
+
+    body.iz-compact-ui .iz-emp-user {
+      padding: 8px 10px;
+      border: 1px solid rgba(235,248,250,0.20);
+      background: rgba(3, 18, 25, 0.28);
+      color: rgba(255,255,255,0.92);
+      border-radius: 0;
+      backdrop-filter: blur(8px);
+    }
+
+    body.iz-compact-ui .iz-emp-avatar {
+      width: 34px;
+      height: 34px;
+      border-radius: 0;
+      border: 1px solid rgba(235,248,250,0.22);
+      background: rgba(255,255,255,0.10);
+      color: #ffffff;
+    }
+
+    body.iz-compact-ui .iz-emp-logout {
+      border-radius: 0;
+      border: 1px solid rgba(255,255,255,0.24);
+      background: rgba(255,255,255,0.08);
+      color: #ffffff;
+      padding: 8px 12px;
+      font-weight: 800;
+    }
+
+    body.iz-compact-ui .iz-emp-logout:hover {
+      background: rgba(255,255,255,0.15);
+      border-color: rgba(255,255,255,0.36);
+    }
+
+    body.iz-compact-ui .iz-emp-side-nav {
+      position: fixed;
+      left: 0;
+      top: 88px;
+      z-index: 80;
+      width: 58px;
+      padding: 8px 6px;
+      background: rgba(3, 18, 25, 0.38);
+      border-top: 1px solid var(--iz-line);
+      border-right: 1px solid var(--iz-line);
+      border-bottom: 1px solid var(--iz-line);
+      backdrop-filter: blur(9px);
+    }
+
+    body.iz-compact-ui .iz-emp-side-btn {
+      width: 46px;
+      min-height: 50px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 3px;
+      border: 1px solid rgba(235,248,250,0.18);
+      background: rgba(255,255,255,0.12);
+      color: #ffffff;
+      font-size: 18px;
+      font-weight: 800;
+      border-radius: 0;
+      cursor: default;
+    }
+
+    body.iz-compact-ui .iz-emp-side-btn small {
+      display: block;
+      font-size: 8px;
+      line-height: 1;
+      color: rgba(235,248,250,0.76);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    body.iz-compact-ui .iz-emp-page {
+      margin-left: 74px;
+      padding: 0 0 0 0;
+      max-width: none;
+      display: grid;
+      gap: 14px;
+    }
+
+    body.iz-compact-ui .iz-emp-card {
+      border-radius: 0;
+      border: 1px solid rgba(17, 24, 39, 0.10);
+      background: rgba(255,255,255,0.94);
+      box-shadow: 0 14px 34px rgba(2, 10, 16, 0.14);
+    }
+
+    body.iz-compact-ui .iz-emp-project-card {
+      border-top: 1px solid rgba(255,255,255,0.20);
+      background: linear-gradient(180deg, rgba(255,255,255,0.97), rgba(246,248,250,0.95));
+    }
+
+    body.iz-compact-ui .iz-emp-project-icon,
+    body.iz-compact-ui .iz-emp-section-icon,
+    body.iz-compact-ui .iz-emp-meta-icon,
+    body.iz-compact-ui .iz-emp-member-avatar {
+      border-radius: 0;
+    }
+
+    body.iz-compact-ui .iz-emp-section-title,
+    body.iz-compact-ui .iz-emp-eyebrow {
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }
+
+    body.iz-compact-ui .iz-emp-plan-scroll {
+      border-radius: 0;
+      border-color: #d6dde5;
+      background: #f8fafc;
+    }
+
+    body.iz-compact-ui .iz-emp-plan-bar,
+    body.iz-compact-ui .iz-emp-upcoming-row,
+    body.iz-compact-ui .iz-emp-open-project {
+      border-radius: 0;
+    }
+
+    body.iz-compact-ui .iz-emp-upcoming-row-active,
+    body.iz-compact-ui .iz-emp-plan-bar-active {
+      box-shadow: inset 0 0 0 2px rgba(22,129,58,0.22);
+    }
+
+    body.iz-compact-ui .iz-emp-subnav,
+    body.iz-compact-ui .iz-emp-brand,
+    body.iz-compact-ui .iz-emp-brand-main,
+    body.iz-compact-ui .iz-emp-brand-sub,
+    body.iz-compact-ui .iz-emp-nav-left,
+    body.iz-compact-ui .iz-emp-icon-btn,
+    body.iz-compact-ui .iz-emp-tab {
+      display: none !important;
+    }
+
+    @media (max-width: 760px) {
+      body.iz-compact-ui #employeePortalShell { margin-right: -18px; padding-right: 18px; }
+      body.iz-compact-ui .iz-emp-topbar { padding: 12px 18px; height: auto; flex-direction: column; align-items: flex-start; }
+      body.iz-compact-ui .iz-emp-topbar .iz-logo { width: 165px; }
+      body.iz-compact-ui .iz-emp-side-nav { display: none; }
+      body.iz-compact-ui .iz-emp-page { margin-left: 0; padding: 0 18px 18px 18px; }
+      body.iz-compact-ui .iz-emp-user { width: 100%; justify-content: space-between; }
+    }
+
+
   </style>
 </head>
 <body class="iz-compact-ui text-slate-900">
@@ -2500,24 +2794,26 @@
 
 
     <section id="employeePortalShell" aria-label="Ansattportal Min side">
-      <div class="iz-emp-topbar">
-        <div class="iz-emp-brand" aria-label="Izomax Planner">
-          <div class="iz-emp-brand-main">IZOMAX</div>
-          <div class="iz-emp-brand-sub">Planner</div>
+      <header class="iz-emp-topbar">
+        <div class="iz-brand-wrap" aria-label="Izomax Planner">
+          <img src="izomax-logo-ocean-light.png" alt="Izomax" class="iz-logo" />
+          <div class="iz-title-block">
+            <h1>Min side</h1>
+            <p>Ansattportal</p>
+          </div>
         </div>
         <div class="iz-emp-user">
           <span id="employeePortalTopInitials" class="iz-emp-avatar">--</span>
           <span id="employeePortalTopName">Ansatt</span>
+          <button id="employeePortalLogoutBtn" type="button" class="iz-emp-logout">Logg ut</button>
         </div>
-      </div>
-      <div class="iz-emp-subnav">
-        <div class="iz-emp-nav-left">
-          <button type="button" class="iz-emp-icon-btn" aria-label="Meny">☰</button>
-          <button type="button" class="iz-emp-icon-btn" aria-label="Hjem">⌂</button>
-          <div class="iz-emp-tab">Min side</div>
-        </div>
-        <button id="employeePortalLogoutBtn" type="button" class="iz-emp-logout">Logg ut</button>
-      </div>
+      </header>
+      <aside class="iz-emp-side-nav" aria-label="Ansattportal navigasjon">
+        <button type="button" class="iz-emp-side-btn is-active" aria-label="Min side" title="Min side">
+          <span>⌂</span>
+          <small>Min side</small>
+        </button>
+      </aside>
       <main id="employeePortalContent" class="iz-emp-page"></main>
     </section>
 

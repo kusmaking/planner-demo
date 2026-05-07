@@ -1481,30 +1481,109 @@
     return Math.max(0, Math.min(100, pct));
   }
 
-  function renderEmployeePortalTimeline(project) {
-    const bounds = getProjectDateBounds(project);
-    const months = getTimelineMonths(bounds.start, bounds.end);
-    const workshop = getDefaultWorkshopPeriodForProject(project, getProjectTimelinePeriods(project));
-    const wsStart = workshop?.start || project?.workshop_start_date || bounds.start;
-    const wsEnd = workshop?.end || project?.workshop_end_date || wsStart;
-    const wsLeft = getTimelinePercent(wsStart, months);
-    const wsRight = getTimelinePercent(wsEnd, months);
-    const wsWidth = Math.max(wsRight - wsLeft, 3);
+  function getIsoWeekNumber(date) {
+    const target = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+    const dayNumber = target.getUTCDay() || 7;
+    target.setUTCDate(target.getUTCDate() + 4 - dayNumber);
+    const yearStart = new Date(Date.UTC(target.getUTCFullYear(), 0, 1));
+    return Math.ceil((((target - yearStart) / 86400000) + 1) / 7);
+  }
+
+  function getTimelineMonthSegments(startDate, endDate) {
+    const segments = [];
+    const current = new Date(startDate.getFullYear(), startDate.getMonth(), 1);
+    while (current <= endDate) {
+      const monthStart = new Date(current.getFullYear(), current.getMonth(), 1);
+      const monthEnd = new Date(current.getFullYear(), current.getMonth() + 1, 0);
+      const weeks = [];
+      let weekCursor = startOfWeekMonday(monthStart);
+      while (weekCursor <= monthEnd) {
+        const weekLabelDate = weekCursor < monthStart ? monthStart : weekCursor;
+        weeks.push({ label: `U${getIsoWeekNumber(weekLabelDate)}` });
+        weekCursor = addDays(weekCursor, 7);
+      }
+      segments.push({
+        label: `${capitalize(monthShort(monthStart)).replace(".", "")} ${monthStart.getFullYear()}`,
+        weeks
+      });
+      current.setMonth(current.getMonth() + 1);
+    }
+    return segments;
+  }
+
+  function getTimelineDatePercent(dateIso, startDate, endDate) {
+    const target = asLocalDate(dateIso) || startDate;
+    const total = Math.max(endDate.getTime() - startDate.getTime(), 1);
+    const pct = ((target.getTime() - startDate.getTime()) / total) * 100;
+    return Math.max(0, Math.min(100, pct));
+  }
+
+  function renderEmployeePortalTimeline(assignments, selectedEntryId) {
+    const timelineAssignments = (assignments || [])
+      .filter(item => item?.start_date && item?.end_date)
+      .sort((a, b) => String(a.start_date).localeCompare(String(b.start_date)) || String(a.end_date).localeCompare(String(b.end_date)));
+
+    if (!timelineAssignments.length) {
+      return `
+        <section class="iz-emp-card iz-emp-section-card">
+          <div class="iz-emp-section-head">
+            <div class="iz-emp-section-icon">▣</div>
+            <div>
+              <div class="iz-emp-section-title">Prosjektkalender</div>
+              <div class="iz-emp-section-subtitle">Ingen kommende perioder registrert.</div>
+            </div>
+          </div>
+          <div class="iz-emp-empty">Når du får kommende prosjekt-tildelinger, vises de her på måned og uke.</div>
+        </section>
+      `;
+    }
+
+    const minStart = timelineAssignments.reduce((min, item) => String(item.start_date) < String(min) ? item.start_date : min, timelineAssignments[0].start_date);
+    const maxEnd = timelineAssignments.reduce((max, item) => String(item.end_date) > String(max) ? item.end_date : max, timelineAssignments[0].end_date);
+    const rangeStart = asLocalDate(minStart) || new Date();
+    const rangeEndRaw = asLocalDate(maxEnd) || rangeStart;
+    const startDate = new Date(rangeStart.getFullYear(), rangeStart.getMonth(), 1);
+    const endDate = new Date(rangeEndRaw.getFullYear(), rangeEndRaw.getMonth() + 1, 0);
+    const monthSegments = getTimelineMonthSegments(startDate, endDate);
+    const timelineWidth = Math.max(820, monthSegments.length * 160);
+    const trackHeight = Math.max(76, timelineAssignments.length * 42 + 24);
 
     return `
-      <section class="iz-emp-card iz-emp-section-card">
+      <section class="iz-emp-card iz-emp-section-card iz-emp-plan-card">
         <div class="iz-emp-section-head">
           <div class="iz-emp-section-icon">▣</div>
-          <div class="iz-emp-section-title">Prosjektkalender</div>
-        </div>
-        <div class="iz-emp-timeline" aria-label="Prosjektkalender">
-          ${months.map(month => `<div class="iz-emp-month">${escapeHtml(month.label)}</div>`).join("")}
-          <div class="iz-emp-timeline-track">
-            <div class="iz-emp-line"></div>
-            <div class="iz-emp-workshop-line" style="left:${wsLeft}%; width:${wsWidth}%;"></div>
+          <div>
+            <div class="iz-emp-section-title">Prosjektkalender</div>
+            <div class="iz-emp-section-subtitle">Alle kommende prosjekter vist på måned og uke. Trykk på en linje for detaljer.</div>
           </div>
         </div>
-        <div class="iz-emp-legend"><span><i></i>Prosjektperiode</span><span><i></i>Workshop / feltperiode</span></div>
+        <div class="iz-emp-plan-scroll" aria-label="Prosjektkalender for kommende prosjekter">
+          <div class="iz-emp-plan-timeline" style="width:${timelineWidth}px;">
+            <div class="iz-emp-plan-months" style="grid-template-columns: repeat(${monthSegments.length}, minmax(160px, 1fr));">
+              ${monthSegments.map(segment => `
+                <div class="iz-emp-plan-month">
+                  <div class="iz-emp-plan-month-label">${escapeHtml(segment.label)}</div>
+                  <div class="iz-emp-plan-weeks">${segment.weeks.map(week => `<span>${escapeHtml(week.label)}</span>`).join("")}</div>
+                </div>
+              `).join("")}
+            </div>
+            <div class="iz-emp-plan-track" style="height:${trackHeight}px;">
+              ${monthSegments.map((_, index) => `<div class="iz-emp-plan-month-grid" style="left:${(index / monthSegments.length) * 100}%; width:${100 / monthSegments.length}%;"></div>`).join("")}
+              ${timelineAssignments.map((item, index) => {
+                const title = getEmployeePortalProjectTitle(item.project);
+                const left = getTimelineDatePercent(item.start_date, startDate, endDate);
+                const right = getTimelineDatePercent(item.end_date, startDate, endDate);
+                const width = Math.max(right - left, 1.8);
+                const isSelected = String(item.id || "") === String(selectedEntryId || "");
+                const label = `${title.full || title.cleanName} · ${formatDate(item.start_date)}–${formatDate(item.end_date)}`;
+                return `<button type="button" class="iz-emp-plan-bar ${isSelected ? "iz-emp-plan-bar-active" : ""}" data-employee-portal-select-assignment="${escapeHtml(item.id || "")}" style="left:${left}%; width:${width}%; top:${index * 42 + 16}px;" title="${escapeHtml(label)}">
+                  <span>${escapeHtml(title.full || title.cleanName)}</span>
+                  <small>${escapeHtml(formatDate(item.start_date))}–${escapeHtml(formatDate(item.end_date))}</small>
+                </button>`;
+              }).join("")}
+            </div>
+          </div>
+        </div>
       </section>
     `;
   }
@@ -1596,7 +1675,7 @@
         </div>
         <button type="button" class="iz-emp-open-project" aria-label="Åpne prosjekt">Åpne prosjekt ›</button>
       </section>
-      ${renderEmployeePortalTimeline(project)}
+      ${renderEmployeePortalTimeline(upcomingAssignments, selectedAssignment.id)}
       ${renderEmployeePortalUpcoming(upcomingAssignments, selectedAssignment.id)}
       ${renderEmployeePortalTeam(team)}
       ${renderEmployeePortalHistory(history)}
