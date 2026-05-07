@@ -3230,6 +3230,168 @@
     }
 
 
+    /* v18.48: employee portal calendar readability + wider desktop layout */
+    body.iz-compact-ui .iz-emp-page {
+      max-width: none;
+      width: 100%;
+      padding: 24px 32px 54px 32px;
+      margin-right: 0;
+    }
+
+    body.iz-compact-ui .iz-emp-dashboard {
+      grid-template-columns: minmax(300px, 360px) minmax(0, 1fr);
+      gap: 28px;
+      width: 100%;
+    }
+
+    body.iz-compact-ui .iz-emp-main-col {
+      max-width: none;
+    }
+
+    body.iz-compact-ui .iz-emp-plan-card {
+      min-height: 310px;
+    }
+
+    body.iz-compact-ui .iz-emp-plan-scroll {
+      background: rgba(1, 20, 28, 0.28);
+      border: 1px solid rgba(170, 229, 218, 0.12);
+      padding: 14px 14px 16px 14px;
+      overflow-x: auto;
+      overflow-y: hidden;
+    }
+
+    body.iz-compact-ui .iz-emp-plan-timeline {
+      min-width: 1040px;
+    }
+
+    body.iz-compact-ui .iz-emp-plan-months {
+      background: rgba(1, 28, 36, 0.55);
+      border: 1px solid rgba(189, 239, 228, 0.16);
+      border-bottom: 0;
+    }
+
+    body.iz-compact-ui .iz-emp-plan-month {
+      min-height: 86px;
+      border-right: 1px dashed rgba(203, 244, 235, 0.20);
+      padding: 12px 14px 10px;
+    }
+
+    body.iz-compact-ui .iz-emp-plan-month-label {
+      color: #f4fffc;
+      font-size: 12px;
+      font-weight: 950;
+      margin-bottom: 10px;
+      text-shadow: 0 1px 1px rgba(0,0,0,0.25);
+    }
+
+    body.iz-compact-ui .iz-emp-plan-weeks {
+      gap: 8px;
+      align-items: stretch;
+    }
+
+    body.iz-compact-ui .iz-emp-plan-weeks span {
+      display: grid;
+      gap: 3px;
+      min-width: 36px;
+      color: #d9f8f0;
+      opacity: 1;
+      text-align: left;
+    }
+
+    body.iz-compact-ui .iz-emp-plan-weeks strong {
+      display: block;
+      color: #ffffff;
+      font-size: 10px;
+      font-weight: 950;
+      letter-spacing: 0.06em;
+    }
+
+    body.iz-compact-ui .iz-emp-plan-weeks em {
+      display: block;
+      color: rgba(209, 238, 232, 0.78);
+      font-size: 9px;
+      font-style: normal;
+      font-weight: 750;
+      white-space: nowrap;
+    }
+
+    body.iz-compact-ui .iz-emp-plan-track {
+      background: linear-gradient(180deg, rgba(3, 31, 40, 0.78), rgba(1, 20, 28, 0.58));
+      border: 1px solid rgba(189, 239, 228, 0.16);
+      border-top: 1px solid rgba(189, 239, 228, 0.16);
+    }
+
+    body.iz-compact-ui .iz-emp-plan-month-grid {
+      border-right: 1px dashed rgba(203, 244, 235, 0.18);
+    }
+
+    body.iz-compact-ui .iz-emp-plan-bar {
+      min-width: 74px;
+      height: 34px;
+      padding: 0 11px;
+      color: #ffffff;
+      background: linear-gradient(180deg, rgba(32, 174, 104, 0.98), rgba(8, 120, 74, 0.98));
+      border: 1px solid rgba(148, 255, 205, 0.28);
+      box-shadow: 0 12px 24px rgba(0,0,0,0.24);
+    }
+
+    body.iz-compact-ui .iz-emp-plan-bar span {
+      color: #ffffff;
+      font-size: 11px;
+      max-width: 190px;
+    }
+
+    body.iz-compact-ui .iz-emp-plan-bar small {
+      color: rgba(232, 255, 249, 0.78);
+      font-size: 9px;
+    }
+
+    body.iz-compact-ui .iz-emp-plan-bar-active {
+      background: linear-gradient(180deg, rgba(58, 213, 129, 1), rgba(10, 139, 83, 1));
+      box-shadow: 0 16px 30px rgba(0,0,0,0.30), inset 0 0 0 2px rgba(205,255,225,0.24);
+    }
+
+    body.iz-compact-ui .iz-emp-team-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 12px;
+    }
+
+    body.iz-compact-ui .iz-emp-member {
+      border-left: 0;
+      padding-left: 0;
+      display: grid;
+      grid-template-columns: 38px minmax(0, 1fr);
+      gap: 10px;
+      align-items: center;
+      padding-top: 10px;
+      border-top: 1px solid rgba(232,255,249,0.08);
+    }
+
+    body.iz-compact-ui .iz-emp-member:first-child {
+      border-top: 0;
+      padding-top: 0;
+    }
+
+    @media (min-width: 1500px) {
+      body.iz-compact-ui .iz-emp-dashboard {
+        grid-template-columns: minmax(320px, 380px) minmax(0, 1fr);
+      }
+      body.iz-compact-ui .iz-emp-content-grid {
+        grid-template-columns: minmax(0, 1.1fr) minmax(360px, 0.9fr);
+      }
+    }
+
+    @media (max-width: 760px) {
+      body.iz-compact-ui .iz-emp-page {
+        padding: 16px;
+      }
+      body.iz-compact-ui .iz-emp-plan-timeline {
+        min-width: 880px;
+      }
+    }
+
+
   </style>
 </head>
 <body class="iz-compact-ui text-slate-900">

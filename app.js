@@ -1499,7 +1499,10 @@
       let weekCursor = startOfWeekMonday(monthStart);
       while (weekCursor <= monthEnd) {
         const weekLabelDate = weekCursor < monthStart ? monthStart : weekCursor;
-        weeks.push({ label: `U${getIsoWeekNumber(weekLabelDate)}` });
+        weeks.push({
+          label: `U${getIsoWeekNumber(weekLabelDate)}`,
+          day: `${weekLabelDate.getDate()}. ${capitalize(monthShort(weekLabelDate)).replace(".", "")}`
+        });
         weekCursor = addDays(weekCursor, 7);
       }
       segments.push({
@@ -1533,7 +1536,7 @@
               <div class="iz-emp-section-subtitle">Ingen kommende perioder registrert.</div>
             </div>
           </div>
-          <div class="iz-emp-empty">Når du får kommende prosjekt-tildelinger, vises de her på måned og uke.</div>
+          <div class="iz-emp-empty">Når du får kommende prosjekt-tildelinger, vises de her på måned, uke og dag.</div>
         </section>
       `;
     }
@@ -1554,7 +1557,7 @@
           <div class="iz-emp-section-icon">▣</div>
           <div>
             <div class="iz-emp-section-title">Prosjektkalender</div>
-            <div class="iz-emp-section-subtitle">Alle kommende prosjekter vist på måned og uke. Trykk på en linje for detaljer.</div>
+            <div class="iz-emp-section-subtitle">Alle kommende prosjekter vist på måned, uke og dag. Trykk på en linje for detaljer.</div>
           </div>
         </div>
         <div class="iz-emp-plan-scroll" aria-label="Prosjektkalender for kommende prosjekter">
@@ -1563,7 +1566,7 @@
               ${monthSegments.map(segment => `
                 <div class="iz-emp-plan-month">
                   <div class="iz-emp-plan-month-label">${escapeHtml(segment.label)}</div>
-                  <div class="iz-emp-plan-weeks">${segment.weeks.map(week => `<span>${escapeHtml(week.label)}</span>`).join("")}</div>
+                  <div class="iz-emp-plan-weeks">${segment.weeks.map(week => `<span><strong>${escapeHtml(week.label)}</strong><em>${escapeHtml(week.day || "")}</em></span>`).join("")}</div>
                 </div>
               `).join("")}
             </div>
@@ -1733,6 +1736,7 @@
         <aside class="iz-emp-left-col">
           ${renderEmployeePortalProfileCard(employee, displayName)}
           ${renderEmployeePortalSelectedProjectCard(selectedAssignment, employee, upcomingAssignments)}
+          ${renderEmployeePortalTeam(team)}
         </aside>
         <section class="iz-emp-main-col">
           ${renderEmployeePortalTimeline(upcomingAssignments, selectedAssignment.id)}
@@ -1785,7 +1789,7 @@
             <div class="iz-emp-member-avatar">${escapeHtml(getInitials(entry.employee_name))}</div>
             <div class="min-w-0"><div class="iz-emp-member-name">${escapeHtml(entry.employee_name)}</div><div class="iz-emp-member-role">${escapeHtml(entry.role || "Tildelt")}</div></div>
           </div>
-        `).join("")}</div>` : `<div class="iz-emp-empty">Prosjektteam vises når flere tildelte ressurser er tilgjengelige for din visning.</div>`}
+        `).join("")}</div>` : `<div class="iz-emp-empty">Crew / prosjektteam vises her når teamdata er tilgjengelig for ansattvisningen.</div>`}
       </section>
     `;
   }
