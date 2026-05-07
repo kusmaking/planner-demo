@@ -129,3 +129,10 @@ Ikke endret:
 - Prosjekter med WS start/stop og uten Operation start/stop kan opprettes som Workshop-only.
 - Senere feltperiode oppdaterer samme prosjekt uten duplikat.
 - Import, prosjektplan, bemanning og eksisterende manuelle felt er beskyttet.
+
+## v18.44b - employee logout fix
+
+Kontrollert bugfix basert på v18.44:
+
+- Koblet `Logg ut`-knappen i employee/Min side-visningen til samme logout-funksjon som resten av appen.
+- Ingen endring i import, prosjektplan, bemanning, tilgangssøknader, roller eller Supabase Auth/RLS.

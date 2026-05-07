@@ -3148,6 +3148,14 @@ Dette oppdaterer user_profiles og markerer søknaden som ferdig oppsatt. Det opp
       els.logoutBtn.addEventListener("click", handleLogout);
     }
 
+    if (els.employeePortalLogoutBtn) {
+      els.employeePortalLogoutBtn.addEventListener("click", event => {
+        event.preventDefault();
+        event.stopPropagation();
+        handleLogout();
+      });
+    }
+
     if (els.startLoginSubmitBtn) {
       els.startLoginSubmitBtn.addEventListener("click", handleStartLogin);
     }
