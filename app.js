@@ -3325,7 +3325,7 @@ Dette oppdaterer user_profiles og markerer søknaden som ferdig oppsatt. Det opp
     await fetchAccessUsers({ silent: true });
 
     const hasMainData = state.employees.length || state.projects.length || state.entries.length;
-    if (!hasMainData) {
+    if (!isEmployeePortalUser() && !hasMainData) {
       state.employees = normalizeEmployees(structuredClone(DEFAULT_EMPLOYEES));
       state.projects = normalizeProjects(structuredClone(DEFAULT_PROJECTS));
       state.entries = structuredClone(DEFAULT_ENTRIES);
@@ -3381,6 +3381,30 @@ Dette oppdaterer user_profiles og markerer søknaden som ferdig oppsatt. Det opp
     if (!state.supabaseReady) return;
 
     try {
+      if (isEmployeePortalUser()) {
+        const [employeesRes, projectsRes, entriesRes] = await Promise.all([
+          supabaseClient.from("planner_employees").select("*").order("name"),
+          supabaseClient.from("planner_projects").select("*").order("planned_start_date", { ascending: true }),
+          supabaseClient.from("planner_entries").select("*").order("start_date")
+        ]);
+
+        [employeesRes, projectsRes, entriesRes].forEach(r => {
+          if (r.error) throw r.error;
+        });
+
+        state.employees = normalizeEmployees(employeesRes.data || []);
+        state.projects = normalizeProjects(projectsRes.data || []);
+        state.entries = entriesRes.data || [];
+        state.auditLog = [];
+        state.notificationLog = [];
+
+        saveAllLocal();
+        state.storageMode = "supabase";
+        state.supabaseError = null;
+        updateBadge();
+        return;
+      }
+
       const [
         employeesRes,
         projectsRes,
