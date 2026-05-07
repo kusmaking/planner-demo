@@ -23,3 +23,10 @@ Base: `Locked-v18.45b-employee-project-details-v1-safe`.
 2. Bekreft at nærmeste prosjekt vises som `Neste prosjekt`.
 3. Bekreft at senere prosjekter vises under `Kommende prosjekter`.
 4. Bekreft at planner/admin fortsatt viser alle ansatte/prosjekter i separat browser/profil.
+
+## v18.45d employee selectable upcoming projects
+
+- Employee/Min side: kommende prosjekter er nå klikkbare.
+- Valgt kommende prosjekt oppdaterer detaljkortet øverst.
+- Standardvalg er fortsatt nærmeste kommende prosjekt.
+- Ingen endringer i Supabase/RLS, import, bemanning, prosjektplan, admin eller planner-flyt.

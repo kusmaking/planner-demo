@@ -2195,12 +2195,27 @@
     }
 
     .iz-emp-upcoming-row {
+      width: 100%;
       display: grid;
-      grid-template-columns: 230px minmax(0, 1fr);
+      grid-template-columns: 230px minmax(0, 1fr) auto;
       gap: 24px;
       align-items: start;
-      padding: 16px 0;
+      padding: 16px 12px;
+      border: 0;
       border-bottom: 1px solid #eef2f6;
+      background: transparent;
+      text-align: left;
+      cursor: pointer;
+      transition: background-color .15s ease, box-shadow .15s ease;
+    }
+
+    .iz-emp-upcoming-row:hover {
+      background: #f8fafc;
+    }
+
+    .iz-emp-upcoming-row-active {
+      background: #eef8f1;
+      box-shadow: inset 4px 0 0 #16813a;
     }
 
     .iz-emp-upcoming-date {
@@ -2234,6 +2249,16 @@
       font-size: 13px;
       overflow: hidden;
       text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .iz-emp-upcoming-action {
+      align-self: center;
+      color: #0f7a35;
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: .04em;
+      text-transform: uppercase;
       white-space: nowrap;
     }
 
@@ -2344,6 +2369,7 @@
       .iz-emp-meta-item + .iz-emp-meta-item, .iz-emp-meta-row-detailed .iz-emp-meta-item:nth-child(4) { border-left: 0; padding-left: 0; }
       .iz-emp-meta-row-detailed .iz-emp-meta-item:nth-child(n+2) { border-top: 1px solid #eef2f6; padding-top: 18px; }
       .iz-emp-upcoming-row { grid-template-columns: 1fr; gap: 6px; }
+      .iz-emp-upcoming-action { justify-self: start; }
       .iz-emp-upcoming-date { white-space: normal; }
       .iz-emp-team-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); row-gap: 22px; }
       .iz-emp-member:nth-child(odd) { border-left: 0; padding-left: 0; }

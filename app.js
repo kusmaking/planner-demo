@@ -38,6 +38,7 @@
     currentUserIsActive: true,
     authReady: false,
     employeePortalSelectedProjectId: "",
+    employeePortalSelectedEntryId: "",
     employeeFilter: "Alle ansatte",
     selectedEmployeeGroups: [],
     groupFilterSearch: "",
@@ -1541,10 +1542,15 @@
 
     const assignments = getEmployeePortalAssignments(employee);
     const upcomingAssignments = getEmployeePortalUpcomingAssignments(assignments);
-    const next = upcomingAssignments[0] || null;
+    const selectedEntryId = String(state.employeePortalSelectedEntryId || "");
+    let selectedAssignment = selectedEntryId ? upcomingAssignments.find(item => String(item.id || "") === selectedEntryId) : null;
+    if (!selectedAssignment) {
+      selectedAssignment = upcomingAssignments[0] || null;
+      state.employeePortalSelectedEntryId = selectedAssignment?.id || "";
+    }
     const history = getEmployeePortalHistory(assignments);
 
-    if (!next) {
+    if (!selectedAssignment) {
       els.employeePortalContent.innerHTML = `
         <section class="iz-emp-card iz-emp-project-card">
           <div class="iz-emp-project-icon">⌁</div>
@@ -1559,13 +1565,13 @@
       return;
     }
 
-    const project = next.project;
+    const project = selectedAssignment.project;
     const title = getEmployeePortalProjectTitle(project);
     const bounds = getProjectDateBounds(project);
     const team = getEmployeePortalTeam(project.id, employee.name);
-    const assignmentPeriodText = next.start_date && next.end_date ? `${formatDate(next.start_date)} – ${formatDate(next.end_date)}` : "Ikke satt";
+    const assignmentPeriodText = selectedAssignment.start_date && selectedAssignment.end_date ? `${formatDate(selectedAssignment.start_date)} – ${formatDate(selectedAssignment.end_date)}` : "Ikke satt";
     const projectPeriodText = bounds.start && bounds.end ? `${formatDate(bounds.start)} – ${formatDate(bounds.end)}` : assignmentPeriodText;
-    const roleText = next.role || employee.title || "Ikke satt";
+    const roleText = selectedAssignment.role || employee.title || "Ikke satt";
     const responsibleText = getEmployeePortalResponsibleText(project);
     const customerText = getEmployeePortalCustomerText(project);
     const phaseText = getEmployeePortalProjectPhaseText(project);
@@ -1576,7 +1582,7 @@
       <section class="iz-emp-card iz-emp-project-card iz-emp-project-card-detailed">
         <div class="iz-emp-project-icon">♒</div>
         <div class="min-w-0">
-          <div class="iz-emp-eyebrow">Neste prosjekt</div>
+          <div class="iz-emp-eyebrow">${selectedAssignment.id === upcomingAssignments[0]?.id ? "Neste prosjekt" : "Valgt prosjekt"}</div>
           <div class="iz-emp-title iz-emp-title-detailed">${hasCode ? `<span class="iz-emp-title-code">${escapeHtml(title.code)}</span> ` : ""}<span>${escapeHtml(title.cleanName)}</span></div>
           <div class="iz-emp-project-subline">${escapeHtml(phaseText)}${statusText !== "Ikke satt" ? ` · ${escapeHtml(statusText)}` : ""}</div>
           <div class="iz-emp-meta-row iz-emp-meta-row-detailed">
@@ -1591,21 +1597,21 @@
         <button type="button" class="iz-emp-open-project" aria-label="Åpne prosjekt">Åpne prosjekt ›</button>
       </section>
       ${renderEmployeePortalTimeline(project)}
-      ${renderEmployeePortalUpcoming(upcomingAssignments, next.id)}
+      ${renderEmployeePortalUpcoming(upcomingAssignments, selectedAssignment.id)}
       ${renderEmployeePortalTeam(team)}
       ${renderEmployeePortalHistory(history)}
     `;
   }
 
-  function renderEmployeePortalUpcoming(assignments, nextEntryId) {
-    const upcoming = (assignments || []).filter(item => item?.id !== nextEntryId);
+  function renderEmployeePortalUpcoming(assignments, selectedEntryId) {
+    const upcoming = assignments || [];
     return `
       <section class="iz-emp-card iz-emp-section-card iz-emp-upcoming-card">
         <div class="iz-emp-section-head">
           <div class="iz-emp-section-icon">▦</div>
           <div>
             <div class="iz-emp-section-title">Kommende prosjekter</div>
-            <div class="iz-emp-section-subtitle">Alle kommende tildelinger som ligger registrert på deg.</div>
+            <div class="iz-emp-section-subtitle">Trykk på et prosjekt for å vise detaljene øverst.</div>
           </div>
         </div>
         ${upcoming.length ? `<div class="iz-emp-upcoming-list">${upcoming.map(item => {
@@ -1613,14 +1619,16 @@
           const period = item.start_date && item.end_date ? `${formatDate(item.start_date)} – ${formatDate(item.end_date)}` : "Dato ikke satt";
           const customer = getEmployeePortalCustomerText(item.project);
           const responsible = getEmployeePortalResponsibleText(item.project);
-          return `<div class="iz-emp-upcoming-row">
+          const isSelected = String(item.id || "") === String(selectedEntryId || "");
+          return `<button type="button" class="iz-emp-upcoming-row ${isSelected ? "iz-emp-upcoming-row-active" : ""}" data-employee-portal-select-assignment="${escapeHtml(item.id || "")}" aria-current="${isSelected ? "true" : "false"}">
             <div class="iz-emp-upcoming-date">${escapeHtml(period)}</div>
             <div class="iz-emp-upcoming-main">
               <div class="iz-emp-upcoming-title">${title.code ? `<span>${escapeHtml(title.code)}</span> ` : ""}${escapeHtml(title.cleanName)}</div>
               <div class="iz-emp-upcoming-meta">${escapeHtml(item.role || "Rolle ikke satt")}${customer !== "Ikke satt" ? ` · ${escapeHtml(customer)}` : ""}${responsible !== "Ikke satt" ? ` · PL: ${escapeHtml(responsible)}` : ""}</div>
             </div>
-          </div>`;
-        }).join("")}</div>` : `<div class="iz-emp-empty">Ingen andre kommende prosjekter registrert.</div>`}
+            <div class="iz-emp-upcoming-action">${isSelected ? "Vises" : "Vis"}</div>
+          </button>`;
+        }).join("")}</div>` : `<div class="iz-emp-empty">Ingen kommende prosjekter registrert.</div>`}
       </section>
     `;
   }
@@ -3255,6 +3263,18 @@ Dette oppdaterer user_profiles og markerer søknaden som ferdig oppsatt. Det opp
         event.preventDefault();
         event.stopPropagation();
         handleLogout();
+      });
+    }
+
+    if (els.employeePortalContent) {
+      els.employeePortalContent.addEventListener("click", event => {
+        const selectButton = event.target?.closest?.("[data-employee-portal-select-assignment]");
+        if (!selectButton) return;
+        event.preventDefault();
+        const entryId = selectButton.dataset.employeePortalSelectAssignment || "";
+        if (!entryId) return;
+        state.employeePortalSelectedEntryId = entryId;
+        renderEmployeePortal();
       });
     }
 
