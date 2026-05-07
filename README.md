@@ -1,28 +1,33 @@
-# Locked-v18.48 employee portal calendar readability v1
+# Locked v18.49 - employee project crew and open project v1 safe
 
-Base: `Locked-v18.47-employee-portal-web-redesign-v1-safe`
+Base: `Locked-v18.48-employee-calendar-layout-v1-safe`
 
 ## Endret
 - `app.js`
 - `index.html`
 - `README.md`
+- `SUPABASE_EMPLOYEE_CREW_RPC.sql` (må kjøres i Supabase før full crew-test)
 
 ## Ikke endret
 - `data.js`
-- Supabase/RLS
-- tilgangssøknader/godkjenning
-- brukerroller
-- import
-- prosjektplan
-- bemanning/tildeling
-- admin/planner/superadmin-flyt
+- Importlogikk
+- Prosjektplan
+- Bemanning/tildelingslogikk
+- Admin/planner/superadmin-flyt
+- Tilgangssøknader/godkjenning
+- Eksisterende RLS-policyer
 
-## Hva som er forbedret
-- Employee-portalen bruker mer av web-bredden.
-- Prosjektkalenderen har bedre kontrast; ikke hvit tekst/felt på hvit bakgrunn.
-- Prosjektkalenderen viser måned, uke og dag i headeren.
-- Kalenderlinjene er fortsatt klikkbare og oppdaterer valgt prosjekt.
-- Prosjektteam/Crew-kort ligger med i valgt prosjektvisning uten å endre RLS.
+## Nytt i denne versjonen
+- Employee-portalen kan vise crew på valgt prosjekt via trygg RPC.
+- Bemanningsstatus vises med antall satt opp mot `headcount_required`.
+- Viser om prosjektet mangler crew.
+- `Åpne prosjekt` åpner nå en lesende prosjektinfo-visning i ansattportalen.
+- Ingen redigering er tilgjengelig for employee.
 
-## Viktig
-Crew vises bare hvis employee-visningen faktisk har tilgang til teamdata. Nåværende RLS er fortsatt smal og trygg. Eventuell bredere teamvisning bør tas som egen kontrollert RLS/RPC-endring senere.
+## Supabase SQL som må kjøres
+Kjør `SUPABASE_EMPLOYEE_CREW_RPC.sql` i Supabase SQL Editor før testing av crew.
+
+RPC-en er laget slik at employee kun får crew for prosjekter der employee selv er tildelt.
+
+## Langsiktig anbefaling
+Dette er riktig retning: sensitive employee-oppslag bør samles i kontrollerte RPC-er/serverfunksjoner, ikke brede RLS-regler. Senere bør vi også flytte employee-dashboardets prosjekt-/kalenderdata til én samlet RPC for bedre sikkerhet, ytelse og enklere frontend.

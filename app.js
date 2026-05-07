@@ -1,4 +1,6 @@
 (() => {
+  // v18.49-employee-project-crew-and-open-project-v1-safe
+  // v18.48-employee-calendar-layout-v1-safe
   // v18.44-approved-request-user-setup-v1-safe
   // v18.43-access-management-v1-safe
   // v18.42-access-approval-v1-safe
@@ -39,6 +41,9 @@
     authReady: false,
     employeePortalSelectedProjectId: "",
     employeePortalSelectedEntryId: "",
+    employeePortalProjectDetailsOpen: false,
+    employeePortalCrewByProject: {},
+    employeePortalCrewFetchError: "",
     employeeFilter: "Alle ansatte",
     selectedEmployeeGroups: [],
     groupFilterSearch: "",
@@ -1449,10 +1454,80 @@
     return "Ikke satt";
   }
 
+  function getEmployeePortalCrewRows(projectId) {
+    if (!projectId) return [];
+    const rows = state.employeePortalCrewByProject?.[projectId];
+    if (Array.isArray(rows)) return rows;
+    return (state.entries || []).filter(entry => entry?.project_id === projectId);
+  }
+
+  function getEmployeePortalCrewSummary(project, crewRows = []) {
+    const required = Number(project?.headcount_required || 0);
+    const byName = new Map();
+    (crewRows || []).forEach(row => {
+      const name = String(row?.employee_name || "").trim();
+      if (name && !byName.has(name)) byName.set(name, row);
+    });
+    const assigned = byName.size;
+    const missing = required > 0 ? Math.max(required - assigned, 0) : 0;
+    return {
+      required,
+      assigned,
+      missing,
+      label: required > 0 ? `${assigned} / ${required} satt opp` : `${assigned} satt opp`,
+      status: required > 0 ? (missing > 0 ? `Mangler ${missing}` : "Fullt crew") : "Krav ikke satt",
+      complete: required > 0 && missing === 0
+    };
+  }
+
+  function renderEmployeePortalProjectDetails(selectedAssignment, employee, crewRows) {
+    if (!selectedAssignment) return "";
+    const project = selectedAssignment.project;
+    const title = getEmployeePortalProjectTitle(project);
+    const bounds = getProjectDateBounds(project);
+    const assignmentPeriodText = selectedAssignment.start_date && selectedAssignment.end_date ? `${formatDate(selectedAssignment.start_date)} – ${formatDate(selectedAssignment.end_date)}` : "Ikke satt";
+    const projectPeriodText = bounds.start && bounds.end ? `${formatDate(bounds.start)} – ${formatDate(bounds.end)}` : assignmentPeriodText;
+    const roleText = selectedAssignment.role || employee?.title || "Ikke satt";
+    const crewSummary = getEmployeePortalCrewSummary(project, crewRows);
+    const crewItems = (crewRows || []).slice(0, 12);
+    const crewStatusClass = crewSummary.missing > 0 ? "iz-emp-chip-warning" : (crewSummary.complete ? "iz-emp-chip-ok" : "");
+    return `
+      <section class="iz-emp-card iz-emp-section-card iz-emp-project-detail-card">
+        <div class="iz-emp-section-head">
+          <div class="iz-emp-section-icon">▣</div>
+          <div>
+            <div class="iz-emp-section-title">Prosjektinfo</div>
+            <div class="iz-emp-section-subtitle">Lesende detaljvisning for valgt prosjekt.</div>
+          </div>
+        </div>
+        <div class="iz-emp-detail-title">${title.code ? `<span>${escapeHtml(title.code)}</span> ` : ""}${escapeHtml(title.cleanName)}</div>
+        <div class="iz-emp-detail-grid">
+          <div><span>Din rolle</span><strong>${escapeHtml(roleText)}</strong></div>
+          <div><span>Din periode</span><strong>${escapeHtml(assignmentPeriodText)}</strong></div>
+          <div><span>Prosjektperiode</span><strong>${escapeHtml(projectPeriodText)}</strong></div>
+          <div><span>Prosjektleder</span><strong>${escapeHtml(getEmployeePortalResponsibleText(project))}</strong></div>
+          <div><span>Kunde</span><strong>${escapeHtml(getEmployeePortalCustomerText(project))}</strong></div>
+          <div><span>Workshop / feltperiode</span><strong>${escapeHtml(getWorkshopText(project))}</strong></div>
+          <div><span>Status</span><strong>${escapeHtml(getEmployeePortalStatusText(project))}</strong></div>
+          <div><span>Bemanning</span><strong>${escapeHtml(crewSummary.label)} · ${escapeHtml(crewSummary.status)}</strong></div>
+        </div>
+        <div class="iz-emp-detail-crew-head">Crew på prosjektet <span class="iz-emp-chip ${crewStatusClass}">${escapeHtml(crewSummary.status)}</span></div>
+        ${crewItems.length ? `<div class="iz-emp-detail-crew-list">${crewItems.map(row => `
+          <div class="iz-emp-detail-crew-row">
+            <span>${escapeHtml(getInitials(row.employee_name))}</span>
+            <strong>${escapeHtml(row.employee_name || "Ukjent")}</strong>
+            <em>${escapeHtml(row.role || "Tildelt")}</em>
+            <small>${escapeHtml(row.start_date && row.end_date ? `${formatDate(row.start_date)} – ${formatDate(row.end_date)}` : "Dato ikke satt")}</small>
+          </div>
+        `).join("")}</div>` : `<div class="iz-emp-empty iz-emp-empty-dark">Crewdata er ikke tilgjengelig for valgt prosjekt. Dette krever at RPC-funksjonen for crew er opprettet i Supabase.</div>`}
+      </section>
+    `;
+  }
+
   function getEmployeePortalTeam(projectId, currentEmployeeName) {
     const byName = new Map();
-    (state.entries || [])
-      .filter(entry => entry?.project_id === projectId && entry.employee_name && entry.employee_name !== currentEmployeeName)
+    getEmployeePortalCrewRows(projectId)
+      .filter(entry => entry?.employee_name && entry.employee_name !== currentEmployeeName)
       .forEach(entry => {
         if (!byName.has(entry.employee_name)) byName.set(entry.employee_name, entry);
       });
@@ -1659,7 +1734,7 @@
             <div><span>Periode</span><strong>${escapeHtml(assignmentPeriodText)}</strong></div>
             <div><span>Workshop / feltperiode</span><strong>${escapeHtml(getWorkshopText(project))}</strong></div>
           </div>
-          <button type="button" class="iz-emp-open-project iz-emp-open-project-wide">Åpne prosjekt →</button>
+          <button type="button" class="iz-emp-open-project iz-emp-open-project-wide" data-employee-portal-toggle-project-details="true">Åpne prosjekt →</button>
         </div>
       </section>
     `;
@@ -1721,6 +1796,7 @@
     const project = selectedAssignment.project;
     const title = getEmployeePortalProjectTitle(project);
     const bounds = getProjectDateBounds(project);
+    const crewRows = getEmployeePortalCrewRows(project.id);
     const team = getEmployeePortalTeam(project.id, employee.name);
     const assignmentPeriodText = selectedAssignment.start_date && selectedAssignment.end_date ? `${formatDate(selectedAssignment.start_date)} – ${formatDate(selectedAssignment.end_date)}` : "Ikke satt";
     const projectPeriodText = bounds.start && bounds.end ? `${formatDate(bounds.start)} – ${formatDate(bounds.end)}` : assignmentPeriodText;
@@ -1736,7 +1812,8 @@
         <aside class="iz-emp-left-col">
           ${renderEmployeePortalProfileCard(employee, displayName)}
           ${renderEmployeePortalSelectedProjectCard(selectedAssignment, employee, upcomingAssignments)}
-          ${renderEmployeePortalTeam(team)}
+          ${state.employeePortalProjectDetailsOpen ? renderEmployeePortalProjectDetails(selectedAssignment, employee, crewRows) : ""}
+          ${renderEmployeePortalTeam(team, project, crewRows)}
         </aside>
         <section class="iz-emp-main-col">
           ${renderEmployeePortalTimeline(upcomingAssignments, selectedAssignment.id)}
@@ -1779,17 +1856,26 @@
     `;
   }
 
-  function renderEmployeePortalTeam(team) {
+  function renderEmployeePortalTeam(team, project, crewRows = []) {
     const items = (team || []).slice(0, 4);
+    const crewSummary = getEmployeePortalCrewSummary(project, crewRows);
+    const statusClass = crewSummary.missing > 0 ? "iz-emp-chip-warning" : (crewSummary.complete ? "iz-emp-chip-ok" : "");
     return `
       <section class="iz-emp-card iz-emp-section-card">
-        <div class="iz-emp-section-head"><div class="iz-emp-section-icon">♙</div><div class="iz-emp-section-title">Prosjektteam</div></div>
+        <div class="iz-emp-section-head">
+          <div class="iz-emp-section-icon">♙</div>
+          <div>
+            <div class="iz-emp-section-title">Prosjektteam</div>
+            <div class="iz-emp-section-subtitle">${escapeHtml(crewSummary.label)} · ${escapeHtml(crewSummary.status)}</div>
+          </div>
+          <span class="iz-emp-chip ${statusClass}">${escapeHtml(crewSummary.status)}</span>
+        </div>
         ${items.length ? `<div class="iz-emp-team-grid">${items.map(entry => `
           <div class="iz-emp-member">
             <div class="iz-emp-member-avatar">${escapeHtml(getInitials(entry.employee_name))}</div>
             <div class="min-w-0"><div class="iz-emp-member-name">${escapeHtml(entry.employee_name)}</div><div class="iz-emp-member-role">${escapeHtml(entry.role || "Tildelt")}</div></div>
           </div>
-        `).join("")}</div>` : `<div class="iz-emp-empty">Crew / prosjektteam vises her når teamdata er tilgjengelig for ansattvisningen.</div>`}
+        `).join("")}</div>` : `<div class="iz-emp-empty">Ingen andre registrert på prosjektet, eller crewdata mangler. Kontroller RPC-funksjonen hvis dette prosjektet faktisk har flere tildelte.</div>`}
       </section>
     `;
   }
@@ -3414,12 +3500,20 @@ Dette oppdaterer user_profiles og markerer søknaden som ferdig oppsatt. Det opp
 
     if (els.employeePortalContent) {
       els.employeePortalContent.addEventListener("click", event => {
+        const detailButton = event.target?.closest?.("[data-employee-portal-toggle-project-details]");
+        if (detailButton) {
+          event.preventDefault();
+          state.employeePortalProjectDetailsOpen = !state.employeePortalProjectDetailsOpen;
+          renderEmployeePortal();
+          return;
+        }
         const selectButton = event.target?.closest?.("[data-employee-portal-select-assignment]");
         if (!selectButton) return;
         event.preventDefault();
         const entryId = selectButton.dataset.employeePortalSelectAssignment || "";
         if (!entryId) return;
         state.employeePortalSelectedEntryId = entryId;
+        state.employeePortalProjectDetailsOpen = false;
         renderEmployeePortal();
       });
     }
@@ -3645,6 +3739,28 @@ Dette oppdaterer user_profiles og markerer søknaden som ferdig oppsatt. Det opp
     }
   }
 
+  async function fetchEmployeePortalCrewForProjects(projectIds = []) {
+    state.employeePortalCrewByProject = {};
+    state.employeePortalCrewFetchError = "";
+    if (!supabaseClient || !isEmployeePortalUser()) return;
+    const ids = [...new Set((projectIds || []).filter(Boolean))];
+    if (!ids.length) return;
+
+    const results = await Promise.all(ids.map(async projectId => {
+      const { data, error } = await supabaseClient.rpc("get_employee_project_crew", { p_project_id: projectId });
+      if (error) return { projectId, error };
+      return { projectId, data: data || [] };
+    }));
+
+    results.forEach(result => {
+      if (result.error) {
+        state.employeePortalCrewFetchError = state.employeePortalCrewFetchError || result.error.message || "Kunne ikke hente prosjektteam.";
+        return;
+      }
+      state.employeePortalCrewByProject[result.projectId] = result.data || [];
+    });
+  }
+
   async function fetchFromSupabase() {
     if (!state.supabaseReady) return;
 
@@ -3665,6 +3781,7 @@ Dette oppdaterer user_profiles og markerer søknaden som ferdig oppsatt. Det opp
         state.entries = entriesRes.data || [];
         state.auditLog = [];
         state.notificationLog = [];
+        await fetchEmployeePortalCrewForProjects((state.entries || []).map(entry => entry.project_id));
 
         saveAllLocal();
         state.storageMode = "supabase";

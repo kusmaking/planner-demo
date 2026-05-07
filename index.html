@@ -2378,6 +2378,152 @@
       white-space: nowrap;
     }
 
+    .iz-emp-chip {
+      margin-left: auto;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 24px;
+      padding: 4px 9px;
+      border: 1px solid rgba(20, 184, 105, 0.30);
+      border-radius: 999px;
+      color: #bdf7ce;
+      background: rgba(20, 184, 105, 0.10);
+      font-size: 11px;
+      font-weight: 850;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .iz-emp-chip-ok {
+      color: #bbf7d0;
+      background: rgba(22, 129, 58, 0.18);
+      border-color: rgba(34, 197, 94, 0.38);
+    }
+
+    .iz-emp-chip-warning {
+      color: #fde68a;
+      background: rgba(217, 119, 6, 0.16);
+      border-color: rgba(251, 191, 36, 0.38);
+    }
+
+    .iz-emp-project-detail-card {
+      overflow: hidden;
+    }
+
+    .iz-emp-detail-title {
+      color: #f8fafc;
+      font-size: 18px;
+      font-weight: 900;
+      line-height: 1.25;
+      margin-bottom: 18px;
+    }
+
+    .iz-emp-detail-title span {
+      color: #3cf28d;
+      letter-spacing: .02em;
+    }
+
+    .iz-emp-detail-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+      margin-bottom: 22px;
+    }
+
+    .iz-emp-detail-grid > div {
+      padding: 12px 14px;
+      border: 1px solid rgba(203, 213, 225, 0.14);
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.035);
+    }
+
+    .iz-emp-detail-grid span {
+      display: block;
+      color: rgba(226, 232, 240, 0.62);
+      font-size: 11px;
+      font-weight: 750;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      margin-bottom: 5px;
+    }
+
+    .iz-emp-detail-grid strong {
+      color: #f8fafc;
+      font-size: 13px;
+      line-height: 1.3;
+    }
+
+    .iz-emp-detail-crew-head {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: #f8fafc;
+      font-size: 12px;
+      font-weight: 900;
+      letter-spacing: .10em;
+      text-transform: uppercase;
+      border-top: 1px solid rgba(203, 213, 225, 0.14);
+      padding-top: 18px;
+      margin-bottom: 12px;
+    }
+
+    .iz-emp-detail-crew-list {
+      display: grid;
+      gap: 8px;
+    }
+
+    .iz-emp-detail-crew-row {
+      display: grid;
+      grid-template-columns: 36px minmax(0, 1fr);
+      grid-template-areas: "avatar name" "avatar role" "avatar dates";
+      column-gap: 12px;
+      align-items: center;
+      padding: 10px 12px;
+      border: 1px solid rgba(203, 213, 225, 0.12);
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.035);
+    }
+
+    .iz-emp-detail-crew-row span {
+      grid-area: avatar;
+      width: 34px;
+      height: 34px;
+      border-radius: 999px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(20, 184, 105, 0.16);
+      color: #bbf7d0;
+      border: 1px solid rgba(20, 184, 105, 0.26);
+      font-size: 12px;
+      font-weight: 900;
+    }
+
+    .iz-emp-detail-crew-row strong {
+      grid-area: name;
+      color: #f8fafc;
+      font-size: 13px;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .iz-emp-detail-crew-row em {
+      grid-area: role;
+      color: rgba(226, 232, 240, 0.68);
+      font-size: 12px;
+      font-style: normal;
+    }
+
+    .iz-emp-detail-crew-row small {
+      grid-area: dates;
+      color: rgba(226, 232, 240, 0.50);
+      font-size: 11px;
+    }
+
     .iz-emp-team-grid {
       display: grid;
       grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -2488,6 +2634,7 @@
       .iz-emp-upcoming-action { justify-self: start; }
       .iz-emp-upcoming-date { white-space: normal; }
       .iz-emp-team-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); row-gap: 22px; }
+      .iz-emp-detail-grid { grid-template-columns: 1fr; }
       .iz-emp-member:nth-child(odd) { border-left: 0; padding-left: 0; }
       .iz-emp-history-row { grid-template-columns: 120px 1fr; }
       .iz-emp-history-date { grid-column: 2; }
