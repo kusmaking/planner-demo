@@ -1400,13 +1400,38 @@
   function getEmployeePortalProjectTitle(project) {
     const name = displayProjectName(project) || "Prosjekt";
     const code = getExplicitProjectCode(project, name);
-    const cleanName = getProjectNameWithoutCode(name);
+    let cleanName = getProjectNameWithoutCode(name);
+
+    // Avoid exposing internal UUID/id fragments as project title fallback in the employee portal.
+    cleanName = String(cleanName || "").replace(/^([0-9a-f]{8})(?:[-\s]+)?/i, "").trim();
+
     const fallbackName = cleanName || name || "Prosjekt";
     return {
       code,
       cleanName: fallbackName,
-      full: code ? `${code}  ${fallbackName}`.trim() : fallbackName
+      full: code ? `${code} ${fallbackName}`.trim() : fallbackName
     };
+  }
+
+  function getEmployeePortalProjectPhaseText(project) {
+    const phases = getProjectTimelinePhaseTypes(project);
+    if (phases.isWorkshopOnly) return "Workshop-only";
+    if (phases.hasField && phases.hasWorkshop) return "Workshop + feltperiode";
+    if (phases.hasWorkshop) return "Workshop / mobilisering";
+    if (phases.hasField) return "Feltperiode";
+    return project?.category || "Ikke satt";
+  }
+
+  function getEmployeePortalCustomerText(project) {
+    return project?.location || project?.customer || project?.company || "Ikke satt";
+  }
+
+  function getEmployeePortalResponsibleText(project) {
+    return project?.project_responsible || project?.projectResponsible || project?.responsible || "Ikke satt";
+  }
+
+  function getEmployeePortalStatusText(project) {
+    return project?.status || "Ikke satt";
   }
 
   function getWorkshopText(project) {
@@ -1530,18 +1555,28 @@
     const title = getEmployeePortalProjectTitle(project);
     const bounds = getProjectDateBounds(project);
     const team = getEmployeePortalTeam(project.id, employee.name);
-    const periodText = bounds.start && bounds.end ? `${formatDate(bounds.start)} – ${formatDate(bounds.end)}` : `${formatDate(next.start_date)} – ${formatDate(next.end_date)}`;
+    const assignmentPeriodText = next.start_date && next.end_date ? `${formatDate(next.start_date)} – ${formatDate(next.end_date)}` : "Ikke satt";
+    const projectPeriodText = bounds.start && bounds.end ? `${formatDate(bounds.start)} – ${formatDate(bounds.end)}` : assignmentPeriodText;
     const roleText = next.role || employee.title || "Ikke satt";
+    const responsibleText = getEmployeePortalResponsibleText(project);
+    const customerText = getEmployeePortalCustomerText(project);
+    const phaseText = getEmployeePortalProjectPhaseText(project);
+    const statusText = getEmployeePortalStatusText(project);
+    const hasCode = Boolean(title.code);
 
     els.employeePortalContent.innerHTML = `
-      <section class="iz-emp-card iz-emp-project-card">
+      <section class="iz-emp-card iz-emp-project-card iz-emp-project-card-detailed">
         <div class="iz-emp-project-icon">♒</div>
-        <div>
+        <div class="min-w-0">
           <div class="iz-emp-eyebrow">Neste prosjekt</div>
-          <div class="iz-emp-title">${escapeHtml(title.full)}</div>
-          <div class="iz-emp-meta-row">
-            <div class="iz-emp-meta-item"><div class="iz-emp-meta-icon">▣</div><div><div class="iz-emp-meta-label">Periode</div><div class="iz-emp-meta-value">${escapeHtml(periodText)}</div></div></div>
+          <div class="iz-emp-title iz-emp-title-detailed">${hasCode ? `<span class="iz-emp-title-code">${escapeHtml(title.code)}</span> ` : ""}<span>${escapeHtml(title.cleanName)}</span></div>
+          <div class="iz-emp-project-subline">${escapeHtml(phaseText)}${statusText !== "Ikke satt" ? ` · ${escapeHtml(statusText)}` : ""}</div>
+          <div class="iz-emp-meta-row iz-emp-meta-row-detailed">
+            <div class="iz-emp-meta-item"><div class="iz-emp-meta-icon">▣</div><div><div class="iz-emp-meta-label">Din periode</div><div class="iz-emp-meta-value">${escapeHtml(assignmentPeriodText)}</div></div></div>
+            <div class="iz-emp-meta-item"><div class="iz-emp-meta-icon">◇</div><div><div class="iz-emp-meta-label">Prosjektperiode</div><div class="iz-emp-meta-value">${escapeHtml(projectPeriodText)}</div></div></div>
             <div class="iz-emp-meta-item"><div class="iz-emp-meta-icon">♙</div><div><div class="iz-emp-meta-label">Rolle</div><div class="iz-emp-meta-value">${escapeHtml(roleText)}</div></div></div>
+            <div class="iz-emp-meta-item"><div class="iz-emp-meta-icon">◎</div><div><div class="iz-emp-meta-label">Prosjektleder</div><div class="iz-emp-meta-value">${escapeHtml(responsibleText)}</div></div></div>
+            <div class="iz-emp-meta-item"><div class="iz-emp-meta-icon">⌂</div><div><div class="iz-emp-meta-label">Kunde</div><div class="iz-emp-meta-value">${escapeHtml(customerText)}</div></div></div>
             <div class="iz-emp-meta-item"><div class="iz-emp-meta-icon">⌖</div><div><div class="iz-emp-meta-label">Workshop / feltperiode</div><div class="iz-emp-meta-value">${escapeHtml(getWorkshopText(project))}</div></div></div>
           </div>
         </div>

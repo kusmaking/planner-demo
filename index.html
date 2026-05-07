@@ -1969,12 +1969,55 @@
       margin-bottom: 24px;
     }
 
+    .iz-emp-title-detailed {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      gap: 0.32em;
+      margin-bottom: 8px;
+    }
+
+    .iz-emp-title-code {
+      color: #0f172a;
+      font-weight: 900;
+      letter-spacing: 0.01em;
+      white-space: nowrap;
+    }
+
+    .iz-emp-project-subline {
+      color: #475569;
+      font-size: 14px;
+      font-weight: 650;
+      margin-bottom: 22px;
+    }
+
+    .iz-emp-project-card-detailed {
+      align-items: start;
+      min-height: 270px;
+    }
+
     .iz-emp-meta-row {
       border-top: 1px solid #dde2e8;
       display: grid;
       grid-template-columns: repeat(3, minmax(0, 1fr));
       gap: 0;
       max-width: 1120px;
+    }
+
+    .iz-emp-meta-row-detailed {
+      grid-template-columns: repeat(3, minmax(180px, 1fr));
+      row-gap: 18px;
+      max-width: 1220px;
+    }
+
+    .iz-emp-meta-row-detailed .iz-emp-meta-item:nth-child(4) {
+      border-left: 0;
+      padding-left: 0;
+    }
+
+    .iz-emp-meta-row-detailed .iz-emp-meta-item:nth-child(n+4) {
+      border-top: 1px solid #eef2f6;
+      padding-top: 18px;
     }
 
     .iz-emp-meta-item {
@@ -2235,8 +2278,9 @@
     @media (max-width: 1100px) {
       .iz-emp-project-card { grid-template-columns: 86px 1fr; }
       .iz-emp-open-project { grid-column: 2; justify-self: start; }
-      .iz-emp-meta-row { grid-template-columns: 1fr; }
-      .iz-emp-meta-item + .iz-emp-meta-item { border-left: 0; padding-left: 0; }
+      .iz-emp-meta-row, .iz-emp-meta-row-detailed { grid-template-columns: 1fr; }
+      .iz-emp-meta-item + .iz-emp-meta-item, .iz-emp-meta-row-detailed .iz-emp-meta-item:nth-child(4) { border-left: 0; padding-left: 0; }
+      .iz-emp-meta-row-detailed .iz-emp-meta-item:nth-child(n+2) { border-top: 1px solid #eef2f6; padding-top: 18px; }
       .iz-emp-team-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); row-gap: 22px; }
       .iz-emp-member:nth-child(odd) { border-left: 0; padding-left: 0; }
       .iz-emp-history-row { grid-template-columns: 120px 1fr; }

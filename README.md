@@ -1,33 +1,48 @@
-# Locked v18.45 - employee dashboard polish safe
+# Locked-v18.45b-employee-project-details-v1-safe
 
-Base: `Locked-v18.44c-employee-own-projects-rls-tested`.
+Base: `Locked-v18.45-employee-dashboard-polish-safe`.
 
-Denne pakken gjør kun en kontrollert forbedring i ansattportalen / Employee `Min side`.
+## Endret
 
-Endret:
 - `app.js`
 - `index.html`
 - `README.md`
 
-Ikke endret:
-- `data.js`
+## Scope
+
+Dette er en kontrollert visningsforbedring av ansattportalen / Employee Min side.
+
+## Hva er forbedret
+
+- Neste prosjekt-kortet viser mer relevant prosjektdetalj.
+- Prosjekttittel bygges som `IZO-XXXXX Prosjektnavn` når prosjektkode finnes.
+- Intern prosjekt-ID/UUID-lignende tekst fjernes fra employee-visningens tittel-fallback.
+- Viser nå tydeligere:
+  - Din periode
+  - Prosjektperiode
+  - Rolle
+  - Prosjektleder
+  - Kunde
+  - Workshop / feltperiode
+  - Fase/status-linje når data finnes
+- Layouten er strammet opp med detaljert metagruppe i employee-portalen.
+
+## Ikke endret
+
 - Supabase/RLS
-- tilgangssøknader/godkjenning
-- brukerroller
-- import
-- prosjektplan
-- bemanning/tildeling
-- admin/planner/superadmin-flyt
+- Tilgangssøknader/godkjenning
+- Brukerroller
+- Import
+- Prosjektplan
+- Bemanning/tildeling
+- Admin/planner/superadmin-flyt
+- `data.js`
 
-Innhold:
-- Rydder visuell presentasjon av ansattportalens oppstartsside.
-- Fjerner intern prosjekt-ID som fallback i tittelen på neste prosjekt.
-- Viser prosjektnavn alene dersom IZO-/PRJ-kode ikke finnes i prosjektnavn/felt.
-- Gjør tom-/manglende ansattprofil-visning tydeligere.
+## Test
 
-Test:
 1. Logg inn som employee-testbruker.
-2. Bekreft at neste prosjekt viser lesbart prosjektnavn, ikke intern UUID-prefix.
-3. Bekreft at periode, rolle og workshop/feltperiode fortsatt vises.
-4. Bekreft at Logg ut fortsatt fungerer.
-5. Bekreft at superadmin/planner fortsatt åpner vanlig planner.
+2. Bekreft at neste prosjekt vises.
+3. Bekreft at tittel ikke viser intern UUID/id.
+4. Bekreft at Prosjektleder og Kunde vises hvis prosjektet har disse feltene.
+5. Test Logg ut.
+6. Logg inn som superadmin/planner og bekreft at vanlig planlegger fortsatt fungerer.
