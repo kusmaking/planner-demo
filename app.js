@@ -2526,6 +2526,15 @@
           <div class="text-xs font-medium ${matchingProfile ? "text-emerald-700" : "text-amber-700"}">${matchingProfile ? "Brukerprofil finnes" : "Brukerprofil mangler – RPC oppretter hvis Auth finnes"}</div>
         </div>
         ${getAccessSetupChecklistHtml(row, matchingProfile, autoMatchedEmployee, selectedRole)}
+        <div class="mt-3 rounded-xl border border-cyan-100 bg-cyan-50 px-3 py-2 text-xs leading-relaxed text-cyan-900">
+          <div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+            <div>
+              <div class="font-semibold">Auth-bruker</div>
+              <div>${matchingProfile ? "Brukerprofil finnes allerede. Gå videre til Fullfør oppsett ved behov." : "Opprett Auth-bruker automatisk via Edge Function når søknaden er godkjent."}</div>
+            </div>
+            <button type="button" data-access-action="create-auth-user" data-access-request-id="${escapeHtml(row.id)}" class="rounded-xl border border-cyan-200 bg-white px-3 py-2 text-xs font-semibold text-cyan-800 shadow-sm hover:bg-cyan-100 disabled:cursor-not-allowed disabled:opacity-40" ${canSetup && !matchingProfile ? "" : "disabled"}>Opprett Auth-bruker</button>
+          </div>
+        </div>
         <div class="mt-3 grid gap-3 lg:grid-cols-[220px_minmax(260px,1fr)_auto] lg:items-end">
           <label class="block text-sm text-slate-700">
             <span class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Endelig rolle</span>
@@ -2542,7 +2551,7 @@
           <button type="button" data-access-action="setup" data-access-request-id="${escapeHtml(row.id)}" class="rounded-xl bg-emerald-700 px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40" ${canSetup && !needsEmployee ? "" : "disabled"}>Fullfør oppsett</button>
         </div>
         <div class="mt-3 rounded-xl border border-blue-100 bg-blue-50 px-3 py-2 text-xs leading-relaxed text-blue-800">
-          Riktig rekkefølge: 1) Opprett Auth-bruker i Supabase Authentication ved behov. 2) Velg rolle. 3) Koble ansattprofil hvis rollen er Ansatt / Min side. 4) Trykk Fullfør oppsett. Auth-bruker opprettes fortsatt ikke automatisk.
+          Riktig rekkefølge: 1) Opprett Auth-bruker via knappen over, eller manuelt i Supabase ved behov. 2) Velg rolle. 3) Koble ansattprofil hvis rollen er Ansatt / Min side. 4) Trykk Fullfør oppsett.
         </div>
       </div>
     `;
@@ -2581,6 +2590,87 @@
     }
   }
 
+
+
+  async function createAuthUserForAccessRequest(requestId) {
+    if (!canManageUserAccess()) {
+      alert("Kun superadmin/admin kan opprette Auth-bruker fra tilgangssøknad.");
+      return;
+    }
+
+    const row = (state.accessRequests.rows || []).find(item => item.id === requestId);
+    if (!row) return;
+
+    const status = String(row.status || "pending").toLowerCase();
+    if (status !== "approved") {
+      alert("Søknaden må være godkjent før Auth-bruker kan opprettes.");
+      return;
+    }
+
+    if (row.setup_completed_at) {
+      alert("Tilgang er allerede satt opp for denne søknaden.");
+      return;
+    }
+
+    const existingProfile = findAccessUserProfileByEmail(row.email);
+    if (existingProfile) {
+      alert("Brukerprofil finnes allerede. Du kan gå videre med Fullfør oppsett.");
+      return;
+    }
+
+    const email = row.email || "";
+    const tempPassword = window.prompt(
+      `Midlertidig passord for ${email}\n\nBruk minst 8 tegn. Dette er kun for test/pre-go-live.`,
+      "Test1234!"
+    );
+    if (tempPassword === null) return;
+    if (!tempPassword || tempPassword.length < 8) {
+      alert("Midlertidig passord må være minst 8 tegn.");
+      return;
+    }
+
+    const ok = window.confirm(
+      `Opprette Supabase Auth-bruker for:\n\n${email}\n\nDette oppretter kun Auth-brukeren. Rolle og ansattkobling settes etterpå med Fullfør oppsett.`
+    );
+    if (!ok) return;
+
+    try {
+      const { data, error } = await supabaseClient.functions.invoke("create-approved-auth-user", {
+        body: {
+          request_id: requestId,
+          temporary_password: tempPassword
+        }
+      });
+
+      if (error) {
+        throw new Error(error.message || "Edge Function returnerte feil.");
+      }
+
+      if (!data?.ok) {
+        const code = data?.code ? `${data.code}: ` : "";
+        throw new Error(`${code}${data?.message || "Kunne ikke opprette Auth-bruker."}`);
+      }
+
+      alert(data.message || "Auth-bruker er opprettet. Fortsett med Fullfør oppsett.");
+      await fetchAccessUsers({ silent: true });
+      await fetchAccessRequests({ silent: true });
+      renderAll();
+    } catch (error) {
+      const message = error?.message || "Ukjent feil";
+      if (message.includes("NOT_ALLOWED") || message.includes("403")) {
+        alert("Du har ikke tilgang til å opprette Auth-bruker. Logg inn som superadmin/admin og prøv igjen.");
+      } else if (message.includes("REQUEST_NOT_APPROVED")) {
+        alert("Søknaden må være godkjent før Auth-bruker kan opprettes.");
+      } else if (message.includes("AUTH_USER_ALREADY_EXISTS")) {
+        alert("Auth-brukeren finnes allerede. Fortsett med Fullfør oppsett.");
+        await fetchAccessUsers({ silent: true });
+        await fetchAccessRequests({ silent: true });
+        renderAll();
+      } else {
+        alert(`Kunne ikke opprette Auth-bruker: ${message}`);
+      }
+    }
+  }
 
 
   async function setupApprovedAccessRequest(requestId) {
@@ -3694,6 +3784,7 @@ Dette oppretter ikke Auth-bruker. Hvis Auth-brukeren mangler, får du en tydelig
         const action = button.dataset.accessAction || "";
         if (!requestId || !action) return;
         if (action === "setup") setupApprovedAccessRequest(requestId);
+        else if (action === "create-auth-user") createAuthUserForAccessRequest(requestId);
         else updateAccessRequestStatus(requestId, action);
       });
       els.accessApprovalList.addEventListener("change", event => {

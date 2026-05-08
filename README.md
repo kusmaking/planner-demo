@@ -39,3 +39,12 @@ Denne versjonen oppretter fortsatt ikke Supabase Auth-bruker automatisk. Det ska
 På lang sikt bør hele tilgangsløpet håndteres via en sikker backend/Edge Function:
 `godkjent søknad → inviter/opprett Auth-bruker → user_profile → rolle → ansattkobling → varsling`.
 Service-role key skal ikke inn i frontend.
+
+
+## v18.52b - Access Auth user button UI
+
+- Adds an Admin -> Tilgangssøknader button to create a Supabase Auth user through the deployed Edge Function `create-approved-auth-user`.
+- Keeps role/profile/employee setup in the existing `Fullfør oppsett` RPC flow.
+- No service role key is added to frontend.
+- Requires the Edge Function to be deployed in Supabase before use.
+- No changes to import, planner, project plan, staffing, RLS, or employee dashboard.
