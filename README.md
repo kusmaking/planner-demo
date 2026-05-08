@@ -1,6 +1,6 @@
-# Locked-v18.50-access-setup-rpc-ui-v1-safe
+# Locked-v18.51-access-setup-checklist-ui-v1-safe
 
-Base: `Locked-v18.49b-employee-crew-layout-tested`
+Base: `Locked-v18.50-access-setup-rpc-tested`
 
 ## Endret
 - `app.js`
@@ -10,21 +10,27 @@ Base: `Locked-v18.49b-employee-crew-layout-tested`
 - `index.html`
 - `data.js`
 - Supabase/RLS
+- RPC-definisjoner
 - Import
 - Prosjektplan
 - Bemanning/tildelingslogikk
 - Ansattportal/employee-dashboard
 - Admin/planner/superadmin hovedflyt
 
-## Nytt i v18.50
-- Admin → Tilgangssøknader bruker nå RPC-funksjonen `admin_setup_access_request(...)` for å fullføre godkjente søknader.
-- `Fullfør oppsett` kan nå opprette/oppdatere `user_profiles` automatisk når Supabase Auth-brukeren allerede finnes.
-- UI viser tydeligere status for:
-  - brukerprofil/Auth-status
-  - valgt rolle
-  - ansattprofilkobling
-- Employee-søknader forsøker automatisk å foreslå ansattprofil basert på e-postmatch.
-- Hvis Auth-brukeren mangler, vises tydelig feilmelding om at brukeren først må opprettes i Supabase Authentication.
+## Nytt i v18.51
+- Admin → Tilgangssøknader har nå en tydeligere sjekkliste for godkjente søknader.
+- Sjekklisten viser:
+  - Søknad: godkjent / ikke godkjent
+  - Auth / brukerprofil: finnes / mangler
+  - Rolle: valgt rolle
+  - Ansattprofil: klar / mangler / ikke relevant
+  - Klar til fullføring: ja / nei
+- Fullfør oppsett-knappen og hjelpeteksten er tydeligere.
+- UI forklarer riktig rekkefølge:
+  1. Opprett Auth-bruker i Supabase Authentication ved behov.
+  2. Velg rolle.
+  3. Koble ansattprofil hvis rollen er Ansatt / Min side.
+  4. Trykk Fullfør oppsett.
 
 ## Viktig begrensning
 Denne versjonen oppretter fortsatt ikke Supabase Auth-bruker automatisk. Det skal fortsatt gjøres manuelt i Supabase Authentication, eller senere via en trygg server-/Edge Function-løsning.

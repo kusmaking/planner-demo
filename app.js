@@ -1,6 +1,7 @@
 (() => {
   // v18.49b-employee-crew-layout-fix-safe
   // v18.48-employee-calendar-layout-v1-safe
+  // v18.51-access-setup-checklist-ui-v1-safe
   // v18.50-access-setup-rpc-ui-v1-safe
   // v18.43-access-management-v1-safe
   // v18.42-access-approval-v1-safe
@@ -2371,31 +2372,84 @@
   function getAccessSetupChecklistHtml(row, matchingProfile, autoMatchedEmployee, selectedRole) {
     const normalizedRole = String(selectedRole || row?.requested_access || "").toLowerCase();
     const isEmployeeRole = normalizedRole === "employee";
-    const profileStatus = matchingProfile
-      ? { label: "Brukerprofil finnes", detail: matchingProfile.email || row.email || "", cls: "border-emerald-200 bg-emerald-50 text-emerald-800" }
-      : { label: "Brukerprofil mangler", detail: "Fullfør oppsett sjekker Auth og oppretter profil hvis Auth-brukeren finnes.", cls: "border-amber-200 bg-amber-50 text-amber-800" };
-    const employeeStatus = !isEmployeeRole
-      ? { label: "Ansattkobling ikke relevant", detail: "Gjelder kun employee/ansattrolle.", cls: "border-slate-200 bg-slate-50 text-slate-700" }
-      : autoMatchedEmployee
-        ? { label: "Ansattprofil funnet", detail: autoMatchedEmployee.name || autoMatchedEmployee.email || "", cls: "border-emerald-200 bg-emerald-50 text-emerald-800" }
-        : { label: "Ansattprofil mangler", detail: "Velg ansattprofil manuelt eller opprett ansatt først.", cls: "border-amber-200 bg-amber-50 text-amber-800" };
+    const roleIsValid = ["employee", "reader", "planner", "admin"].includes(normalizedRole);
+    const employeeReady = !isEmployeeRole || Boolean(autoMatchedEmployee || row?.linked_employee_id);
+    const profileReady = Boolean(matchingProfile);
+    const requestApproved = String(row?.status || "pending").toLowerCase() === "approved";
+    const readyForSetup = requestApproved && roleIsValid && employeeReady;
+
+    const steps = [
+      {
+        title: "Søknad",
+        label: requestApproved ? "Godkjent" : "Ikke godkjent",
+        detail: requestApproved ? "Søknaden er klar for oppsett." : "Søknaden må godkjennes før tilgang kan settes opp.",
+        state: requestApproved ? "ok" : "wait"
+      },
+      {
+        title: "Auth / brukerprofil",
+        label: profileReady ? "Brukerprofil finnes" : "Mangler brukerprofil",
+        detail: profileReady
+          ? (matchingProfile.email || row.email || "Profil funnet i user_profiles.")
+          : "Opprett Auth-bruker manuelt først. Fullfør oppsett oppretter/oppdaterer user_profiles hvis Auth finnes.",
+        state: profileReady ? "ok" : "warn"
+      },
+      {
+        title: "Rolle",
+        label: roleIsValid ? formatRequestedAccess(normalizedRole) : "Velg rolle",
+        detail: roleIsValid ? "Rollen settes når oppsettet fullføres." : "Velg gyldig rolle før fullføring.",
+        state: roleIsValid ? "ok" : "warn"
+      },
+      {
+        title: "Ansattprofil",
+        label: !isEmployeeRole ? "Ikke relevant" : employeeReady ? "Klar" : "Mangler",
+        detail: !isEmployeeRole
+          ? "Kreves kun for Ansatt / Min side."
+          : autoMatchedEmployee
+            ? `Matcher: ${autoMatchedEmployee.name || autoMatchedEmployee.email || "ansattprofil"}`
+            : "Velg ansattprofil eller opprett ansatt først.",
+        state: !isEmployeeRole ? "neutral" : employeeReady ? "ok" : "warn"
+      },
+      {
+        title: "Klar til fullføring",
+        label: readyForSetup ? "Ja" : "Nei",
+        detail: readyForSetup
+          ? (profileReady ? "Kan fullføres nå." : "Kan prøves etter at Auth-bruker er opprettet i Supabase Authentication.")
+          : "Fullfør oppsett låses til nødvendige valg er satt.",
+        state: readyForSetup ? "ok" : "warn"
+      }
+    ];
+
+    const stateClass = state => {
+      if (state === "ok") return "border-emerald-200 bg-emerald-50 text-emerald-800";
+      if (state === "warn") return "border-amber-200 bg-amber-50 text-amber-800";
+      return "border-slate-200 bg-white text-slate-700";
+    };
+    const dotClass = state => {
+      if (state === "ok") return "bg-emerald-500";
+      if (state === "warn") return "bg-amber-500";
+      return "bg-slate-400";
+    };
 
     return `
-      <div class="grid gap-2 md:grid-cols-3">
-        <div class="rounded-xl border ${profileStatus.cls} p-3">
-          <div class="text-xs font-semibold uppercase tracking-wide opacity-70">Auth/profil</div>
-          <div class="mt-1 text-sm font-semibold">${escapeHtml(profileStatus.label)}</div>
-          <div class="mt-1 text-xs opacity-80">${escapeHtml(profileStatus.detail)}</div>
+      <div class="rounded-xl border border-slate-200 bg-white p-3">
+        <div class="mb-3 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <div class="text-sm font-semibold text-slate-900">Sjekkliste for tilgang</div>
+            <div class="text-xs text-slate-500">Fullfør først når nødvendige punkter er klare.</div>
+          </div>
+          <span class="inline-flex w-fit items-center rounded-full border px-2.5 py-1 text-xs font-semibold ${readyForSetup ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-amber-200 bg-amber-50 text-amber-700"}">${readyForSetup ? "Klar" : "Mangler steg"}</span>
         </div>
-        <div class="rounded-xl border border-slate-200 bg-white p-3 text-slate-700">
-          <div class="text-xs font-semibold uppercase tracking-wide text-slate-500">Rolle</div>
-          <div class="mt-1 text-sm font-semibold text-slate-900">${escapeHtml(formatRequestedAccess(normalizedRole))}</div>
-          <div class="mt-1 text-xs text-slate-500">Settes ved fullført oppsett.</div>
-        </div>
-        <div class="rounded-xl border ${employeeStatus.cls} p-3">
-          <div class="text-xs font-semibold uppercase tracking-wide opacity-70">Ansattprofil</div>
-          <div class="mt-1 text-sm font-semibold">${escapeHtml(employeeStatus.label)}</div>
-          <div class="mt-1 text-xs opacity-80">${escapeHtml(employeeStatus.detail)}</div>
+        <div class="grid gap-2 md:grid-cols-2 xl:grid-cols-5">
+          ${steps.map(step => `
+            <div class="rounded-xl border ${stateClass(step.state)} p-3">
+              <div class="flex items-center gap-2">
+                <span class="h-2.5 w-2.5 rounded-full ${dotClass(step.state)}"></span>
+                <div class="text-xs font-semibold uppercase tracking-wide opacity-70">${escapeHtml(step.title)}</div>
+              </div>
+              <div class="mt-2 text-sm font-semibold">${escapeHtml(step.label)}</div>
+              <div class="mt-1 text-xs leading-relaxed opacity-80">${escapeHtml(step.detail)}</div>
+            </div>
+          `).join("")}
         </div>
       </div>
     `;
@@ -2487,7 +2541,9 @@
           </label>
           <button type="button" data-access-action="setup" data-access-request-id="${escapeHtml(row.id)}" class="rounded-xl bg-emerald-700 px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40" ${canSetup && !needsEmployee ? "" : "disabled"}>Fullfør oppsett</button>
         </div>
-        <div class="mt-2 text-xs text-slate-500">Fullfør oppsett bruker sikker RPC. Auth-brukeren må finnes i Supabase Authentication, men user_profiles kan opprettes/oppdateres automatisk.</div>
+        <div class="mt-3 rounded-xl border border-blue-100 bg-blue-50 px-3 py-2 text-xs leading-relaxed text-blue-800">
+          Riktig rekkefølge: 1) Opprett Auth-bruker i Supabase Authentication ved behov. 2) Velg rolle. 3) Koble ansattprofil hvis rollen er Ansatt / Min side. 4) Trykk Fullfør oppsett. Auth-bruker opprettes fortsatt ikke automatisk.
+        </div>
       </div>
     `;
   }
