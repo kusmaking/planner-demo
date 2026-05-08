@@ -1,6 +1,7 @@
 (() => {
   // v18.49b-employee-crew-layout-fix-safe
   // v18.48-employee-calendar-layout-v1-safe
+  // v18.53-access-one-flow-employee-setup-ui-v1
   // v18.51-access-setup-checklist-ui-v1-safe
   // v18.50-access-setup-rpc-ui-v1-safe
   // v18.43-access-management-v1-safe
@@ -2466,7 +2467,149 @@
     return options.join("");
   }
 
+  function generateTemporaryAccessPassword(length = 14) {
+    const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789";
+    const symbols = "!#%?";
+    const random = new Uint32Array(length);
+    crypto.getRandomValues(random);
+    let password = "";
+    for (let i = 0; i < length; i += 1) {
+      password += alphabet[random[i] % alphabet.length];
+    }
+    return `${password}${symbols[random[0] % symbols.length]}`;
+  }
+
+  function getAccessCompleteEmployeeTypeOptions(selectedValue) {
+    const selected = String(selectedValue || "");
+    const options = [
+      ["", "Velg type"],
+      ["Offshore", "Offshore"],
+      ["Onshore", "Onshore"],
+      ["Engineering", "Engineering"],
+      ["Lager og logistikk", "Lager og logistikk"],
+      ["3 parts innleie", "3 parts innleie"],
+      ["Management", "Management"],
+      ["Prosjektledelse / planlegging", "Prosjektledelse / planlegging"]
+    ];
+    return options.map(([value, label]) => `<option value="${escapeHtml(value)}" ${selected === value ? "selected" : ""}>${escapeHtml(label)}</option>`).join("");
+  }
+
+  function getAccessCompleteGroupOptions(selectedValue) {
+    const selected = normalizeEmployeeGroup(selectedValue || "");
+    return EMPLOYEE_GROUP_OPTIONS.map(value => {
+      const label = value ? getEmployeeGroupLabel(value) : "Velg gruppe";
+      return `<option value="${escapeHtml(value)}" ${selected === value ? "selected" : ""}>${escapeHtml(label)}</option>`;
+    }).join("");
+  }
+
+  function getAccessCompleteDefaultGroup(row) {
+    const requested = normalizeEmployeeGroup(row?.requested_access || "");
+    if (requested) return requested;
+    return "Offshore arbeider";
+  }
+
+  function getAccessCompleteDefaultType(row) {
+    const group = getAccessCompleteDefaultGroup(row);
+    if (group === "Offshore arbeider") return "Offshore";
+    if (group === "Onshore arbeider") return "Onshore";
+    if (group === "Engineering") return "Engineering";
+    if (group === "Lager og logistikk") return "Lager og logistikk";
+    if (group === "3 parts innleie") return "3 parts innleie";
+    if (group === "Management") return "Management";
+    if (group === "Prosjektledelse / planlegging") return "Prosjektledelse / planlegging";
+    return "Offshore";
+  }
+
+  function renderAccessCompleteSetupBlock(row, matchingProfile) {
+    const status = String(row.status || "pending").toLowerCase();
+    const canComplete = canApproveAccessRequests();
+    if (!["pending", "approved"].includes(status) || row.setup_completed_at || !canComplete) return "";
+
+    const selectedRole = String(row.approved_role || row.requested_access || "employee").toLowerCase();
+    const safeRole = ["employee", "reader", "planner", "admin"].includes(selectedRole) ? selectedRole : "employee";
+    const defaultTitle = row.full_name ? "Ansatt" : "";
+    const defaultType = getAccessCompleteDefaultType(row);
+    const defaultGroup = getAccessCompleteDefaultGroup(row);
+    const adminNote = isSuperadmin()
+      ? "Superadmin kan sette employee, reader, planner og admin."
+      : "Admin kan sette employee, reader og planner. Admin-rolle krever superadmin.";
+
+    return `
+      <div class="border-t border-slate-200 bg-slate-50 p-5" data-access-complete-panel="${escapeHtml(row.id)}">
+        <div class="rounded-2xl border border-emerald-200 bg-white p-5 shadow-sm ring-1 ring-emerald-100">
+          <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+            <div class="min-w-0">
+              <div class="text-xs font-bold uppercase tracking-wide text-emerald-700">v18.53 samlet flyt</div>
+              <div class="mt-1 text-base font-bold text-slate-950">Godkjenn og opprett komplett tilgang</div>
+              <div class="mt-1 text-sm text-slate-600">Denne knappen bruker Edge Function <span class="font-mono">admin-complete-access-request</span>. Den godkjenner søknaden, oppretter/gjenbruker Auth-bruker, oppretter/oppdaterer brukerprofil og oppretter/kobler ansattprofil når rollen er Ansatt.</div>
+            </div>
+            <span class="inline-flex w-fit items-center rounded-md border border-slate-300 bg-slate-900 px-3 py-1.5 text-xs font-bold text-white">${escapeHtml(status === "pending" ? "Kan kjøres direkte fra pending" : "Godkjent – klar")}</span>
+          </div>
+
+          <div class="mt-4 grid gap-3 xl:grid-cols-4">
+            <label class="block text-sm text-slate-700">
+              <span class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Endelig rolle</span>
+              <select data-access-complete-role="${escapeHtml(row.id)}" class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm">
+                ${getAccessSetupRoleOptions(safeRole)}
+              </select>
+            </label>
+            <label class="block text-sm text-slate-700 xl:col-span-2">
+              <span class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Midlertidig passord</span>
+              <input data-access-complete-password="${escapeHtml(row.id)}" type="text" autocomplete="off" class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm" placeholder="Skriv eller generer midlertidig passord" />
+            </label>
+            <button type="button" data-access-action="generate-temp-password" data-access-request-id="${escapeHtml(row.id)}" class="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50 xl:self-end">Generer passord</button>
+          </div>
+
+          <div class="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <div class="text-sm font-bold text-slate-900">Ansattdata</div>
+            <div class="mt-1 text-xs text-slate-600">Påkrevd når endelig rolle er Ansatt. Ignoreres for reader/planner/admin.</div>
+            <div class="mt-3 grid gap-3 lg:grid-cols-3">
+              <label class="block text-sm text-slate-700">
+                <span class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Stilling / tittel</span>
+                <input data-access-complete-title="${escapeHtml(row.id)}" type="text" class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm" value="${escapeHtml(defaultTitle)}" placeholder="F.eks. Supervisor" />
+              </label>
+              <label class="block text-sm text-slate-700">
+                <span class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Employee type</span>
+                <select data-access-complete-employee-type="${escapeHtml(row.id)}" class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm">
+                  ${getAccessCompleteEmployeeTypeOptions(defaultType)}
+                </select>
+              </label>
+              <label class="block text-sm text-slate-700">
+                <span class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Employee group</span>
+                <select data-access-complete-employee-group="${escapeHtml(row.id)}" class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm">
+                  ${getAccessCompleteGroupOptions(defaultGroup)}
+                </select>
+              </label>
+            </div>
+          </div>
+
+          <div class="mt-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div class="text-xs leading-relaxed text-slate-600">
+              ${escapeHtml(adminNote)} ${matchingProfile ? "Brukerprofil finnes allerede og blir oppdatert." : "Auth-bruker og brukerprofil opprettes hvis de mangler."}
+              Passord sendes ikke på e-post automatisk.
+            </div>
+            <button type="button" data-access-action="complete-access" data-access-request-id="${escapeHtml(row.id)}" class="rounded-xl bg-emerald-700 px-5 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-40">Godkjenn og opprett komplett tilgang</button>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
   function renderAccessSetupBlock(row, matchingProfile, canSetup) {
+    const status = String(row.status || "pending").toLowerCase();
+    if (row.setup_completed_at) return renderLegacyAccessSetupBlock(row, matchingProfile, canSetup);
+
+    const completeBlock = renderAccessCompleteSetupBlock(row, matchingProfile);
+    if (!["pending", "approved"].includes(status)) return "";
+
+    const legacyBlock = status === "approved" && canManageUserAccess()
+      ? `<details class="border-t border-slate-200 bg-white px-5 py-4"><summary class="cursor-pointer text-sm font-semibold text-slate-700">Vis gammel todelt fallback-flyt</summary><div class="mt-4">${renderLegacyAccessSetupBlock(row, matchingProfile, canSetup)}</div></details>`
+      : "";
+
+    return `${completeBlock}${legacyBlock}`;
+  }
+
+  function renderLegacyAccessSetupBlock(row, matchingProfile, canSetup) {
     const status = String(row.status || "pending").toLowerCase();
     if (status !== "approved") return "";
 
@@ -2569,6 +2712,169 @@
       alert(`Kunne ikke oppdatere søknad: ${error?.message || "Ukjent feil"}`);
     }
   }
+
+  function updateAccessCompleteEmployeeFields(requestId) {
+    const panel = els.accessApprovalList?.querySelector?.(`[data-access-complete-panel="${CSS.escape(requestId)}"]`);
+    if (!panel) return;
+    const role = panel.querySelector?.(`[data-access-complete-role="${CSS.escape(requestId)}"]`)?.value || "employee";
+    const employeeFields = [
+      panel.querySelector?.(`[data-access-complete-title="${CSS.escape(requestId)}"]`),
+      panel.querySelector?.(`[data-access-complete-employee-type="${CSS.escape(requestId)}"]`),
+      panel.querySelector?.(`[data-access-complete-employee-group="${CSS.escape(requestId)}"]`)
+    ].filter(Boolean);
+    const isEmployee = role === "employee";
+    employeeFields.forEach(field => {
+      field.disabled = !isEmployee;
+      field.closest?.("label")?.classList.toggle("opacity-50", !isEmployee);
+    });
+  }
+
+  function generateTemporaryPasswordForAccessRequest(requestId) {
+    const panel = els.accessApprovalList?.querySelector?.(`[data-access-complete-panel="${CSS.escape(requestId)}"]`);
+    const input = panel?.querySelector?.(`[data-access-complete-password="${CSS.escape(requestId)}"]`);
+    if (!input) return;
+    input.value = generateTemporaryAccessPassword();
+    input.focus();
+    input.select?.();
+  }
+
+  async function completeAccessRequestFromAdmin(requestId) {
+    if (!canApproveAccessRequests()) {
+      alert("Kun superadmin/admin kan opprette komplett tilgang fra tilgangssøknad.");
+      return;
+    }
+
+    const row = (state.accessRequests.rows || []).find(item => item.id === requestId);
+    if (!row) return;
+
+    const status = String(row.status || "pending").toLowerCase();
+    if (!["pending", "approved"].includes(status)) {
+      alert("Denne søknaden kan ikke fullføres fra nåværende status.");
+      return;
+    }
+
+    if (row.setup_completed_at) {
+      alert("Tilgang er allerede satt opp for denne søknaden.");
+      return;
+    }
+
+    const panel = els.accessApprovalList?.querySelector?.(`[data-access-complete-panel="${CSS.escape(requestId)}"]`);
+    if (!panel) {
+      alert("Fant ikke oppsettsfelt for denne søknaden. Oppdater siden og prøv igjen.");
+      return;
+    }
+
+    const role = panel.querySelector?.(`[data-access-complete-role="${CSS.escape(requestId)}"]`)?.value || row.requested_access || "employee";
+    const normalizedRole = String(role || "").toLowerCase();
+    const temporaryPassword = panel.querySelector?.(`[data-access-complete-password="${CSS.escape(requestId)}"]`)?.value?.trim() || "";
+    const title = panel.querySelector?.(`[data-access-complete-title="${CSS.escape(requestId)}"]`)?.value?.trim() || "";
+    const employeeType = panel.querySelector?.(`[data-access-complete-employee-type="${CSS.escape(requestId)}"]`)?.value?.trim() || "";
+    const employeeGroup = normalizeEmployeeGroup(panel.querySelector?.(`[data-access-complete-employee-group="${CSS.escape(requestId)}"]`)?.value || "");
+
+    if (!["employee", "reader", "planner", "admin"].includes(normalizedRole)) {
+      alert("Velg en gyldig rolle.");
+      return;
+    }
+
+    if (normalizedRole === "admin" && !isSuperadmin()) {
+      alert("Kun superadmin kan sette opp admin-rolle.");
+      return;
+    }
+
+    if (!temporaryPassword || temporaryPassword.length < 8) {
+      alert("Midlertidig passord må være minst 8 tegn. Skriv inn passord eller bruk Generer passord.");
+      return;
+    }
+
+    if (normalizedRole === "employee") {
+      if (!title) {
+        alert("Legg inn stilling/tittel for ansatt.");
+        return;
+      }
+      if (!employeeType) {
+        alert("Velg employee type for ansatt.");
+        return;
+      }
+      if (!employeeGroup) {
+        alert("Velg employee group for ansatt.");
+        return;
+      }
+    }
+
+    const existingProfile = findAccessUserProfileByEmail(row.email);
+    if (existingProfile?.id === state.currentUserId) {
+      alert("Ikke bruk denne flyten til å endre din egen bruker.");
+      return;
+    }
+
+    const employeeLines = normalizedRole === "employee"
+      ? `\nStilling: ${title}\nEmployee type: ${employeeType}\nEmployee group: ${employeeGroup}`
+      : "";
+
+    const ok = window.confirm(`Opprette komplett tilgang for:\n\n${row.full_name || row.email}\n${row.email}\n\nRolle: ${formatRequestedAccess(normalizedRole)}${employeeLines}\n\nDette kan opprette Auth-bruker, user_profile og ansattprofil. Passord sendes ikke automatisk på e-post.`);
+    if (!ok) return;
+
+    const button = panel.querySelector?.(`[data-access-action="complete-access"][data-access-request-id="${CSS.escape(requestId)}"]`);
+    const oldText = button?.textContent || "";
+    if (button) {
+      button.disabled = true;
+      button.textContent = "Oppretter...";
+    }
+
+    try {
+      const payload = {
+        request_id: requestId,
+        role: normalizedRole,
+        temporary_password: temporaryPassword,
+        employee_type: normalizedRole === "employee" ? employeeType : undefined,
+        employee_group: normalizedRole === "employee" ? employeeGroup : undefined,
+        title: normalizedRole === "employee" ? title : undefined
+      };
+
+      const { data, error } = await supabaseClient.functions.invoke("admin-complete-access-request", {
+        body: payload
+      });
+
+      if (error) {
+        throw new Error(error.message || "Edge Function returnerte feil.");
+      }
+
+      if (!data?.ok) {
+        const code = data?.code ? `${data.code}: ` : "";
+        throw new Error(`${code}${data?.message || "Kunne ikke opprette komplett tilgang."}`);
+      }
+
+      alert(data.message || "Komplett tilgang er opprettet.");
+      await fetchFromSupabase();
+      await fetchAccessUsers({ silent: true });
+      await fetchAccessRequests({ silent: true });
+      rebuildDerivedState();
+      renderAll();
+    } catch (error) {
+      const message = error?.message || "Ukjent feil";
+      if (message.includes("ADMIN_ROLE_REQUIRES_SUPERADMIN")) {
+        alert("Kun superadmin kan sette opp admin-rolle.");
+      } else if (message.includes("TEMPORARY_PASSWORD_REQUIRED")) {
+        alert("Midlertidig passord må være minst 8 tegn.");
+      } else if (message.includes("EMPLOYEE_TYPE_REQUIRED") || message.includes("EMPLOYEE_GROUP_REQUIRED") || message.includes("TITLE_REQUIRED")) {
+        alert("Employee-oppsett mangler type, gruppe eller tittel.");
+      } else if (message.includes("ACCESS_REQUEST_ALREADY_COMPLETED")) {
+        alert("Denne søknaden er allerede satt opp. Oppdater listen.");
+        await fetchAccessRequests({ silent: true });
+        renderAll();
+      } else if (message.includes("NOT_ALLOWED") || message.includes("403")) {
+        alert("Du har ikke tilgang til å utføre denne handlingen.");
+      } else {
+        alert(`Kunne ikke opprette komplett tilgang: ${message}`);
+      }
+    } finally {
+      if (button && !row.setup_completed_at) {
+        button.disabled = false;
+        button.textContent = oldText || "Godkjenn og opprett komplett tilgang";
+      }
+    }
+  }
+
 
 
 
@@ -3765,7 +4071,15 @@ Dette oppretter ikke Auth-bruker. Hvis Auth-brukeren mangler, får du en tydelig
         if (!requestId || !action) return;
         if (action === "setup") setupApprovedAccessRequest(requestId);
         else if (action === "create-auth-user") createAuthUserForAccessRequest(requestId);
+        else if (action === "complete-access") completeAccessRequestFromAdmin(requestId);
+        else if (action === "generate-temp-password") generateTemporaryPasswordForAccessRequest(requestId);
         else updateAccessRequestStatus(requestId, action);
+      });
+      els.accessApprovalList.addEventListener("change", event => {
+        const select = event.target?.closest?.("[data-access-complete-role]");
+        if (!select) return;
+        const requestId = select.dataset.accessCompleteRole || "";
+        if (requestId) updateAccessCompleteEmployeeFields(requestId);
       });
       els.accessApprovalList.addEventListener("change", event => {
         const select = event.target?.closest?.("[data-access-setup-role]");
