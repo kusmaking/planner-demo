@@ -1,7 +1,7 @@
 (() => {
   // v18.49b-employee-crew-layout-fix-safe
   // v18.48-employee-calendar-layout-v1-safe
-  // v18.44-approved-request-user-setup-v1-safe
+  // v18.50-access-setup-rpc-ui-v1-safe
   // v18.43-access-management-v1-safe
   // v18.42-access-approval-v1-safe
   // v18.41-access-request-v1-safe
@@ -2313,7 +2313,7 @@
       const isApproved = status === "approved";
       const isSetupCompleted = Boolean(row.setup_completed_at);
       const matchingProfile = findAccessUserProfileByEmail(row.email);
-      const canSetup = isApproved && !isSetupCompleted && Boolean(matchingProfile) && canManageUserAccess();
+      const canSetup = isApproved && !isSetupCompleted && canManageUserAccess();
       const setupInfo = renderAccessSetupBlock(row, matchingProfile, canSetup);
       return `
         <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm" data-access-request-row-id="${escapeHtml(row.id)}">
@@ -2346,6 +2346,61 @@
     return (state.accessUsers.rows || []).find(row => normalizeComparableText(row.email) === normalized) || null;
   }
 
+  function getAccessEmployeeAutoMatch(row) {
+    const linkedId = row?.linked_employee_id ? String(row.linked_employee_id) : "";
+    if (linkedId) {
+      const linked = (state.employees || []).find(employee => String(employee?.id || "") === linkedId);
+      if (linked) return linked;
+    }
+
+    const requestedEmail = normalizeComparableText(row?.email || "");
+    if (requestedEmail) {
+      const emailMatch = (state.employees || []).find(employee => normalizeComparableText(employee?.email || "") === requestedEmail);
+      if (emailMatch) return emailMatch;
+    }
+
+    const requestedName = normalizeComparableText(row?.full_name || "");
+    if (requestedName) {
+      const nameMatch = (state.employees || []).find(employee => normalizeComparableText(employee?.name || "") === requestedName);
+      if (nameMatch) return nameMatch;
+    }
+
+    return null;
+  }
+
+  function getAccessSetupChecklistHtml(row, matchingProfile, autoMatchedEmployee, selectedRole) {
+    const normalizedRole = String(selectedRole || row?.requested_access || "").toLowerCase();
+    const isEmployeeRole = normalizedRole === "employee";
+    const profileStatus = matchingProfile
+      ? { label: "Brukerprofil finnes", detail: matchingProfile.email || row.email || "", cls: "border-emerald-200 bg-emerald-50 text-emerald-800" }
+      : { label: "Brukerprofil mangler", detail: "Fullfør oppsett sjekker Auth og oppretter profil hvis Auth-brukeren finnes.", cls: "border-amber-200 bg-amber-50 text-amber-800" };
+    const employeeStatus = !isEmployeeRole
+      ? { label: "Ansattkobling ikke relevant", detail: "Gjelder kun employee/ansattrolle.", cls: "border-slate-200 bg-slate-50 text-slate-700" }
+      : autoMatchedEmployee
+        ? { label: "Ansattprofil funnet", detail: autoMatchedEmployee.name || autoMatchedEmployee.email || "", cls: "border-emerald-200 bg-emerald-50 text-emerald-800" }
+        : { label: "Ansattprofil mangler", detail: "Velg ansattprofil manuelt eller opprett ansatt først.", cls: "border-amber-200 bg-amber-50 text-amber-800" };
+
+    return `
+      <div class="grid gap-2 md:grid-cols-3">
+        <div class="rounded-xl border ${profileStatus.cls} p-3">
+          <div class="text-xs font-semibold uppercase tracking-wide opacity-70">Auth/profil</div>
+          <div class="mt-1 text-sm font-semibold">${escapeHtml(profileStatus.label)}</div>
+          <div class="mt-1 text-xs opacity-80">${escapeHtml(profileStatus.detail)}</div>
+        </div>
+        <div class="rounded-xl border border-slate-200 bg-white p-3 text-slate-700">
+          <div class="text-xs font-semibold uppercase tracking-wide text-slate-500">Rolle</div>
+          <div class="mt-1 text-sm font-semibold text-slate-900">${escapeHtml(formatRequestedAccess(normalizedRole))}</div>
+          <div class="mt-1 text-xs text-slate-500">Settes ved fullført oppsett.</div>
+        </div>
+        <div class="rounded-xl border ${employeeStatus.cls} p-3">
+          <div class="text-xs font-semibold uppercase tracking-wide opacity-70">Ansattprofil</div>
+          <div class="mt-1 text-sm font-semibold">${escapeHtml(employeeStatus.label)}</div>
+          <div class="mt-1 text-xs opacity-80">${escapeHtml(employeeStatus.detail)}</div>
+        </div>
+      </div>
+    `;
+  }
+
   function getAccessSetupRoleOptions(selectedValue) {
     const selected = String(selectedValue || "").toLowerCase();
     return [
@@ -2356,16 +2411,23 @@
     ].map(([value, label]) => `<option value="${value}" ${selected === value ? "selected" : ""}>${escapeHtml(label)}</option>`).join("");
   }
 
-  function getAccessSetupEmployeeOptions(selectedEmployeeId) {
+  function getAccessSetupEmployeeOptions(selectedEmployeeId, row = null) {
     const selected = String(selectedEmployeeId || "");
+    const requestedEmail = normalizeComparableText(row?.email || "");
     const employees = (state.employees || [])
       .filter(employee => employee?.id && employee.active !== false)
       .slice()
-      .sort((a, b) => String(a.name || "").localeCompare(String(b.name || ""), "no"));
+      .sort((a, b) => {
+        const aEmailMatch = requestedEmail && normalizeComparableText(a.email || "") === requestedEmail ? 0 : 1;
+        const bEmailMatch = requestedEmail && normalizeComparableText(b.email || "") === requestedEmail ? 0 : 1;
+        if (aEmailMatch !== bEmailMatch) return aEmailMatch - bEmailMatch;
+        return String(a.name || "").localeCompare(String(b.name || ""), "no");
+      });
 
     const options = [`<option value="">Velg ansattprofil</option>`];
     employees.forEach(employee => {
-      const label = [employee.name, employee.title, employee.employee_group].filter(Boolean).join(" • ");
+      const emailMatch = requestedEmail && normalizeComparableText(employee.email || "") === requestedEmail;
+      const label = [employee.name, employee.title, employee.employee_group, emailMatch ? "matcher e-post" : ""].filter(Boolean).join(" • ");
       options.push(`<option value="${escapeHtml(employee.id)}" ${String(employee.id) === selected ? "selected" : ""}>${escapeHtml(label || employee.id)}</option>`);
     });
     return options.join("");
@@ -2394,21 +2456,23 @@
       `;
     }
 
-    if (!matchingProfile) {
-      return `
-        <div class="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
-          <div class="font-semibold">Klar for oppsett, men Auth/profil mangler</div>
-          <div class="mt-1">Opprett brukeren først i Supabase Authentication med e-post ${escapeHtml(row.email || "")}. Når profilen finnes i Brukertilganger, kan du sette rolle og koble ansatt her.</div>
-        </div>
-      `;
-    }
-
     const selectedRole = String(row.approved_role || row.requested_access || "employee").toLowerCase();
     const isEmployeeRole = selectedRole === "employee";
+    const autoMatchedEmployee = getAccessEmployeeAutoMatch(row);
+    const selectedEmployeeId = row.linked_employee_id || (isEmployeeRole && autoMatchedEmployee ? autoMatchedEmployee.id : "");
+    const needsEmployee = isEmployeeRole && !selectedEmployeeId;
+
     return `
       <div class="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3" data-access-setup-panel="${escapeHtml(row.id)}">
-        <div class="mb-3 text-sm font-semibold text-slate-900">Sett opp tilgang</div>
-        <div class="grid gap-3 lg:grid-cols-[220px_minmax(260px,1fr)_auto] lg:items-end">
+        <div class="mb-3 flex flex-col gap-1 md:flex-row md:items-end md:justify-between">
+          <div>
+            <div class="text-sm font-semibold text-slate-900">Sett opp tilgang</div>
+            <div class="text-xs text-slate-500">Godkjent søknad må fullføres før brukeren får riktig rolle/tilgang.</div>
+          </div>
+          <div class="text-xs font-medium ${matchingProfile ? "text-emerald-700" : "text-amber-700"}">${matchingProfile ? "Brukerprofil finnes" : "Brukerprofil mangler – RPC oppretter hvis Auth finnes"}</div>
+        </div>
+        ${getAccessSetupChecklistHtml(row, matchingProfile, autoMatchedEmployee, selectedRole)}
+        <div class="mt-3 grid gap-3 lg:grid-cols-[220px_minmax(260px,1fr)_auto] lg:items-end">
           <label class="block text-sm text-slate-700">
             <span class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Endelig rolle</span>
             <select data-access-setup-role="${escapeHtml(row.id)}" class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm">
@@ -2418,12 +2482,12 @@
           <label class="block text-sm text-slate-700">
             <span class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Koble til ansattprofil</span>
             <select data-access-setup-employee="${escapeHtml(row.id)}" class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm" ${isEmployeeRole ? "" : "disabled"}>
-              ${getAccessSetupEmployeeOptions(row.linked_employee_id)}
+              ${getAccessSetupEmployeeOptions(selectedEmployeeId, row)}
             </select>
           </label>
-          <button type="button" data-access-action="setup" data-access-request-id="${escapeHtml(row.id)}" class="rounded-xl bg-emerald-700 px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40" ${canSetup ? "" : "disabled"}>Lagre tilgang</button>
+          <button type="button" data-access-action="setup" data-access-request-id="${escapeHtml(row.id)}" class="rounded-xl bg-emerald-700 px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40" ${canSetup && !needsEmployee ? "" : "disabled"}>Fullfør oppsett</button>
         </div>
-        <div class="mt-2 text-xs text-slate-500">Dette oppretter ikke Auth-bruker. Det oppdaterer eksisterende user_profiles og kobler ansattprofil ved employee-rolle.</div>
+        <div class="mt-2 text-xs text-slate-500">Fullfør oppsett bruker sikker RPC. Auth-brukeren må finnes i Supabase Authentication, men user_profiles kan opprettes/oppdateres automatisk.</div>
       </div>
     `;
   }
@@ -2494,12 +2558,7 @@
     }
 
     const profile = findAccessUserProfileByEmail(row.email);
-    if (!profile) {
-      alert("Fant ikke eksisterende brukerprofil for denne e-posten. Opprett Auth-bruker først i Supabase Authentication, og oppdater Brukertilganger-listen etterpå.");
-      return;
-    }
-
-    if (profile.id === state.currentUserId) {
+    if (profile?.id === state.currentUserId) {
       alert("Ikke bruk denne flyten til å endre din egen superadmin-bruker.");
       return;
     }
@@ -2510,54 +2569,29 @@
     }
 
     const employee = employeeId ? (state.employees || []).find(item => item.id === employeeId) : null;
+    const profileText = profile ? "Brukerprofil finnes og oppdateres." : "Brukerprofil mangler. RPC oppretter den hvis Auth-brukeren finnes.";
     const employeeText = employee ? `
 Ansattprofil: ${employee.name}` : "";
-    const ok = window.confirm(`Vil du sette opp tilgang for ${row.full_name || row.email}?
+    const ok = window.confirm(`Vil du fullføre tilgang for ${row.full_name || row.email}?
 
 Rolle: ${formatRequestedAccess(normalizedRole)}${employeeText}
+${profileText}
 
-Dette oppdaterer user_profiles og markerer søknaden som ferdig oppsatt. Det oppretter ikke Auth-bruker.`);
+Dette oppretter ikke Auth-bruker. Hvis Auth-brukeren mangler, får du en tydelig feilmelding.`);
     if (!ok) return;
 
     try {
-      const profileUpdate = {
-        email: row.email,
-        full_name: row.full_name || profile.full_name || null,
-        role: normalizedRole,
-        is_active: true,
-        updated_at: new Date().toISOString(),
-        updated_by: state.currentUserId || null
-      };
+      const { data, error } = await supabaseClient.rpc("admin_setup_access_request", {
+        p_request_id: requestId,
+        p_role: normalizedRole,
+        p_employee_id: normalizedRole === "employee" ? employeeId : null
+      });
+      if (error) throw error;
 
-      const { error: profileError } = await supabaseClient
-        .from("user_profiles")
-        .update(profileUpdate)
-        .eq("id", profile.id);
-      if (profileError) throw profileError;
-
-      if (normalizedRole === "employee" && employeeId) {
-        const { error: employeeError } = await supabaseClient
-          .from("planner_employees")
-          .update({
-            email: row.email,
-            updated_at: new Date().toISOString()
-          })
-          .eq("id", employeeId);
-        if (employeeError) throw employeeError;
+      const result = Array.isArray(data) ? data[0] : data;
+      if (result && result.ok === false) {
+        throw new Error(result.message || "RPC returnerte feil ved oppsett av tilgang.");
       }
-
-      const { error: requestError } = await supabaseClient
-        .from("access_requests")
-        .update({
-          setup_completed_at: new Date().toISOString(),
-          setup_completed_by: state.currentUserId || null,
-          approved_role: normalizedRole,
-          linked_employee_id: normalizedRole === "employee" ? employeeId : null,
-          review_note: `Tilgang satt opp i access setup v1. Rolle: ${normalizedRole}.`
-        })
-        .eq("id", requestId)
-        .eq("status", "approved");
-      if (requestError) throw requestError;
 
       await fetchFromSupabase();
       await fetchAccessUsers({ silent: true });
@@ -2565,9 +2599,19 @@ Dette oppdaterer user_profiles og markerer søknaden som ferdig oppsatt. Det opp
       rebuildDerivedState();
       renderAll();
     } catch (error) {
-      alert(`Kunne ikke sette opp tilgang: ${error?.message || "Ukjent feil"}`);
+      const message = error?.message || "Ukjent feil";
+      if (message.includes("AUTH_USER_MISSING")) {
+        alert(`Auth-bruker mangler. Opprett brukeren først i Supabase Authentication med e-post ${row.email}, og prøv deretter Fullfør oppsett igjen.`);
+      } else if (message.includes("EMPLOYEE_REQUIRED")) {
+        alert("Velg ansattprofil før du fullfører employee-tilgang.");
+      } else if (message.includes("NOT_ALLOWED")) {
+        alert("Du har ikke tilgang til å fullføre denne handlingen.");
+      } else {
+        alert(`Kunne ikke sette opp tilgang: ${message}`);
+      }
     }
   }
+
 
 
 
@@ -3603,6 +3647,18 @@ Dette oppdaterer user_profiles og markerer søknaden som ferdig oppsatt. Det opp
         const panel = requestId ? els.accessApprovalList.querySelector(`[data-access-setup-panel="${CSS.escape(requestId)}"]`) : null;
         const employeeSelect = panel?.querySelector?.(`[data-access-setup-employee="${CSS.escape(requestId)}"]`);
         if (employeeSelect) employeeSelect.disabled = select.value !== "employee";
+        const button = panel?.querySelector?.(`[data-access-action="setup"]`);
+        if (button && select.value === "employee") button.disabled = !employeeSelect?.value;
+        if (button && select.value !== "employee") button.disabled = false;
+      });
+      els.accessApprovalList.addEventListener("change", event => {
+        const select = event.target?.closest?.("[data-access-setup-employee]");
+        if (!select) return;
+        const requestId = select.dataset.accessSetupEmployee || "";
+        const panel = requestId ? els.accessApprovalList.querySelector(`[data-access-setup-panel="${CSS.escape(requestId)}"]`) : null;
+        const roleSelect = panel?.querySelector?.(`[data-access-setup-role="${CSS.escape(requestId)}"]`);
+        const button = panel?.querySelector?.(`[data-access-action="setup"]`);
+        if (button && roleSelect?.value === "employee") button.disabled = !select.value;
       });
     }
 

@@ -1,37 +1,35 @@
-# Locked v18.49b - employee crew layout fix safe
+# Locked-v18.50-access-setup-rpc-ui-v1-safe
 
-Base: `Locked-v18.49-employee-project-crew-and-open-project-v1-safe`
+Base: `Locked-v18.49b-employee-crew-layout-tested`
 
 ## Endret
 - `app.js`
-- `index.html`
 - `README.md`
 
 ## Ikke endret
+- `index.html`
 - `data.js`
 - Supabase/RLS
-- RPC-definisjon
-- Importlogikk
+- Import
 - Prosjektplan
 - Bemanning/tildelingslogikk
-- Admin/planner/superadmin-flyt
-- Tilgangssøknader/godkjenning
-- Brukerroller
+- Ansattportal/employee-dashboard
+- Admin/planner/superadmin hovedflyt
 
-## Fikset i denne versjonen
-- Prosjektteam/Crew er flyttet ut av venstre sidepanel og inn i hovedfeltet under prosjektkalenderen.
-- Crew-listen får bedre bredde, kontrast og lesbarhet.
-- Viser hele crewet på valgt prosjekt, inkludert innlogget ansatt markert med `Deg`.
-- Viser rolle og periode per crewmedlem.
-- Bemanningsstatus er fortsatt synlig: f.eks. `2 / 2 satt opp`, `Fullt crew` eller `Mangler X`.
+## Nytt i v18.50
+- Admin → Tilgangssøknader bruker nå RPC-funksjonen `admin_setup_access_request(...)` for å fullføre godkjente søknader.
+- `Fullfør oppsett` kan nå opprette/oppdatere `user_profiles` automatisk når Supabase Auth-brukeren allerede finnes.
+- UI viser tydeligere status for:
+  - brukerprofil/Auth-status
+  - valgt rolle
+  - ansattprofilkobling
+- Employee-søknader forsøker automatisk å foreslå ansattprofil basert på e-postmatch.
+- Hvis Auth-brukeren mangler, vises tydelig feilmelding om at brukeren først må opprettes i Supabase Authentication.
 
-## Test
-1. Logg inn som employee/testbruker.
-2. Velg et prosjekt med flere crewmedlemmer.
-3. Bekreft at `Prosjektteam` ligger i hovedfeltet, ikke klemt i venstre kolonne.
-4. Bekreft at navn, rolle og periode er lesbart.
-5. Test `Åpne prosjekt` og bekreft at prosjektinfo fortsatt åpnes.
-6. Test planner i separat nettleser/profil og bekreft at admin/planner-visning fortsatt er urørt.
+## Viktig begrensning
+Denne versjonen oppretter fortsatt ikke Supabase Auth-bruker automatisk. Det skal fortsatt gjøres manuelt i Supabase Authentication, eller senere via en trygg server-/Edge Function-løsning.
 
 ## Langsiktig anbefaling
-På lang sikt bør employee-dashboardet samles i kontrollerte RPC-er/serverfunksjoner: profil, kommende prosjekter, kalender, crew og historikk. Det gir bedre sikkerhet, færre RLS-avhengigheter og mer stabil frontend. Denne patchen endrer kun layouten og holder eksisterende RPC/RLS uendret.
+På lang sikt bør hele tilgangsløpet håndteres via en sikker backend/Edge Function:
+`godkjent søknad → inviter/opprett Auth-bruker → user_profile → rolle → ansattkobling → varsling`.
+Service-role key skal ikke inn i frontend.
