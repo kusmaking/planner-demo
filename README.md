@@ -1,50 +1,30 @@
-# Locked-v18.51-access-setup-checklist-ui-v1-safe
+# Locked-v18.52c-access-admin-cleanup-ui-safe
 
-Base: `Locked-v18.50-access-setup-rpc-tested`
+Ren UI-opprydding i Admin → tilgangskontroll.
 
 ## Endret
-- `app.js`
-- `README.md`
+- Tilgangssøknader flyttet øverst i Admin-fanen og gitt tydeligere tittel: Tilgangskontroll.
+- Fjernet interne scrollfelt fra tilgangssøknader og brukerliste slik at hele siden scroller normalt.
+- Tydeligere handlingstekst for tilgangsoppsett.
+- Søknader sorteres slik at ventende og ikke-ferdig oppsatte saker kommer øverst.
+- Eksisterende brukere er flyttet under tilgangssøknader.
+- Bedre knapper/spacing for Opprett Auth-bruker og Fullfør oppsett.
 
 ## Ikke endret
-- `index.html`
-- `data.js`
 - Supabase/RLS
+- Edge Function
 - RPC-definisjoner
 - Import
 - Prosjektplan
 - Bemanning/tildelingslogikk
-- Ansattportal/employee-dashboard
-- Admin/planner/superadmin hovedflyt
+- Ansattportal
+- Planner/admin hovedfunksjoner
+- data.js
 
-## Nytt i v18.51
-- Admin → Tilgangssøknader har nå en tydeligere sjekkliste for godkjente søknader.
-- Sjekklisten viser:
-  - Søknad: godkjent / ikke godkjent
-  - Auth / brukerprofil: finnes / mangler
-  - Rolle: valgt rolle
-  - Ansattprofil: klar / mangler / ikke relevant
-  - Klar til fullføring: ja / nei
-- Fullfør oppsett-knappen og hjelpeteksten er tydeligere.
-- UI forklarer riktig rekkefølge:
-  1. Opprett Auth-bruker i Supabase Authentication ved behov.
-  2. Velg rolle.
-  3. Koble ansattprofil hvis rollen er Ansatt / Min side.
-  4. Trykk Fullfør oppsett.
-
-## Viktig begrensning
-Denne versjonen oppretter fortsatt ikke Supabase Auth-bruker automatisk. Det skal fortsatt gjøres manuelt i Supabase Authentication, eller senere via en trygg server-/Edge Function-løsning.
-
-## Langsiktig anbefaling
-På lang sikt bør hele tilgangsløpet håndteres via en sikker backend/Edge Function:
-`godkjent søknad → inviter/opprett Auth-bruker → user_profile → rolle → ansattkobling → varsling`.
-Service-role key skal ikke inn i frontend.
-
-
-## v18.52b - Access Auth user button UI
-
-- Adds an Admin -> Tilgangssøknader button to create a Supabase Auth user through the deployed Edge Function `create-approved-auth-user`.
-- Keeps role/profile/employee setup in the existing `Fullfør oppsett` RPC flow.
-- No service role key is added to frontend.
-- Requires the Edge Function to be deployed in Supabase before use.
-- No changes to import, planner, project plan, staffing, RLS, or employee dashboard.
+## Test
+1. Logg inn som superadmin.
+2. Gå til Admin.
+3. Bekreft at Tilgangskontroll/Tilgangssøknader ligger øverst.
+4. Bekreft at du ikke må lete i flere interne scrollfelt.
+5. Bekreft at ventende/godkjente ikke-ferdige søknader ligger øverst.
+6. Test én eksisterende godkjent søknad og se at Opprett Auth-bruker / Fullfør oppsett fortsatt er synlig.

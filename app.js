@@ -2308,7 +2308,20 @@
       return;
     }
 
-    els.accessApprovalList.innerHTML = rows.map(row => {
+    const displayRows = rows.slice().sort((a, b) => {
+      const rank = row => {
+        const status = String(row.status || "pending").toLowerCase();
+        if (status === "pending") return 0;
+        if (status === "approved" && !row.setup_completed_at) return 1;
+        if (status === "approved" && row.setup_completed_at) return 2;
+        return 3;
+      };
+      const r = rank(a) - rank(b);
+      if (r !== 0) return r;
+      return new Date(b.created_at || 0) - new Date(a.created_at || 0);
+    });
+
+    els.accessApprovalList.innerHTML = displayRows.map(row => {
       const status = String(row.status || "pending").toLowerCase();
       const isPending = status === "pending";
       const isApproved = status === "approved";
@@ -2317,7 +2330,8 @@
       const canSetup = isApproved && !isSetupCompleted && canManageUserAccess();
       const setupInfo = renderAccessSetupBlock(row, matchingProfile, canSetup);
       return `
-        <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm" data-access-request-row-id="${escapeHtml(row.id)}">
+        <div class="rounded-2xl border border-slate-200 bg-white shadow-sm ring-1 ring-slate-100" data-access-request-row-id="${escapeHtml(row.id)}">
+          <div class="p-5">
           <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
             <div class="min-w-0 space-y-1">
               <div class="flex flex-wrap items-center gap-2">
@@ -2334,6 +2348,7 @@
               <button type="button" data-access-action="approved" data-access-request-id="${escapeHtml(row.id)}" class="rounded-xl bg-slate-900 px-3 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-40" ${isPending ? "" : "disabled"}>Godkjenn</button>
               <button type="button" data-access-action="rejected" data-access-request-id="${escapeHtml(row.id)}" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 disabled:cursor-not-allowed disabled:opacity-40" ${isPending ? "" : "disabled"}>Avslå</button>
             </div>
+          </div>
           </div>
           ${setupInfo}
         </div>
@@ -2439,7 +2454,7 @@
           </div>
           <span class="inline-flex w-fit items-center rounded-full border px-2.5 py-1 text-xs font-semibold ${readyForSetup ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-amber-200 bg-amber-50 text-amber-700"}">${readyForSetup ? "Klar" : "Mangler steg"}</span>
         </div>
-        <div class="grid gap-2 md:grid-cols-2 xl:grid-cols-5">
+        <div class="grid gap-2 md:grid-cols-2 2xl:grid-cols-5">
           ${steps.map(step => `
             <div class="rounded-xl border ${stateClass(step.state)} p-3">
               <div class="flex items-center gap-2">
@@ -2517,25 +2532,25 @@
     const needsEmployee = isEmployeeRole && !selectedEmployeeId;
 
     return `
-      <div class="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3" data-access-setup-panel="${escapeHtml(row.id)}">
-        <div class="mb-3 flex flex-col gap-1 md:flex-row md:items-end md:justify-between">
+      <div class="border-t border-slate-200 bg-slate-50 p-5" data-access-setup-panel="${escapeHtml(row.id)}">
+        <div class="mb-4 flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
           <div>
             <div class="text-sm font-semibold text-slate-900">Sett opp tilgang</div>
-            <div class="text-xs text-slate-500">Godkjent søknad må fullføres før brukeren får riktig rolle/tilgang.</div>
+            <div class="text-xs text-slate-500">Følg rekkefølgen fra venstre mot høyre: Auth-bruker → rolle → ansattkobling → fullfør.</div>
           </div>
-          <div class="text-xs font-medium ${matchingProfile ? "text-emerald-700" : "text-amber-700"}">${matchingProfile ? "Brukerprofil finnes" : "Brukerprofil mangler – RPC oppretter hvis Auth finnes"}</div>
+          <div class="text-xs font-medium ${matchingProfile ? "text-emerald-700" : "text-amber-700"}">${matchingProfile ? "Brukerprofil finnes" : "Auth/profil mangler – bruk Opprett Auth-bruker"}</div>
         </div>
         ${getAccessSetupChecklistHtml(row, matchingProfile, autoMatchedEmployee, selectedRole)}
-        <div class="mt-3 rounded-xl border border-cyan-100 bg-cyan-50 px-3 py-2 text-xs leading-relaxed text-cyan-900">
+        <div class="mt-4 rounded-2xl border border-cyan-100 bg-cyan-50 px-4 py-3 text-xs leading-relaxed text-cyan-900">
           <div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
             <div>
               <div class="font-semibold">Auth-bruker</div>
               <div>${matchingProfile ? "Brukerprofil finnes allerede. Gå videre til Fullfør oppsett ved behov." : "Opprett Auth-bruker automatisk via Edge Function når søknaden er godkjent."}</div>
             </div>
-            <button type="button" data-access-action="create-auth-user" data-access-request-id="${escapeHtml(row.id)}" class="rounded-xl border border-cyan-200 bg-white px-3 py-2 text-xs font-semibold text-cyan-800 shadow-sm hover:bg-cyan-100 disabled:cursor-not-allowed disabled:opacity-40" ${canSetup && !matchingProfile ? "" : "disabled"}>Opprett Auth-bruker</button>
+            <button type="button" data-access-action="create-auth-user" data-access-request-id="${escapeHtml(row.id)}" class="rounded-xl border border-cyan-200 bg-white px-4 py-2 text-sm font-semibold text-cyan-800 shadow-sm hover:bg-cyan-100 disabled:cursor-not-allowed disabled:opacity-40" ${canSetup && !matchingProfile ? "" : "disabled"}>Opprett Auth-bruker</button>
           </div>
         </div>
-        <div class="mt-3 grid gap-3 lg:grid-cols-[220px_minmax(260px,1fr)_auto] lg:items-end">
+        <div class="mt-4 grid gap-3 lg:grid-cols-[240px_minmax(280px,1fr)_auto] lg:items-end">
           <label class="block text-sm text-slate-700">
             <span class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Endelig rolle</span>
             <select data-access-setup-role="${escapeHtml(row.id)}" class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm">
@@ -2548,10 +2563,10 @@
               ${getAccessSetupEmployeeOptions(selectedEmployeeId, row)}
             </select>
           </label>
-          <button type="button" data-access-action="setup" data-access-request-id="${escapeHtml(row.id)}" class="rounded-xl bg-emerald-700 px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40" ${canSetup && !needsEmployee ? "" : "disabled"}>Fullfør oppsett</button>
+          <button type="button" data-access-action="setup" data-access-request-id="${escapeHtml(row.id)}" class="rounded-xl bg-emerald-700 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-40" ${canSetup && !needsEmployee ? "" : "disabled"}>Fullfør oppsett</button>
         </div>
-        <div class="mt-3 rounded-xl border border-blue-100 bg-blue-50 px-3 py-2 text-xs leading-relaxed text-blue-800">
-          Riktig rekkefølge: 1) Opprett Auth-bruker via knappen over, eller manuelt i Supabase ved behov. 2) Velg rolle. 3) Koble ansattprofil hvis rollen er Ansatt / Min side. 4) Trykk Fullfør oppsett.
+        <div class="mt-4 rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-xs leading-relaxed text-blue-800">
+          Kort flyt: Godkjenn søknad → Opprett Auth-bruker → Velg rolle → Koble ansattprofil ved employee → Fullfør oppsett.
         </div>
       </div>
     `;
