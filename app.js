@@ -2393,78 +2393,42 @@
     const requestApproved = String(row?.status || "pending").toLowerCase() === "approved";
     const readyForSetup = requestApproved && roleIsValid && employeeReady;
 
-    const steps = [
-      {
-        title: "Søknad",
-        label: requestApproved ? "Godkjent" : "Ikke godkjent",
-        detail: requestApproved ? "Søknaden er klar for oppsett." : "Søknaden må godkjennes før tilgang kan settes opp.",
-        state: requestApproved ? "ok" : "wait"
-      },
-      {
-        title: "Auth / brukerprofil",
-        label: profileReady ? "Brukerprofil finnes" : "Mangler brukerprofil",
-        detail: profileReady
-          ? (matchingProfile.email || row.email || "Profil funnet i user_profiles.")
-          : "Opprett Auth-bruker manuelt først. Fullfør oppsett oppretter/oppdaterer user_profiles hvis Auth finnes.",
-        state: profileReady ? "ok" : "warn"
-      },
-      {
-        title: "Rolle",
-        label: roleIsValid ? formatRequestedAccess(normalizedRole) : "Velg rolle",
-        detail: roleIsValid ? "Rollen settes når oppsettet fullføres." : "Velg gyldig rolle før fullføring.",
-        state: roleIsValid ? "ok" : "warn"
-      },
-      {
-        title: "Ansattprofil",
-        label: !isEmployeeRole ? "Ikke relevant" : employeeReady ? "Klar" : "Mangler",
-        detail: !isEmployeeRole
-          ? "Kreves kun for Ansatt / Min side."
-          : autoMatchedEmployee
-            ? `Matcher: ${autoMatchedEmployee.name || autoMatchedEmployee.email || "ansattprofil"}`
-            : "Velg ansattprofil eller opprett ansatt først.",
-        state: !isEmployeeRole ? "neutral" : employeeReady ? "ok" : "warn"
-      },
-      {
-        title: "Klar til fullføring",
-        label: readyForSetup ? "Ja" : "Nei",
-        detail: readyForSetup
-          ? (profileReady ? "Kan fullføres nå." : "Kan prøves etter at Auth-bruker er opprettet i Supabase Authentication.")
-          : "Fullfør oppsett låses til nødvendige valg er satt.",
-        state: readyForSetup ? "ok" : "warn"
-      }
-    ];
-
-    const stateClass = state => {
-      if (state === "ok") return "border-emerald-200 bg-emerald-50 text-emerald-800";
-      if (state === "warn") return "border-amber-200 bg-amber-50 text-amber-800";
-      return "border-slate-200 bg-white text-slate-700";
-    };
-    const dotClass = state => {
-      if (state === "ok") return "bg-emerald-500";
-      if (state === "warn") return "bg-amber-500";
-      return "bg-slate-400";
-    };
+    const statusChip = (ok, labelOk, labelMissing) => ok
+      ? `<span class="inline-flex items-center rounded-md border border-emerald-300 bg-white px-2.5 py-1 text-xs font-semibold text-emerald-800">✓ ${escapeHtml(labelOk)}</span>`
+      : `<span class="inline-flex items-center rounded-md border border-amber-400 bg-white px-2.5 py-1 text-xs font-semibold text-amber-800">Mangler: ${escapeHtml(labelMissing)}</span>`;
 
     return `
-      <div class="rounded-xl border border-slate-200 bg-white p-3">
-        <div class="mb-3 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+      <div class="rounded-xl border border-slate-300 bg-white p-4 shadow-sm">
+        <div class="mb-3 flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <div class="text-sm font-semibold text-slate-900">Sjekkliste for tilgang</div>
-            <div class="text-xs text-slate-500">Fullfør først når nødvendige punkter er klare.</div>
+            <div class="text-sm font-bold text-slate-950">Status for oppsett</div>
+            <div class="text-xs text-slate-600">Følg stegene under fra venstre mot høyre. Fargene er kun statusmarkører, ikke egne arbeidsbokser.</div>
           </div>
-          <span class="inline-flex w-fit items-center rounded-full border px-2.5 py-1 text-xs font-semibold ${readyForSetup ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-amber-200 bg-amber-50 text-amber-700"}">${readyForSetup ? "Klar" : "Mangler steg"}</span>
+          <span class="inline-flex w-fit items-center rounded-md border px-3 py-1.5 text-xs font-bold ${readyForSetup ? "border-emerald-500 bg-emerald-700 text-white" : "border-amber-500 bg-amber-600 text-white"}">${readyForSetup ? "Klar til fullføring" : "Mangler steg"}</span>
         </div>
-        <div class="grid gap-2 md:grid-cols-2 2xl:grid-cols-5">
-          ${steps.map(step => `
-            <div class="rounded-xl border ${stateClass(step.state)} p-3">
-              <div class="flex items-center gap-2">
-                <span class="h-2.5 w-2.5 rounded-full ${dotClass(step.state)}"></span>
-                <div class="text-xs font-semibold uppercase tracking-wide opacity-70">${escapeHtml(step.title)}</div>
-              </div>
-              <div class="mt-2 text-sm font-semibold">${escapeHtml(step.label)}</div>
-              <div class="mt-1 text-xs leading-relaxed opacity-80">${escapeHtml(step.detail)}</div>
-            </div>
-          `).join("")}
+        <div class="grid gap-2 text-sm lg:grid-cols-5">
+          <div class="rounded-lg border border-slate-200 bg-slate-50 p-3">
+            <div class="text-xs font-bold uppercase tracking-wide text-slate-500">1. Søknad</div>
+            <div class="mt-2">${statusChip(requestApproved, "Godkjent", "Godkjenning")}</div>
+          </div>
+          <div class="rounded-lg border border-slate-200 bg-slate-50 p-3">
+            <div class="text-xs font-bold uppercase tracking-wide text-slate-500">2. Auth / profil</div>
+            <div class="mt-2">${statusChip(profileReady, "Bruker finnes", "Opprett Auth-bruker")}</div>
+            <div class="mt-2 truncate text-xs text-slate-600">${escapeHtml(profileReady ? (matchingProfile.email || row.email || "OK") : "Opprettes via knappen under")}</div>
+          </div>
+          <div class="rounded-lg border border-slate-200 bg-slate-50 p-3">
+            <div class="text-xs font-bold uppercase tracking-wide text-slate-500">3. Rolle</div>
+            <div class="mt-2">${statusChip(roleIsValid, formatRequestedAccess(normalizedRole), "Velg rolle")}</div>
+          </div>
+          <div class="rounded-lg border border-slate-200 bg-slate-50 p-3">
+            <div class="text-xs font-bold uppercase tracking-wide text-slate-500">4. Ansatt</div>
+            <div class="mt-2">${statusChip(employeeReady, isEmployeeRole ? "Koblet" : "Ikke relevant", "Koble ansatt")}</div>
+            <div class="mt-2 truncate text-xs text-slate-600">${escapeHtml(!isEmployeeRole ? "Kun for employee" : autoMatchedEmployee ? autoMatchedEmployee.name || "Ansatt valgt" : "Velg i listen under")}</div>
+          </div>
+          <div class="rounded-lg border border-slate-200 bg-slate-50 p-3">
+            <div class="text-xs font-bold uppercase tracking-wide text-slate-500">5. Fullføring</div>
+            <div class="mt-2">${statusChip(readyForSetup, "Klar", "Steg over")}</div>
+          </div>
         </div>
       </div>
     `;
@@ -2540,16 +2504,17 @@
           </div>
           <div class="text-xs font-medium ${matchingProfile ? "text-emerald-700" : "text-amber-700"}">${matchingProfile ? "Brukerprofil finnes" : "Auth/profil mangler – bruk Opprett Auth-bruker"}</div>
         </div>
-        ${getAccessSetupChecklistHtml(row, matchingProfile, autoMatchedEmployee, selectedRole)}
-        <div class="mt-4 rounded-2xl border border-cyan-100 bg-cyan-50 px-4 py-3 text-xs leading-relaxed text-cyan-900">
-          <div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-            <div>
-              <div class="font-semibold">Auth-bruker</div>
-              <div>${matchingProfile ? "Brukerprofil finnes allerede. Gå videre til Fullfør oppsett ved behov." : "Opprett Auth-bruker automatisk via Edge Function når søknaden er godkjent."}</div>
+        <div class="mb-4 rounded-xl border border-slate-300 bg-white p-4 shadow-sm">
+          <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div class="min-w-0">
+              <div class="text-xs font-bold uppercase tracking-wide text-slate-500">Steg 1 — Auth-bruker</div>
+              <div class="mt-1 text-base font-bold text-slate-950">${matchingProfile ? "Auth / brukerprofil finnes" : "Opprett Auth-bruker"}</div>
+              <div class="mt-1 text-sm text-slate-600">${matchingProfile ? "Brukeren finnes allerede i systemet. Gå videre til rolle, ansattkobling og fullføring." : "Oppretter login-bruker via Edge Function. Bruk et midlertidig passord for test."}</div>
             </div>
-            <button type="button" data-access-action="create-auth-user" data-access-request-id="${escapeHtml(row.id)}" class="rounded-xl border border-cyan-200 bg-white px-4 py-2 text-sm font-semibold text-cyan-800 shadow-sm hover:bg-cyan-100 disabled:cursor-not-allowed disabled:opacity-40" ${canSetup && !matchingProfile ? "" : "disabled"}>Opprett Auth-bruker</button>
+            <button type="button" data-access-action="create-auth-user" data-access-request-id="${escapeHtml(row.id)}" class="rounded-xl border border-slate-900 bg-slate-900 px-5 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-slate-800 disabled:cursor-not-allowed disabled:border-slate-300 disabled:bg-slate-200 disabled:text-slate-500" ${canSetup && !matchingProfile ? "" : "disabled"}>Opprett Auth-bruker</button>
           </div>
         </div>
+        ${getAccessSetupChecklistHtml(row, matchingProfile, autoMatchedEmployee, selectedRole)}
         <div class="mt-4 grid gap-3 lg:grid-cols-[240px_minmax(280px,1fr)_auto] lg:items-end">
           <label class="block text-sm text-slate-700">
             <span class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Endelig rolle</span>

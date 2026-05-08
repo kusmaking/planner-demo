@@ -1,30 +1,33 @@
-# Locked-v18.52c-access-admin-cleanup-ui-safe
+# Locked v18.52d - access admin quick test UI
 
-Ren UI-opprydding i Admin → tilgangskontroll.
+Base: Locked-v18.52c-access-admin-cleanup-ui-safe
 
-## Endret
-- Tilgangssøknader flyttet øverst i Admin-fanen og gitt tydeligere tittel: Tilgangskontroll.
-- Fjernet interne scrollfelt fra tilgangssøknader og brukerliste slik at hele siden scroller normalt.
-- Tydeligere handlingstekst for tilgangsoppsett.
-- Søknader sorteres slik at ventende og ikke-ferdig oppsatte saker kommer øverst.
-- Eksisterende brukere er flyttet under tilgangssøknader.
-- Bedre knapper/spacing for Opprett Auth-bruker og Fullfør oppsett.
+Denne patchen er en hurtig UI-justering for å gjøre videre testing av tilgangsoppretting mer brukbar.
 
-## Ikke endret
+Endret:
+- app.js
+- README.md
+
+Ikke endret:
+- index.html
+- data.js
 - Supabase/RLS
 - Edge Function
 - RPC-definisjoner
-- Import
-- Prosjektplan
-- Bemanning/tildelingslogikk
-- Ansattportal
-- Planner/admin hovedfunksjoner
-- data.js
+- import
+- prosjektplan
+- bemanning/tildeling
+- ansattportal
+- planner/admin hovedfunksjoner
 
-## Test
-1. Logg inn som superadmin.
-2. Gå til Admin.
-3. Bekreft at Tilgangskontroll/Tilgangssøknader ligger øverst.
-4. Bekreft at du ikke må lete i flere interne scrollfelt.
-5. Bekreft at ventende/godkjente ikke-ferdige søknader ligger øverst.
-6. Test én eksisterende godkjent søknad og se at Opprett Auth-bruker / Fullfør oppsett fortsatt er synlig.
+Endringer:
+- Auth-bruker er løftet tydelig opp som eget første felt i oppsettet.
+- `Opprett Auth-bruker` er gjort mer synlig.
+- Sjekklisten er gjort mer nøytral med mindre pastellflater.
+- Rekkefølgen Auth → rolle → ansatt → fullfør er tydeligere.
+
+Formål:
+- Gjøre det mulig å fullføre test av Edge Function/Auth-oppretting uten full redesign av tilgangskontrollsiden.
+
+Langsiktig:
+- Tilgangskontrollsiden bør senere redesignes mer grundig med egen arbeidskø, valgt søknadspanel, eksisterende brukere og historikk/logg nederst.
