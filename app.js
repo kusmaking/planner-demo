@@ -1,5 +1,5 @@
 (() => {
-  // v18.49-employee-project-crew-and-open-project-v1-safe
+  // v18.49b-employee-crew-layout-fix-safe
   // v18.48-employee-calendar-layout-v1-safe
   // v18.44-approved-request-user-setup-v1-safe
   // v18.43-access-management-v1-safe
@@ -1813,10 +1813,10 @@
           ${renderEmployeePortalProfileCard(employee, displayName)}
           ${renderEmployeePortalSelectedProjectCard(selectedAssignment, employee, upcomingAssignments)}
           ${state.employeePortalProjectDetailsOpen ? renderEmployeePortalProjectDetails(selectedAssignment, employee, crewRows) : ""}
-          ${renderEmployeePortalTeam(team, project, crewRows)}
         </aside>
         <section class="iz-emp-main-col">
           ${renderEmployeePortalTimeline(upcomingAssignments, selectedAssignment.id)}
+          ${renderEmployeePortalTeam(employee, project, crewRows)}
           <div class="iz-emp-content-grid">
             ${renderEmployeePortalUpcoming(upcomingAssignments, selectedAssignment.id)}
             ${renderEmployeePortalHistory(history)}
@@ -1856,26 +1856,52 @@
     `;
   }
 
-  function renderEmployeePortalTeam(team, project, crewRows = []) {
-    const items = (team || []).slice(0, 4);
-    const crewSummary = getEmployeePortalCrewSummary(project, crewRows);
+  function renderEmployeePortalTeam(employee, project, crewRows = []) {
+    const currentName = String(employee?.name || "").trim().toLowerCase();
+    const uniqueCrew = [];
+    const seen = new Set();
+    (crewRows || []).forEach(entry => {
+      const name = String(entry?.employee_name || "").trim();
+      const key = name.toLowerCase();
+      if (!name || seen.has(key)) return;
+      seen.add(key);
+      uniqueCrew.push(entry);
+    });
+    uniqueCrew.sort((a, b) => {
+      const aIsMe = String(a?.employee_name || "").trim().toLowerCase() === currentName;
+      const bIsMe = String(b?.employee_name || "").trim().toLowerCase() === currentName;
+      if (aIsMe !== bIsMe) return aIsMe ? -1 : 1;
+      return String(a?.employee_name || "").localeCompare(String(b?.employee_name || ""), "no");
+    });
+    const crewSummary = getEmployeePortalCrewSummary(project, uniqueCrew);
     const statusClass = crewSummary.missing > 0 ? "iz-emp-chip-warning" : (crewSummary.complete ? "iz-emp-chip-ok" : "");
+    const missingText = crewSummary.required > 0
+      ? (crewSummary.missing > 0 ? `${crewSummary.missing} rolle${crewSummary.missing === 1 ? "" : "r"} mangler` : "Crew er komplett")
+      : "Bemanningskrav er ikke satt på prosjektet";
     return `
-      <section class="iz-emp-card iz-emp-section-card">
-        <div class="iz-emp-section-head">
+      <section class="iz-emp-card iz-emp-section-card iz-emp-crew-card">
+        <div class="iz-emp-section-head iz-emp-crew-head">
           <div class="iz-emp-section-icon">♙</div>
           <div>
             <div class="iz-emp-section-title">Prosjektteam</div>
-            <div class="iz-emp-section-subtitle">${escapeHtml(crewSummary.label)} · ${escapeHtml(crewSummary.status)}</div>
+            <div class="iz-emp-section-subtitle">${escapeHtml(crewSummary.label)} · ${escapeHtml(missingText)}</div>
           </div>
           <span class="iz-emp-chip ${statusClass}">${escapeHtml(crewSummary.status)}</span>
         </div>
-        ${items.length ? `<div class="iz-emp-team-grid">${items.map(entry => `
-          <div class="iz-emp-member">
-            <div class="iz-emp-member-avatar">${escapeHtml(getInitials(entry.employee_name))}</div>
-            <div class="min-w-0"><div class="iz-emp-member-name">${escapeHtml(entry.employee_name)}</div><div class="iz-emp-member-role">${escapeHtml(entry.role || "Tildelt")}</div></div>
-          </div>
-        `).join("")}</div>` : `<div class="iz-emp-empty">Ingen andre registrert på prosjektet, eller crewdata mangler. Kontroller RPC-funksjonen hvis dette prosjektet faktisk har flere tildelte.</div>`}
+        ${uniqueCrew.length ? `<div class="iz-emp-crew-list">${uniqueCrew.map(entry => {
+          const isMe = String(entry?.employee_name || "").trim().toLowerCase() === currentName;
+          const period = entry.start_date && entry.end_date ? `${formatDate(entry.start_date)} – ${formatDate(entry.end_date)}` : "Dato ikke satt";
+          return `
+            <div class="iz-emp-crew-row ${isMe ? "iz-emp-crew-row-current" : ""}">
+              <div class="iz-emp-crew-avatar">${escapeHtml(getInitials(entry.employee_name))}</div>
+              <div class="iz-emp-crew-person">
+                <div class="iz-emp-crew-name">${escapeHtml(entry.employee_name || "Ukjent")}${isMe ? ` <span class="iz-emp-crew-you">Deg</span>` : ""}</div>
+                <div class="iz-emp-crew-role">${escapeHtml(entry.role || "Tildelt")}</div>
+              </div>
+              <div class="iz-emp-crew-period">${escapeHtml(period)}</div>
+            </div>
+          `;
+        }).join("")}</div>` : `<div class="iz-emp-empty">Crewdata er ikke tilgjengelig for valgt prosjekt. Kontroller at RPC-funksjonen er opprettet og at prosjektet har tildelinger.</div>`}
       </section>
     `;
   }

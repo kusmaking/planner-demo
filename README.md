@@ -1,33 +1,37 @@
-# Locked v18.49 - employee project crew and open project v1 safe
+# Locked v18.49b - employee crew layout fix safe
 
-Base: `Locked-v18.48-employee-calendar-layout-v1-safe`
+Base: `Locked-v18.49-employee-project-crew-and-open-project-v1-safe`
 
 ## Endret
 - `app.js`
 - `index.html`
 - `README.md`
-- `SUPABASE_EMPLOYEE_CREW_RPC.sql` (må kjøres i Supabase før full crew-test)
 
 ## Ikke endret
 - `data.js`
+- Supabase/RLS
+- RPC-definisjon
 - Importlogikk
 - Prosjektplan
 - Bemanning/tildelingslogikk
 - Admin/planner/superadmin-flyt
 - Tilgangssøknader/godkjenning
-- Eksisterende RLS-policyer
+- Brukerroller
 
-## Nytt i denne versjonen
-- Employee-portalen kan vise crew på valgt prosjekt via trygg RPC.
-- Bemanningsstatus vises med antall satt opp mot `headcount_required`.
-- Viser om prosjektet mangler crew.
-- `Åpne prosjekt` åpner nå en lesende prosjektinfo-visning i ansattportalen.
-- Ingen redigering er tilgjengelig for employee.
+## Fikset i denne versjonen
+- Prosjektteam/Crew er flyttet ut av venstre sidepanel og inn i hovedfeltet under prosjektkalenderen.
+- Crew-listen får bedre bredde, kontrast og lesbarhet.
+- Viser hele crewet på valgt prosjekt, inkludert innlogget ansatt markert med `Deg`.
+- Viser rolle og periode per crewmedlem.
+- Bemanningsstatus er fortsatt synlig: f.eks. `2 / 2 satt opp`, `Fullt crew` eller `Mangler X`.
 
-## Supabase SQL som må kjøres
-Kjør `SUPABASE_EMPLOYEE_CREW_RPC.sql` i Supabase SQL Editor før testing av crew.
-
-RPC-en er laget slik at employee kun får crew for prosjekter der employee selv er tildelt.
+## Test
+1. Logg inn som employee/testbruker.
+2. Velg et prosjekt med flere crewmedlemmer.
+3. Bekreft at `Prosjektteam` ligger i hovedfeltet, ikke klemt i venstre kolonne.
+4. Bekreft at navn, rolle og periode er lesbart.
+5. Test `Åpne prosjekt` og bekreft at prosjektinfo fortsatt åpnes.
+6. Test planner i separat nettleser/profil og bekreft at admin/planner-visning fortsatt er urørt.
 
 ## Langsiktig anbefaling
-Dette er riktig retning: sensitive employee-oppslag bør samles i kontrollerte RPC-er/serverfunksjoner, ikke brede RLS-regler. Senere bør vi også flytte employee-dashboardets prosjekt-/kalenderdata til én samlet RPC for bedre sikkerhet, ytelse og enklere frontend.
+På lang sikt bør employee-dashboardet samles i kontrollerte RPC-er/serverfunksjoner: profil, kommende prosjekter, kalender, crew og historikk. Det gir bedre sikkerhet, færre RLS-avhengigheter og mer stabil frontend. Denne patchen endrer kun layouten og holder eksisterende RPC/RLS uendret.

@@ -3539,6 +3539,128 @@
     }
 
 
+    /* v18.49b: employee crew layout fix - move team to main area and improve readability */
+    body.iz-compact-ui .iz-emp-crew-card {
+      min-height: auto;
+      padding: 22px 24px;
+    }
+
+    body.iz-compact-ui .iz-emp-crew-head {
+      margin-bottom: 16px;
+    }
+
+    body.iz-compact-ui .iz-emp-crew-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 12px;
+    }
+
+    body.iz-compact-ui .iz-emp-crew-row {
+      display: grid;
+      grid-template-columns: 44px minmax(0, 1fr) auto;
+      gap: 12px;
+      align-items: center;
+      padding: 12px 14px;
+      border: 1px solid rgba(206, 244, 235, 0.12);
+      background: rgba(255, 255, 255, 0.035);
+      border-radius: 5px;
+      min-width: 0;
+    }
+
+    body.iz-compact-ui .iz-emp-crew-row-current {
+      border-color: rgba(70, 242, 151, 0.28);
+      background: rgba(34, 197, 94, 0.07);
+      box-shadow: inset 3px 0 0 rgba(70, 242, 151, 0.72);
+    }
+
+    body.iz-compact-ui .iz-emp-crew-avatar {
+      width: 40px;
+      height: 40px;
+      border-radius: 999px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: #eafff7;
+      font-size: 13px;
+      font-weight: 950;
+      letter-spacing: -0.02em;
+      background: radial-gradient(circle at 35% 20%, rgba(84, 235, 176, 0.34), rgba(5, 93, 76, 0.80));
+      border: 1px solid rgba(117, 255, 211, 0.22);
+      flex: 0 0 auto;
+    }
+
+    body.iz-compact-ui .iz-emp-crew-person {
+      min-width: 0;
+    }
+
+    body.iz-compact-ui .iz-emp-crew-name {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      color: #ffffff;
+      font-size: 14px;
+      font-weight: 900;
+      line-height: 1.2;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    body.iz-compact-ui .iz-emp-crew-role {
+      color: rgba(213, 239, 234, 0.66);
+      font-size: 12px;
+      margin-top: 3px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    body.iz-compact-ui .iz-emp-crew-period {
+      justify-self: end;
+      color: rgba(213, 239, 234, 0.72);
+      font-size: 12px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    body.iz-compact-ui .iz-emp-crew-you {
+      flex: 0 0 auto;
+      display: inline-flex;
+      align-items: center;
+      min-height: 18px;
+      padding: 2px 7px;
+      border-radius: 999px;
+      background: rgba(34, 197, 94, 0.14);
+      border: 1px solid rgba(74, 222, 128, 0.28);
+      color: #bff7d1;
+      font-size: 10px;
+      font-weight: 950;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+
+    /* Hide old cramped team styling when the new crew list is used */
+    body.iz-compact-ui .iz-emp-crew-card .iz-emp-team-grid,
+    body.iz-compact-ui .iz-emp-crew-card .iz-emp-member {
+      display: none;
+    }
+
+    @media (max-width: 760px) {
+      body.iz-compact-ui .iz-emp-crew-list {
+        grid-template-columns: 1fr;
+      }
+      body.iz-compact-ui .iz-emp-crew-row {
+        grid-template-columns: 40px minmax(0, 1fr);
+      }
+      body.iz-compact-ui .iz-emp-crew-period {
+        grid-column: 2;
+        justify-self: start;
+        margin-top: -4px;
+      }
+    }
+
+
   </style>
 </head>
 <body class="iz-compact-ui text-slate-900">
