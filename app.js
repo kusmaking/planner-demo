@@ -6925,6 +6925,53 @@ async function deleteEditedEntry() {
     const unstaffedCount = getUnstaffedProjectsForCurrentCalendarRange().length;
     const completedPct = projectTotals.total ? Math.round((projectTotals.completed / projectTotals.total) * 100) : 0;
 
+    const dashboardRangeStart = analysisStart;
+    const dashboardRangeEnd = analysisEnd;
+    const dashboardRangeStartKey = dayKey(dashboardRangeStart);
+    const dashboardRangeEndKey = dayKey(dashboardRangeEnd);
+    const getProjectRequiredForDashboard = (project) => Math.max(
+      Number(project?.headcount_required || 0),
+      Number(project?.workshop_headcount_required || 0),
+      0
+    );
+    const getProjectAssignedForDashboard = (project) => {
+      if (!project?.id) return 0;
+      return (state.entries || []).filter(entry =>
+        entry?.project_id === project.id &&
+        entry?.start_date &&
+        entry?.end_date &&
+        overlaps(entry, dashboardRangeStartKey, dashboardRangeEndKey)
+      ).length;
+    };
+    const next14Projects = allProjects
+      .filter(project => project && !isClosedProject(project))
+      .filter(project => getProjectTimelinePeriodsWithWorkshop(project).some(period =>
+        period?.start &&
+        period?.end &&
+        period.start <= dashboardRangeEndKey &&
+        period.end >= dashboardRangeStartKey
+      ));
+    const next14ProjectSummary = next14Projects.reduce((acc, project) => {
+      const required = getProjectRequiredForDashboard(project);
+      const assigned = getProjectAssignedForDashboard(project);
+      acc.total += 1;
+
+      if (required <= 0) {
+        acc.noRequirement += 1;
+      } else if (assigned >= required) {
+        acc.full += 1;
+      } else if (assigned > 0) {
+        acc.partial += 1;
+      } else {
+        acc.unstaffed += 1;
+      }
+
+      return acc;
+    }, { total: 0, full: 0, partial: 0, unstaffed: 0, noRequirement: 0 });
+    const next14StaffingTotal = next14ProjectSummary.full + next14ProjectSummary.partial + next14ProjectSummary.unstaffed;
+    const next14StaffedPct = next14StaffingTotal ? Math.round((next14ProjectSummary.full / next14StaffingTotal) * 100) : 0;
+    const next14AttentionCount = next14ProjectSummary.partial + next14ProjectSummary.unstaffed;
+
     const actionIcon = (key) => {
       const attrs = 'viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"';
       const icons = {
@@ -6941,15 +6988,21 @@ async function deleteEditedEntry() {
     };
 
     const shortcuts = [
-      { key: "calendar", title: "Ansattplan", text: "Planlegg bemanning og kapasitet.", action: "personal" },
-      { key: "project", title: "Prosjektplan", text: "Planlegg prosjekter og tildel oppdrag.", action: "project" },
-      { key: "warning", title: "Uten bemanning", text: "Se prosjekter som mangler bemanning.", action: "unstaffed" },
-      { key: "gear", title: "Prosjektadmin", text: "Administrer prosjekter, faser og oppdrag.", action: "projects" },
-      { key: "people", title: "Ansattadmin", text: "Legg til og oppdater ansatte og kompetanse.", action: "employees" }
+      { key: "calendar", title: "Ansattplan", text: "Bemanning og kapasitet.", action: "personal" },
+      { key: "project", title: "Prosjektplan", text: "Prosjekter og oppdrag.", action: "project" },
+      { key: "warning", title: "Uten bemanning", text: "Prosjekter som mangler crew.", action: "unstaffed" },
+      { key: "gear", title: "Prosjektadmin", text: "Prosjekter og faser.", action: "projects" },
+      { key: "people", title: "Ansattadmin", text: "Ansatte og kompetanse.", action: "employees" }
     ];
 
     const displayName = String(getAccountDisplayName() || state.currentUser || "Planlegger").trim();
     const firstName = displayName && displayName !== "Ikke innlogget" ? displayName.split(/\s+/)[0] : "Planlegger";
+    const todayUnavailable = new Set(
+      entriesForRange(analysisStart, analysisStart)
+        .filter(isUnavailable)
+        .map(entry => getEntryEmployee(entry))
+        .filter(Boolean)
+    ).size;
 
     const shortcutHtml = shortcuts.map(card => `
       <button type="button" data-home-action="${card.action}" class="dash27-white-card dash27-shortcut text-left">
@@ -6959,11 +7012,50 @@ async function deleteEditedEntry() {
       </button>
     `).join("");
 
+    const next14ProjectKpiHtml = `
+      <div class="dash27-panel dash57-projects14 p-5">
+        <div class="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4">
+          <div>
+            <div class="dash27-card-title">Prosjekter neste 14 dager</div>
+            <div class="mt-1 text-sm dash27-muted">Bemanning oppsummert for prosjekter som starter eller pågår i perioden.</div>
+          </div>
+          <button type="button" data-home-action="project" class="dash57-open-link">Se prosjektplan →</button>
+        </div>
+        <div class="mt-4 grid grid-cols-2 lg:grid-cols-5 gap-3">
+          <button type="button" data-home-action="project" class="dash57-stat text-left">
+            <div class="dash57-stat-label">Totalt</div>
+            <div class="dash57-stat-value">${next14ProjectSummary.total}</div>
+            <div class="dash57-stat-sub">aktive prosjekter</div>
+          </button>
+          <button type="button" data-home-action="project" class="dash57-stat dash57-stat-ok text-left">
+            <div class="dash57-stat-label">Fullbemannet</div>
+            <div class="dash57-stat-value">${next14ProjectSummary.full}</div>
+            <div class="dash57-stat-sub">${next14StaffedPct}% av bemannede krav</div>
+          </button>
+          <button type="button" data-home-action="unstaffed" class="dash57-stat dash57-stat-warn text-left">
+            <div class="dash57-stat-label">Delvis bemannet</div>
+            <div class="dash57-stat-value">${next14ProjectSummary.partial}</div>
+            <div class="dash57-stat-sub">trenger oppfølging</div>
+          </button>
+          <button type="button" data-home-action="unstaffed" class="dash57-stat dash57-stat-danger text-left">
+            <div class="dash57-stat-label">Uten bemanning</div>
+            <div class="dash57-stat-value">${next14ProjectSummary.unstaffed}</div>
+            <div class="dash57-stat-sub">kritisk bemanningsgap</div>
+          </button>
+          <button type="button" data-home-action="unstaffed" class="dash57-stat ${next14AttentionCount ? "dash57-stat-danger" : "dash57-stat-ok"} text-left">
+            <div class="dash57-stat-label">Må følges opp</div>
+            <div class="dash57-stat-value">${next14AttentionCount}</div>
+            <div class="dash57-stat-sub">delvis + uten crew</div>
+          </button>
+        </div>
+      </div>
+    `;
+
     const kpiCards = [
       { label: "På prosjekt", value: totalProjectPeople, icon: "people", color: "#2dd4bf", text: `${overallUtilization}% neste 14 dager`, action: "dash-on-project", actionText: "Vis disse" },
       { label: "Tilgjengelige", value: totalAvailable, icon: "check", color: "#86efac", text: "ikke brukt i perioden", action: "dash-available", actionText: "Vis disse" },
       { label: "Borte / fravær", value: totalUnavailable, icon: "bag", color: "#fb923c", text: "ferie, syk, kurs, travel", action: "dash-away", actionText: "Vis disse" },
-      { label: "Uten bemanning", value: unstaffedCount, icon: "warning", color: "#fb7185", text: `${unstaffedCount} prosjekter berørt`, action: "unstaffed", actionText: "Se prosjekter" }
+      { label: "Uten bemanning", value: next14ProjectSummary.unstaffed, icon: "warning", color: "#fb7185", text: `${next14ProjectSummary.unstaffed} prosjekter neste 14 dager`, action: "unstaffed", actionText: "Se prosjekter" }
     ].map(card => `
       <button type="button" data-home-action="${card.action}" class="dash27-kpi text-left w-full">
         <span class="dash27-kpi-icon" style="color:${card.color}">${actionIcon(card.icon)}</span>
@@ -6973,7 +7065,6 @@ async function deleteEditedEntry() {
           <div class="mt-1 text-sm dash27-muted">${escapeHtml(card.text)}</div>
           <div class="dash27-kpi-action">${escapeHtml(card.actionText)} <span>→</span></div>
         </div>
-        <div class="text-right"><div class="text-green-300 font-black">↑</div><div class="text-xs dash27-muted">periode</div></div>
       </button>
     `).join("");
 
@@ -7081,9 +7172,10 @@ async function deleteEditedEntry() {
       <div class="dash27-shell space-y-4">
         <div><h2 class="dash27-title">Oppstart</h2><p class="dash27-subtitle">Operativ oversikt for dagens dato og de neste 14 dagene.</p></div>
         <div class="grid grid-cols-1 xl:grid-cols-[320px_1fr] gap-4">
-          <div class="dash27-panel p-5 flex items-center gap-4"><span class="inline-flex h-16 w-16 items-center justify-center rounded-full bg-cyan-400/10 text-cyan-300 border border-cyan-300/20 shrink-0">${actionIcon("sun")}</span><div><div class="text-xl font-extrabold">God morgen, ${escapeHtml(firstName)}!</div><div class="mt-2 text-sm dash27-muted">Her er hvem som er opptatt og tilgjengelig de neste 14 dagene.</div><div class="mt-3 text-xs dash27-muted">Oppdatert ${escapeHtml(today.toLocaleDateString("no-NO"))}</div></div></div>
+          <div class="dash27-panel p-5 flex items-center gap-4"><span class="inline-flex h-16 w-16 items-center justify-center rounded-full bg-cyan-400/10 text-cyan-300 border border-cyan-300/20 shrink-0">${actionIcon("sun")}</span><div><div class="text-xl font-extrabold">God morgen, ${escapeHtml(firstName)}!</div><div class="mt-2 text-sm dash27-muted">${next14AttentionCount} prosjekter trenger bemanningsoppfølging de neste 14 dagene.</div><div class="mt-2 text-sm dash27-muted">${todayUnavailable} borte/fravær i dag · oppdatert ${escapeHtml(today.toLocaleDateString("no-NO"))}</div></div></div>
           <div class="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-5 gap-3">${shortcutHtml}</div>
         </div>
+        ${next14ProjectKpiHtml}
         <div class="dash27-panel overflow-hidden"><div class="px-5 pt-4 text-xl font-extrabold">Operativ status – neste 14 dager</div><div class="grid grid-cols-1 lg:grid-cols-4">${kpiCards}</div></div>
         <div class="grid grid-cols-1 2xl:grid-cols-[1.25fr_.75fr] gap-4">
           <div class="dash27-panel p-5"><div class="flex items-center justify-between gap-3 mb-4"><div class="dash27-card-title">Kapasitet dag for dag – neste 14 dager <span class="dash27-info">i</span></div><div class="text-sm dash27-muted">Ledig kapasitet · P = prosjekt · B = borte</div></div>${capacityOverviewHtml}<div class="mt-3 text-xs dash27-muted">Viser antall ledige per gruppe per dag. Farge følger egne terskler per gruppe, slik at Engineering ikke vurderes likt som Offshore/Onshore.</div></div>
