@@ -1,7 +1,6 @@
 (() => {
   // v18.49b-employee-crew-layout-fix-safe
   // v18.48-employee-calendar-layout-v1-safe
-  // v18.56b-employee-deactivate-and-calendar-filter-stability
   // v18.54-access-user-management-ui-v1
   // v18.53-access-one-flow-employee-setup-ui-v1
   // v18.51-access-setup-checklist-ui-v1-safe
@@ -52,7 +51,6 @@
     selectedEmployeeGroups: [],
     groupFilterSearch: "",
     employeeGroupFilterOpen: false,
-    employeeGroupFilterRenderFrame: null,
     collapsedEmployeeGroups: load("planner_collapsed_employee_groups_v1", []),
     projectSpotlightId: "",
     search: "",
@@ -3346,18 +3344,12 @@ Dette oppretter ikke Auth-bruker. Hvis Auth-brukeren mangler, får du en tydelig
     if (!ok) return;
 
     try {
-      const result = await invokeManageUserAccess({
+      await invokeManageUserAccess({
         action: normalizedAction,
         target_user_id: userId
       });
       await fetchAccessUsers({ silent: true });
-
-      if (result?.employee_profile_updated) {
-        await fetchFromSupabase();
-        renderAll();
-      } else {
-        renderAccessUsers();
-      }
+      renderAccessUsers();
     } catch (error) {
       alert(`Kunne ikke oppdatere brukertilgang: ${error?.message || "Ukjent feil"}`);
     }
@@ -3667,47 +3659,6 @@ Dette oppretter ikke Auth-bruker. Hvis Auth-brukeren mangler, får du en tydelig
     toggleEmployeeGroupFilter(false);
   }
 
-  function shouldSuppressCalendarContextMenuEvent(event) {
-    const target = event?.target;
-    if (!(target instanceof Element)) return true;
-
-    // Calendar direct-block opening is a global/capture-level helper. It must not treat UI clicks
-    // in buttons, dropdowns, admin panels, filters or modals as calendar-cell clicks.
-    const interactiveSelector = [
-      "button",
-      "input",
-      "select",
-      "textarea",
-      "option",
-      "label",
-      "a[href]",
-      "[role='button']",
-      "[role='menu']",
-      "[role='dialog']",
-      "[data-no-calendar-context]",
-      "[data-access-user-action]",
-      "[data-access-complete-action]",
-      "[data-access-action]",
-      "[data-admin-action]",
-      "[data-group-filter-checkbox]",
-      "#employeeGroupFilterControl",
-      "#employeeGroupFilterPanel",
-      "#calendarContextMenu",
-      "#editModal",
-      "#projectModal",
-      "#employeeModal",
-      "#loginModal",
-      "#accessUsersList",
-      "#accessRequestsList",
-      "#adminContent",
-      "#adminPanel",
-      "#profileMenu",
-      "#languageMenu"
-    ].join(", ");
-
-    return Boolean(target.closest?.(interactiveSelector));
-  }
-
   function getCalendarDropRowFromPointer(event) {
     if (!els.calendarWrap) return null;
     const target = event.target;
@@ -3744,7 +3695,6 @@ Dette oppretter ikke Auth-bruker. Hvis Auth-brukeren mangler, får du en tydelig
     if (state.calendarMode !== "personal" || state.viewMode === "År") return false;
     if (!canEditApp()) return false;
     if (!els.calendarWrap) return false;
-    if (shouldSuppressCalendarContextMenuEvent(event)) return false;
     if (event.target?.closest?.(".entry-bar")) return false;
     if (event.target?.closest?.("[data-resize-handle]")) return false;
     if (event.target?.closest?.("#calendarContextMenu")) return false;
@@ -3956,17 +3906,6 @@ Dette oppretter ikke Auth-bruker. Hvis Auth-brukeren mangler, får du en tydelig
     els.groupFilterOptions.innerHTML = `${allOptionHtml}${groupOptionsHtml}${emptyHtml}`;
   }
 
-  function scheduleEmployeeGroupFilterCalendarRender() {
-    if (state.employeeGroupFilterRenderFrame) {
-      cancelAnimationFrame(state.employeeGroupFilterRenderFrame);
-    }
-
-    state.employeeGroupFilterRenderFrame = requestAnimationFrame(() => {
-      state.employeeGroupFilterRenderFrame = null;
-      renderCalendar();
-    });
-  }
-
   function handleEmployeeGroupFilterOptionChange(event) {
     const checkbox = event.target.closest("[data-group-filter-checkbox]");
     if (!checkbox) return;
@@ -3984,11 +3923,8 @@ Dette oppretter ikke Auth-bruker. Hvis Auth-brukeren mangler, får du en tydelig
       state.selectedEmployeeGroups = getOrderedEmployeeGroups().filter(group => next.has(group));
     }
 
-    // Do not rebuild the whole filter dropdown on every checkbox click. Rebuilding the
-    // panel while the user clicks caused visible latency/freeze on large employee lists.
-    if (els.groupFilterLabel) els.groupFilterLabel.textContent = getEmployeeGroupFilterLabel();
-    if (els.groupFilterPanel) els.groupFilterPanel.classList.toggle("hidden", !state.employeeGroupFilterOpen);
-    scheduleEmployeeGroupFilterCalendarRender();
+    renderEmployeeGroupFilterControl();
+    renderCalendar();
   }
 
   function getEmployeeCalendarCellClass(employee) {
