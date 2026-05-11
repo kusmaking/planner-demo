@@ -3746,7 +3746,6 @@
             <label for="accessRequestType">Ønsket tilgang</label>
             <select id="accessRequestType">
               <option value="employee">Ansatt / Min side</option>
-              <option value="reader">Lesetilgang</option>
               <option value="planner">Planlegger</option>
               <option value="admin">Admin</option>
             </select>
@@ -4470,9 +4469,15 @@
         if (el) el.setAttribute("placeholder", value);
       }
 
+      let ixLanguageApplying = false;
+
       function setLanguage(lang) {
         const next = lang === "en" ? "en" : "no";
+        const previous = document.documentElement.lang === "en" ? "en" : "no";
+        const shouldDispatch = previous !== next;
         const t = dict[next];
+        if (ixLanguageApplying) return;
+        ixLanguageApplying = true;
         localStorage.setItem("planner_ui_language_v1", next);
         document.documentElement.lang = next;
         document.title = t.title;
@@ -4571,7 +4576,10 @@
           btn.classList.toggle("is-active", active);
           btn.setAttribute("aria-pressed", active ? "true" : "false");
         });
-        window.dispatchEvent(new CustomEvent("izomax-language-changed", { detail: { language: next } }));
+        ixLanguageApplying = false;
+        if (shouldDispatch) {
+          window.dispatchEvent(new CustomEvent("izomax-language-changed", { detail: { language: next } }));
+        }
       }
 
       window.izomaxTranslateKey = function (key) {
