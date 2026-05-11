@@ -3659,6 +3659,55 @@ Dette oppretter ikke Auth-bruker. Hvis Auth-brukeren mangler, får du en tydelig
     toggleEmployeeGroupFilter(false);
   }
 
+  function isCalendarContextMenuAllowedPointerTarget(event) {
+    if (!event || !els.calendarWrap) return false;
+
+    const target = event.target instanceof HTMLElement ? event.target : null;
+    if (!target) return false;
+
+    // v18.56: Hard guard mot at kalenderen tolker klikk på menyer/knapper som tom kalendercelle.
+    // Problemet oppstår spesielt når paneler/dropdowns ligger visuelt over ansattkalenderen:
+    // document-level click-handleren kunne da finne en kalender-rad via Y-posisjon og åpne
+    // "Legg til direkte blokk" over den egentlige menyen.
+    const interactiveSelector = [
+      "button",
+      "input",
+      "select",
+      "textarea",
+      "a[href]",
+      "label",
+      "summary",
+      "[role='button']",
+      "[contenteditable='true']",
+      "#accountMenuWrap",
+      "#accountMenuDropdown",
+      "#groupFilterControl",
+      "#calendarPanel",
+      "#accessApprovalList",
+      "#accessUsersList",
+      "#accessRequestModal",
+      "#loginModal",
+      "#editModal",
+      "#projectModal",
+      "#employeeModal",
+      "#calendarContextMenu"
+    ].join(",");
+
+    if (target.closest(interactiveSelector)) return false;
+
+    const targetInsideCalendar = els.calendarWrap.contains(target);
+    if (targetInsideCalendar) return true;
+
+    // Hvis selve målepunktet ikke treffer kalenderen, skal document-handleren ikke bruke
+    // Y-posisjon som fallback. Dette hindrer at klikk på admin-/filter-/menypaneler åpner blokk-popup.
+    if (typeof document.elementsFromPoint === "function") {
+      const hitElements = document.elementsFromPoint(event.clientX, event.clientY);
+      return hitElements.some(hit => hit instanceof HTMLElement && els.calendarWrap.contains(hit));
+    }
+
+    return false;
+  }
+
   function getCalendarDropRowFromPointer(event) {
     if (!els.calendarWrap) return null;
     const target = event.target;
@@ -3695,6 +3744,7 @@ Dette oppretter ikke Auth-bruker. Hvis Auth-brukeren mangler, får du en tydelig
     if (state.calendarMode !== "personal" || state.viewMode === "År") return false;
     if (!canEditApp()) return false;
     if (!els.calendarWrap) return false;
+    if (!isCalendarContextMenuAllowedPointerTarget(event)) return false;
     if (event.target?.closest?.(".entry-bar")) return false;
     if (event.target?.closest?.("[data-resize-handle]")) return false;
     if (event.target?.closest?.("#calendarContextMenu")) return false;
