@@ -10043,7 +10043,13 @@ async function deleteEditedEntry() {
       openPersonalCalendarView();
     });
     detail.querySelector("[data-employee-admin-open-admin]")?.addEventListener("click", () => {
-      setActiveTab("admin");
+      const accessPanel = document.getElementById("employeeAccessAdmin");
+      if (accessPanel) {
+        accessPanel.open = true;
+        accessPanel.scrollIntoView({ behavior: "smooth", block: "start" });
+      } else {
+        setActiveTab("admin");
+      }
     });
   }
 

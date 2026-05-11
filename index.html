@@ -1009,6 +1009,31 @@
       color: #9eb3bb;
       font-size: 13px;
     }
+
+    #employeeAccessAdmin {
+      border-color: #243f4a !important;
+      background: rgba(14,29,36,.96) !important;
+      color: #e8f2f5;
+    }
+    #employeeAccessAdmin summary {
+      border-color: #223d48 !important;
+      background: #0b181e;
+    }
+    #employeeAccessAdmin .text-slate-950,
+    #employeeAccessAdmin .text-slate-900,
+    #employeeAccessAdmin .text-slate-800,
+    #employeeAccessAdmin .text-slate-700 { color: #e8f2f5 !important; }
+    #employeeAccessAdmin .text-slate-600,
+    #employeeAccessAdmin .text-slate-500 { color: #8ea6af !important; }
+    #employeeAccessAdmin .bg-white { background-color: #0b181e !important; }
+    #employeeAccessAdmin .bg-slate-50,
+    #employeeAccessAdmin .bg-slate-50\/70 { background-color: #102129 !important; }
+    #employeeAccessAdmin .border-slate-100,
+    #employeeAccessAdmin .border-slate-200,
+    #employeeAccessAdmin .border-slate-300 { border-color: #294651 !important; }
+    #employeeAccessAdmin input,
+    #employeeAccessAdmin select { background: #102129 !important; color: #e8f2f5 !important; border-color: #294651 !important; }
+
     #employeeAdminAdvanced {
       border-color: #243f4a !important;
       background: rgba(14,29,36,.96) !important;
@@ -4332,7 +4357,7 @@
         <button id="tabProjectPlanBtn" class="rounded-2xl px-4 py-2 text-sm border border-slate-300 bg-white text-slate-700" data-tooltip="Prosjektplan" aria-label="Prosjektplan">▦</button>
         <button id="tabUnstaffedBtn" class="rounded-2xl px-4 py-2 text-sm border border-slate-300 bg-white text-slate-700" data-tooltip="Uten bemanning" aria-label="Uten bemanning">!</button>
         <button id="tabProjectsBtn" class="rounded-2xl px-4 py-2 text-sm border border-slate-300 bg-white text-slate-700" data-tooltip="Prosjektadmin" aria-label="Prosjektadmin">♙</button>
-        <button id="tabEmployeesBtn" class="rounded-2xl px-4 py-2 text-sm border border-slate-300 bg-white text-slate-700" data-tooltip="Ansattadmin" aria-label="Ansattadmin">◎</button>
+        <button id="tabEmployeesBtn" class="rounded-2xl px-4 py-2 text-sm border border-slate-300 bg-white text-slate-700" data-tooltip="Ansatte og tilganger" aria-label="Ansatte og tilganger">◎</button>
         <button id="tabAdminBtn" class="rounded-2xl px-4 py-2 text-sm border border-slate-300 bg-white text-slate-700" data-tooltip="Admin" aria-label="Admin">⚙</button>
       </div>
     </section>
@@ -4496,8 +4521,8 @@
         <div class="iz-employee-admin-topbar">
           <div>
             <div class="iz-employee-admin-eyebrow">Register</div>
-            <h2 class="iz-employee-admin-title">Ansattadmin</h2>
-            <p class="iz-employee-admin-description">Søk, filtrer og kontroller ansatte uten lange paneler. Valgt ansatt vises i detaljpanelet til høyre, mens eksisterende redigeringsmodal og funksjoner beholdes.</p>
+            <h2 class="iz-employee-admin-title">Ansatte og tilganger</h2>
+            <p class="iz-employee-admin-description">Søk, filtrer og kontroller ansatte, tilgangsstatus og søknader fra samme side. Ansattregisteret er fortsatt masterlisten, mens tilgangspanelene bruker eksisterende funksjoner.</p>
           </div>
           <div class="iz-employee-admin-actionbar">
             <button id="newEmployeeBtn" class="iz-employee-admin-btn primary">+ Ny ansatt</button>
@@ -4561,6 +4586,45 @@
         </div>
       </div>
 
+      <details id="employeeAccessAdmin" class="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+        <summary class="cursor-pointer list-none p-4 border-b border-slate-200 flex items-center justify-between gap-3">
+          <div>
+            <div class="font-semibold text-slate-950">Tilganger og søknader</div>
+            <div class="text-sm text-slate-500">Bruk samme side for å kontrollere ansatte, brukertilganger og åpne tilgangssøknader. Eksisterende rolle- og godkjenningsfunksjoner er beholdt.</div>
+          </div>
+          <span class="text-sm font-medium text-slate-500">Åpne/lukk</span>
+        </summary>
+        <div class="p-4 grid grid-cols-1 xl:grid-cols-2 gap-4">
+          <div class="rounded-2xl bg-white border border-slate-200 shadow-sm overflow-hidden">
+            <div class="p-5 border-b border-slate-200 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <div>
+                <h2 class="text-lg font-semibold text-slate-950">Brukertilganger</h2>
+                <p class="mt-1 text-sm text-slate-500">Endre rolle, sett midlertidig passord, aktiver eller deaktiver brukere. Auth-brukere slettes ikke.</p>
+              </div>
+              <div class="flex flex-wrap items-center gap-2">
+                <span id="accessUsersStatus" class="rounded-full bg-slate-50 px-3 py-1 text-xs font-medium text-slate-600"></span>
+                <button id="accessUsersRefreshBtn" type="button" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-medium hover:bg-slate-50">Oppdater brukere</button>
+              </div>
+            </div>
+            <div id="accessUsersList" class="p-5 space-y-3 max-h-[620px] overflow-auto scrollbar-thin"></div>
+          </div>
+
+          <div class="rounded-2xl bg-white border border-slate-200 shadow-sm overflow-hidden">
+            <div class="p-5 border-b border-slate-200 bg-slate-50/70 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <div>
+                <h2 class="text-lg font-semibold text-slate-950">Tilgangssøknader</h2>
+                <p class="mt-1 text-sm text-slate-600">Åpne søknader vises først. Fullførte/avslåtte søknader legges kompakt i historikk nederst.</p>
+              </div>
+              <div class="flex flex-wrap items-center gap-2">
+                <span id="accessApprovalStatus" class="rounded-full bg-white px-3 py-1 text-xs font-medium text-slate-600 shadow-sm"></span>
+                <button id="accessApprovalRefreshBtn" type="button" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-medium hover:bg-slate-50">Oppdater søknader</button>
+              </div>
+            </div>
+            <div id="accessApprovalList" class="p-5 space-y-4 max-h-[720px] overflow-auto scrollbar-thin"></div>
+          </div>
+        </div>
+      </details>
+
       <details id="employeeAdminAdvanced" class="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
         <summary class="cursor-pointer list-none p-4 border-b border-slate-200 flex items-center justify-between gap-3">
           <div>
@@ -4583,32 +4647,9 @@
     </section>
 
     <section id="tabAdminSection" class="grid grid-cols-1 xl:grid-cols-3 gap-4" style="display:none;">
-      <div class="xl:col-span-3 rounded-2xl bg-white border border-slate-200 shadow-sm overflow-hidden">
-        <div class="p-5 border-b border-slate-200 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <div>
-            <h2 class="text-lg font-semibold text-slate-950">Brukertilganger</h2>
-            <p class="mt-1 text-sm text-slate-500">Endre rolle, sett midlertidig passord, aktiver eller deaktiver brukere. Auth-brukere slettes ikke.</p>
-          </div>
-          <div class="flex flex-wrap items-center gap-2">
-            <span id="accessUsersStatus" class="rounded-full bg-slate-50 px-3 py-1 text-xs font-medium text-slate-600"></span>
-            <button id="accessUsersRefreshBtn" type="button" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-medium hover:bg-slate-50">Oppdater brukere</button>
-          </div>
-        </div>
-        <div id="accessUsersList" class="p-5 space-y-3 max-h-[620px] overflow-auto scrollbar-thin"></div>
-      </div>
-
-      <div class="xl:col-span-3 rounded-2xl bg-white border border-slate-200 shadow-sm overflow-hidden">
-        <div class="p-5 border-b border-slate-200 bg-slate-50/70 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <div>
-            <h2 class="text-lg font-semibold text-slate-950">Tilgangssøknader</h2>
-            <p class="mt-1 text-sm text-slate-600">Åpne søknader vises først. Fullførte/avslåtte søknader legges kompakt i historikk nederst.</p>
-          </div>
-          <div class="flex flex-wrap items-center gap-2">
-            <span id="accessApprovalStatus" class="rounded-full bg-white px-3 py-1 text-xs font-medium text-slate-600 shadow-sm"></span>
-            <button id="accessApprovalRefreshBtn" type="button" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-medium hover:bg-slate-50">Oppdater søknader</button>
-          </div>
-        </div>
-        <div id="accessApprovalList" class="p-5 space-y-4"></div>
+      <div class="xl:col-span-3 rounded-2xl bg-white border border-slate-200 shadow-sm p-5">
+        <h2 class="text-lg font-semibold text-slate-950">Admin</h2>
+        <p class="mt-1 text-sm text-slate-500">Systemstatus, logger og prosjektoversikt. Brukertilganger og tilgangssøknader ligger nå samlet under Ansatte og tilganger.</p>
       </div>
 
       <div class="rounded-2xl bg-white border border-slate-200 shadow-sm">
@@ -4789,7 +4830,7 @@
           projectPlan: "Prosjektplan",
           unstaffed: "Uten bemanning",
           projectAdmin: "Prosjektadmin",
-          employeeAdmin: "Ansattadmin",
+          employeeAdmin: "Ansatte og tilganger",
           admin: "Admin",
           searchEmployee: "Søk ansatt",
           week: "Uke",
@@ -4928,7 +4969,7 @@
           projectPlan: "Project plan",
           unstaffed: "Unstaffed",
           projectAdmin: "Project admin",
-          employeeAdmin: "Employee admin",
+          employeeAdmin: "Employees and access",
           admin: "Admin",
           searchEmployee: "Search employee",
           week: "Week",
