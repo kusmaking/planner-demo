@@ -2406,6 +2406,123 @@
     return (state.accessUsers.rows || []).find(row => normalizeComparableText(row.email) === normalized) || null;
   }
 
+  const ACCESS_CREATE_NEW_EMPLOYEE_VALUE = "__create_new_employee__";
+
+  function normalizeAccessPhone(value) {
+    return String(value || "").replace(/\D/g, "");
+  }
+
+  function getAccessEmployeeMatchReasons(row, employee) {
+    if (!row || !employee) return [];
+    const reasons = [];
+    const requestedEmail = normalizeComparableText(row.email || "");
+    const employeeEmail = normalizeComparableText(employee.email || "");
+    if (requestedEmail && employeeEmail && requestedEmail === employeeEmail) reasons.push("e-post");
+
+    const requestedPhone = normalizeAccessPhone(row.phone || "");
+    const employeePhone = normalizeAccessPhone(employee.phone || "");
+    if (requestedPhone && employeePhone && (requestedPhone === employeePhone || requestedPhone.endsWith(employeePhone) || employeePhone.endsWith(requestedPhone))) reasons.push("telefon");
+
+    const requestedName = normalizeComparableText(row.full_name || "");
+    const employeeName = normalizeComparableText(employee.name || "");
+    if (requestedName && employeeName && requestedName === employeeName) reasons.push("navn");
+    return reasons;
+  }
+
+  function getAccessEmployeeMatches(row) {
+    const employees = (state.employees || []).filter(employee => employee?.id && employee.active !== false);
+    return employees
+      .map(employee => ({ employee, reasons: getAccessEmployeeMatchReasons(row, employee) }))
+      .filter(item => item.reasons.length)
+      .sort((a, b) => {
+        const score = item => {
+          if (item.reasons.includes("e-post")) return 0;
+          if (item.reasons.includes("telefon")) return 1;
+          if (item.reasons.includes("navn")) return 2;
+          return 3;
+        };
+        const rank = score(a) - score(b);
+        if (rank !== 0) return rank;
+        return String(a.employee.name || "").localeCompare(String(b.employee.name || ""), "no");
+      });
+  }
+
+  function getAccessCompletePreferredEmployeeId(row) {
+    const linkedId = row?.linked_employee_id ? String(row.linked_employee_id) : "";
+    if (linkedId) {
+      const linkedEmployee = (state.employees || []).find(employee => String(employee?.id || "") === linkedId && employee.active !== false);
+      if (linkedEmployee) return linkedEmployee.id;
+    }
+    const firstMatch = getAccessEmployeeMatches(row)[0]?.employee;
+    return firstMatch?.id || "";
+  }
+
+  function getAccessCompleteEmployeeLinkOptions(selectedEmployeeId, row = null) {
+    const selected = String(selectedEmployeeId || "");
+    const matches = getAccessEmployeeMatches(row);
+    const matchMap = new Map(matches.map(item => [String(item.employee.id), item.reasons]));
+    const employees = (state.employees || [])
+      .filter(employee => employee?.id && employee.active !== false)
+      .slice()
+      .sort((a, b) => {
+        const aMatched = matchMap.has(String(a.id)) ? 0 : 1;
+        const bMatched = matchMap.has(String(b.id)) ? 0 : 1;
+        if (aMatched !== bMatched) return aMatched - bMatched;
+        return String(a.name || "").localeCompare(String(b.name || ""), "no");
+      });
+
+    const options = [`<option value="">Velg eksisterende ansatt eller opprett ny</option>`];
+    employees.forEach(employee => {
+      const reasons = matchMap.get(String(employee.id)) || [];
+      const matchLabel = reasons.length ? `MATCH: ${reasons.join("+")}` : "";
+      const label = [employee.name, employee.title, employee.employee_group, employee.email, matchLabel].filter(Boolean).join(" • ");
+      options.push(`<option value="${escapeHtml(employee.id)}" ${String(employee.id) === selected ? "selected" : ""}>${escapeHtml(label || employee.id)}</option>`);
+    });
+    options.push(`<option value="${ACCESS_CREATE_NEW_EMPLOYEE_VALUE}" ${selected === ACCESS_CREATE_NEW_EMPLOYEE_VALUE ? "selected" : ""}>Opprett ny ansatt – kun hvis personen ikke finnes fra før</option>`);
+    return options.join("");
+  }
+
+  function getAccessCompleteSelectedEmployee(row) {
+    const employeeId = getAccessCompletePreferredEmployeeId(row);
+    if (!employeeId) return null;
+    return (state.employees || []).find(employee => String(employee?.id || "") === String(employeeId)) || null;
+  }
+
+  function renderAccessCompleteEmployeeLinkBlock(row, selectedRole) {
+    const isEmployeeRole = String(selectedRole || "").toLowerCase() === "employee";
+    const matches = getAccessEmployeeMatches(row);
+    const selectedEmployeeId = isEmployeeRole ? getAccessCompletePreferredEmployeeId(row) : "";
+    const selectedEmployee = selectedEmployeeId ? (state.employees || []).find(employee => String(employee?.id || "") === String(selectedEmployeeId)) : null;
+    const matchedText = matches.length
+      ? `Fant ${matches.length} mulig eksisterende ansatt. Standard er å koble til eksisterende ansatt for å hindre duplikat.`
+      : "Ingen sikker match funnet. Velg eksisterende ansatt manuelt, eller velg opprett ny hvis personen faktisk ikke finnes fra før.";
+    const selectedText = selectedEmployee
+      ? `${selectedEmployee.name || "Ansatt"}${selectedEmployee.title ? ` • ${selectedEmployee.title}` : ""}${selectedEmployee.employee_group ? ` • ${selectedEmployee.employee_group}` : ""}`
+      : "Ingen ansatt valgt ennå.";
+
+    return `
+      <div class="mt-4 rounded-xl border ${matches.length ? "border-amber-300 bg-amber-50" : "border-slate-200 bg-slate-50"} p-4" data-access-complete-employee-link-box="${escapeHtml(row.id)}">
+        <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+          <div class="min-w-0">
+            <div class="text-sm font-bold text-slate-900">Ansattkobling / duplikatkontroll</div>
+            <div class="mt-1 text-xs leading-relaxed ${matches.length ? "text-amber-800" : "text-slate-600"}">${escapeHtml(matchedText)}</div>
+            <div class="mt-1 text-xs text-slate-600">Valgt: ${escapeHtml(selectedText)}</div>
+          </div>
+          ${matches.length ? `<span class="inline-flex w-fit rounded-md border border-amber-400 bg-white px-3 py-1.5 text-xs font-bold text-amber-800">Mulig match funnet</span>` : `<span class="inline-flex w-fit rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-bold text-slate-700">Manuelt valg kreves</span>`}
+        </div>
+        <label class="mt-3 block text-sm text-slate-700">
+          <span class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Koble til ansattprofil</span>
+          <select data-access-complete-existing-employee="${escapeHtml(row.id)}" class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm" ${isEmployeeRole ? "" : "disabled"}>
+            ${getAccessCompleteEmployeeLinkOptions(selectedEmployeeId, row)}
+          </select>
+        </label>
+        <div class="mt-2 text-xs leading-relaxed text-slate-600">
+          Bruk <span class="font-semibold">Opprett ny ansatt</span> bare når personen ikke allerede finnes i ansattlisten. Dette hindrer at ansatte som allerede er planlagt på jobber blir opprettet på nytt.
+        </div>
+      </div>
+    `;
+  }
+
   function getAccessEmployeeAutoMatch(row) {
     const linkedId = row?.linked_employee_id ? String(row.linked_employee_id) : "";
     if (linkedId) {
@@ -2596,9 +2713,10 @@
 
     const selectedRole = String(row.approved_role || row.requested_access || "employee").toLowerCase();
     const safeRole = getDefaultAssignableAccessRole(selectedRole);
-    const defaultTitle = row.full_name ? "Ansatt" : "";
-    const defaultType = getAccessCompleteDefaultType(row);
-    const defaultGroup = getAccessCompleteDefaultGroup(row);
+    const selectedEmployee = safeRole === "employee" ? getAccessCompleteSelectedEmployee(row) : null;
+    const defaultTitle = selectedEmployee?.title || (row.full_name ? "Ansatt" : "");
+    const defaultType = selectedEmployee?.employee_type || getAccessCompleteDefaultType(row);
+    const defaultGroup = selectedEmployee?.employee_group || getAccessCompleteDefaultGroup(row);
     const adminNote = isSuperadmin()
       ? "Superadmin kan sette employee, planner og admin."
       : isAdminUser()
@@ -2631,23 +2749,25 @@
             <button type="button" data-access-action="generate-temp-password" data-access-request-id="${escapeHtml(row.id)}" class="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50 xl:self-end">Generer passord</button>
           </div>
 
-          <div class="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
-            <div class="text-sm font-bold text-slate-900">Ansattdata</div>
-            <div class="mt-1 text-xs text-slate-600">Påkrevd når endelig rolle er Ansatt. Ignoreres for planner/admin.</div>
+          ${renderAccessCompleteEmployeeLinkBlock(row, safeRole)}
+
+          <div class="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4" data-access-complete-new-employee-fields="${escapeHtml(row.id)}">
+            <div class="text-sm font-bold text-slate-900">Ansattdata ved ny ansatt</div>
+            <div class="mt-1 text-xs text-slate-600">Brukes kun hvis du eksplisitt velger “Opprett ny ansatt”. Ved eksisterende ansatt hentes tittel/type/gruppe fra ansattprofilen.</div>
             <div class="mt-3 grid gap-3 lg:grid-cols-3">
               <label class="block text-sm text-slate-700">
                 <span class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Stilling / tittel</span>
-                <input data-access-complete-title="${escapeHtml(row.id)}" type="text" class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm" value="${escapeHtml(defaultTitle)}" placeholder="F.eks. Supervisor" />
+                <input data-access-complete-title="${escapeHtml(row.id)}" type="text" class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm" value="${escapeHtml(defaultTitle)}" placeholder="F.eks. Supervisor" ${selectedEmployee ? "disabled" : ""} />
               </label>
               <label class="block text-sm text-slate-700">
                 <span class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Employee type</span>
-                <select data-access-complete-employee-type="${escapeHtml(row.id)}" class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm">
+                <select data-access-complete-employee-type="${escapeHtml(row.id)}" class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm" ${selectedEmployee ? "disabled" : ""}>
                   ${getAccessCompleteEmployeeTypeOptions(defaultType)}
                 </select>
               </label>
               <label class="block text-sm text-slate-700">
                 <span class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Employee group</span>
-                <select data-access-complete-employee-group="${escapeHtml(row.id)}" class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm">
+                <select data-access-complete-employee-group="${escapeHtml(row.id)}" class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm" ${selectedEmployee ? "disabled" : ""}>
                   ${getAccessCompleteGroupOptions(defaultGroup)}
                 </select>
               </label>
@@ -2787,17 +2907,37 @@
   function updateAccessCompleteEmployeeFields(requestId) {
     const panel = els.accessApprovalList?.querySelector?.(`[data-access-complete-panel="${CSS.escape(requestId)}"]`);
     if (!panel) return;
+
     const role = panel.querySelector?.(`[data-access-complete-role="${CSS.escape(requestId)}"]`)?.value || "employee";
-    const employeeFields = [
-      panel.querySelector?.(`[data-access-complete-title="${CSS.escape(requestId)}"]`),
-      panel.querySelector?.(`[data-access-complete-employee-type="${CSS.escape(requestId)}"]`),
-      panel.querySelector?.(`[data-access-complete-employee-group="${CSS.escape(requestId)}"]`)
-    ].filter(Boolean);
+    const employeeSelect = panel.querySelector?.(`[data-access-complete-existing-employee="${CSS.escape(requestId)}"]`);
+    const titleField = panel.querySelector?.(`[data-access-complete-title="${CSS.escape(requestId)}"]`);
+    const typeField = panel.querySelector?.(`[data-access-complete-employee-type="${CSS.escape(requestId)}"]`);
+    const groupField = panel.querySelector?.(`[data-access-complete-employee-group="${CSS.escape(requestId)}"]`);
+    const employeeFields = [titleField, typeField, groupField].filter(Boolean);
+    const newEmployeeBox = panel.querySelector?.(`[data-access-complete-new-employee-fields="${CSS.escape(requestId)}"]`);
+
     const isEmployee = role === "employee";
+    if (employeeSelect) employeeSelect.disabled = !isEmployee;
+
+    const employeeChoice = employeeSelect?.value || "";
+    const isCreatingNewEmployee = isEmployee && employeeChoice === ACCESS_CREATE_NEW_EMPLOYEE_VALUE;
+    const selectedEmployee = isEmployee && employeeChoice && !isCreatingNewEmployee
+      ? (state.employees || []).find(employee => String(employee?.id || "") === String(employeeChoice))
+      : null;
+
+    if (selectedEmployee) {
+      if (titleField) titleField.value = selectedEmployee.title || titleField.value || "Ansatt";
+      if (typeField && selectedEmployee.employee_type) typeField.value = selectedEmployee.employee_type;
+      if (groupField && selectedEmployee.employee_group) groupField.value = normalizeEmployeeGroup(selectedEmployee.employee_group || "");
+    }
+
     employeeFields.forEach(field => {
-      field.disabled = !isEmployee;
-      field.closest?.("label")?.classList.toggle("opacity-50", !isEmployee);
+      field.disabled = !isCreatingNewEmployee;
+      field.closest?.("label")?.classList.toggle("opacity-50", !isCreatingNewEmployee);
     });
+    if (newEmployeeBox) {
+      newEmployeeBox.classList.toggle("opacity-60", !isCreatingNewEmployee);
+    }
   }
 
   function generateTemporaryPasswordForAccessRequest(requestId) {
@@ -2839,9 +2979,21 @@
     const role = panel.querySelector?.(`[data-access-complete-role="${CSS.escape(requestId)}"]`)?.value || row.requested_access || "employee";
     const normalizedRole = String(role || "").toLowerCase();
     const temporaryPassword = panel.querySelector?.(`[data-access-complete-password="${CSS.escape(requestId)}"]`)?.value?.trim() || "";
-    const title = panel.querySelector?.(`[data-access-complete-title="${CSS.escape(requestId)}"]`)?.value?.trim() || "";
-    const employeeType = panel.querySelector?.(`[data-access-complete-employee-type="${CSS.escape(requestId)}"]`)?.value?.trim() || "";
-    const employeeGroup = normalizeEmployeeGroup(panel.querySelector?.(`[data-access-complete-employee-group="${CSS.escape(requestId)}"]`)?.value || "");
+    const employeeChoice = panel.querySelector?.(`[data-access-complete-existing-employee="${CSS.escape(requestId)}"]`)?.value || "";
+    const createNewEmployee = normalizedRole === "employee" && employeeChoice === ACCESS_CREATE_NEW_EMPLOYEE_VALUE;
+    const existingEmployee = normalizedRole === "employee" && employeeChoice && !createNewEmployee
+      ? (state.employees || []).find(employee => String(employee?.id || "") === String(employeeChoice) && employee.active !== false)
+      : null;
+    const existingEmployeeId = existingEmployee?.id || "";
+    const title = (createNewEmployee
+      ? panel.querySelector?.(`[data-access-complete-title="${CSS.escape(requestId)}"]`)?.value?.trim()
+      : existingEmployee?.title || panel.querySelector?.(`[data-access-complete-title="${CSS.escape(requestId)}"]`)?.value?.trim()) || "";
+    const employeeType = (createNewEmployee
+      ? panel.querySelector?.(`[data-access-complete-employee-type="${CSS.escape(requestId)}"]`)?.value?.trim()
+      : existingEmployee?.employee_type || panel.querySelector?.(`[data-access-complete-employee-type="${CSS.escape(requestId)}"]`)?.value?.trim()) || "";
+    const employeeGroup = normalizeEmployeeGroup((createNewEmployee
+      ? panel.querySelector?.(`[data-access-complete-employee-group="${CSS.escape(requestId)}"]`)?.value
+      : existingEmployee?.employee_group || panel.querySelector?.(`[data-access-complete-employee-group="${CSS.escape(requestId)}"]`)?.value) || "");
 
     if (!["employee", "planner", "admin"].includes(normalizedRole) || !canAssignAccessRole(normalizedRole)) {
       alert("Du har ikke tilgang til å sette denne rollen.");
@@ -2854,17 +3006,27 @@
     }
 
     if (normalizedRole === "employee") {
-      if (!title) {
-        alert("Legg inn stilling/tittel for ansatt.");
+      if (!existingEmployeeId && !createNewEmployee) {
+        alert("Velg eksisterende ansattprofil, eller velg 'Opprett ny ansatt' hvis personen ikke finnes fra før.");
         return;
       }
-      if (!employeeType) {
-        alert("Velg employee type for ansatt.");
+      if (existingEmployeeId && createNewEmployee) {
+        alert("Velg enten eksisterende ansatt eller opprett ny ansatt – ikke begge deler.");
         return;
       }
-      if (!employeeGroup) {
-        alert("Velg employee group for ansatt.");
-        return;
+      if (!existingEmployeeId) {
+        if (!title) {
+          alert("Legg inn stilling/tittel for ny ansatt.");
+          return;
+        }
+        if (!employeeType) {
+          alert("Velg employee type for ny ansatt.");
+          return;
+        }
+        if (!employeeGroup) {
+          alert("Velg employee group for ny ansatt.");
+          return;
+        }
       }
     }
 
@@ -2875,10 +3037,28 @@
     }
 
     const employeeLines = normalizedRole === "employee"
-      ? `\nStilling: ${title}\nEmployee type: ${employeeType}\nEmployee group: ${employeeGroup}`
+      ? existingEmployeeId
+        ? `
+Ansattkobling: Koble til eksisterende ansatt
+Ansatt: ${existingEmployee?.name || existingEmployeeId}
+Stilling: ${title || "Ikke satt"}
+Employee type: ${employeeType || "Ikke satt"}
+Employee group: ${employeeGroup || "Ikke satt"}`
+        : `
+Ansattkobling: OPPRETT NY ANSATT
+Stilling: ${title}
+Employee type: ${employeeType}
+Employee group: ${employeeGroup}`
       : "";
 
-    const ok = window.confirm(`Opprette komplett tilgang for:\n\n${row.full_name || row.email}\n${row.email}\n\nRolle: ${formatRequestedAccess(normalizedRole)}${employeeLines}\n\nDette kan opprette Auth-bruker, user_profile og ansattprofil. Passord sendes ikke automatisk på e-post.`);
+    const ok = window.confirm(`Opprette komplett tilgang for:
+
+${row.full_name || row.email}
+${row.email}
+
+Rolle: ${formatRequestedAccess(normalizedRole)}${employeeLines}
+
+Dette kan opprette/gjenbruke Auth-bruker og user_profile. For employee skal eksisterende ansatt kobles når den er valgt. Passord sendes ikke automatisk på e-post.`);
     if (!ok) return;
 
     const button = panel.querySelector?.(`[data-access-action="complete-access"][data-access-request-id="${CSS.escape(requestId)}"]`);
@@ -2889,10 +3069,27 @@
     }
 
     try {
+      if (normalizedRole === "employee" && existingEmployeeId) {
+        const { error: linkError } = await supabaseClient
+          .from("access_requests")
+          .update({
+            linked_employee_id: existingEmployeeId,
+            approved_role: normalizedRole,
+            review_note: "Koblet til eksisterende ansatt i v18.58b duplikatkontroll."
+          })
+          .eq("id", requestId);
+        if (linkError) {
+          throw new Error(`Kunne ikke lagre ansattkobling før fullføring: ${linkError.message || linkError}`);
+        }
+      }
+
       const payload = {
         request_id: requestId,
         role: normalizedRole,
         temporary_password: temporaryPassword,
+        employee_id: normalizedRole === "employee" && existingEmployeeId ? existingEmployeeId : undefined,
+        linked_employee_id: normalizedRole === "employee" && existingEmployeeId ? existingEmployeeId : undefined,
+        create_new_employee: normalizedRole === "employee" ? createNewEmployee : undefined,
         employee_type: normalizedRole === "employee" ? employeeType : undefined,
         employee_group: normalizedRole === "employee" ? employeeGroup : undefined,
         title: normalizedRole === "employee" ? title : undefined
@@ -3984,7 +4181,7 @@ Dette oppretter ikke Auth-bruker. Hvis Auth-brukeren mangler, får du en tydelig
     return `
       <div class="flex items-center gap-2 min-w-0">
         ${getEmployeeGroupIconHtml(group, "inline-flex h-5 w-5 items-center justify-center text-slate-600 shrink-0 opacity-90")}
-        <div class="min-w-0 text-sm font-semibold leading-tight truncate">${escapeHtml(employee?.name || "")}</div>
+        <div class="employee-plan-name-main min-w-0 text-sm font-semibold leading-tight truncate">${escapeHtml(employee?.name || "")}</div>
       </div>
     `;
   }
@@ -4397,6 +4594,12 @@ Dette oppretter ikke Auth-bruker. Hvis Auth-brukeren mangler, får du en tydelig
         const select = event.target?.closest?.("[data-access-complete-role]");
         if (!select) return;
         const requestId = select.dataset.accessCompleteRole || "";
+        if (requestId) updateAccessCompleteEmployeeFields(requestId);
+      });
+      els.accessApprovalList.addEventListener("change", event => {
+        const select = event.target?.closest?.("[data-access-complete-existing-employee]");
+        if (!select) return;
+        const requestId = select.dataset.accessCompleteExistingEmployee || "";
         if (requestId) updateAccessCompleteEmployeeFields(requestId);
       });
       els.accessApprovalList.addEventListener("change", event => {
@@ -9852,7 +10055,7 @@ async function deleteEditedEntry() {
       ? `<div id="dashboardEmployeeFilterBanner"><div><strong>Dashboard-filter:</strong> ${escapeHtml(state.dashboardEmployeeFilterLabel || "Utvalg")} · viser ${employees.length} ansatte · ${escapeHtml(getDashboardAnalysisPeriodLabel())}</div><button type="button" id="clearDashboardEmployeeFilterBtn">Vis alle ansatte</button></div>`
       : "";
 
-    const stickyWidth = 238;
+    const stickyWidth = 264;
     const colWidth = Math.max(28, state.viewMode === "Uke" ? 38 : 32);
     const totalWidth = colWidth * days.length;
 
@@ -9866,17 +10069,17 @@ async function deleteEditedEntry() {
     for (const group of employeeGroups) {
       const collapsed = isEmployeeGroupCollapsed(group.key);
       html += `
-        <div class="sticky-col border-r border-b border-slate-200 bg-slate-50 px-3 py-2">
+        <div class="employee-plan-group-header sticky-col border-r border-b border-slate-200 bg-slate-50 px-3 py-2">
           <button type="button" data-employee-group-toggle="${escapeHtml(group.key)}" class="w-full flex items-center justify-between gap-3 text-left text-slate-800">
             <span class="min-w-0 flex items-center gap-2">
               <span class="text-xs text-slate-500">${collapsed ? "▶" : "▼"}</span>
               ${group.iconHtml}
               <span class="font-semibold text-sm truncate">${escapeHtml(group.label)}</span>
-              <span class="rounded-md border border-slate-300 bg-white px-1.5 py-0.5 text-[11px] font-semibold text-slate-600">${group.employees.length}</span>
+              <span class="employee-plan-group-count rounded-md border border-slate-300 bg-white px-1.5 py-0.5 text-[11px] font-semibold text-slate-600">${group.employees.length}</span>
             </span>
           </button>
         </div>
-        <div class="border-b border-slate-200 bg-slate-50/70" style="grid-column: span ${days.length}; width:${totalWidth}px; min-height:36px;"></div>
+        <div class="employee-plan-group-fill border-b border-slate-200 bg-slate-50/70" style="grid-column: span ${days.length}; width:${totalWidth}px; min-height:34px;"></div>
       `;
 
       if (collapsed) continue;
@@ -9885,9 +10088,9 @@ async function deleteEditedEntry() {
         const employeeEntries = getVisibleEntriesForEmployee(employee.name, range.start, range.end);
 
         html += `
-          <div class="sticky-col border-r border-b border-slate-200 px-3 py-2 ${getEmployeeCalendarCellClass(employee)}">
+          <div class="employee-plan-name-cell sticky-col border-r border-b border-slate-200 px-3 py-2 ${getEmployeeCalendarCellClass(employee)}">
             <div>${getEmployeeNameTabHtml(employee)}</div>
-            ${employee.title ? `<div class="text-[11px] opacity-80 leading-tight mt-1">${escapeHtml(employee.title)}</div>` : ""}
+            ${employee.title ? `<div class="employee-plan-title text-[11px] opacity-80 leading-tight mt-1">${escapeHtml(employee.title)}</div>` : ""}
           </div>
         `;
 
@@ -9981,17 +10184,17 @@ async function deleteEditedEntry() {
     for (const group of employeeGroups) {
       const collapsed = isEmployeeGroupCollapsed(group.key);
       html += `
-        <div class="sticky-col border-r border-b border-slate-200 bg-slate-50 px-3 py-2">
+        <div class="employee-plan-group-header sticky-col border-r border-b border-slate-200 bg-slate-50 px-3 py-2">
           <button type="button" data-employee-group-toggle="${escapeHtml(group.key)}" class="w-full flex items-center justify-between gap-3 text-left text-slate-800">
             <span class="min-w-0 flex items-center gap-2">
               <span class="text-xs text-slate-500">${collapsed ? "▶" : "▼"}</span>
               ${group.iconHtml}
               <span class="font-semibold text-sm truncate">${escapeHtml(group.label)}</span>
-              <span class="rounded-md border border-slate-300 bg-white px-1.5 py-0.5 text-[11px] font-semibold text-slate-600">${group.employees.length}</span>
+              <span class="employee-plan-group-count rounded-md border border-slate-300 bg-white px-1.5 py-0.5 text-[11px] font-semibold text-slate-600">${group.employees.length}</span>
             </span>
           </button>
         </div>
-        <div class="border-b border-slate-200 bg-slate-50/70" style="grid-column: span 12; width:${totalWidth}px; min-height:36px;"></div>
+        <div class="employee-plan-group-fill border-b border-slate-200 bg-slate-50/70" style="grid-column: span 12; width:${totalWidth}px; min-height:34px;"></div>
       `;
 
       if (collapsed) continue;
@@ -10000,9 +10203,9 @@ async function deleteEditedEntry() {
         const employeeEntries = getVisibleEntriesForEmployee(employee.name, yearStart, yearEnd);
 
         html += `
-          <div class="sticky-col border-r border-b border-slate-200 px-3 py-2 ${getEmployeeCalendarCellClass(employee)}">
+          <div class="employee-plan-name-cell sticky-col border-r border-b border-slate-200 px-3 py-2 ${getEmployeeCalendarCellClass(employee)}">
             <div>${getEmployeeNameTabHtml(employee)}</div>
-            ${employee.title ? `<div class="text-[11px] text-slate-600 leading-tight mt-1">${escapeHtml(employee.title)}</div>` : ""}
+            ${employee.title ? `<div class="employee-plan-title text-[11px] text-slate-600 leading-tight mt-1">${escapeHtml(employee.title)}</div>` : ""}
           </div>
         `;
 
