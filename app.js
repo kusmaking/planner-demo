@@ -153,7 +153,9 @@
     },
     accessUserDrafts: {
       passwords: {}
-    }
+    },
+    employeeAccessPanelEmployeeId: "",
+    employeeAccessPanelRequestId: ""
   };
 
   const els = {};
@@ -2288,14 +2290,18 @@
     if (card) card.style.display = allowed ? "" : "none";
     if (!allowed) return;
 
-    const rows = state.accessRequests.rows || [];
+    const focusedEmployee = getEmployeeAdminAccessPanelEmployee();
+    const allRows = state.accessRequests.rows || [];
+    const rows = focusedEmployee ? getAccessRequestsForEmployee(focusedEmployee, allRows) : allRows;
+    updateEmployeeAccessPanelHeader(focusedEmployee);
     const pendingCount = rows.filter(row => String(row.status || "pending").toLowerCase() === "pending").length;
     const readyForSetupCount = rows.filter(row => String(row.status || "pending").toLowerCase() === "approved" && !row.setup_completed_at).length;
     const completedCount = rows.filter(row => row.setup_completed_at || ["rejected", "declined"].includes(String(row.status || "").toLowerCase())).length;
 
     if (els.accessApprovalStatus) {
       const loadedText = state.accessRequests.lastLoadedAt ? `Sist hentet ${formatAccessRequestDate(state.accessRequests.lastLoadedAt)}` : "Ikke hentet ennå";
-      els.accessApprovalStatus.textContent = state.accessRequests.loading ? "Henter søknader..." : `${pendingCount} ventende • ${readyForSetupCount} klar for oppsett • ${completedCount} i historikk • ${loadedText}`;
+      const scopeText = focusedEmployee ? `${focusedEmployee.name || "Valgt ansatt"} • ` : "";
+      els.accessApprovalStatus.textContent = state.accessRequests.loading ? "Henter søknader..." : `${scopeText}${pendingCount} ventende • ${readyForSetupCount} klar for oppsett • ${completedCount} i historikk • ${loadedText}`;
     }
 
     if (state.accessRequests.loading && !rows.length) {
@@ -2309,7 +2315,10 @@
     }
 
     if (!rows.length) {
-      els.accessApprovalList.innerHTML = `<div class="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">Ingen tilgangssøknader ennå.</div>`;
+      const emptyText = focusedEmployee
+        ? `Ingen tilgangssøknader funnet for ${escapeHtml(focusedEmployee.name || "valgt ansatt")}.`
+        : "Ingen tilgangssøknader ennå.";
+      els.accessApprovalList.innerHTML = `<div class="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">${emptyText}</div>`;
       return;
     }
 
@@ -3409,13 +3418,17 @@ Dette oppretter ikke Auth-bruker. Hvis Auth-brukeren mangler, får du en tydelig
     if (card) card.style.display = allowed ? "" : "none";
     if (!allowed) return;
 
-    const rows = state.accessUsers.rows || [];
+    const focusedEmployee = getEmployeeAdminAccessPanelEmployee();
+    const allRows = state.accessUsers.rows || [];
+    const rows = focusedEmployee ? getAccessUsersForEmployee(focusedEmployee, allRows) : allRows;
+    updateEmployeeAccessPanelHeader(focusedEmployee);
     const activeCount = rows.filter(row => row.is_active !== false).length;
     const inactiveCount = rows.filter(row => row.is_active === false).length;
 
     if (els.accessUsersStatus) {
       const loadedText = state.accessUsers.lastLoadedAt ? `Sist hentet ${formatAccessRequestDate(state.accessUsers.lastLoadedAt)}` : "Ikke hentet ennå";
-      els.accessUsersStatus.textContent = state.accessUsers.loading ? "Henter brukere..." : `${activeCount} aktive • ${inactiveCount} deaktivert • ${loadedText}`;
+      const scopeText = focusedEmployee ? `${focusedEmployee.name || "Valgt ansatt"} • ` : "";
+      els.accessUsersStatus.textContent = state.accessUsers.loading ? "Henter brukere..." : `${scopeText}${activeCount} aktive • ${inactiveCount} deaktivert • ${loadedText}`;
     }
 
     if (state.accessUsers.loading && !rows.length) {
@@ -3429,7 +3442,10 @@ Dette oppretter ikke Auth-bruker. Hvis Auth-brukeren mangler, får du en tydelig
     }
 
     if (!rows.length) {
-      els.accessUsersList.innerHTML = `<div class="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">Ingen brukere funnet.</div>`;
+      const emptyText = focusedEmployee
+        ? `Ingen brukertilgang funnet for ${escapeHtml(focusedEmployee.name || "valgt ansatt")}.`
+        : "Ingen brukere funnet.";
+      els.accessUsersList.innerHTML = `<div class="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">${emptyText}</div>`;
       return;
     }
 
@@ -9918,6 +9934,50 @@ async function deleteEditedEntry() {
     return String(value || "").replace(/\D+/g, "");
   }
 
+  function getEmployeeAdminById(employeeId) {
+    if (!employeeId) return null;
+    return (state.employees || []).find(emp => String(emp.id || "") === String(employeeId || "")) || null;
+  }
+
+  function getEmployeeAdminAccessPanelEmployee() {
+    return getEmployeeAdminById(state.employeeAccessPanelEmployeeId || state.employeeAdminSelectedId || "");
+  }
+
+  function isAccessUserMatchForEmployee(row, employee) {
+    if (!row || !employee) return false;
+    const employeeEmail = normalizeComparableText(employee.email || "");
+    const employeeName = normalizeComparableText(employee.name || "");
+    const rowEmail = normalizeComparableText(row.email || "");
+    const rowName = normalizeComparableText(row.full_name || row.name || "");
+    return (employeeEmail && rowEmail && employeeEmail === rowEmail)
+      || (employeeName && rowName && employeeName === rowName);
+  }
+
+  function getAccessUsersForEmployee(employee, rows = state.accessUsers?.rows || []) {
+    if (!employee) return rows || [];
+    return (rows || []).filter(row => isAccessUserMatchForEmployee(row, employee));
+  }
+
+  function getAccessRequestsForEmployee(employee, rows = state.accessRequests?.rows || []) {
+    if (!employee) return rows || [];
+    const requestIds = new Set(findEmployeeAdminAccessRequests(employee).map(row => row.id));
+    return (rows || []).filter(row => requestIds.has(row.id));
+  }
+
+  function updateEmployeeAccessPanelHeader(employee = getEmployeeAdminAccessPanelEmployee()) {
+    const title = document.getElementById("employeeAccessAdminTitle");
+    const subtitle = document.getElementById("employeeAccessAdminSubtitle");
+    if (!title && !subtitle) return;
+    if (employee) {
+      const name = employee.name || "valgt ansatt";
+      if (title) title.textContent = `Tilganger: ${name}`;
+      if (subtitle) subtitle.textContent = "Viser kun brukertilgang og tilgangssøknader for valgt ansatt.";
+    } else {
+      if (title) title.textContent = "Tilganger for valgt ansatt";
+      if (subtitle) subtitle.textContent = "Velg en ansatt først. Daglig tilgangskontroll skal ikke vise hele brukerlisten.";
+    }
+  }
+
   function formatEmployeeAdminEntryRange(start, end) {
     if (start && end) return `${formatDate(start)} – ${formatDate(end)}`;
     if (start) return `Fra ${formatDate(start)}`;
@@ -10077,7 +10137,7 @@ async function deleteEditedEntry() {
           <span class="iz-employee-admin-status is-inactive">Mangler</span>
         </div>
         <div class="iz-employee-admin-notice compact">Når den ansatte søker tilgang, skal søknaden kobles til denne eksisterende ansatte. Ikke opprett ny ansatt hvis personen allerede finnes i registeret.</div>
-        <button type="button" class="iz-employee-admin-btn" data-employee-admin-open-admin>Vis tilgangssøknader</button>
+        <button type="button" class="iz-employee-admin-btn" data-employee-admin-open-admin>Tilganger</button>
       </div>
     `;
   }
@@ -10142,7 +10202,7 @@ async function deleteEditedEntry() {
       <div class="mt-4 flex flex-wrap gap-2">
         <button type="button" class="iz-employee-admin-btn primary" data-employee-admin-edit="${escapeHtml(employee.id)}">Rediger ansatt</button>
         <button type="button" class="iz-employee-admin-btn" data-employee-admin-open-calendar="${escapeHtml(employee.name || "")}">Åpne i Ansattplan</button>
-        <button type="button" class="iz-employee-admin-btn" data-employee-admin-open-admin>Alle tilganger</button>
+        <button type="button" class="iz-employee-admin-btn" data-employee-admin-open-admin>Tilganger</button>
       </div>
     `;
 
@@ -10192,16 +10252,21 @@ async function deleteEditedEntry() {
     });
 
     detail.querySelectorAll("[data-employee-card-open-request]").forEach(button => {
-      button.addEventListener("click", () => openEmployeeAccessPanel(button.dataset.employeeCardOpenRequest || ""));
+      button.addEventListener("click", () => openEmployeeAccessPanel(button.dataset.employeeCardOpenRequest || "", employee.id));
     });
 
     detail.querySelectorAll("[data-employee-admin-open-admin]").forEach(button => {
-      button.addEventListener("click", () => openEmployeeAccessPanel());
+      button.addEventListener("click", () => openEmployeeAccessPanel("", employee.id));
     });
   }
 
-  function openEmployeeAccessPanel(requestId = "") {
+  function openEmployeeAccessPanel(requestId = "", employeeId = "") {
     const accessPanel = document.getElementById("employeeAccessAdmin");
+    const focusEmployeeId = employeeId || state.employeeAdminSelectedId || "";
+    state.employeeAccessPanelEmployeeId = focusEmployeeId;
+    state.employeeAccessPanelRequestId = requestId || "";
+    renderAccessUsers();
+    renderAccessRequests();
     if (accessPanel) {
       accessPanel.open = true;
       const target = requestId
@@ -10299,7 +10364,15 @@ async function deleteEditedEntry() {
     els.employeeList.querySelectorAll("[data-employee-id]").forEach(btn => {
       btn.addEventListener("click", () => {
         state.employeeAdminSelectedId = btn.dataset.employeeId;
+        const accessPanel = document.getElementById("employeeAccessAdmin");
+        if (accessPanel?.open) {
+          state.employeeAccessPanelEmployeeId = state.employeeAdminSelectedId || "";
+        }
         renderEmployees();
+        if (accessPanel?.open) {
+          renderAccessUsers();
+          renderAccessRequests();
+        }
       });
       btn.addEventListener("dblclick", () => openEmployeeModal(btn.dataset.employeeId));
     });
