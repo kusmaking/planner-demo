@@ -4099,49 +4099,137 @@
       </div>
     </section>
 
-    <section id="tabEmployeesSection" class="grid grid-cols-1 xl:grid-cols-4 gap-4" style="display:none;">
-      <div class="xl:col-span-4">
-        <div class="rounded-2xl bg-white border border-slate-200 shadow-sm">
-          <div class="p-4 border-b border-slate-200 flex items-center justify-between">
-            <h2 class="font-semibold">Ansatte</h2>
-            <button id="newEmployeeBtn" class="rounded-xl bg-slate-900 text-white px-3 py-2 text-sm">Ny ansatt</button>
+    <section id="tabEmployeesSection" class="space-y-4" style="display:none;">
+      <div class="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+        <div class="p-5 border-b border-slate-200 bg-gradient-to-r from-slate-950 via-slate-900 to-slate-800 text-white">
+          <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <div class="text-xs uppercase tracking-[0.22em] text-emerald-200/80">Administrasjon</div>
+              <h2 class="mt-1 text-2xl font-black tracking-tight">Ansatte og tilganger</h2>
+              <p class="mt-1 max-w-3xl text-sm text-slate-300">Samlet oversikt for ansattregister, roller, tilgangssøknader og duplikatkontroll. Samme funksjoner – ryddigere side.</p>
+            </div>
+            <div class="flex flex-wrap gap-2">
+              <button id="newEmployeeBtn" class="rounded-xl bg-emerald-400 px-4 py-2 text-sm font-bold text-slate-950 shadow-sm hover:bg-emerald-300">+ Ny ansatt</button>
+              <button id="accessUsersRefreshBtn" type="button" class="rounded-xl border border-white/20 bg-white/10 px-4 py-2 text-sm font-semibold text-white hover:bg-white/15">Oppdater brukere</button>
+              <button id="accessApprovalRefreshBtn" type="button" class="rounded-xl border border-white/20 bg-white/10 px-4 py-2 text-sm font-semibold text-white hover:bg-white/15">Oppdater søknader</button>
+            </div>
           </div>
-          <div class="p-4 space-y-3">
-            <textarea id="bulkEmployees" class="w-full rounded-2xl border border-slate-300 px-3 py-2" rows="4" placeholder="Lim inn flere navn, ett per linje"></textarea>
-            <button id="bulkAddBtn" class="w-full rounded-2xl border border-slate-300 bg-white px-4 py-2">Legg til mange ansatte</button>
-            <div id="employeeList" class="space-y-2 max-h-[680px] overflow-auto scrollbar-thin"></div>
+        </div>
+        <div id="employeeAdminSummary" class="grid grid-cols-1 gap-3 p-4 md:grid-cols-2 xl:grid-cols-4">
+          <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+            <div class="text-xs font-bold uppercase tracking-wide text-slate-500">Aktive ansatte</div>
+            <div id="employeeAdminKpiActive" class="mt-2 text-3xl font-black text-slate-950">–</div>
+            <div class="mt-1 text-xs text-slate-500">Masterliste i ansattregister</div>
+          </div>
+          <div class="rounded-2xl border border-amber-200 bg-amber-50 p-4">
+            <div class="text-xs font-bold uppercase tracking-wide text-amber-700">Mangler tilgang</div>
+            <div id="employeeAdminKpiNoAccess" class="mt-2 text-3xl font-black text-amber-900">–</div>
+            <div class="mt-1 text-xs text-amber-700">Ansatt finnes, men ingen login funnet</div>
+          </div>
+          <div class="rounded-2xl border border-blue-200 bg-blue-50 p-4">
+            <div class="text-xs font-bold uppercase tracking-wide text-blue-700">Tilgangssøknader</div>
+            <div id="employeeAdminKpiRequests" class="mt-2 text-3xl font-black text-blue-950">–</div>
+            <div class="mt-1 text-xs text-blue-700">Åpne eller klare for oppsett</div>
+          </div>
+          <div class="rounded-2xl border border-rose-200 bg-rose-50 p-4">
+            <div class="text-xs font-bold uppercase tracking-wide text-rose-700">Mulige duplikater</div>
+            <div id="employeeAdminKpiDuplicates" class="mt-2 text-3xl font-black text-rose-950">–</div>
+            <div class="mt-1 text-xs text-rose-700">Basert på like navn blant ansatte</div>
           </div>
         </div>
       </div>
-    </section>
 
+      <div class="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(640px,1.35fr)_minmax(420px,.85fr)]">
+        <div class="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+          <div class="border-b border-slate-200 p-4">
+            <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <h3 class="text-lg font-bold text-slate-950">Ansattregister</h3>
+                <p class="mt-1 text-sm text-slate-500">Søk, filtrer og velg ansatt uten lange kortpaneler.</p>
+              </div>
+              <label class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-700">
+                <input id="employeeAdminShowInactive" type="checkbox" class="h-4 w-4 rounded border-slate-300" />
+                Vis inaktive
+              </label>
+            </div>
+            <div class="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-[1fr_220px]">
+              <input id="employeeAdminSearch" class="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm shadow-sm" placeholder="Søk navn, telefon, e-post, rolle…" />
+              <select id="employeeAdminGroupFilter" class="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm shadow-sm">
+                <option value="all">Alle grupper</option>
+                <option value="Offshore arbeider">Offshore</option>
+                <option value="Onshore arbeider">Onshore</option>
+                <option value="Engineering">Engineering</option>
+                <option value="Lager og logistikk">Lager/logistikk</option>
+                <option value="3. party">3. party</option>
+                <option value="Management">Management</option>
+              </select>
+            </div>
+            <div id="employeeAdminGroupChips" class="mt-3 flex flex-wrap gap-2"></div>
+          </div>
+          <div id="employeeList" class="max-h-[620px] overflow-auto scrollbar-thin"></div>
+        </div>
+
+        <aside class="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+          <div class="border-b border-slate-200 bg-slate-50/70 p-4">
+            <h3 class="text-lg font-bold text-slate-950">Detaljer</h3>
+            <p class="mt-1 text-sm text-slate-500">Valgt ansatt, profil, tilgang og raske handlinger.</p>
+          </div>
+          <div id="employeeAdminDetail" class="p-4"></div>
+        </aside>
+      </div>
+
+      <div class="grid grid-cols-1 gap-4 xl:grid-cols-2">
+        <div class="rounded-2xl bg-white border border-slate-200 shadow-sm overflow-hidden">
+          <div class="p-5 border-b border-slate-200 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div>
+              <h2 class="text-lg font-semibold text-slate-950">Brukertilganger</h2>
+              <p class="mt-1 text-sm text-slate-500">Rolle, midlertidig passord, aktivering og deaktivering på samme side som ansattregisteret.</p>
+            </div>
+            <span id="accessUsersStatus" class="rounded-full bg-slate-50 px-3 py-1 text-xs font-medium text-slate-600"></span>
+          </div>
+          <div id="accessUsersList" class="p-5 space-y-3 max-h-[520px] overflow-auto scrollbar-thin"></div>
+        </div>
+
+        <div class="rounded-2xl bg-white border border-slate-200 shadow-sm overflow-hidden">
+          <div class="p-5 border-b border-slate-200 bg-slate-50/70 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div>
+              <h2 class="text-lg font-semibold text-slate-950">Tilgangssøknader</h2>
+              <p class="mt-1 text-sm text-slate-600">Koble søknader til eksisterende ansatte for å hindre duplikater.</p>
+            </div>
+            <span id="accessApprovalStatus" class="rounded-full bg-white px-3 py-1 text-xs font-medium text-slate-600 shadow-sm"></span>
+          </div>
+          <div id="accessApprovalList" class="p-5 space-y-4 max-h-[520px] overflow-auto scrollbar-thin"></div>
+        </div>
+      </div>
+
+      <details class="rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <summary class="cursor-pointer list-none p-4 font-semibold text-slate-900">Avansert: direkte blokk på ansatt</summary>
+        <div id="personalBlockCard" class="border-t border-slate-200">
+          <div class="p-4 border-b border-slate-200">
+            <h2 id="personalBlockTitle" class="font-semibold">Direkte blokk på ansatt</h2>
+            <p id="personalBlockDescription" class="text-sm text-slate-500 mt-1">Brukes for kurs, ferie, syk og avspasering direkte på personen, uten å gå via prosjektmodulen.</p>
+          </div>
+          <div class="p-4 space-y-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <select id="personalBlockEmployee" class="w-full rounded-2xl border border-slate-300 px-3 py-2"></select>
+              <select id="personalBlockType" class="w-full rounded-2xl border border-slate-300 px-3 py-2"></select>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <input id="personalBlockStart" type="date" class="rounded-2xl border border-slate-300 px-3 py-2" />
+              <input id="personalBlockEnd" type="date" class="rounded-2xl border border-slate-300 px-3 py-2" />
+            </div>
+            <textarea id="personalBlockNotes" class="w-full rounded-2xl border border-slate-300 px-3 py-2" rows="4" placeholder="Notat"></textarea>
+            <button id="personalBlockSaveBtn" class="w-full rounded-2xl bg-slate-900 text-white px-4 py-2">Lagre blokk i kalender</button>
+          </div>
+        </div>
+      </details>
+    </section>
     <section id="tabAdminSection" class="grid grid-cols-1 xl:grid-cols-3 gap-4" style="display:none;">
       <div class="xl:col-span-3 rounded-2xl bg-white border border-slate-200 shadow-sm overflow-hidden">
-        <div class="p-5 border-b border-slate-200 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <div>
-            <h2 class="text-lg font-semibold text-slate-950">Brukertilganger</h2>
-            <p class="mt-1 text-sm text-slate-500">Endre rolle, sett midlertidig passord, aktiver eller deaktiver brukere. Auth-brukere slettes ikke.</p>
-          </div>
-          <div class="flex flex-wrap items-center gap-2">
-            <span id="accessUsersStatus" class="rounded-full bg-slate-50 px-3 py-1 text-xs font-medium text-slate-600"></span>
-            <button id="accessUsersRefreshBtn" type="button" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-medium hover:bg-slate-50">Oppdater brukere</button>
-          </div>
+        <div class="p-5 border-b border-slate-200 bg-slate-50/70">
+          <h2 class="text-lg font-semibold text-slate-950">Systemstatus og logg</h2>
+          <p class="mt-1 text-sm text-slate-500">Brukertilganger og tilgangssøknader er flyttet til <strong>Ansatte og tilganger</strong> for å samle ansattadmin og rolleadmin på én side.</p>
         </div>
-        <div id="accessUsersList" class="p-5 space-y-3 max-h-[620px] overflow-auto scrollbar-thin"></div>
-      </div>
-
-      <div class="xl:col-span-3 rounded-2xl bg-white border border-slate-200 shadow-sm overflow-hidden">
-        <div class="p-5 border-b border-slate-200 bg-slate-50/70 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <div>
-            <h2 class="text-lg font-semibold text-slate-950">Tilgangssøknader</h2>
-            <p class="mt-1 text-sm text-slate-600">Åpne søknader vises først. Fullførte/avslåtte søknader legges kompakt i historikk nederst.</p>
-          </div>
-          <div class="flex flex-wrap items-center gap-2">
-            <span id="accessApprovalStatus" class="rounded-full bg-white px-3 py-1 text-xs font-medium text-slate-600 shadow-sm"></span>
-            <button id="accessApprovalRefreshBtn" type="button" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-medium hover:bg-slate-50">Oppdater søknader</button>
-          </div>
-        </div>
-        <div id="accessApprovalList" class="p-5 space-y-4"></div>
       </div>
 
       <div class="rounded-2xl bg-white border border-slate-200 shadow-sm">

@@ -60,6 +60,10 @@
     selectedEntryId: null,
     selectedProjectId: null,
     selectedEmployeeId: null,
+    employeeAdminSelectedId: "",
+    employeeAdminSearch: "",
+    employeeAdminGroupFilter: "all",
+    employeeAdminShowInactive: false,
     focusProjectId: "",
     projectModalPeriods: [],
     selectedAssignPeriodId: "",
@@ -335,7 +339,7 @@
       "projectName", "projectCategory", "projectStatus", "projectPlannedStart", "projectPlannedEnd", "projectHasMultiplePeriods", "projectPeriodsSection", "projectPeriodsList", "addProjectPeriodBtn",
       "projectWorkshopEnabled", "projectWorkshopStart", "projectWorkshopEnd", "projectWorkshopHeadcount", "projectWorkshopAddBtn", "projectWorkshopRemoveBtn",
       "projectResponsible", "projectLocation", "projectHeadcount", "projectNotes", "saveProjectBtn", "deleteProjectBtn",
-      "newEmployeeBtn", "employeeModal", "employeeModalTitle", "closeEmployeeModalBtn",
+      "newEmployeeBtn", "employeeAdminSearch", "employeeAdminGroupFilter", "employeeAdminShowInactive", "employeeAdminSummary", "employeeAdminDetail", "employeeAdminGroupChips", "employeeModal", "employeeModalTitle", "closeEmployeeModalBtn",
       "employeeName", "employeeEmail", "employeePhone", "employeeTitle", "employeeGroup", "employeeActive", "saveEmployeeBtn", "deleteEmployeeBtn",
       "calendarContextMenu", "contextMenuEmployee", "contextMenuStart", "contextMenuEnd", "contextMenuType", "contextMenuNotes", "contextMenuAddBtn", "contextMenuCloseBtn",
       "employeePortalShell", "employeePortalContent", "employeePortalTopInitials", "employeePortalTopName", "employeePortalLogoutBtn", "plannerStartPage", "plannerAppShell", "startLoginEmail", "startLoginPassword", "startLoginSubmitBtn", "startForgotPasswordBtn", "startAccessHelpBtn", "startLoginError", "accessRequestModal", "accessRequestCloseBtn", "accessRequestCancelBtn", "accessRequestSubmitBtn", "accessRequestName", "accessRequestEmail", "accessRequestPhone", "accessRequestType", "accessRequestMessage", "accessRequestFeedback", "accessApprovalList", "accessApprovalRefreshBtn", "accessApprovalStatus", "accessUsersList", "accessUsersRefreshBtn", "accessUsersStatus", "accountPanel", "accountUserInfo", "changePasswordBtn", "resetPasswordBtn", "logoutBtn", "loginBtn", "loginModal", "closeLoginModalBtn", "loginEmail", "loginPassword", "loginSubmitBtn", "forgotPasswordBtn"
@@ -837,6 +841,19 @@
   function ensurePersonalBlockPanel() {
     const employeeSection = els.tabEmployeesSection;
     if (!employeeSection) return;
+
+    // v18.60a: Ansatte og tilganger har nå personalBlockCard direkte i HTML.
+    // Ikke bygg ekstra langt panel eller endre første kolonne i den nye layouten.
+    if (document.getElementById("employeeAdminDetail") && document.getElementById("personalBlockCard")) {
+      els.personalBlockEmployee = document.getElementById("personalBlockEmployee");
+      els.personalBlockType = document.getElementById("personalBlockType");
+      els.personalBlockStart = document.getElementById("personalBlockStart");
+      els.personalBlockEnd = document.getElementById("personalBlockEnd");
+      els.personalBlockNotes = document.getElementById("personalBlockNotes");
+      els.personalBlockSaveBtn = document.getElementById("personalBlockSaveBtn");
+      window.izomaxApplyLanguage?.();
+      return;
+    }
 
     const existingEmployeeCol = employeeSection.firstElementChild;
     if (existingEmployeeCol) {
@@ -4479,6 +4496,34 @@ Dette oppretter ikke Auth-bruker. Hvis Auth-brukeren mangler, får du en tydelig
     }
 
     els.newEmployeeBtn.addEventListener("click", () => openEmployeeModal());
+    if (els.employeeAdminSearch) {
+      els.employeeAdminSearch.addEventListener("input", event => {
+        state.employeeAdminSearch = event.target.value || "";
+        renderEmployees();
+      });
+    }
+    if (els.employeeAdminGroupFilter) {
+      els.employeeAdminGroupFilter.addEventListener("change", event => {
+        state.employeeAdminGroupFilter = event.target.value || "all";
+        renderEmployees();
+      });
+    }
+    if (els.employeeAdminShowInactive) {
+      els.employeeAdminShowInactive.addEventListener("change", event => {
+        state.employeeAdminShowInactive = Boolean(event.target.checked);
+        renderEmployees();
+      });
+    }
+    if (els.employeeAdminGroupChips) {
+      els.employeeAdminGroupChips.addEventListener("click", event => {
+        const chip = event.target?.closest?.("[data-employee-admin-chip]");
+        if (!chip) return;
+        const nextGroup = chip.dataset.employeeAdminChip || "all";
+        state.employeeAdminGroupFilter = state.employeeAdminGroupFilter === nextGroup ? "all" : nextGroup;
+        if (els.employeeAdminGroupFilter) els.employeeAdminGroupFilter.value = state.employeeAdminGroupFilter;
+        renderEmployees();
+      });
+    }
     els.closeEmployeeModalBtn.addEventListener("click", closeEmployeeModal);
     els.saveEmployeeBtn.addEventListener("click", saveEmployeeFromModal);
     els.deleteEmployeeBtn.addEventListener("click", deleteEmployeeFromModal);
@@ -9853,35 +9898,241 @@ async function deleteEditedEntry() {
     void addAudit(`Slettet tildeling fra prosjektkort: ${entry.employee_name} → ${displayProjectName(project) || "Ukjent prosjekt"}`);
   }
 
-  function renderEmployees() {
-    const sortedEmployees = state.employees.slice().sort((a, b) => {
-      const groupDiff = getEmployeeGroupSortIndex(a.employee_group) - getEmployeeGroupSortIndex(b.employee_group);
-      if (groupDiff !== 0) return groupDiff;
-      return (a.name || "").localeCompare(b.name || "", "no");
-    });
+  function getEmployeeAdminUserForEmployee(employee) {
+    if (!employee) return null;
+    const employeeEmail = normalizeComparableText(employee.email || "");
+    if (!employeeEmail) return null;
+    return (state.accessUsers.rows || []).find(user => normalizeComparableText(user.email || "") === employeeEmail) || null;
+  }
 
-    els.employeeList.innerHTML = sortedEmployees.map(emp => {
-      const employeeGroup = normalizeEmployeeGroup(emp.employee_group || "");
-      const cardClass = getEmployeeGroupCardClass(employeeGroup);
-      return `
-      <button data-employee-id="${escapeHtml(emp.id)}" class="w-full text-left rounded-xl border-2 p-3 transition ${cardClass}">
-        <div class="flex items-center justify-between gap-2">
-          <div class="flex items-center gap-2 min-w-0">
-            ${getEmployeeGroupIconHtml(employeeGroup, "inline-flex h-5 w-5 items-center justify-center text-slate-600 shrink-0")}
-            <div class="font-medium truncate">${escapeHtml(emp.name)}</div>
-          </div>
-          <span class="text-xs ${emp.active ? "text-green-700" : "text-amber-700"}">${emp.active ? "Aktiv" : "Inaktiv"}</span>
-        </div>
-        <div class="text-xs text-slate-500 mt-1">${escapeHtml(emp.email || "Ingen e-post")}</div>
-        <div class="text-xs text-slate-500">${escapeHtml(emp.phone || "Ingen telefon")}</div>
-        <div class="text-xs text-slate-500">${escapeHtml(emp.title || "Ingen stillingstittel")}</div>
-        <div class="mt-2 inline-flex items-center gap-1.5 rounded-full border border-current/20 bg-white/80 px-2 py-1 text-xs font-medium text-slate-700">${getEmployeeGroupIconHtml(employeeGroup, "inline-flex h-4 w-4 items-center justify-center text-slate-600 shrink-0")}<span>${escapeHtml(getEmployeeGroupLabel(employeeGroup) || "Ingen gruppe valgt")}</span></div>
+  function getEmployeeAdminDuplicateCount() {
+    const seen = new Map();
+    (state.employees || []).forEach(employee => {
+      if (!employee?.name) return;
+      const key = normalizeComparableText(employee.name.replace(/\s*\(DUPLIKAT.*?\)\s*$/i, ""));
+      if (!key) return;
+      seen.set(key, (seen.get(key) || 0) + 1);
+    });
+    return Array.from(seen.values()).filter(count => count > 1).length;
+  }
+
+  function getEmployeeAdminFilteredEmployees() {
+    const search = normalizeComparableText(state.employeeAdminSearch || "");
+    const groupFilter = state.employeeAdminGroupFilter || "all";
+    const showInactive = Boolean(state.employeeAdminShowInactive);
+
+    return state.employees
+      .filter(employee => showInactive || employee.active !== false)
+      .filter(employee => {
+        if (!groupFilter || groupFilter === "all") return true;
+        return normalizeEmployeeGroup(employee.employee_group || "") === normalizeEmployeeGroup(groupFilter);
+      })
+      .filter(employee => {
+        if (!search) return true;
+        const haystack = normalizeComparableText([
+          employee.name,
+          employee.email,
+          employee.phone,
+          employee.title,
+          employee.employee_type,
+          getEmployeeGroupLabel(normalizeEmployeeGroup(employee.employee_group || ""))
+        ].filter(Boolean).join(" "));
+        return haystack.includes(search);
+      })
+      .sort((a, b) => {
+        const groupDiff = getEmployeeGroupSortIndex(a.employee_group) - getEmployeeGroupSortIndex(b.employee_group);
+        if (groupDiff !== 0) return groupDiff;
+        return (a.name || "").localeCompare(b.name || "", "no");
+      });
+  }
+
+  function renderEmployeeAdminKpis() {
+    const activeEmployees = (state.employees || []).filter(employee => employee.active !== false);
+    const usersLoaded = Boolean(state.accessUsers.lastLoadedAt) || (state.accessUsers.rows || []).length > 0;
+    const usersByEmail = new Set((state.accessUsers.rows || []).map(user => normalizeComparableText(user.email || "")).filter(Boolean));
+    const noAccessCount = usersLoaded
+      ? activeEmployees.filter(employee => {
+        const email = normalizeComparableText(employee.email || "");
+        return !email || !usersByEmail.has(email);
+      }).length
+      : "–";
+    const openRequestsCount = (state.accessRequests.rows || []).filter(row => {
+      const status = String(row.status || "pending").toLowerCase();
+      return status === "pending" || (status === "approved" && !row.setup_completed_at);
+    }).length;
+    const duplicatesCount = getEmployeeAdminDuplicateCount();
+
+    const setText = (id, value) => {
+      const node = document.getElementById(id);
+      if (node) node.textContent = String(value);
+    };
+    setText("employeeAdminKpiActive", activeEmployees.length);
+    setText("employeeAdminKpiNoAccess", noAccessCount);
+    setText("employeeAdminKpiRequests", openRequestsCount);
+    setText("employeeAdminKpiDuplicates", duplicatesCount);
+  }
+
+  function renderEmployeeAdminGroupChips() {
+    const wrap = document.getElementById("employeeAdminGroupChips");
+    if (!wrap) return;
+    const activeEmployees = (state.employees || []).filter(employee => employee.active !== false);
+    const groups = EMPLOYEE_GROUP_DEFINITIONS
+      .map(group => {
+        const count = activeEmployees.filter(employee => normalizeEmployeeGroup(employee.employee_group || "") === group.value).length;
+        return { ...group, count };
+      })
+      .filter(group => group.count > 0);
+
+    wrap.innerHTML = groups.map(group => `
+      <button type="button" data-employee-admin-chip="${escapeHtml(group.value)}" class="rounded-full border px-3 py-1.5 text-xs font-semibold ${state.employeeAdminGroupFilter === group.value ? "border-emerald-300 bg-emerald-50 text-emerald-800" : "border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100"}">
+        ${escapeHtml(getEmployeeGroupLabel(group.value))} <span class="opacity-70">${group.count}</span>
       </button>
-    `}).join("") || `<div class="text-sm text-slate-500">Ingen ansatte enda.</div>`;
+    `).join("");
+  }
 
-    els.employeeList.querySelectorAll("[data-employee-id]").forEach(btn => {
-      btn.addEventListener("click", () => openEmployeeModal(btn.dataset.employeeId));
+  function renderEmployeeAdminDetail(employee) {
+    const detail = document.getElementById("employeeAdminDetail");
+    if (!detail) return;
+
+    if (!employee) {
+      detail.innerHTML = `
+        <div class="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-5 text-sm text-slate-600">
+          Velg en ansatt i listen for å se profil, tilgang og snarveier.
+        </div>
+      `;
+      return;
+    }
+
+    const employeeGroup = normalizeEmployeeGroup(employee.employee_group || "");
+    const initials = (employee.name || "?").split(/\s+/).filter(Boolean).slice(0, 2).map(part => part[0]?.toUpperCase()).join("") || "?";
+    const user = getEmployeeAdminUserForEmployee(employee);
+    const accessLabel = user ? formatRoleLabel(user.role || "employee") : "Ingen tilgang";
+    const accessClass = user ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-amber-200 bg-amber-50 text-amber-700";
+    const statusClass = employee.active !== false ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-rose-200 bg-rose-50 text-rose-700";
+    const statusText = employee.active !== false ? "Aktiv" : "Inaktiv";
+    const upcomingEntries = (state.derived.entriesByEmployee.get(employee.name) || [])
+      .filter(entry => entry.end_date >= toIsoDate(new Date()))
+      .sort((a, b) => a.start_date.localeCompare(b.start_date))
+      .slice(0, 3);
+
+    detail.innerHTML = `
+      <div class="flex items-start gap-3">
+        <div class="grid h-12 w-12 shrink-0 place-items-center rounded-2xl border border-emerald-200 bg-emerald-50 text-base font-black text-emerald-800">${escapeHtml(initials)}</div>
+        <div class="min-w-0 flex-1">
+          <div class="truncate text-xl font-black text-slate-950">${escapeHtml(employee.name || "Ukjent ansatt")}</div>
+          <div class="mt-1 text-sm text-slate-500">${escapeHtml(employee.title || "Ingen stillingstittel")} ${employeeGroup ? `• ${escapeHtml(getEmployeeGroupLabel(employeeGroup))}` : ""}</div>
+          <div class="mt-2 flex flex-wrap gap-2">
+            <span class="rounded-full border px-2.5 py-1 text-xs font-bold ${statusClass}">${escapeHtml(statusText)}</span>
+            <span class="rounded-full border px-2.5 py-1 text-xs font-bold ${accessClass}">${escapeHtml(accessLabel)}</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div class="rounded-xl border border-slate-200 bg-slate-50 p-3"><div class="text-xs font-bold uppercase tracking-wide text-slate-500">Telefon</div><div class="mt-1 text-sm font-semibold text-slate-900">${escapeHtml(employee.phone || "Mangler")}</div></div>
+        <div class="rounded-xl border border-slate-200 bg-slate-50 p-3"><div class="text-xs font-bold uppercase tracking-wide text-slate-500">E-post</div><div class="mt-1 break-words text-sm font-semibold text-slate-900">${escapeHtml(employee.email || "Mangler")}</div></div>
+        <div class="rounded-xl border border-slate-200 bg-slate-50 p-3"><div class="text-xs font-bold uppercase tracking-wide text-slate-500">Employee type</div><div class="mt-1 text-sm font-semibold text-slate-900">${escapeHtml(employee.employee_type || "Ikke satt")}</div></div>
+        <div class="rounded-xl border border-slate-200 bg-slate-50 p-3"><div class="text-xs font-bold uppercase tracking-wide text-slate-500">Gruppe</div><div class="mt-1 text-sm font-semibold text-slate-900">${escapeHtml(getEmployeeGroupLabel(employeeGroup) || "Ikke satt")}</div></div>
+      </div>
+
+      <div class="mt-5 border-t border-slate-200 pt-4">
+        <div class="text-xs font-black uppercase tracking-wide text-slate-500">Rolleadmin</div>
+        <div class="mt-3 space-y-2 text-sm">
+          <div class="flex items-center justify-between rounded-xl border border-slate-200 bg-white p-3"><div><div class="font-bold text-slate-900">Employee / Min side</div><div class="text-xs text-slate-500">Se egen profil og egne oppdrag</div></div><span class="rounded-full border ${user && normalizeRoleValue(user.role) === "employee" ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-slate-200 bg-slate-50 text-slate-500"} px-2 py-1 text-xs font-bold">${user && normalizeRoleValue(user.role) === "employee" ? "På" : "Av"}</span></div>
+          <div class="flex items-center justify-between rounded-xl border border-slate-200 bg-white p-3"><div><div class="font-bold text-slate-900">Planner</div><div class="text-xs text-slate-500">Planlegging og bemanning</div></div><span class="rounded-full border ${user && normalizeRoleValue(user.role) === "planner" ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-slate-200 bg-slate-50 text-slate-500"} px-2 py-1 text-xs font-bold">${user && normalizeRoleValue(user.role) === "planner" ? "På" : "Av"}</span></div>
+          <div class="flex items-center justify-between rounded-xl border border-slate-200 bg-white p-3"><div><div class="font-bold text-slate-900">Admin</div><div class="text-xs text-slate-500">Brukere og tilganger</div></div><span class="rounded-full border ${user && normalizeRoleValue(user.role) === "admin" ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-slate-200 bg-slate-50 text-slate-500"} px-2 py-1 text-xs font-bold">${user && normalizeRoleValue(user.role) === "admin" ? "På" : "Av"}</span></div>
+        </div>
+        <p class="mt-2 text-xs text-slate-500">Rolle og passord endres fortsatt trygt i Brukertilganger-listen under.</p>
+      </div>
+
+      <div class="mt-5 border-t border-slate-200 pt-4">
+        <div class="text-xs font-black uppercase tracking-wide text-slate-500">Neste i plan</div>
+        <div class="mt-3 space-y-2">
+          ${upcomingEntries.length ? upcomingEntries.map(entry => {
+            const project = getProjectById(entry.project_id);
+            return `<div class="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm"><div class="font-bold text-slate-900">${escapeHtml(displayProjectName(project) || "Ukjent prosjekt")}</div><div class="mt-1 text-xs text-slate-500">${escapeHtml(formatDate(entry.start_date))} – ${escapeHtml(formatDate(entry.end_date))}${entry.role ? ` • ${escapeHtml(entry.role)}` : ""}</div></div>`;
+          }).join("") : `<div class="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-500">Ingen kommende tildelinger funnet.</div>`}
+        </div>
+      </div>
+
+      <div class="mt-5 grid grid-cols-1 gap-2 sm:grid-cols-2">
+        <button type="button" data-employee-admin-edit="${escapeHtml(employee.id)}" class="rounded-xl bg-slate-900 px-4 py-2 text-sm font-bold text-white hover:bg-slate-800">Rediger ansatt</button>
+        <button type="button" data-employee-admin-calendar="${escapeHtml(employee.name || "")}" class="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50">Åpne i Ansattplan</button>
+      </div>
+    `;
+  }
+
+  function renderEmployees() {
+    if (!els.employeeList) return;
+    renderEmployeeAdminKpis();
+    renderEmployeeAdminGroupChips();
+
+    const sortedEmployees = getEmployeeAdminFilteredEmployees();
+    const selectedExists = sortedEmployees.some(emp => String(emp.id) === String(state.employeeAdminSelectedId));
+    if (!selectedExists) {
+      state.employeeAdminSelectedId = sortedEmployees[0]?.id || "";
+    }
+    const selectedEmployee = state.employees.find(emp => String(emp.id) === String(state.employeeAdminSelectedId)) || null;
+
+    if (!sortedEmployees.length) {
+      els.employeeList.innerHTML = `<div class="p-5 text-sm text-slate-500">Ingen ansatte matcher filteret.</div>`;
+      renderEmployeeAdminDetail(null);
+      return;
+    }
+
+    els.employeeList.innerHTML = `
+      <div class="min-w-[760px]">
+        <div class="grid grid-cols-[minmax(250px,1.35fr)_150px_170px_130px_110px] gap-3 border-b border-slate-200 bg-slate-50 px-4 py-3 text-xs font-black uppercase tracking-wide text-slate-500">
+          <div>Navn</div><div>Stilling</div><div>Gruppe</div><div>Tilgang</div><div>Status</div>
+        </div>
+        ${sortedEmployees.map(emp => {
+          const employeeGroup = normalizeEmployeeGroup(emp.employee_group || "");
+          const isSelected = String(emp.id) === String(state.employeeAdminSelectedId);
+          const user = getEmployeeAdminUserForEmployee(emp);
+          const accessText = user ? formatRoleLabel(user.role || "employee") : "Ingen tilgang";
+          const accessClass = user ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-amber-200 bg-amber-50 text-amber-700";
+          const statusClass = emp.active !== false ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-rose-200 bg-rose-50 text-rose-700";
+          return `
+            <button type="button" data-employee-select-id="${escapeHtml(emp.id)}" class="grid w-full grid-cols-[minmax(250px,1.35fr)_150px_170px_130px_110px] gap-3 border-b border-slate-100 px-4 py-3 text-left text-sm transition hover:bg-slate-50 ${isSelected ? "bg-emerald-50/70 ring-1 ring-inset ring-emerald-200" : "bg-white"}">
+              <div class="min-w-0">
+                <div class="flex min-w-0 items-center gap-2 font-black text-slate-950">
+                  ${getEmployeeGroupIconHtml(employeeGroup, "inline-flex h-4 w-4 items-center justify-center text-slate-500 shrink-0")}
+                  <span class="truncate">${escapeHtml(emp.name || "Ukjent")}</span>
+                </div>
+                <div class="mt-1 truncate text-xs text-slate-500">${escapeHtml([emp.phone, emp.email].filter(Boolean).join(" · ") || "Mangler kontaktinfo")}</div>
+              </div>
+              <div class="self-center truncate text-slate-700">${escapeHtml(emp.title || "Ikke satt")}</div>
+              <div class="self-center"><span class="inline-flex max-w-full items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-bold text-slate-700">${getEmployeeGroupIconHtml(employeeGroup, "inline-flex h-3.5 w-3.5 items-center justify-center text-slate-500 shrink-0")}<span class="truncate">${escapeHtml(getEmployeeGroupLabel(employeeGroup) || "Ingen gruppe")}</span></span></div>
+              <div class="self-center"><span class="rounded-full border px-2.5 py-1 text-xs font-bold ${accessClass}">${escapeHtml(accessText)}</span></div>
+              <div class="self-center"><span class="rounded-full border px-2.5 py-1 text-xs font-bold ${statusClass}">${emp.active !== false ? "Aktiv" : "Inaktiv"}</span></div>
+            </button>
+          `;
+        }).join("")}
+      </div>
+    `;
+
+    renderEmployeeAdminDetail(selectedEmployee);
+
+    els.employeeList.querySelectorAll("[data-employee-select-id]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        state.employeeAdminSelectedId = btn.dataset.employeeSelectId || "";
+        renderEmployees();
+      });
     });
+
+    const detail = document.getElementById("employeeAdminDetail");
+    if (detail) {
+      detail.querySelectorAll("[data-employee-admin-edit]").forEach(btn => {
+        btn.addEventListener("click", () => openEmployeeModal(btn.dataset.employeeAdminEdit || ""));
+      });
+      detail.querySelectorAll("[data-employee-admin-calendar]").forEach(btn => {
+        btn.addEventListener("click", () => {
+          state.employeeFilter = btn.dataset.employeeAdminCalendar || "Alle ansatte";
+          setActiveTab("calendar");
+          renderAll();
+        });
+      });
+    }
   }
 
   function renderKanban() {
