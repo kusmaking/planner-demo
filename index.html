@@ -710,6 +710,15 @@
       border-color: #22d3a6;
       color: #d7fff3;
     }
+    .iz-employee-admin-btn.danger {
+      background: #30151b;
+      border-color: #7f2b3a;
+      color: #fecdd3;
+    }
+    .iz-employee-admin-btn:disabled {
+      cursor: not-allowed;
+      opacity: .48;
+    }
     .iz-employee-admin-kpis {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -985,6 +994,83 @@
       padding: 11px;
       font-size: 12px;
       color: #fef3c7;
+    }
+    .iz-employee-admin-notice.compact {
+      margin-top: 10px;
+      padding: 9px 10px;
+    }
+    .iz-employee-admin-access-card {
+      border: 1px solid #284853;
+      background: linear-gradient(180deg, #0b181e, #08141a);
+      padding: 12px;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.03);
+    }
+    .iz-employee-admin-access-card.request { border-color: #4a3f1f; background: linear-gradient(180deg, #151b16, #10150f); }
+    .iz-employee-admin-access-card.missing { border-color: #3f2930; background: linear-gradient(180deg, #160f13, #100b0e); }
+    .iz-employee-admin-access-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    .iz-employee-admin-access-title {
+      font-size: 14px;
+      font-weight: 900;
+      color: #effafd;
+    }
+    .iz-employee-admin-access-sub,
+    .iz-employee-admin-access-meta {
+      margin-top: 3px;
+      font-size: 12px;
+      color: #8da2aa;
+    }
+    .iz-employee-admin-access-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      gap: 8px;
+      margin-top: 10px;
+    }
+    @media (min-width: 760px) {
+      .iz-employee-admin-access-grid { grid-template-columns: minmax(0, 1fr) auto auto; align-items: end; }
+      .iz-employee-admin-access-grid.password { grid-template-columns: minmax(0, 1fr) auto auto; }
+    }
+    .iz-employee-admin-access-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 11px;
+    }
+    .iz-employee-admin-control {
+      display: block;
+      min-width: 0;
+      color: #d8e7eb;
+      font-size: 12px;
+      font-weight: 800;
+    }
+    .iz-employee-admin-control span {
+      display: block;
+      margin-bottom: 5px;
+      color: #849aa2;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: .07em;
+      font-weight: 850;
+    }
+    .iz-employee-admin-control input,
+    .iz-employee-admin-control select {
+      width: 100%;
+      border: 1px solid #294651;
+      background: #102129;
+      color: #e8f2f5;
+      padding: 9px 10px;
+      font-size: 13px;
+      outline: none;
+    }
+    .iz-employee-admin-control input:focus,
+    .iz-employee-admin-control select:focus {
+      border-color: #22d3a6;
+      box-shadow: 0 0 0 2px rgba(34,211,166,.15);
     }
     .iz-employee-admin-linkitem {
       display: grid;
@@ -4522,7 +4608,7 @@
           <div>
             <div class="iz-employee-admin-eyebrow">Register</div>
             <h2 class="iz-employee-admin-title">Ansatte og tilganger</h2>
-            <p class="iz-employee-admin-description">Søk, filtrer og kontroller ansatte, tilgangsstatus og søknader fra samme side. Ansattregisteret er fortsatt masterlisten, mens tilgangspanelene bruker eksisterende funksjoner.</p>
+            <p class="iz-employee-admin-description">Søk, filtrer og kontroller ansatte og brukertilgang direkte fra ansattkortet. Alle tilgangspaneler ligger fortsatt tilgjengelig under avansert oversikt.</p>
           </div>
           <div class="iz-employee-admin-actionbar">
             <button id="newEmployeeBtn" class="iz-employee-admin-btn primary">+ Ny ansatt</button>
@@ -4589,8 +4675,8 @@
       <details id="employeeAccessAdmin" class="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
         <summary class="cursor-pointer list-none p-4 border-b border-slate-200 flex items-center justify-between gap-3">
           <div>
-            <div class="font-semibold text-slate-950">Tilganger og søknader</div>
-            <div class="text-sm text-slate-500">Bruk samme side for å kontrollere ansatte, brukertilganger og åpne tilgangssøknader. Eksisterende rolle- og godkjenningsfunksjoner er beholdt.</div>
+            <div class="font-semibold text-slate-950">Alle tilganger og søknader</div>
+            <div class="text-sm text-slate-500">Avansert oversikt. Daglig kontroll gjøres nå direkte fra valgt ansattkort.</div>
           </div>
           <span class="text-sm font-medium text-slate-500">Åpne/lukk</span>
         </summary>

@@ -2265,6 +2265,7 @@
     } finally {
       state.accessRequests.loading = false;
       renderAccessRequests();
+      renderEmployees();
     }
   }
 
@@ -3331,6 +3332,7 @@ Dette oppretter ikke Auth-bruker. Hvis Auth-brukeren mangler, får du en tydelig
       state.accessUsers.loading = false;
       renderAccessUsers();
       renderAccessRequests();
+      renderEmployees();
     }
   }
 
@@ -3513,6 +3515,16 @@ Dette oppretter ikke Auth-bruker. Hvis Auth-brukeren mangler, får du en tydelig
     return (state.accessUsers.rows || []).find(row => row.id === userId) || null;
   }
 
+  function getAccessUserControlRow(userId, sourceRow = null) {
+    if (sourceRow) return sourceRow;
+    if (!userId) return null;
+    const selector = `[data-access-user-row-id="${CSS.escape(userId)}"]`;
+    return document.getElementById("employeeAdminDetail")?.querySelector?.(selector)
+      || els.accessUsersList?.querySelector?.(selector)
+      || document.querySelector?.(selector)
+      || null;
+  }
+
   async function updateAccessUserActive(userId, action) {
     if (!canManageUserAccess()) {
       alert("Du har ikke tilgang til å administrere brukertilganger.");
@@ -3540,12 +3552,13 @@ Dette oppretter ikke Auth-bruker. Hvis Auth-brukeren mangler, får du en tydelig
       });
       await fetchAccessUsers({ silent: true });
       renderAccessUsers();
+      renderEmployees();
     } catch (error) {
       alert(`Kunne ikke oppdatere brukertilgang: ${error?.message || "Ukjent feil"}`);
     }
   }
 
-  async function updateAccessUserRole(userId) {
+  async function updateAccessUserRole(userId, sourceRow = null) {
     if (!canManageUserAccess()) {
       alert("Du har ikke tilgang til å administrere brukertilganger.");
       return;
@@ -3558,7 +3571,7 @@ Dette oppretter ikke Auth-bruker. Hvis Auth-brukeren mangler, får du en tydelig
       return;
     }
 
-    const row = els.accessUsersList?.querySelector?.(`[data-access-user-row-id="${CSS.escape(userId)}"]`);
+    const row = getAccessUserControlRow(userId, sourceRow);
     const role = normalizeRoleValue(row?.querySelector?.(`[data-access-user-role="${CSS.escape(userId)}"]`)?.value || "");
 
     if (!canAssignAccessRole(role)) {
@@ -3577,6 +3590,7 @@ Dette oppretter ikke Auth-bruker. Hvis Auth-brukeren mangler, får du en tydelig
       });
       await fetchAccessUsers({ silent: true });
       renderAccessUsers();
+      renderEmployees();
     } catch (error) {
       const message = error?.message || "Ukjent feil";
       if (message.includes("EMPLOYEE_PROFILE_REQUIRED")) {
@@ -3589,8 +3603,8 @@ Dette oppretter ikke Auth-bruker. Hvis Auth-brukeren mangler, får du en tydelig
     }
   }
 
-  function generatePasswordForAccessUser(userId) {
-    const row = els.accessUsersList?.querySelector?.(`[data-access-user-row-id="${CSS.escape(userId)}"]`);
+  function generatePasswordForAccessUser(userId, sourceRow = null) {
+    const row = getAccessUserControlRow(userId, sourceRow);
     const input = row?.querySelector?.(`[data-access-user-password="${CSS.escape(userId)}"]`);
     if (!input) return;
     input.value = generateTemporaryAccessPassword();
@@ -3598,7 +3612,7 @@ Dette oppretter ikke Auth-bruker. Hvis Auth-brukeren mangler, får du en tydelig
     input.select?.();
   }
 
-  async function setTemporaryPasswordForAccessUser(userId) {
+  async function setTemporaryPasswordForAccessUser(userId, sourceRow = null) {
     if (!canManageUserAccess()) {
       alert("Du har ikke tilgang til å administrere brukertilganger.");
       return;
@@ -3611,7 +3625,7 @@ Dette oppretter ikke Auth-bruker. Hvis Auth-brukeren mangler, får du en tydelig
       return;
     }
 
-    const row = els.accessUsersList?.querySelector?.(`[data-access-user-row-id="${CSS.escape(userId)}"]`);
+    const row = getAccessUserControlRow(userId, sourceRow);
     const input = row?.querySelector?.(`[data-access-user-password="${CSS.escape(userId)}"]`);
     const temporaryPassword = (input?.value || getAccessUserDraftPassword(userId) || "").trim();
 
@@ -4628,10 +4642,11 @@ Dette oppretter ikke Auth-bruker. Hvis Auth-brukeren mangler, får du en tydelig
         const userId = button.dataset.accessUserId || "";
         const action = button.dataset.accessUserAction || "";
         if (!userId || !action) return;
+        const sourceRow = button.closest("[data-access-user-row-id]");
         if (action === "toggle-active") updateAccessUserActive(userId, button.dataset.accessUserNextAction || "");
-        else if (action === "set-role") updateAccessUserRole(userId);
-        else if (action === "generate-password") generatePasswordForAccessUser(userId);
-        else if (action === "set-password") setTemporaryPasswordForAccessUser(userId);
+        else if (action === "set-role") updateAccessUserRole(userId, sourceRow);
+        else if (action === "generate-password") generatePasswordForAccessUser(userId, sourceRow);
+        else if (action === "set-password") setTemporaryPasswordForAccessUser(userId, sourceRow);
       });
       els.accessUsersList.addEventListener("input", event => {
         const input = event.target?.closest?.("[data-access-user-password]");
@@ -9949,6 +9964,124 @@ async function deleteEditedEntry() {
     return { label: "Ingen tilgang", state: "missing", note: "Finnes i ansattregister" };
   }
 
+  function getEmployeeAdminPrimaryAccessRequest(employee) {
+    const rows = findEmployeeAdminAccessRequests(employee);
+    if (!rows.length) return null;
+
+    return rows.slice().sort((a, b) => {
+      const rank = row => {
+        const status = String(row.status || "pending").toLowerCase();
+        if (status === "pending") return 0;
+        if (status === "approved" && !row.setup_completed_at) return 1;
+        if (status === "approved" && row.setup_completed_at) return 2;
+        if (status === "rejected") return 3;
+        return 4;
+      };
+      const diff = rank(a) - rank(b);
+      if (diff !== 0) return diff;
+      return new Date(b.created_at || 0) - new Date(a.created_at || 0);
+    })[0] || null;
+  }
+
+  function renderEmployeeAdminAccessControl(employee, accessInfo) {
+    const accessUser = findEmployeeAdminAccessUser(employee);
+
+    if (accessUser) {
+      const isCurrentUser = accessUser.id === state.currentUserId;
+      const isActive = accessUser.is_active !== false;
+      const targetRole = normalizeRoleValue(accessUser.role);
+      const isProtectedSuperadmin = targetRole === "superadmin";
+      const canManageTarget = canCurrentUserManageAccessTarget(accessUser);
+      const disabled = canManageTarget ? "" : "disabled";
+      const disabledReason = isCurrentUser
+        ? "Du kan ikke endre egen bruker fra ansattkortet."
+        : isProtectedSuperadmin
+          ? "Superadmin er låst i vanlig UI."
+          : !canManageTarget
+            ? "Din rolle kan ikke administrere denne brukeren."
+            : "";
+      const actionLabel = isActive ? "Deaktiver tilgang" : "Aktiver tilgang";
+      const nextAction = isActive ? "deactivate" : "activate";
+      const passwordDraft = getAccessUserDraftPassword(String(accessUser.id || ""));
+
+      return `
+        <div class="iz-employee-admin-access-card" data-access-user-row-id="${escapeHtml(accessUser.id)}" data-employee-card-access="true">
+          <div class="iz-employee-admin-access-head">
+            <div class="min-w-0">
+              <div class="iz-employee-admin-access-title">Brukertilgang</div>
+              <div class="iz-employee-admin-access-sub truncate">${escapeHtml(accessUser.email || employee.email || "Ingen e-post")}</div>
+            </div>
+            <span class="iz-employee-admin-status ${isActive ? "is-active" : "is-inactive"}">${isActive ? "Aktiv" : "Deaktivert"}</span>
+          </div>
+
+          ${disabledReason ? `<div class="iz-employee-admin-notice compact">${escapeHtml(disabledReason)}</div>` : ""}
+
+          <div class="iz-employee-admin-access-grid">
+            <label class="iz-employee-admin-control">
+              <span>Rolle</span>
+              <select data-access-user-role="${escapeHtml(accessUser.id)}" ${disabled || isProtectedSuperadmin ? "disabled" : ""}>
+                ${getAccessUserRoleOptions(accessUser.role)}
+              </select>
+            </label>
+            <button type="button" class="iz-employee-admin-btn" data-access-user-action="set-role" data-access-user-id="${escapeHtml(accessUser.id)}" ${disabled || isProtectedSuperadmin ? "disabled" : ""}>Lagre rolle</button>
+            <button type="button" class="iz-employee-admin-btn ${isActive ? "danger" : "primary"}" data-access-user-action="toggle-active" data-access-user-id="${escapeHtml(accessUser.id)}" data-access-user-next-action="${escapeHtml(nextAction)}" ${disabled}>${escapeHtml(actionLabel)}</button>
+          </div>
+
+          <div class="iz-employee-admin-access-grid password">
+            <label class="iz-employee-admin-control">
+              <span>Midlertidig passord</span>
+              <input data-access-user-password="${escapeHtml(accessUser.id)}" type="text" autocomplete="off" value="${escapeHtml(passwordDraft)}" placeholder="Skriv/generer passord" ${disabled ? "disabled" : ""} />
+            </label>
+            <button type="button" class="iz-employee-admin-btn" data-access-user-action="generate-password" data-access-user-id="${escapeHtml(accessUser.id)}" ${disabled}>Generer</button>
+            <button type="button" class="iz-employee-admin-btn primary" data-access-user-action="set-password" data-access-user-id="${escapeHtml(accessUser.id)}" ${disabled}>Sett passord</button>
+          </div>
+        </div>
+      `;
+    }
+
+    const request = getEmployeeAdminPrimaryAccessRequest(employee);
+    if (request) {
+      const status = String(request.status || "pending").toLowerCase();
+      const isPending = status === "pending";
+      const isApprovedButOpen = status === "approved" && !request.setup_completed_at;
+      const statusLabel = request.setup_completed_at ? "Oppsatt" : formatAccessRequestStatus(status);
+      return `
+        <div class="iz-employee-admin-access-card request" data-employee-card-request-id="${escapeHtml(request.id)}">
+          <div class="iz-employee-admin-access-head">
+            <div class="min-w-0">
+              <div class="iz-employee-admin-access-title">Tilgangssøknad</div>
+              <div class="iz-employee-admin-access-sub truncate">${escapeHtml(request.email || employee.email || "Ingen e-post")} • ${escapeHtml(formatRequestedAccess(request.approved_role || request.requested_access))}</div>
+            </div>
+            <span class="iz-employee-admin-status ${request.setup_completed_at ? "is-active" : ""}">${escapeHtml(statusLabel)}</span>
+          </div>
+          <div class="iz-employee-admin-access-meta">Sendt ${escapeHtml(formatAccessRequestDate(request.created_at))}${request.phone ? ` • ${escapeHtml(request.phone)}` : ""}</div>
+          <div class="iz-employee-admin-access-actions">
+            ${isPending && canApproveAccessRequests() ? `
+              <button type="button" class="iz-employee-admin-btn primary" data-employee-card-access-request-action="approved" data-access-request-id="${escapeHtml(request.id)}">Godkjenn</button>
+              <button type="button" class="iz-employee-admin-btn danger" data-employee-card-access-request-action="rejected" data-access-request-id="${escapeHtml(request.id)}">Avslå</button>
+            ` : ""}
+            ${isApprovedButOpen ? `<button type="button" class="iz-employee-admin-btn primary" data-employee-card-open-request="${escapeHtml(request.id)}">Fullfør tilgang</button>` : ""}
+            <button type="button" class="iz-employee-admin-btn" data-employee-card-open-request="${escapeHtml(request.id)}">Vis i søknader</button>
+          </div>
+        </div>
+      `;
+    }
+
+    return `
+      <div class="iz-employee-admin-access-card missing">
+        <div class="iz-employee-admin-access-head">
+          <div class="min-w-0">
+            <div class="iz-employee-admin-access-title">Ingen brukertilgang</div>
+            <div class="iz-employee-admin-access-sub">Ansatt finnes i registeret, men har ikke innlogging ennå.</div>
+          </div>
+          <span class="iz-employee-admin-status is-inactive">Mangler</span>
+        </div>
+        <div class="iz-employee-admin-notice compact">Når den ansatte søker tilgang, skal søknaden kobles til denne eksisterende ansatte. Ikke opprett ny ansatt hvis personen allerede finnes i registeret.</div>
+        <button type="button" class="iz-employee-admin-btn" data-employee-admin-open-admin>Vis tilgangssøknader</button>
+      </div>
+    `;
+  }
+
   function renderEmployeeAdminDetail(employee) {
     const detail = document.getElementById("employeeAdminDetail");
     if (!detail) return;
@@ -9993,12 +10126,6 @@ async function deleteEditedEntry() {
         </div>
       </div>
 
-      <div class="iz-employee-admin-tabs">
-        <div class="iz-employee-admin-tab active">Profil</div>
-        <div class="iz-employee-admin-tab">Tilgang</div>
-        <div class="iz-employee-admin-tab">Plan</div>
-      </div>
-
       <div class="iz-employee-admin-fieldgrid">
         <div class="iz-employee-admin-field"><label>Telefon</label><div>${escapeHtml(employee.phone || "Ingen telefon")}</div></div>
         <div class="iz-employee-admin-field"><label>E-post</label><div>${escapeHtml(employee.email || "Ingen e-post")}</div></div>
@@ -10006,16 +10133,8 @@ async function deleteEditedEntry() {
         <div class="iz-employee-admin-field"><label>Gruppe</label><div>${escapeHtml(groupLabel)}</div></div>
       </div>
 
-      <div class="iz-employee-admin-section-title">Tilgang</div>
-      <div class="iz-employee-admin-linkitem">
-        <div class="iz-employee-admin-linkico">🔐</div>
-        <div class="min-w-0">
-          <div class="text-sm font-bold text-slate-100 truncate">${escapeHtml(accessInfo.label)}</div>
-          <div class="text-xs text-slate-400 truncate">${escapeHtml(accessInfo.note)}</div>
-        </div>
-        <span class="iz-employee-admin-status ${accessStatusClass}">${accessInfo.state === "active" ? "Aktiv" : accessInfo.state === "pending" ? "Venter" : "Mangler"}</span>
-      </div>
-      <div class="iz-employee-admin-notice">Ansattregisteret beholdes som master. Tilgangssøknader skal kobles til eksisterende ansatt før ny ansatt opprettes.</div>
+      <div class="iz-employee-admin-section-title">Tilgang på ansattkortet</div>
+      ${renderEmployeeAdminAccessControl(employee, accessInfo)}
 
       <div class="iz-employee-admin-section-title">Kommende plan</div>
       ${nextEntriesHtml}
@@ -10023,7 +10142,7 @@ async function deleteEditedEntry() {
       <div class="mt-4 flex flex-wrap gap-2">
         <button type="button" class="iz-employee-admin-btn primary" data-employee-admin-edit="${escapeHtml(employee.id)}">Rediger ansatt</button>
         <button type="button" class="iz-employee-admin-btn" data-employee-admin-open-calendar="${escapeHtml(employee.name || "")}">Åpne i Ansattplan</button>
-        <button type="button" class="iz-employee-admin-btn" data-employee-admin-open-admin>Tilgangsadmin</button>
+        <button type="button" class="iz-employee-admin-btn" data-employee-admin-open-admin>Alle tilganger</button>
       </div>
     `;
 
@@ -10042,15 +10161,56 @@ async function deleteEditedEntry() {
       renderEmployeeGroupFilterControl();
       openPersonalCalendarView();
     });
-    detail.querySelector("[data-employee-admin-open-admin]")?.addEventListener("click", () => {
-      const accessPanel = document.getElementById("employeeAccessAdmin");
-      if (accessPanel) {
-        accessPanel.open = true;
-        accessPanel.scrollIntoView({ behavior: "smooth", block: "start" });
-      } else {
-        setActiveTab("admin");
-      }
+    detail.querySelectorAll("[data-access-user-action]").forEach(button => {
+      button.addEventListener("click", event => {
+        const sourceRow = event.currentTarget.closest("[data-access-user-row-id]");
+        const userId = event.currentTarget.dataset.accessUserId || "";
+        const action = event.currentTarget.dataset.accessUserAction || "";
+        if (!userId || !action) return;
+        if (action === "toggle-active") updateAccessUserActive(userId, event.currentTarget.dataset.accessUserNextAction || "");
+        else if (action === "set-role") updateAccessUserRole(userId, sourceRow);
+        else if (action === "generate-password") generatePasswordForAccessUser(userId, sourceRow);
+        else if (action === "set-password") setTemporaryPasswordForAccessUser(userId, sourceRow);
+      });
     });
+
+    detail.querySelectorAll("[data-access-user-password]").forEach(input => {
+      input.addEventListener("input", event => {
+        const userId = event.currentTarget.dataset.accessUserPassword || "";
+        setAccessUserDraftPassword(userId, event.currentTarget.value || "");
+      });
+    });
+
+    detail.querySelectorAll("[data-employee-card-access-request-action]").forEach(button => {
+      button.addEventListener("click", async event => {
+        const requestId = event.currentTarget.dataset.accessRequestId || "";
+        const action = event.currentTarget.dataset.employeeCardAccessRequestAction || "";
+        if (!requestId || !action) return;
+        await updateAccessRequestStatus(requestId, action);
+        renderEmployees();
+      });
+    });
+
+    detail.querySelectorAll("[data-employee-card-open-request]").forEach(button => {
+      button.addEventListener("click", () => openEmployeeAccessPanel(button.dataset.employeeCardOpenRequest || ""));
+    });
+
+    detail.querySelectorAll("[data-employee-admin-open-admin]").forEach(button => {
+      button.addEventListener("click", () => openEmployeeAccessPanel());
+    });
+  }
+
+  function openEmployeeAccessPanel(requestId = "") {
+    const accessPanel = document.getElementById("employeeAccessAdmin");
+    if (accessPanel) {
+      accessPanel.open = true;
+      const target = requestId
+        ? accessPanel.querySelector(`[data-access-request-row-id="${CSS.escape(requestId)}"]`)
+        : accessPanel;
+      (target || accessPanel).scrollIntoView({ behavior: "smooth", block: "start" });
+    } else {
+      setActiveTab("admin");
+    }
   }
 
   function renderEmployees() {
