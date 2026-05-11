@@ -1,6 +1,7 @@
 (() => {
   // v18.49b-employee-crew-layout-fix-safe
   // v18.48-employee-calendar-layout-v1-safe
+  // v18.54-access-user-management-ui-v1
   // v18.53-access-one-flow-employee-setup-ui-v1
   // v18.51-access-setup-checklist-ui-v1-safe
   // v18.50-access-setup-rpc-ui-v1-safe
@@ -1103,6 +1104,7 @@
   function normalizeRoleValue(role) {
     const normalized = String(role || "").trim().toLowerCase();
     if (normalized === "planlegger") return "planner";
+    if (normalized === "leser") return "reader";
     if (["ansatt", "employee", "medarbeider", "user"].includes(normalized)) return "employee";
     return normalized;
   }
@@ -1119,12 +1121,16 @@
     return normalizeRoleValue(state.currentRole) === "admin";
   }
 
+  function isPlannerOnlyUser() {
+    return normalizeRoleValue(state.currentRole) === "planner";
+  }
+
   function canApproveAccessRequests() {
-    return isSuperadmin() || isAdminUser();
+    return isSuperadmin() || isAdminUser() || isPlannerOnlyUser();
   }
 
   function canManageUserAccess() {
-    return isSuperadmin();
+    return isSuperadmin() || isAdminUser() || isPlannerOnlyUser();
   }
 
   function isPlanner() {
@@ -2435,14 +2441,42 @@
     `;
   }
 
+  function getAllowedAccessRoleOptions() {
+    const role = normalizeRoleValue(state.currentRole);
+    if (role === "superadmin" || role === "admin") {
+      return [
+        ["employee", "Ansatt / Min side"],
+        ["reader", "Lesetilgang"],
+        ["planner", "Planlegger"],
+        ["admin", "Admin"]
+      ];
+    }
+    if (role === "planner") {
+      return [
+        ["employee", "Ansatt / Min side"],
+        ["reader", "Lesetilgang"],
+        ["planner", "Planlegger"]
+      ];
+    }
+    return [];
+  }
+
   function getAccessSetupRoleOptions(selectedValue) {
     const selected = String(selectedValue || "").toLowerCase();
-    return [
-      ["employee", "Ansatt / Min side"],
-      ["reader", "Lesetilgang"],
-      ["planner", "Planlegger"],
-      ["admin", "Admin"]
-    ].map(([value, label]) => `<option value="${value}" ${selected === value ? "selected" : ""}>${escapeHtml(label)}</option>`).join("");
+    const options = getAllowedAccessRoleOptions();
+    return options.map(([value, label]) => `<option value="${value}" ${selected === value ? "selected" : ""}>${escapeHtml(label)}</option>`).join("");
+  }
+
+  function canAssignAccessRole(role) {
+    const normalized = normalizeRoleValue(role);
+    return Boolean(normalized) && getAllowedAccessRoleOptions().some(([value]) => value === normalized);
+  }
+
+  function getDefaultAssignableAccessRole(preferredRole = "employee") {
+    const normalized = normalizeRoleValue(preferredRole);
+    if (canAssignAccessRole(normalized)) return normalized;
+    const first = getAllowedAccessRoleOptions()[0];
+    return first?.[0] || "employee";
   }
 
   function getAccessSetupEmployeeOptions(selectedEmployeeId, row = null) {
@@ -2526,13 +2560,15 @@
     if (!["pending", "approved"].includes(status) || row.setup_completed_at || !canComplete) return "";
 
     const selectedRole = String(row.approved_role || row.requested_access || "employee").toLowerCase();
-    const safeRole = ["employee", "reader", "planner", "admin"].includes(selectedRole) ? selectedRole : "employee";
+    const safeRole = getDefaultAssignableAccessRole(selectedRole);
     const defaultTitle = row.full_name ? "Ansatt" : "";
     const defaultType = getAccessCompleteDefaultType(row);
     const defaultGroup = getAccessCompleteDefaultGroup(row);
     const adminNote = isSuperadmin()
       ? "Superadmin kan sette employee, reader, planner og admin."
-      : "Admin kan sette employee, reader og planner. Admin-rolle krever superadmin.";
+      : isAdminUser()
+        ? "Admin kan sette employee, reader, planner og admin."
+        : "Planner kan sette employee, reader og planner. Admin-rolle krever admin/superadmin.";
 
     return `
       <div class="border-t border-slate-200 bg-slate-50 p-5" data-access-complete-panel="${escapeHtml(row.id)}">
@@ -2740,7 +2776,7 @@
 
   async function completeAccessRequestFromAdmin(requestId) {
     if (!canApproveAccessRequests()) {
-      alert("Kun superadmin/admin kan opprette komplett tilgang fra tilgangssøknad.");
+      alert("Kun superadmin/admin/planner kan opprette komplett tilgang fra tilgangssøknad.");
       return;
     }
 
@@ -2771,13 +2807,8 @@
     const employeeType = panel.querySelector?.(`[data-access-complete-employee-type="${CSS.escape(requestId)}"]`)?.value?.trim() || "";
     const employeeGroup = normalizeEmployeeGroup(panel.querySelector?.(`[data-access-complete-employee-group="${CSS.escape(requestId)}"]`)?.value || "");
 
-    if (!["employee", "reader", "planner", "admin"].includes(normalizedRole)) {
-      alert("Velg en gyldig rolle.");
-      return;
-    }
-
-    if (normalizedRole === "admin" && !isSuperadmin()) {
-      alert("Kun superadmin kan sette opp admin-rolle.");
+    if (!["employee", "reader", "planner", "admin"].includes(normalizedRole) || !canAssignAccessRole(normalizedRole)) {
+      alert("Du har ikke tilgang til å sette denne rollen.");
       return;
     }
 
@@ -2852,8 +2883,8 @@
       renderAll();
     } catch (error) {
       const message = error?.message || "Ukjent feil";
-      if (message.includes("ADMIN_ROLE_REQUIRES_SUPERADMIN")) {
-        alert("Kun superadmin kan sette opp admin-rolle.");
+      if (message.includes("ROLE_NOT_ALLOWED_FOR_CALLER") || message.includes("ADMIN_ROLE_REQUIRES_SUPERADMIN")) {
+        alert("Du har ikke tilgang til å sette denne rollen.");
       } else if (message.includes("TEMPORARY_PASSWORD_REQUIRED")) {
         alert("Midlertidig passord må være minst 8 tegn.");
       } else if (message.includes("EMPLOYEE_TYPE_REQUIRED") || message.includes("EMPLOYEE_GROUP_REQUIRED") || message.includes("TITLE_REQUIRED")) {
@@ -3087,6 +3118,28 @@ Dette oppretter ikke Auth-bruker. Hvis Auth-brukeren mangler, får du en tydelig
       : "border-emerald-200 bg-emerald-50 text-emerald-700";
   }
 
+  function canCurrentUserManageAccessTarget(row) {
+    if (!row?.id) return false;
+    if (row.id === state.currentUserId) return false;
+    const currentRole = normalizeRoleValue(state.currentRole);
+    const targetRole = normalizeRoleValue(row.role);
+    if (targetRole === "superadmin") return false;
+    if (currentRole === "superadmin" || currentRole === "admin") return true;
+    if (currentRole === "planner") return ["employee", "reader", "planner"].includes(targetRole);
+    return false;
+  }
+
+  function getAccessUserRoleOptions(selectedValue) {
+    const selected = normalizeRoleValue(selectedValue || "");
+    const options = getAllowedAccessRoleOptions().slice();
+    if (selected && !options.some(([value]) => value === selected)) {
+      options.unshift([selected, formatRoleLabel(selected) || selected]);
+    }
+    return options
+      .map(([value, label]) => `<option value="${escapeHtml(value)}" ${selected === value ? "selected" : ""}>${escapeHtml(label)}</option>`)
+      .join("");
+  }
+
   function renderAccessUsers() {
     if (!els.accessUsersList) return;
 
@@ -3122,25 +3175,54 @@ Dette oppretter ikke Auth-bruker. Hvis Auth-brukeren mangler, får du en tydelig
     els.accessUsersList.innerHTML = rows.map(row => {
       const isCurrentUser = row.id === state.currentUserId;
       const isActive = row.is_active !== false;
+      const targetRole = normalizeRoleValue(row.role);
+      const isProtectedSuperadmin = targetRole === "superadmin";
+      const canManageTarget = canCurrentUserManageAccessTarget(row);
       const actionLabel = isActive ? "Deaktiver" : "Aktiver";
-      const nextActive = isActive ? "false" : "true";
-      const disabled = isCurrentUser ? "disabled" : "";
-      const disabledHint = isCurrentUser ? `<div class="text-xs text-slate-400">Du kan ikke deaktivere egen superadmin-bruker.</div>` : "";
+      const nextAction = isActive ? "deactivate" : "activate";
+      const disabled = canManageTarget ? "" : "disabled";
+      const disabledReason = isCurrentUser
+        ? "Du kan ikke endre eller deaktivere egen bruker."
+        : isProtectedSuperadmin
+          ? "Superadmin er låst i vanlig UI."
+          : !canManageTarget
+            ? "Din rolle kan ikke administrere denne brukeren."
+            : "";
+      const passwordInputId = `access-user-password-${row.id}`;
       return `
-        <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-          <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-            <div class="min-w-0 space-y-1">
-              <div class="flex flex-wrap items-center gap-2">
-                <div class="font-semibold text-slate-900">${escapeHtml(row.full_name || row.email || "Uten navn")}</div>
-                <span class="rounded-full border px-2.5 py-1 text-xs font-semibold ${getAccessUserStatusBadgeClass(row.is_active)}">${isActive ? "Aktiv" : "Deaktivert"}</span>
-                <span class="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-semibold text-slate-600">${escapeHtml(formatRoleLabel(row.role))}</span>
+        <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm" data-access-user-row-id="${escapeHtml(row.id)}">
+          <div class="flex flex-col gap-4">
+            <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+              <div class="min-w-0 space-y-1">
+                <div class="flex flex-wrap items-center gap-2">
+                  <div class="font-semibold text-slate-900">${escapeHtml(row.full_name || row.email || "Uten navn")}</div>
+                  <span class="rounded-full border px-2.5 py-1 text-xs font-semibold ${getAccessUserStatusBadgeClass(row.is_active)}">${isActive ? "Aktiv" : "Deaktivert"}</span>
+                  <span class="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-semibold text-slate-600">${escapeHtml(formatRoleLabel(row.role))}</span>
+                </div>
+                <div class="text-sm text-slate-600">${escapeHtml(row.email || "Ingen e-post")}</div>
+                <div class="text-xs text-slate-500">Opprettet ${escapeHtml(formatAccessRequestDate(row.created_at))}${row.updated_at ? ` • Sist endret ${escapeHtml(formatAccessRequestDate(row.updated_at))}` : ""}</div>
+                ${disabledReason ? `<div class="text-xs font-medium text-slate-400">${escapeHtml(disabledReason)}</div>` : ""}
               </div>
-              <div class="text-sm text-slate-600">${escapeHtml(row.email || "Ingen e-post")}</div>
-              <div class="text-xs text-slate-500">Opprettet ${escapeHtml(formatAccessRequestDate(row.created_at))}${row.updated_at ? ` • Sist endret ${escapeHtml(formatAccessRequestDate(row.updated_at))}` : ""}</div>
-              ${disabledHint}
+              <div class="flex shrink-0 flex-wrap gap-2">
+                <button type="button" data-access-user-action="toggle-active" data-access-user-id="${escapeHtml(row.id)}" data-access-user-next-action="${escapeHtml(nextAction)}" class="rounded-xl ${isActive ? "border border-rose-200 bg-rose-50 text-rose-700" : "border border-emerald-200 bg-emerald-50 text-emerald-700"} px-3 py-2 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-40" ${disabled}>${actionLabel}</button>
+              </div>
             </div>
-            <div class="flex shrink-0 flex-wrap gap-2">
-              <button type="button" data-access-user-action="toggle-active" data-access-user-id="${escapeHtml(row.id)}" data-access-user-next-active="${nextActive}" class="rounded-xl ${isActive ? "border border-rose-200 bg-rose-50 text-rose-700" : "border border-emerald-200 bg-emerald-50 text-emerald-700"} px-3 py-2 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-40" ${disabled}>${actionLabel}</button>
+
+            <div class="grid gap-3 border-t border-slate-100 pt-4 xl:grid-cols-[minmax(180px,240px)_auto_minmax(260px,1fr)_auto_auto] xl:items-end">
+              <label class="block text-sm text-slate-700">
+                <span class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Rolle</span>
+                <select data-access-user-role="${escapeHtml(row.id)}" class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm disabled:bg-slate-100 disabled:text-slate-400" ${disabled || isProtectedSuperadmin ? "disabled" : ""}>
+                  ${getAccessUserRoleOptions(row.role)}
+                </select>
+              </label>
+              <button type="button" data-access-user-action="set-role" data-access-user-id="${escapeHtml(row.id)}" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40" ${disabled || isProtectedSuperadmin ? "disabled" : ""}>Lagre rolle</button>
+
+              <label class="block text-sm text-slate-700">
+                <span class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Midlertidig passord</span>
+                <input id="${escapeHtml(passwordInputId)}" data-access-user-password="${escapeHtml(row.id)}" type="text" autocomplete="off" class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm disabled:bg-slate-100 disabled:text-slate-400" placeholder="Skriv/generer nytt midlertidig passord" ${disabled ? "disabled" : ""} />
+              </label>
+              <button type="button" data-access-user-action="generate-password" data-access-user-id="${escapeHtml(row.id)}" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40" ${disabled ? "disabled" : ""}>Generer</button>
+              <button type="button" data-access-user-action="set-password" data-access-user-id="${escapeHtml(row.id)}" class="rounded-xl bg-slate-900 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-40" ${disabled ? "disabled" : ""}>Sett passord</button>
             </div>
           </div>
         </div>
@@ -3148,38 +3230,148 @@ Dette oppretter ikke Auth-bruker. Hvis Auth-brukeren mangler, får du en tydelig
     }).join("");
   }
 
-  async function updateAccessUserActive(userId, nextActiveRaw) {
+  async function invokeManageUserAccess(payload) {
+    const { data, error } = await supabaseClient.functions.invoke("admin-manage-user-access", {
+      body: payload
+    });
+
+    if (error) {
+      throw new Error(error.message || "Edge Function returnerte feil.");
+    }
+
+    if (!data?.ok) {
+      const code = data?.code ? `${data.code}: ` : "";
+      throw new Error(`${code}${data?.message || "Kunne ikke oppdatere brukertilgang."}`);
+    }
+
+    return data;
+  }
+
+  function getAccessUserById(userId) {
+    return (state.accessUsers.rows || []).find(row => row.id === userId) || null;
+  }
+
+  async function updateAccessUserActive(userId, action) {
     if (!canManageUserAccess()) {
-      alert("Kun superadmin kan administrere brukertilganger.");
+      alert("Du har ikke tilgang til å administrere brukertilganger.");
       return;
     }
     if (!userId) return;
-    if (userId === state.currentUserId) {
-      alert("Du kan ikke deaktivere din egen superadmin-bruker.");
+
+    const user = getAccessUserById(userId);
+    if (!user) return;
+    if (!canCurrentUserManageAccessTarget(user)) {
+      alert("Du kan ikke endre denne brukeren fra vanlig UI.");
       return;
     }
 
-    const nextActive = String(nextActiveRaw) === "true";
-    const user = (state.accessUsers.rows || []).find(row => row.id === userId);
-    const name = user?.full_name || user?.email || "denne brukeren";
-    const actionText = nextActive ? "aktivere" : "deaktivere";
+    const normalizedAction = action === "activate" ? "activate" : "deactivate";
+    const name = user.full_name || user.email || "denne brukeren";
+    const actionText = normalizedAction === "activate" ? "aktivere" : "deaktivere";
     const ok = window.confirm(`Vil du ${actionText} tilgangen for ${name}?\n\nDette sletter ikke Auth-brukeren. Det endrer kun user_profiles.is_active.`);
     if (!ok) return;
 
     try {
-      const { error } = await supabaseClient
-        .from("user_profiles")
-        .update({
-          is_active: nextActive,
-          updated_at: new Date().toISOString(),
-          updated_by: state.currentUserId || null
-        })
-        .eq("id", userId);
-
-      if (error) throw error;
+      await invokeManageUserAccess({
+        action: normalizedAction,
+        target_user_id: userId
+      });
       await fetchAccessUsers({ silent: true });
+      renderAccessUsers();
     } catch (error) {
       alert(`Kunne ikke oppdatere brukertilgang: ${error?.message || "Ukjent feil"}`);
+    }
+  }
+
+  async function updateAccessUserRole(userId) {
+    if (!canManageUserAccess()) {
+      alert("Du har ikke tilgang til å administrere brukertilganger.");
+      return;
+    }
+
+    const user = getAccessUserById(userId);
+    if (!user) return;
+    if (!canCurrentUserManageAccessTarget(user)) {
+      alert("Du kan ikke endre denne brukeren fra vanlig UI.");
+      return;
+    }
+
+    const row = els.accessUsersList?.querySelector?.(`[data-access-user-row-id="${CSS.escape(userId)}"]`);
+    const role = normalizeRoleValue(row?.querySelector?.(`[data-access-user-role="${CSS.escape(userId)}"]`)?.value || "");
+
+    if (!canAssignAccessRole(role)) {
+      alert("Du har ikke tilgang til å sette denne rollen.");
+      return;
+    }
+
+    const ok = window.confirm(`Endre rolle for ${user.full_name || user.email}?\n\nNy rolle: ${formatRequestedAccess(role)}`);
+    if (!ok) return;
+
+    try {
+      await invokeManageUserAccess({
+        action: "set_role",
+        target_user_id: userId,
+        role
+      });
+      await fetchAccessUsers({ silent: true });
+      renderAccessUsers();
+    } catch (error) {
+      const message = error?.message || "Ukjent feil";
+      if (message.includes("EMPLOYEE_PROFILE_REQUIRED")) {
+        alert("Kan ikke sette employee-rolle fordi det ikke finnes ansattprofil med samme e-post.");
+      } else if (message.includes("ROLE_NOT_ALLOWED_FOR_CALLER")) {
+        alert("Din rolle kan ikke sette denne rollen.");
+      } else {
+        alert(`Kunne ikke endre rolle: ${message}`);
+      }
+    }
+  }
+
+  function generatePasswordForAccessUser(userId) {
+    const row = els.accessUsersList?.querySelector?.(`[data-access-user-row-id="${CSS.escape(userId)}"]`);
+    const input = row?.querySelector?.(`[data-access-user-password="${CSS.escape(userId)}"]`);
+    if (!input) return;
+    input.value = generateTemporaryAccessPassword();
+    input.focus();
+    input.select?.();
+  }
+
+  async function setTemporaryPasswordForAccessUser(userId) {
+    if (!canManageUserAccess()) {
+      alert("Du har ikke tilgang til å administrere brukertilganger.");
+      return;
+    }
+
+    const user = getAccessUserById(userId);
+    if (!user) return;
+    if (!canCurrentUserManageAccessTarget(user)) {
+      alert("Du kan ikke endre denne brukeren fra vanlig UI.");
+      return;
+    }
+
+    const row = els.accessUsersList?.querySelector?.(`[data-access-user-row-id="${CSS.escape(userId)}"]`);
+    const input = row?.querySelector?.(`[data-access-user-password="${CSS.escape(userId)}"]`);
+    const temporaryPassword = input?.value?.trim() || "";
+
+    if (!temporaryPassword || temporaryPassword.length < 8) {
+      alert("Midlertidig passord må være minst 8 tegn. Skriv inn passord eller bruk Generer.");
+      input?.focus?.();
+      return;
+    }
+
+    const ok = window.confirm(`Sette nytt midlertidig passord for ${user.full_name || user.email}?\n\nPassord sendes ikke automatisk på e-post.`);
+    if (!ok) return;
+
+    try {
+      await invokeManageUserAccess({
+        action: "set_temporary_password",
+        target_user_id: userId,
+        temporary_password: temporaryPassword
+      });
+      if (input) input.value = "";
+      alert("Midlertidig passord er oppdatert.");
+    } catch (error) {
+      alert(`Kunne ikke sette midlertidig passord: ${error?.message || "Ukjent feil"}`);
     }
   }
 
@@ -3677,6 +3869,10 @@ Dette oppretter ikke Auth-bruker. Hvis Auth-brukeren mangler, får du en tydelig
     `;
   }
 
+  function refreshCalendarModeControls() {
+    // v18.54 safety guard: older language hook calls this helper, but this build has no separate calendar mode control renderer.
+  }
+
   function bindEvents() {
     window.addEventListener("izomax-language-changed", () => {
       refreshCalendarModeControls();
@@ -4112,8 +4308,12 @@ Dette oppretter ikke Auth-bruker. Hvis Auth-brukeren mangler, får du en tydelig
         const button = event.target?.closest?.("[data-access-user-action]");
         if (!button) return;
         const userId = button.dataset.accessUserId || "";
-        const nextActive = button.dataset.accessUserNextActive || "";
-        if (userId) updateAccessUserActive(userId, nextActive);
+        const action = button.dataset.accessUserAction || "";
+        if (!userId || !action) return;
+        if (action === "toggle-active") updateAccessUserActive(userId, button.dataset.accessUserNextAction || "");
+        else if (action === "set-role") updateAccessUserRole(userId);
+        else if (action === "generate-password") generatePasswordForAccessUser(userId);
+        else if (action === "set-password") setTemporaryPasswordForAccessUser(userId);
       });
     }
 
