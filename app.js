@@ -10031,12 +10031,16 @@ async function deleteEditedEntry() {
       openEmployeeModal(event.currentTarget.dataset.employeeAdminEdit);
     });
     detail.querySelector("[data-employee-admin-open-calendar]")?.addEventListener("click", event => {
-      const employeeName = event.currentTarget.dataset.employeeAdminOpenCalendar || "";
-      state.search = employeeName;
+      const employeeName = String(event.currentTarget.dataset.employeeAdminOpenCalendar || "").trim();
+      state.search = employeeName.toLowerCase();
+      state.selectedEmployeeGroups = [];
+      state.employeeFilter = "Alle ansatte";
+      state.dashboardEmployeeFilter = "";
+      state.dashboardEmployeeFilterLabel = "";
       if (els.searchInput) els.searchInput.value = employeeName;
-      state.calendarMode = "personal";
-      setActiveTab("calendar");
-      renderCalendar();
+      if (els.employeeFilter) els.employeeFilter.value = "Alle ansatte";
+      renderEmployeeGroupFilterControl();
+      openPersonalCalendarView();
     });
     detail.querySelector("[data-employee-admin-open-admin]")?.addEventListener("click", () => {
       setActiveTab("admin");
