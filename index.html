@@ -643,98 +643,394 @@
     }
 
 
-    /* v18.60b: Employee admin visual cleanup only. No role/access/login logic is moved here. */
+    /* v18.60c: Employee admin master-detail visual cleanup only. No login, RLS, Edge Function or access logic is moved. */
     body.iz-compact-ui #tabEmployeesSection {
-      color: #0f172a;
+      color: #e8f2f5;
+    }
+    .iz-employee-admin-shell {
+      border: 1px solid #243f4a;
+      background: linear-gradient(120deg, #071014 0%, #0b171d 52%, #092026 100%);
+      box-shadow: 0 18px 50px rgba(0,0,0,.32);
+      overflow: hidden;
+    }
+    .iz-employee-admin-topbar {
+      padding: 18px 20px;
+      border-bottom: 1px solid #213b45;
+      background: rgba(8, 18, 23, .86);
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    @media (min-width: 1180px) {
+      .iz-employee-admin-topbar {
+        flex-direction: row;
+        align-items: center;
+        justify-content: space-between;
+      }
+    }
+    .iz-employee-admin-eyebrow {
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: .16em;
+      text-transform: uppercase;
+      color: #8ea6af;
+    }
+    .iz-employee-admin-title {
+      margin-top: 4px;
+      font-size: 25px;
+      line-height: 1.15;
+      font-weight: 850;
+      letter-spacing: -.025em;
+      color: #eef8fa;
+    }
+    .iz-employee-admin-description {
+      margin-top: 5px;
+      max-width: 760px;
+      font-size: 13px;
+      color: #9eb3bb;
+    }
+    .iz-employee-admin-actionbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+    }
+    .iz-employee-admin-btn {
+      border: 1px solid #294854;
+      background: #13252d;
+      color: #e8f3f5;
+      padding: 9px 12px;
+      font-size: 13px;
+      font-weight: 750;
+      box-shadow: 0 8px 22px rgba(0,0,0,.18);
+    }
+    .iz-employee-admin-btn:hover { background: #18313b; }
+    .iz-employee-admin-btn.primary {
+      background: #0f3b34;
+      border-color: #22d3a6;
+      color: #d7fff3;
+    }
+    .iz-employee-admin-kpis {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 1px;
+      border-bottom: 1px solid #213b45;
+      background: #213b45;
+    }
+    @media (min-width: 980px) { .iz-employee-admin-kpis { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+    .iz-employee-admin-kpi {
+      padding: 14px 16px;
+      background: linear-gradient(180deg, #102129, #0d1a20);
+      min-height: 88px;
+    }
+    .iz-employee-admin-kpi-label {
+      font-size: 11px;
+      line-height: 1.2;
+      font-weight: 850;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      color: #91a8b0;
+    }
+    .iz-employee-admin-kpi-value {
+      margin-top: 8px;
+      font-size: 28px;
+      line-height: 1;
+      font-weight: 900;
+      color: #f1fbfd;
+    }
+    .iz-employee-admin-kpi-note {
+      margin-top: 5px;
+      font-size: 12px;
+      color: #adc0c6;
+    }
+    .iz-employee-admin-layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      gap: 14px;
+      padding: 14px;
+      align-items: start;
+    }
+    @media (min-width: 1180px) {
+      .iz-employee-admin-layout { grid-template-columns: minmax(620px, 1.45fr) minmax(360px, .85fr); }
+    }
+    .iz-employee-admin-panel {
+      border: 1px solid #243f4a;
+      background: rgba(14, 29, 36, .96);
+      box-shadow: 0 16px 42px rgba(0,0,0,.25);
+      min-width: 0;
+    }
+    .iz-employee-admin-panelhead {
+      padding: 14px 16px;
+      border-bottom: 1px solid #223d48;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .iz-employee-admin-paneltitle {
+      font-size: 16px;
+      font-weight: 850;
+      color: #eef8fa;
+    }
+    .iz-employee-admin-panelsub {
+      margin-top: 3px;
+      font-size: 12px;
+      color: #8da2aa;
+    }
+    .iz-employee-admin-filters {
+      padding: 12px 14px;
+      border-bottom: 1px solid #223d48;
+      background: #0b181e;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      gap: 8px;
+    }
+    @media (min-width: 980px) { .iz-employee-admin-filters { grid-template-columns: minmax(0, 1fr) 210px 160px; } }
+    .iz-employee-admin-filters input,
+    .iz-employee-admin-filters select {
+      border: 1px solid #294651;
+      background: #09171d;
+      color: #dcecef;
+      padding: 10px 11px;
+      font-size: 13px;
+      outline: none;
+    }
+    .iz-employee-admin-filters input:focus,
+    .iz-employee-admin-filters select:focus {
+      border-color: #22d3a6;
+      box-shadow: 0 0 0 2px rgba(34,211,166,.15);
     }
     .iz-employee-admin-header-row,
     .iz-employee-admin-row {
       display: grid;
-      grid-template-columns: minmax(220px, 1.6fr) minmax(150px, 1fr) minmax(150px, 1fr) minmax(170px, 1fr) 92px;
-      gap: 12px;
+      grid-template-columns: minmax(230px, 1.6fr) minmax(135px, .9fr) minmax(150px, 1fr) minmax(150px, 1fr) 86px;
+      gap: 10px;
       align-items: center;
     }
     .iz-employee-admin-header-row {
       position: sticky;
       top: 0;
       z-index: 2;
-      background: #f8fafc;
-      border-bottom: 1px solid #e2e8f0;
-      padding: 10px 16px;
-      font-size: 11px;
+      background: #0f2028;
+      border-bottom: 1px solid #233d47;
+      padding: 10px 14px;
+      font-size: 10px;
       line-height: 1.2;
       text-transform: uppercase;
       letter-spacing: .08em;
-      font-weight: 800;
-      color: #64748b;
+      font-weight: 850;
+      color: #89a0a8;
     }
     .iz-employee-admin-row {
       width: 100%;
       text-align: left;
-      background: #ffffff;
+      background: #0b181e;
+      color: #d7e6ea;
       border: 0;
-      border-bottom: 1px solid #e2e8f0;
-      padding: 13px 16px;
-      transition: background .12s ease, box-shadow .12s ease;
+      border-bottom: 1px solid #182f38;
+      padding: 12px 14px;
+      transition: background .12s ease, box-shadow .12s ease, border-color .12s ease;
     }
     .iz-employee-admin-row:hover {
-      background: #f8fafc;
-      box-shadow: inset 3px 0 0 #0f766e;
+      background: #10232b;
+      box-shadow: inset 3px 0 0 rgba(34,211,166,.55);
+    }
+    .iz-employee-admin-row.is-selected {
+      background: #102b2b;
+      box-shadow: inset 3px 0 0 #22d3a6, inset 0 0 0 1px rgba(34,211,166,.22);
     }
     .iz-employee-admin-row.is-inactive {
-      background: #f8fafc;
-      opacity: .74;
+      opacity: .68;
     }
     .iz-employee-admin-name {
       font-size: 14px;
-      font-weight: 800;
-      color: #0f172a;
+      font-weight: 850;
+      color: #f1fbfd;
       min-width: 0;
     }
     .iz-employee-admin-sub {
       margin-top: 3px;
       font-size: 12px;
-      color: #64748b;
+      color: #8ba2aa;
       min-width: 0;
     }
     .iz-employee-admin-cell {
       min-width: 0;
       font-size: 13px;
-      color: #334155;
+      color: #cfe0e5;
     }
-    .iz-employee-admin-muted {
-      color: #94a3b8;
-    }
+    .iz-employee-admin-muted { color: #7f969e; }
     .iz-employee-admin-pill {
       display: inline-flex;
       align-items: center;
       gap: 6px;
       max-width: 100%;
-      border: 1px solid #cbd5e1;
-      border-radius: 999px;
-      background: #f8fafc;
-      padding: 5px 9px;
-      font-size: 12px;
-      font-weight: 700;
-      color: #334155;
+      border: 1px solid #31515d;
+      background: #10242c;
+      padding: 5px 8px;
+      font-size: 11px;
+      font-weight: 750;
+      color: #b5cbd1;
     }
     .iz-employee-admin-status {
       display: inline-flex;
       justify-content: center;
-      border-radius: 999px;
-      padding: 5px 9px;
+      border: 1px solid #31515d;
+      background: #10242c;
+      padding: 5px 8px;
+      font-size: 11px;
+      font-weight: 850;
+      color: #b5cbd1;
+    }
+    .iz-employee-admin-status.is-active { border-color: #27664f; background: #10352c; color: #a7f3d0; }
+    .iz-employee-admin-status.is-inactive { border-color: #6f2b39; background: #32131a; color: #fecdd3; }
+    .iz-employee-admin-detail {
+      position: sticky;
+      top: 12px;
+    }
+    .iz-employee-admin-detail-body {
+      padding: 16px;
+    }
+    .iz-employee-admin-detail-hero {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+    .iz-employee-admin-avatar {
+      width: 48px; height: 48px;
+      display: grid; place-items: center;
+      border: 1px solid #22d3a6;
+      background: #143b36;
+      color: #ccfbf1;
+      font-weight: 900;
+      letter-spacing: .04em;
+      flex: 0 0 auto;
+    }
+    .iz-employee-admin-detail-name {
+      font-size: 20px;
+      line-height: 1.15;
+      font-weight: 900;
+      color: #f1fbfd;
+    }
+    .iz-employee-admin-detail-sub {
+      margin-top: 4px;
+      font-size: 13px;
+      color: #8ba2aa;
+    }
+    .iz-employee-admin-tabs {
+      display: flex;
+      gap: 6px;
+      border-bottom: 1px solid #233d48;
+      margin-bottom: 14px;
+      overflow-x: auto;
+    }
+    .iz-employee-admin-tab {
+      padding: 9px 10px;
+      color: #90a5ad;
       font-size: 12px;
       font-weight: 800;
+      border: 1px solid transparent;
+      border-bottom: 0;
+      white-space: nowrap;
     }
-    .iz-employee-admin-status.is-active { background: #dcfce7; color: #166534; }
-    .iz-employee-admin-status.is-inactive { background: #fef3c7; color: #92400e; }
+    .iz-employee-admin-tab.active {
+      background: #10272e;
+      color: #dffaf4;
+      border-color: #284853;
+    }
+    .iz-employee-admin-fieldgrid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 9px;
+    }
+    @media (min-width: 520px) { .iz-employee-admin-fieldgrid { grid-template-columns: 1fr 1fr; } }
+    .iz-employee-admin-field {
+      background: #0b181e;
+      border: 1px solid #213b45;
+      padding: 11px;
+      min-width: 0;
+    }
+    .iz-employee-admin-field label {
+      display: block;
+      margin-bottom: 5px;
+      color: #849aa2;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: .07em;
+      font-weight: 850;
+    }
+    .iz-employee-admin-field div {
+      color: #e6f0f3;
+      font-size: 13px;
+      font-weight: 750;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .iz-employee-admin-section-title {
+      margin: 16px 0 9px;
+      font-size: 12px;
+      color: #bfd1d6;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: .07em;
+    }
+    .iz-employee-admin-notice {
+      border-left: 3px solid #facc15;
+      background: #241f0f;
+      border-top: 1px solid #4b3f16;
+      border-right: 1px solid #4b3f16;
+      border-bottom: 1px solid #4b3f16;
+      padding: 11px;
+      font-size: 12px;
+      color: #fef3c7;
+    }
+    .iz-employee-admin-linkitem {
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      gap: 10px;
+      align-items: center;
+      background: #0b181e;
+      border: 1px solid #213b45;
+      padding: 10px;
+      margin-top: 8px;
+    }
+    .iz-employee-admin-linkico {
+      width: 28px; height: 28px;
+      display: grid; place-items: center;
+      background: #122a32;
+      border: 1px solid #31515d;
+      color: #a9c2c9;
+      font-size: 13px;
+    }
+    .iz-employee-admin-empty {
+      padding: 18px;
+      color: #9eb3bb;
+      font-size: 13px;
+    }
+    #employeeAdminAdvanced {
+      border-color: #243f4a !important;
+      background: rgba(14,29,36,.96) !important;
+      color: #e8f2f5;
+    }
+    #employeeAdminAdvanced summary {
+      border-color: #223d48 !important;
+      background: #0b181e;
+    }
+    #employeeAdminAdvanced .text-slate-950,
+    #employeeAdminAdvanced .text-slate-900,
+    #employeeAdminAdvanced .text-slate-700 { color: #e8f2f5 !important; }
+    #employeeAdminAdvanced .text-slate-500 { color: #8ea6af !important; }
+    #employeeAdminAdvanced .bg-white { background-color: #0b181e !important; }
+    #employeeAdminAdvanced .bg-slate-50 { background-color: #102129 !important; }
+    #employeeAdminAdvanced .border-slate-200,
+    #employeeAdminAdvanced .border-slate-300 { border-color: #294651 !important; }
 
     @media (max-width: 900px) {
       .iz-employee-admin-header-row { display: none; }
-      .iz-employee-admin-row {
-        grid-template-columns: 1fr;
-        gap: 8px;
-      }
+      .iz-employee-admin-row { grid-template-columns: 1fr; gap: 8px; }
+      .iz-employee-admin-detail { position: static; }
     }
 
     @media (max-width: 1279px) {
@@ -4196,52 +4492,73 @@
     </section>
 
     <section id="tabEmployeesSection" class="space-y-4" style="display:none;">
-      <div class="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-        <div class="p-5 border-b border-slate-200 flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+      <div class="iz-employee-admin-shell">
+        <div class="iz-employee-admin-topbar">
           <div>
-            <div class="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">Register</div>
-            <h2 class="mt-1 text-xl font-semibold text-slate-950">Ansattadmin</h2>
-            <p class="mt-1 text-sm text-slate-500">Ryddig oversikt over ansatte, kontaktinfo, gruppe, stilling og aktiv/inaktiv status.</p>
+            <div class="iz-employee-admin-eyebrow">Register</div>
+            <h2 class="iz-employee-admin-title">Ansattadmin</h2>
+            <p class="iz-employee-admin-description">Søk, filtrer og kontroller ansatte uten lange paneler. Valgt ansatt vises i detaljpanelet til høyre, mens eksisterende redigeringsmodal og funksjoner beholdes.</p>
           </div>
-          <div class="flex flex-wrap items-center gap-2">
-            <button id="newEmployeeBtn" class="rounded-xl bg-slate-900 text-white px-4 py-2.5 text-sm font-medium shadow-sm hover:bg-slate-800">Ny ansatt</button>
-          </div>
-        </div>
-
-        <div class="grid grid-cols-2 lg:grid-cols-4 border-b border-slate-200 bg-slate-50/70">
-          <div class="p-4 border-r border-slate-200">
-            <div class="text-xs font-medium uppercase tracking-wide text-slate-500">Aktive</div>
-            <div id="employeeAdminActiveCount" class="mt-1 text-2xl font-black text-slate-950">0</div>
-          </div>
-          <div class="p-4 lg:border-r border-slate-200">
-            <div class="text-xs font-medium uppercase tracking-wide text-slate-500">Inaktive</div>
-            <div id="employeeAdminInactiveCount" class="mt-1 text-2xl font-black text-slate-950">0</div>
-          </div>
-          <div class="p-4 border-r border-t lg:border-t-0 border-slate-200">
-            <div class="text-xs font-medium uppercase tracking-wide text-slate-500">Mangler e-post</div>
-            <div id="employeeAdminMissingEmailCount" class="mt-1 text-2xl font-black text-amber-700">0</div>
-          </div>
-          <div class="p-4 border-t lg:border-t-0 border-slate-200">
-            <div class="text-xs font-medium uppercase tracking-wide text-slate-500">Mulige duplikater</div>
-            <div id="employeeAdminDuplicateCount" class="mt-1 text-2xl font-black text-red-700">0</div>
+          <div class="iz-employee-admin-actionbar">
+            <button id="newEmployeeBtn" class="iz-employee-admin-btn primary">+ Ny ansatt</button>
           </div>
         </div>
 
-        <div class="p-4 border-b border-slate-200 bg-white">
-          <div class="grid grid-cols-1 lg:grid-cols-[1fr_220px_180px] gap-3">
-            <input id="employeeAdminSearch" type="search" class="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm shadow-sm" placeholder="Søk navn, stilling, e-post, telefon eller gruppe" />
-            <select id="employeeAdminGroupFilter" class="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm shadow-sm">
-              <option value="">Alle grupper</option>
-            </select>
-            <select id="employeeAdminStatusFilter" class="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm shadow-sm">
-              <option value="active">Aktive</option>
-              <option value="all">Alle</option>
-              <option value="inactive">Inaktive</option>
-            </select>
+        <div class="iz-employee-admin-kpis">
+          <div class="iz-employee-admin-kpi">
+            <div class="iz-employee-admin-kpi-label">Aktive ansatte</div>
+            <div id="employeeAdminActiveCount" class="iz-employee-admin-kpi-value">0</div>
+            <div class="iz-employee-admin-kpi-note">Masterliste for planlegging</div>
+          </div>
+          <div class="iz-employee-admin-kpi">
+            <div class="iz-employee-admin-kpi-label">Inaktive</div>
+            <div id="employeeAdminInactiveCount" class="iz-employee-admin-kpi-value">0</div>
+            <div class="iz-employee-admin-kpi-note">Skjult fra normal bruk</div>
+          </div>
+          <div class="iz-employee-admin-kpi">
+            <div class="iz-employee-admin-kpi-label">Mangler e-post</div>
+            <div id="employeeAdminMissingEmailCount" class="iz-employee-admin-kpi-value">0</div>
+            <div class="iz-employee-admin-kpi-note">Bør ryddes før tilgang</div>
+          </div>
+          <div class="iz-employee-admin-kpi">
+            <div class="iz-employee-admin-kpi-label">Mulige duplikater</div>
+            <div id="employeeAdminDuplicateCount" class="iz-employee-admin-kpi-value">0</div>
+            <div class="iz-employee-admin-kpi-note">Kontroller navn/e-post</div>
           </div>
         </div>
 
-        <div id="employeeList" class="max-h-[620px] overflow-auto scrollbar-thin"></div>
+        <div class="iz-employee-admin-layout">
+          <div class="iz-employee-admin-panel">
+            <div class="iz-employee-admin-panelhead">
+              <div>
+                <div class="iz-employee-admin-paneltitle">Ansattregister</div>
+                <div class="iz-employee-admin-panelsub">Listevisning med samme ansatte som før, men kortere og mer operativ.</div>
+              </div>
+            </div>
+            <div class="iz-employee-admin-filters">
+              <input id="employeeAdminSearch" type="search" placeholder="Søk navn, stilling, e-post, telefon eller gruppe" />
+              <select id="employeeAdminGroupFilter">
+                <option value="">Alle grupper</option>
+              </select>
+              <select id="employeeAdminStatusFilter">
+                <option value="active">Aktive</option>
+                <option value="all">Alle</option>
+                <option value="inactive">Inaktive</option>
+              </select>
+            </div>
+            <div id="employeeList" class="max-h-[640px] overflow-auto scrollbar-thin"></div>
+          </div>
+
+          <aside class="iz-employee-admin-panel iz-employee-admin-detail">
+            <div class="iz-employee-admin-panelhead">
+              <div>
+                <div class="iz-employee-admin-paneltitle">Detaljer</div>
+                <div class="iz-employee-admin-panelsub">Valgt ansatt. Redigering åpner samme modal som før.</div>
+              </div>
+            </div>
+            <div id="employeeAdminDetail" class="iz-employee-admin-detail-body"></div>
+          </aside>
+        </div>
       </div>
 
       <details id="employeeAdminAdvanced" class="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">

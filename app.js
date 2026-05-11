@@ -60,6 +60,7 @@
     selectedEntryId: null,
     selectedProjectId: null,
     selectedEmployeeId: null,
+    employeeAdminSelectedId: null,
     focusProjectId: "",
     projectModalPeriods: [],
     selectedAssignPeriodId: "",
@@ -9891,6 +9892,157 @@ async function deleteEditedEntry() {
     setText("employeeAdminDuplicateCount", duplicateCount);
   }
 
+  function getEmployeeAdminInitials(employee) {
+    const source = String(employee?.name || employee?.email || "?").trim();
+    const parts = source.split(/\s+/).filter(Boolean).slice(0, 2);
+    if (!parts.length) return "?";
+    return parts.map(part => part[0] || "").join("").toUpperCase();
+  }
+
+  function normalizeEmployeeAdminPhone(value) {
+    return String(value || "").replace(/\D+/g, "");
+  }
+
+  function formatEmployeeAdminEntryRange(start, end) {
+    if (start && end) return `${formatDate(start)} – ${formatDate(end)}`;
+    if (start) return `Fra ${formatDate(start)}`;
+    if (end) return `Til ${formatDate(end)}`;
+    return "Ingen dato";
+  }
+
+  function findEmployeeAdminAccessUser(employee) {
+    const emailKey = normalizeComparableText(employee?.email || "");
+    if (!emailKey) return null;
+    return (state.accessUsers?.rows || []).find(row => normalizeComparableText(row.email || "") === emailKey) || null;
+  }
+
+  function findEmployeeAdminAccessRequests(employee) {
+    const employeeEmail = normalizeComparableText(employee?.email || "");
+    const employeeName = normalizeComparableText(employee?.name || "");
+    const employeePhone = normalizeEmployeeAdminPhone(employee?.phone || "");
+    return (state.accessRequests?.rows || []).filter(row => {
+      const requestEmail = normalizeComparableText(row.email || "");
+      const requestName = normalizeComparableText(row.full_name || row.name || "");
+      const requestPhone = normalizeEmployeeAdminPhone(row.phone || "");
+      return (employeeEmail && requestEmail && employeeEmail === requestEmail)
+        || (employeePhone && requestPhone && employeePhone === requestPhone)
+        || (employeeName && requestName && employeeName === requestName);
+    });
+  }
+
+  function getEmployeeAdminAccessInfo(employee) {
+    const user = findEmployeeAdminAccessUser(employee);
+    if (user) {
+      return {
+        label: formatRoleLabel(user.role || "employee"),
+        state: user.is_active === false ? "inactive" : "active",
+        note: user.is_active === false ? "Tilgang deaktivert" : "Aktiv brukertilgang"
+      };
+    }
+
+    const requests = findEmployeeAdminAccessRequests(employee);
+    const pending = requests.find(row => ["pending", "submitted", "approved", "ready"].includes(String(row.status || "").toLowerCase()));
+    if (pending) {
+      return { label: "Søknad", state: "pending", note: "Tilgangssøknad finnes" };
+    }
+
+    return { label: "Ingen tilgang", state: "missing", note: "Finnes i ansattregister" };
+  }
+
+  function renderEmployeeAdminDetail(employee) {
+    const detail = document.getElementById("employeeAdminDetail");
+    if (!detail) return;
+
+    if (!employee) {
+      detail.innerHTML = `<div class="iz-employee-admin-empty">Velg en ansatt i listen for å se detaljer.</div>`;
+      return;
+    }
+
+    const employeeGroup = normalizeEmployeeGroup(employee.employee_group || "");
+    const groupLabel = getEmployeeGroupLabel(employeeGroup) || "Ingen gruppe valgt";
+    const active = employee.active !== false;
+    const title = employee.title || employee.employee_type || "Ikke satt";
+    const accessInfo = getEmployeeAdminAccessInfo(employee);
+    const accessStatusClass = accessInfo.state === "active" ? "is-active" : accessInfo.state === "inactive" ? "is-inactive" : accessInfo.state === "pending" ? "" : "is-inactive";
+    const upcomingEntries = state.entries
+      .filter(entry => normalizeComparableText(entry.employee_name || "") === normalizeComparableText(employee.name || ""))
+      .filter(entry => !entry.end_date || entry.end_date >= toIsoDate(new Date()))
+      .sort((a, b) => String(a.start_date || "").localeCompare(String(b.start_date || "")))
+      .slice(0, 3);
+
+    const nextEntriesHtml = upcomingEntries.length
+      ? upcomingEntries.map(entry => {
+          const project = getProjectById(entry.project_id);
+          return `<div class="iz-employee-admin-linkitem">
+            <div class="iz-employee-admin-linkico">▦</div>
+            <div class="min-w-0">
+              <div class="text-sm font-bold text-slate-100 truncate">${escapeHtml(displayProjectName(project) || "Direkte blokk")}</div>
+              <div class="text-xs text-slate-400 truncate">${escapeHtml(formatEmployeeAdminEntryRange(entry.start_date, entry.end_date))}${entry.role ? ` • ${escapeHtml(entry.role)}` : ""}</div>
+            </div>
+            <span class="iz-employee-admin-status ${project?.status === "Fullført" || project?.status === "Pågår" ? "is-active" : ""}">${escapeHtml(project?.status || "Plan")}</span>
+          </div>`;
+        }).join("")
+      : `<div class="iz-employee-admin-notice">Ingen kommende tildelinger funnet for denne ansatte i nåværende registerdata.</div>`;
+
+    detail.innerHTML = `
+      <div class="iz-employee-admin-detail-hero">
+        <div class="iz-employee-admin-avatar">${escapeHtml(getEmployeeAdminInitials(employee))}</div>
+        <div class="min-w-0">
+          <div class="iz-employee-admin-detail-name truncate">${escapeHtml(employee.name || "Uten navn")}</div>
+          <div class="iz-employee-admin-detail-sub truncate">${escapeHtml(title)} · ${escapeHtml(groupLabel)} · ${active ? "Aktiv" : "Inaktiv"}</div>
+        </div>
+      </div>
+
+      <div class="iz-employee-admin-tabs">
+        <div class="iz-employee-admin-tab active">Profil</div>
+        <div class="iz-employee-admin-tab">Tilgang</div>
+        <div class="iz-employee-admin-tab">Plan</div>
+      </div>
+
+      <div class="iz-employee-admin-fieldgrid">
+        <div class="iz-employee-admin-field"><label>Telefon</label><div>${escapeHtml(employee.phone || "Ingen telefon")}</div></div>
+        <div class="iz-employee-admin-field"><label>E-post</label><div>${escapeHtml(employee.email || "Ingen e-post")}</div></div>
+        <div class="iz-employee-admin-field"><label>Stilling</label><div>${escapeHtml(title)}</div></div>
+        <div class="iz-employee-admin-field"><label>Gruppe</label><div>${escapeHtml(groupLabel)}</div></div>
+      </div>
+
+      <div class="iz-employee-admin-section-title">Tilgang</div>
+      <div class="iz-employee-admin-linkitem">
+        <div class="iz-employee-admin-linkico">🔐</div>
+        <div class="min-w-0">
+          <div class="text-sm font-bold text-slate-100 truncate">${escapeHtml(accessInfo.label)}</div>
+          <div class="text-xs text-slate-400 truncate">${escapeHtml(accessInfo.note)}</div>
+        </div>
+        <span class="iz-employee-admin-status ${accessStatusClass}">${accessInfo.state === "active" ? "Aktiv" : accessInfo.state === "pending" ? "Venter" : "Mangler"}</span>
+      </div>
+      <div class="iz-employee-admin-notice">Ansattregisteret beholdes som master. Tilgangssøknader skal kobles til eksisterende ansatt før ny ansatt opprettes.</div>
+
+      <div class="iz-employee-admin-section-title">Kommende plan</div>
+      ${nextEntriesHtml}
+
+      <div class="mt-4 flex flex-wrap gap-2">
+        <button type="button" class="iz-employee-admin-btn primary" data-employee-admin-edit="${escapeHtml(employee.id)}">Rediger ansatt</button>
+        <button type="button" class="iz-employee-admin-btn" data-employee-admin-open-calendar="${escapeHtml(employee.name || "")}">Åpne i Ansattplan</button>
+        <button type="button" class="iz-employee-admin-btn" data-employee-admin-open-admin>Tilgangsadmin</button>
+      </div>
+    `;
+
+    detail.querySelector("[data-employee-admin-edit]")?.addEventListener("click", event => {
+      openEmployeeModal(event.currentTarget.dataset.employeeAdminEdit);
+    });
+    detail.querySelector("[data-employee-admin-open-calendar]")?.addEventListener("click", event => {
+      const employeeName = event.currentTarget.dataset.employeeAdminOpenCalendar || "";
+      state.search = employeeName;
+      if (els.searchInput) els.searchInput.value = employeeName;
+      state.calendarMode = "personal";
+      setActiveTab("calendar");
+      renderCalendar();
+    });
+    detail.querySelector("[data-employee-admin-open-admin]")?.addEventListener("click", () => {
+      setActiveTab("admin");
+    });
+  }
+
   function renderEmployees() {
     if (!els.employeeList) return;
     bindEmployeeAdminFilters();
@@ -9924,6 +10076,11 @@ async function deleteEditedEntry() {
       return haystack.includes(searchText);
     });
 
+    if (!sortedEmployees.some(emp => emp.id === state.employeeAdminSelectedId)) {
+      state.employeeAdminSelectedId = sortedEmployees[0]?.id || null;
+    }
+    const selectedEmployee = sortedEmployees.find(emp => emp.id === state.employeeAdminSelectedId) || null;
+
     const header = `
       <div class="iz-employee-admin-header-row">
         <div>Ansatt</div>
@@ -9937,22 +10094,24 @@ async function deleteEditedEntry() {
     const rows = sortedEmployees.map(emp => {
       const employeeGroup = normalizeEmployeeGroup(emp.employee_group || "");
       const active = emp.active !== false;
+      const selected = emp.id === state.employeeAdminSelectedId;
       const groupLabel = getEmployeeGroupLabel(employeeGroup) || "Ingen gruppe valgt";
       const title = emp.title || emp.employee_type || "Ikke satt";
       const contactEmail = emp.email || "Ingen e-post";
       const contactPhone = emp.phone || "Ingen telefon";
+      const accessInfo = getEmployeeAdminAccessInfo(emp);
       return `
-        <button data-employee-id="${escapeHtml(emp.id)}" class="iz-employee-admin-row ${active ? "" : "is-inactive"}">
+        <button data-employee-id="${escapeHtml(emp.id)}" class="iz-employee-admin-row ${selected ? "is-selected" : ""} ${active ? "" : "is-inactive"}">
           <div class="min-w-0">
             <div class="flex items-center gap-2 min-w-0">
-              ${getEmployeeGroupIconHtml(employeeGroup, "inline-flex h-5 w-5 items-center justify-center text-slate-600 shrink-0")}
+              ${getEmployeeGroupIconHtml(employeeGroup, "inline-flex h-5 w-5 items-center justify-center text-slate-300 shrink-0")}
               <div class="iz-employee-admin-name truncate">${escapeHtml(emp.name || "Uten navn")}</div>
             </div>
-            <div class="iz-employee-admin-sub truncate">${escapeHtml(emp.employee_type || "Ingen type")}</div>
+            <div class="iz-employee-admin-sub truncate">${escapeHtml(accessInfo.label)} · ${escapeHtml(emp.employee_type || "Ingen type")}</div>
           </div>
           <div class="iz-employee-admin-cell truncate ${emp.title ? "" : "iz-employee-admin-muted"}">${escapeHtml(title)}</div>
           <div class="iz-employee-admin-cell min-w-0">
-            <span class="iz-employee-admin-pill">${getEmployeeGroupIconHtml(employeeGroup, "inline-flex h-4 w-4 items-center justify-center text-slate-600 shrink-0")}<span class="truncate">${escapeHtml(groupLabel)}</span></span>
+            <span class="iz-employee-admin-pill">${getEmployeeGroupIconHtml(employeeGroup, "inline-flex h-4 w-4 items-center justify-center text-slate-300 shrink-0")}<span class="truncate">${escapeHtml(groupLabel)}</span></span>
           </div>
           <div class="iz-employee-admin-cell min-w-0">
             <div class="truncate ${emp.email ? "" : "iz-employee-admin-muted"}">${escapeHtml(contactEmail)}</div>
@@ -9965,11 +10124,17 @@ async function deleteEditedEntry() {
       `;
     }).join("");
 
-    els.employeeList.innerHTML = header + (rows || `<div class="p-6 text-sm text-slate-500">Ingen ansatte matcher filteret.</div>`);
+    els.employeeList.innerHTML = header + (rows || `<div class="iz-employee-admin-empty">Ingen ansatte matcher filteret.</div>`);
 
     els.employeeList.querySelectorAll("[data-employee-id]").forEach(btn => {
-      btn.addEventListener("click", () => openEmployeeModal(btn.dataset.employeeId));
+      btn.addEventListener("click", () => {
+        state.employeeAdminSelectedId = btn.dataset.employeeId;
+        renderEmployees();
+      });
+      btn.addEventListener("dblclick", () => openEmployeeModal(btn.dataset.employeeId));
     });
+
+    renderEmployeeAdminDetail(selectedEmployee);
   }
 
   function renderKanban() {
