@@ -3659,8 +3659,48 @@ Dette oppretter ikke Auth-bruker. Hvis Auth-brukeren mangler, får du en tydelig
     toggleEmployeeGroupFilter(false);
   }
 
+  function isPointerInsideCalendarWrap(event) {
+    if (!els.calendarWrap || typeof event.clientX !== "number" || typeof event.clientY !== "number") return false;
+    const rect = els.calendarWrap.getBoundingClientRect();
+    return event.clientX >= rect.left && event.clientX <= rect.right && event.clientY >= rect.top && event.clientY <= rect.bottom;
+  }
+
+  function isCalendarMenuBlockedTarget(target) {
+    if (!(target instanceof Element)) return false;
+    return Boolean(target.closest([
+      "button",
+      "a",
+      "input",
+      "select",
+      "textarea",
+      "label",
+      "summary",
+      "[role='button']",
+      "[role='menu']",
+      "[role='menuitem']",
+      "[role='dialog']",
+      "#calendarContextMenu",
+      "#groupFilterControl",
+      "#groupFilterPanel",
+      "#calendarSidePanel",
+      "#calendarPanel",
+      "#projectInspector",
+      "#projectInspectorPanel",
+      "#editModal",
+      "#projectModal",
+      "#employeeModal",
+      "#loginModal",
+      "#accessRequestModal",
+      ".modal",
+      ".dropdown",
+      ".menu",
+      ".filter-panel"
+    ].join(",")));
+  }
+
   function getCalendarDropRowFromPointer(event) {
     if (!els.calendarWrap) return null;
+    if (!isPointerInsideCalendarWrap(event)) return null;
     const target = event.target;
 
     // First try the normal DOM path. This works when the pointer event lands directly on a calendar row/cell.
@@ -3678,12 +3718,17 @@ Dette oppretter ikke Auth-bruker. Hvis Auth-brukeren mangler, får du en tydelig
     }
 
     // Final fallback after employee grouping/expand-collapse:
-    // find the visible employee row by Y-position only. The clicked element can be a sticky/name/layout
-    // layer even when the pointer is visually over the calendar row.
+    // keep it bounded to the actual row rectangle. Earlier fallback used Y-position only,
+    // which caused clicks on menus beside/above the calendar to open "Legg til direkte blokk".
     const rows = Array.from(els.calendarWrap.querySelectorAll(".drop-row"));
     for (const row of rows) {
       const rect = row.getBoundingClientRect();
-      if (event.clientY >= rect.top && event.clientY <= rect.bottom) {
+      if (
+        event.clientX >= rect.left &&
+        event.clientX <= rect.right &&
+        event.clientY >= rect.top &&
+        event.clientY <= rect.bottom
+      ) {
         return row;
       }
     }
@@ -3695,6 +3740,8 @@ Dette oppretter ikke Auth-bruker. Hvis Auth-brukeren mangler, får du en tydelig
     if (state.calendarMode !== "personal" || state.viewMode === "År") return false;
     if (!canEditApp()) return false;
     if (!els.calendarWrap) return false;
+    if (!isPointerInsideCalendarWrap(event)) return false;
+    if (isCalendarMenuBlockedTarget(event.target)) return false;
     if (event.target?.closest?.(".entry-bar")) return false;
     if (event.target?.closest?.("[data-resize-handle]")) return false;
     if (event.target?.closest?.("#calendarContextMenu")) return false;
