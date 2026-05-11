@@ -149,6 +149,9 @@
       loading: false,
       error: "",
       lastLoadedAt: ""
+    },
+    accessUserDrafts: {
+      passwords: {}
     }
   };
 
@@ -2294,10 +2297,11 @@
     const rows = state.accessRequests.rows || [];
     const pendingCount = rows.filter(row => String(row.status || "pending").toLowerCase() === "pending").length;
     const readyForSetupCount = rows.filter(row => String(row.status || "pending").toLowerCase() === "approved" && !row.setup_completed_at).length;
+    const completedCount = rows.filter(row => row.setup_completed_at || ["rejected", "declined"].includes(String(row.status || "").toLowerCase())).length;
 
     if (els.accessApprovalStatus) {
       const loadedText = state.accessRequests.lastLoadedAt ? `Sist hentet ${formatAccessRequestDate(state.accessRequests.lastLoadedAt)}` : "Ikke hentet ennå";
-      els.accessApprovalStatus.textContent = state.accessRequests.loading ? "Henter søknader..." : `${pendingCount} ventende • ${readyForSetupCount} klar for oppsett • ${loadedText}`;
+      els.accessApprovalStatus.textContent = state.accessRequests.loading ? "Henter søknader..." : `${pendingCount} ventende • ${readyForSetupCount} klar for oppsett • ${completedCount} i historikk • ${loadedText}`;
     }
 
     if (state.accessRequests.loading && !rows.length) {
@@ -2328,7 +2332,16 @@
       return new Date(b.created_at || 0) - new Date(a.created_at || 0);
     });
 
-    els.accessApprovalList.innerHTML = displayRows.map(row => {
+    const activeRequestRows = displayRows.filter(row => {
+      const status = String(row.status || "pending").toLowerCase();
+      return status === "pending" || (status === "approved" && !row.setup_completed_at);
+    });
+    const historyRequestRows = displayRows.filter(row => !activeRequestRows.some(activeRow => activeRow.id === row.id));
+    const activeRequestsIntro = activeRequestRows.length
+      ? ""
+      : `<div class="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">Ingen åpne tilgangssøknader. Fullførte/avslåtte søknader ligger kompakt i historikken under.</div>`;
+
+    const activeRequestsHtml = activeRequestRows.map(row => {
       const status = String(row.status || "pending").toLowerCase();
       const isPending = status === "pending";
       const isApproved = status === "approved";
@@ -2361,6 +2374,30 @@
         </div>
       `;
     }).join("");
+
+    const historyHtml = historyRequestRows.length
+      ? `<details class="rounded-2xl border border-slate-200 bg-white shadow-sm ring-1 ring-slate-100">
+          <summary class="cursor-pointer px-5 py-4 text-sm font-semibold text-slate-700 hover:bg-slate-50">Historikk: ${historyRequestRows.length} fullførte/avslåtte søknader</summary>
+          <div class="divide-y divide-slate-100 border-t border-slate-100">
+            ${historyRequestRows.slice(0, 25).map(row => {
+              const status = String(row.status || "pending").toLowerCase();
+              return `<div class="flex flex-col gap-1 px-5 py-3 text-sm md:flex-row md:items-center md:justify-between">
+                <div class="min-w-0">
+                  <div class="truncate font-semibold text-slate-800">${escapeHtml(row.full_name || row.email || "Uten navn")}</div>
+                  <div class="truncate text-xs text-slate-500">${escapeHtml(row.email || "Ingen e-post")} • ${escapeHtml(formatRequestedAccess(row.approved_role || row.requested_access))}</div>
+                </div>
+                <div class="flex shrink-0 flex-wrap items-center gap-2 text-xs text-slate-500">
+                  <span class="rounded-full border px-2 py-0.5 font-semibold ${getAccessRequestBadgeClass(status)}">${escapeHtml(formatAccessRequestStatus(status))}</span>
+                  ${row.setup_completed_at ? `<span>Oppsatt ${escapeHtml(formatAccessRequestDate(row.setup_completed_at))}</span>` : `<span>Sendt ${escapeHtml(formatAccessRequestDate(row.created_at))}</span>`}
+                </div>
+              </div>`;
+            }).join("")}
+            ${historyRequestRows.length > 25 ? `<div class="px-5 py-3 text-xs text-slate-500">Viser de 25 siste historikkradene.</div>` : ""}
+          </div>
+        </details>`
+      : "";
+
+    els.accessApprovalList.innerHTML = `${activeRequestsIntro}${activeRequestsHtml}${historyHtml}`;
   }
 
   function findAccessUserProfileByEmail(email) {
@@ -2770,6 +2807,7 @@
     const input = panel?.querySelector?.(`[data-access-complete-password="${CSS.escape(requestId)}"]`);
     if (!input) return;
     input.value = generateTemporaryAccessPassword();
+    setAccessUserDraftPassword(userId, input.value);
     input.focus();
     input.select?.();
   }
@@ -3140,6 +3178,30 @@ Dette oppretter ikke Auth-bruker. Hvis Auth-brukeren mangler, får du en tydelig
       .join("");
   }
 
+  function captureAccessUserDrafts() {
+    if (!els.accessUsersList) return;
+    els.accessUsersList.querySelectorAll("[data-access-user-password]").forEach(input => {
+      const userId = input?.dataset?.accessUserPassword || "";
+      if (!userId) return;
+      const value = input.value || "";
+      state.accessUserDrafts.passwords[userId] = value;
+    });
+  }
+
+  function setAccessUserDraftPassword(userId, value) {
+    if (!userId) return;
+    state.accessUserDrafts.passwords[userId] = value || "";
+  }
+
+  function clearAccessUserDraftPassword(userId) {
+    if (!userId) return;
+    delete state.accessUserDrafts.passwords[userId];
+  }
+
+  function getAccessUserDraftPassword(userId) {
+    return state.accessUserDrafts.passwords[userId] || "";
+  }
+
   function renderAccessUsers() {
     if (!els.accessUsersList) return;
 
@@ -3172,6 +3234,8 @@ Dette oppretter ikke Auth-bruker. Hvis Auth-brukeren mangler, får du en tydelig
       return;
     }
 
+    captureAccessUserDrafts();
+
     els.accessUsersList.innerHTML = rows.map(row => {
       const isCurrentUser = row.id === state.currentUserId;
       const isActive = row.is_active !== false;
@@ -3189,6 +3253,7 @@ Dette oppretter ikke Auth-bruker. Hvis Auth-brukeren mangler, får du en tydelig
             ? "Din rolle kan ikke administrere denne brukeren."
             : "";
       const passwordInputId = `access-user-password-${row.id}`;
+      const passwordDraft = getAccessUserDraftPassword(String(row.id || ""));
       return `
         <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm" data-access-user-row-id="${escapeHtml(row.id)}">
           <div class="flex flex-col gap-4">
@@ -3219,7 +3284,7 @@ Dette oppretter ikke Auth-bruker. Hvis Auth-brukeren mangler, får du en tydelig
 
               <label class="block text-sm text-slate-700">
                 <span class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Midlertidig passord</span>
-                <input id="${escapeHtml(passwordInputId)}" data-access-user-password="${escapeHtml(row.id)}" type="text" autocomplete="off" class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm disabled:bg-slate-100 disabled:text-slate-400" placeholder="Skriv/generer nytt midlertidig passord" ${disabled ? "disabled" : ""} />
+                <input id="${escapeHtml(passwordInputId)}" data-access-user-password="${escapeHtml(row.id)}" type="text" autocomplete="off" value="${escapeHtml(passwordDraft)}" class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm disabled:bg-slate-100 disabled:text-slate-400" placeholder="Skriv/generer nytt midlertidig passord" ${disabled ? "disabled" : ""} />
               </label>
               <button type="button" data-access-user-action="generate-password" data-access-user-id="${escapeHtml(row.id)}" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40" ${disabled ? "disabled" : ""}>Generer</button>
               <button type="button" data-access-user-action="set-password" data-access-user-id="${escapeHtml(row.id)}" class="rounded-xl bg-slate-900 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-40" ${disabled ? "disabled" : ""}>Sett passord</button>
@@ -3351,7 +3416,7 @@ Dette oppretter ikke Auth-bruker. Hvis Auth-brukeren mangler, får du en tydelig
 
     const row = els.accessUsersList?.querySelector?.(`[data-access-user-row-id="${CSS.escape(userId)}"]`);
     const input = row?.querySelector?.(`[data-access-user-password="${CSS.escape(userId)}"]`);
-    const temporaryPassword = input?.value?.trim() || "";
+    const temporaryPassword = (input?.value || getAccessUserDraftPassword(userId) || "").trim();
 
     if (!temporaryPassword || temporaryPassword.length < 8) {
       alert("Midlertidig passord må være minst 8 tegn. Skriv inn passord eller bruk Generer.");
@@ -3369,6 +3434,7 @@ Dette oppretter ikke Auth-bruker. Hvis Auth-brukeren mangler, får du en tydelig
         temporary_password: temporaryPassword
       });
       if (input) input.value = "";
+      clearAccessUserDraftPassword(userId);
       alert("Midlertidig passord er oppdatert.");
     } catch (error) {
       alert(`Kunne ikke sette midlertidig passord: ${error?.message || "Ukjent feil"}`);
@@ -4314,6 +4380,12 @@ Dette oppretter ikke Auth-bruker. Hvis Auth-brukeren mangler, får du en tydelig
         else if (action === "set-role") updateAccessUserRole(userId);
         else if (action === "generate-password") generatePasswordForAccessUser(userId);
         else if (action === "set-password") setTemporaryPasswordForAccessUser(userId);
+      });
+      els.accessUsersList.addEventListener("input", event => {
+        const input = event.target?.closest?.("[data-access-user-password]");
+        if (!input) return;
+        const userId = input.dataset.accessUserPassword || "";
+        setAccessUserDraftPassword(userId, input.value || "");
       });
     }
 
