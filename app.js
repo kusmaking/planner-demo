@@ -2174,7 +2174,7 @@
       return;
     }
 
-    if (!["employee", "planner", "admin"].includes(requestedAccess)) {
+    if (!["employee", "reader", "planner", "admin"].includes(requestedAccess)) {
       setAccessRequestFeedback("Velg ønsket tilgang.", "error");
       els.accessRequestType?.focus();
       return;
@@ -2431,7 +2431,7 @@
   function getAccessSetupChecklistHtml(row, matchingProfile, autoMatchedEmployee, selectedRole) {
     const normalizedRole = String(selectedRole || row?.requested_access || "").toLowerCase();
     const isEmployeeRole = normalizedRole === "employee";
-    const roleIsValid = ["employee", "planner", "admin"].includes(normalizedRole);
+    const roleIsValid = ["employee", "reader", "planner", "admin"].includes(normalizedRole);
     const employeeReady = !isEmployeeRole || Boolean(autoMatchedEmployee || row?.linked_employee_id);
     const profileReady = Boolean(matchingProfile);
     const requestApproved = String(row?.status || "pending").toLowerCase() === "approved";
@@ -2483,6 +2483,7 @@
     if (role === "superadmin" || role === "admin") {
       return [
         ["employee", "Ansatt / Min side"],
+        ["reader", "Lesetilgang"],
         ["planner", "Planlegger"],
         ["admin", "Admin"]
       ];
@@ -2490,6 +2491,7 @@
     if (role === "planner") {
       return [
         ["employee", "Ansatt / Min side"],
+        ["reader", "Lesetilgang"],
         ["planner", "Planlegger"]
       ];
     }
@@ -2600,10 +2602,10 @@
     const defaultType = getAccessCompleteDefaultType(row);
     const defaultGroup = getAccessCompleteDefaultGroup(row);
     const adminNote = isSuperadmin()
-      ? "Superadmin kan sette employee, planner og admin."
+      ? "Superadmin kan sette employee, reader, planner og admin."
       : isAdminUser()
-        ? "Admin kan sette employee, planner og admin."
-        : "Planner kan sette employee og planner. Admin-rolle krever admin/superadmin.";
+        ? "Admin kan sette employee, reader, planner og admin."
+        : "Planner kan sette employee, reader og planner. Admin-rolle krever admin/superadmin.";
 
     return `
       <div class="border-t border-slate-200 bg-slate-50 p-5" data-access-complete-panel="${escapeHtml(row.id)}">
@@ -2633,7 +2635,7 @@
 
           <div class="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
             <div class="text-sm font-bold text-slate-900">Ansattdata</div>
-            <div class="mt-1 text-xs text-slate-600">Påkrevd når endelig rolle er Ansatt. Ignoreres for planner/admin.</div>
+            <div class="mt-1 text-xs text-slate-600">Påkrevd når endelig rolle er Ansatt. Ignoreres for reader/planner/admin.</div>
             <div class="mt-3 grid gap-3 lg:grid-cols-3">
               <label class="block text-sm text-slate-700">
                 <span class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Stilling / tittel</span>
@@ -2843,7 +2845,7 @@
     const employeeType = panel.querySelector?.(`[data-access-complete-employee-type="${CSS.escape(requestId)}"]`)?.value?.trim() || "";
     const employeeGroup = normalizeEmployeeGroup(panel.querySelector?.(`[data-access-complete-employee-group="${CSS.escape(requestId)}"]`)?.value || "");
 
-    if (!["employee", "planner", "admin"].includes(normalizedRole) || !canAssignAccessRole(normalizedRole)) {
+    if (!["employee", "reader", "planner", "admin"].includes(normalizedRole) || !canAssignAccessRole(normalizedRole)) {
       alert("Du har ikke tilgang til å sette denne rollen.");
       return;
     }
@@ -3051,7 +3053,7 @@
     const normalizedRole = String(role || "").toLowerCase();
     const employeeId = panel?.querySelector?.(`[data-access-setup-employee="${CSS.escape(requestId)}"]`)?.value || "";
 
-    if (!["employee", "planner", "admin"].includes(normalizedRole)) {
+    if (!["employee", "reader", "planner", "admin"].includes(normalizedRole)) {
       alert("Velg en gyldig rolle.");
       return;
     }
@@ -3161,25 +3163,16 @@ Dette oppretter ikke Auth-bruker. Hvis Auth-brukeren mangler, får du en tydelig
     const targetRole = normalizeRoleValue(row.role);
     if (targetRole === "superadmin") return false;
     if (currentRole === "superadmin" || currentRole === "admin") return true;
-    if (currentRole === "planner") return ["employee", "planner"].includes(targetRole);
+    if (currentRole === "planner") return ["employee", "reader", "planner"].includes(targetRole);
     return false;
   }
 
   function getAccessUserRoleOptions(selectedValue) {
     const selected = normalizeRoleValue(selectedValue || "");
     const options = getAllowedAccessRoleOptions().slice();
-
-    if (selected === "reader") {
-      return [
-        `<option value="" selected disabled>Legacy: Lesetilgang - velg ny rolle</option>`,
-        ...options.map(([value, label]) => `<option value="${escapeHtml(value)}">${escapeHtml(label)}</option>`)
-      ].join("");
-    }
-
-    if (selected && !options.some(([value]) => value === selected) && selected !== "reader") {
+    if (selected && !options.some(([value]) => value === selected)) {
       options.unshift([selected, formatRoleLabel(selected) || selected]);
     }
-
     return options
       .map(([value, label]) => `<option value="${escapeHtml(value)}" ${selected === value ? "selected" : ""}>${escapeHtml(label)}</option>`)
       .join("");
