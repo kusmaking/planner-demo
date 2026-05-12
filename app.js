@@ -7886,16 +7886,20 @@ Overbooking blir lagret og skal vises som konflikt i Ansattplan.`;
 
 
   function getProjectWorkbenchDefaultRect() {
-    const margin = 28;
+    // v18.62l: Default skal oppleves som et flyttbart Outlook-vindu, ikke som sidepanel/fullskjerm.
+    // Ca. 1/4-1/3 av arbeidsflaten, med tydelig kalender synlig bak.
+    const margin = 24;
     const viewportWidth = Math.max(window.innerWidth || 1280, 360);
     const viewportHeight = Math.max(window.innerHeight || 760, 360);
     const maxWidth = Math.max(320, viewportWidth - margin * 2);
     const maxHeight = Math.max(300, viewportHeight - margin * 2);
-    const width = Math.min(Math.max(960, Math.round(viewportWidth * 0.72)), maxWidth);
-    const height = Math.min(Math.max(560, Math.round(viewportHeight * 0.70)), maxHeight);
+    const width = Math.min(Math.max(620, Math.round(viewportWidth * 0.48)), Math.min(980, maxWidth));
+    const height = Math.min(Math.max(420, Math.round(viewportHeight * 0.54)), Math.min(680, maxHeight));
+    const left = Math.min(Math.max(margin + 80, Math.round(viewportWidth * 0.20)), Math.max(margin, viewportWidth - width - margin));
+    const top = Math.min(Math.max(margin + 76, Math.round(viewportHeight * 0.16)), Math.max(margin, viewportHeight - height - margin));
     return {
-      left: Math.max(margin, Math.round((viewportWidth - width) / 2)),
-      top: Math.max(margin, Math.round((viewportHeight - height) / 2)),
+      left,
+      top,
       width,
       height,
       maximized: false,
@@ -7907,8 +7911,8 @@ Overbooking blir lagret og skal vises som konflikt i Ansattplan.`;
     const margin = 12;
     const viewportWidth = Math.max(window.innerWidth || 1280, 360);
     const viewportHeight = Math.max(window.innerHeight || 760, 360);
-    const minWidth = Math.min(740, Math.max(320, viewportWidth - margin * 2));
-    const minHeight = Math.min(440, Math.max(280, viewportHeight - margin * 2));
+    const minWidth = Math.min(460, Math.max(300, viewportWidth - margin * 2));
+    const minHeight = Math.min(330, Math.max(260, viewportHeight - margin * 2));
     const maxWidth = Math.max(minWidth, viewportWidth - margin * 2);
     const maxHeight = Math.max(minHeight, viewportHeight - margin * 2);
     const width = Math.min(Math.max(Number(rect.width) || minWidth, minWidth), maxWidth);
@@ -7949,18 +7953,27 @@ Overbooking blir lagret og skal vises som konflikt i Ansattplan.`;
     let rect = state.projectWorkbenchWindow || getProjectWorkbenchDefaultRect();
     rect = normalizeProjectWorkbenchRect(rect);
     state.projectWorkbenchWindow = rect;
-    shell.style.position = "fixed";
-    shell.style.left = `${rect.left}px`;
-    shell.style.top = `${rect.top}px`;
-    shell.style.width = `${rect.width}px`;
-    shell.style.height = `${rect.height}px`;
-    shell.style.right = "auto";
-    shell.style.bottom = "auto";
-    shell.style.transform = "none";
-    shell.style.zIndex = "10000";
-    shell.style.display = "block";
-    shell.style.pointerEvents = "auto";
-    shell.style.boxSizing = "border-box";
+
+    // Viktig: gamle panelregler brukte `inset/width/height: ... !important`.
+    // Derfor må flytende vindu styres med inline !important, ellers låser CSS det til full bredde.
+    shell.style.setProperty("position", "fixed", "important");
+    shell.style.setProperty("inset", "auto", "important");
+    shell.style.setProperty("left", `${rect.left}px`, "important");
+    shell.style.setProperty("top", `${rect.top}px`, "important");
+    shell.style.setProperty("width", `${rect.width}px`, "important");
+    shell.style.setProperty("height", `${rect.height}px`, "important");
+    shell.style.setProperty("right", "auto", "important");
+    shell.style.setProperty("bottom", "auto", "important");
+    shell.style.setProperty("max-width", "calc(100vw - 24px)", "important");
+    shell.style.setProperty("max-height", "calc(100vh - 24px)", "important");
+    shell.style.setProperty("min-width", "460px", "important");
+    shell.style.setProperty("min-height", "330px", "important");
+    shell.style.setProperty("transform", "none", "important");
+    shell.style.setProperty("z-index", "10000", "important");
+    shell.style.setProperty("display", "block", "important");
+    shell.style.setProperty("pointer-events", "auto", "important");
+    shell.style.setProperty("box-sizing", "border-box", "important");
+    shell.style.setProperty("overflow", "visible", "important");
   }
 
   function closeProjectWorkbenchPanel() {
@@ -7968,16 +7981,9 @@ Overbooking blir lagret og skal vises som konflikt i Ansattplan.`;
     state.focusProjectId = "";
     resetProjectInspectorFilters();
     if (els.calendarPanelCol) {
-      els.calendarPanelCol.style.left = "";
-      els.calendarPanelCol.style.top = "";
-      els.calendarPanelCol.style.width = "";
-      els.calendarPanelCol.style.height = "";
-      els.calendarPanelCol.style.right = "";
-      els.calendarPanelCol.style.bottom = "";
-      els.calendarPanelCol.style.position = "";
-      els.calendarPanelCol.style.transform = "";
-      els.calendarPanelCol.style.zIndex = "";
-      els.calendarPanelCol.style.display = "";
+      ["position", "inset", "left", "top", "width", "height", "right", "bottom", "min-width", "min-height", "max-width", "max-height", "transform", "z-index", "display", "pointer-events", "box-sizing", "overflow"].forEach(prop => {
+        els.calendarPanelCol.style.removeProperty(prop);
+      });
     }
     renderCalendarPanel();
     renderCalendar();
@@ -8054,10 +8060,10 @@ Overbooking blir lagret og skal vises som konflikt i Ansattplan.`;
             restore: null
           });
           state.projectWorkbenchWindow = next;
-          shell.style.left = `${next.left}px`;
-          shell.style.top = `${next.top}px`;
-          shell.style.width = `${next.width}px`;
-          shell.style.height = `${next.height}px`;
+          shell.style.setProperty("left", `${next.left}px`, "important");
+          shell.style.setProperty("top", `${next.top}px`, "important");
+          shell.style.setProperty("width", `${next.width}px`, "important");
+          shell.style.setProperty("height", `${next.height}px`, "important");
         };
         const onUp = () => {
           shell.classList.remove("is-dragging");
@@ -8095,10 +8101,10 @@ Overbooking blir lagret og skal vises som konflikt i Ansattplan.`;
           if (edge.includes("n")) { top = startRect.top + dy; height = startRect.height - dy; }
           const next = normalizeProjectWorkbenchRect({ left, top, width, height, maximized: false, restore: null });
           state.projectWorkbenchWindow = next;
-          shell.style.left = `${next.left}px`;
-          shell.style.top = `${next.top}px`;
-          shell.style.width = `${next.width}px`;
-          shell.style.height = `${next.height}px`;
+          shell.style.setProperty("left", `${next.left}px`, "important");
+          shell.style.setProperty("top", `${next.top}px`, "important");
+          shell.style.setProperty("width", `${next.width}px`, "important");
+          shell.style.setProperty("height", `${next.height}px`, "important");
         };
         const onUp = () => {
           shell.classList.remove("is-resizing");
@@ -8287,7 +8293,7 @@ Overbooking blir lagret og skal vises som konflikt i Ansattplan.`;
             <button data-calendar-panel-edit-project="${escapeHtml(project.id)}" type="button" class="iz-workbench-secondary-btn">Rediger prosjekt</button>
             <button data-project-workbench-reset-window="1" type="button" class="iz-workbench-secondary-btn">Nullstill</button>
             <button data-project-workbench-maximize="1" type="button" class="iz-workbench-secondary-btn">Fullvisning</button>
-            <button data-project-workbench-close="1" type="button" class="iz-workbench-close-btn" aria-label="Lukk prosjektvindu">× Lukk</button>
+            <button data-project-workbench-close="1" type="button" class="iz-workbench-close-text-btn" aria-label="Lukk prosjektvindu">Lukk</button>
           </div>
           <button data-project-workbench-close="1" type="button" class="iz-workbench-corner-close" aria-label="Lukk prosjektvindu" title="Lukk">×</button>
         </header>
@@ -8496,12 +8502,9 @@ Overbooking blir lagret og skal vises som konflikt i Ansattplan.`;
       const project = state.calendarPanelOpen ? getProjectById(state.focusProjectId || "") : null;
       if (!project) {
         if (els.calendarPanelCol) {
-          els.calendarPanelCol.style.left = "";
-          els.calendarPanelCol.style.top = "";
-          els.calendarPanelCol.style.width = "";
-          els.calendarPanelCol.style.height = "";
-          els.calendarPanelCol.style.position = "";
-          els.calendarPanelCol.style.zIndex = "";
+          ["position", "inset", "left", "top", "width", "height", "right", "bottom", "min-width", "min-height", "max-width", "max-height", "transform", "z-index", "display", "pointer-events", "box-sizing", "overflow"].forEach(prop => {
+            els.calendarPanelCol.style.removeProperty(prop);
+          });
         }
         els.calendarPanelCol.className = "hidden";
         els.calendarPanelContent.className = "hidden min-w-0 flex-1";
@@ -8520,12 +8523,9 @@ Overbooking blir lagret og skal vises som konflikt i Ansattplan.`;
     // v18.31e: Ansattplan skal ikke arve prosjektpanelet.
     // Høyrepanelet skjules helt utenfor Prosjektplan for å unngå tom mørk boks/regresjon.
     if (els.calendarPanelCol) {
-      els.calendarPanelCol.style.left = "";
-      els.calendarPanelCol.style.top = "";
-      els.calendarPanelCol.style.width = "";
-      els.calendarPanelCol.style.height = "";
-      els.calendarPanelCol.style.position = "";
-      els.calendarPanelCol.style.zIndex = "";
+      ["position", "inset", "left", "top", "width", "height", "right", "bottom", "min-width", "min-height", "max-width", "max-height", "transform", "z-index", "display", "pointer-events", "box-sizing", "overflow"].forEach(prop => {
+        els.calendarPanelCol.style.removeProperty(prop);
+      });
     }
     els.calendarPanelCol.className = "hidden";
     els.calendarPanelContent.className = "hidden min-w-0 flex-1";

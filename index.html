@@ -5292,6 +5292,126 @@
         min-height: 0 !important;
       }
     }
+
+
+    /* v18.62l: True Outlook-style floating project window.
+       Must override every earlier full-screen panel rule. */
+    body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench {
+      inset: auto !important;
+      right: auto !important;
+      bottom: auto !important;
+      display: block !important;
+      align-items: initial !important;
+      justify-content: initial !important;
+      width: auto !important;
+      height: auto !important;
+      min-width: 460px !important;
+      min-height: 330px !important;
+      max-width: calc(100vw - 24px) !important;
+      max-height: calc(100vh - 24px) !important;
+      background: transparent !important;
+      border: 0 !important;
+      box-shadow: none !important;
+      border-radius: 0 !important;
+      overflow: visible !important;
+      pointer-events: auto !important;
+      backdrop-filter: none !important;
+    }
+
+    body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench #calendarPanelContent,
+    body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench .iz-project-workbench-container {
+      width: 100% !important;
+      height: 100% !important;
+      min-width: 0 !important;
+      min-height: 0 !important;
+      max-width: none !important;
+      max-height: none !important;
+      overflow: visible !important;
+      pointer-events: auto !important;
+      background: transparent !important;
+    }
+
+    body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench .iz-project-workbench-modal {
+      width: 100% !important;
+      height: 100% !important;
+      min-width: 0 !important;
+      min-height: 0 !important;
+      max-width: none !important;
+      max-height: none !important;
+      overflow: hidden !important;
+      border: 1px solid rgba(133, 194, 210, 0.58) !important;
+      box-shadow: 0 24px 72px rgba(2, 12, 18, 0.72) !important;
+    }
+
+    body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench .iz-workbench-header {
+      cursor: grab !important;
+      padding: 12px 54px 12px 14px !important;
+      min-height: 58px !important;
+      align-items: flex-start !important;
+    }
+
+    body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench.is-dragging .iz-workbench-header {
+      cursor: grabbing !important;
+    }
+
+    body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench .iz-workbench-header-actions {
+      gap: 6px !important;
+      max-width: 460px !important;
+    }
+
+    body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench .iz-workbench-corner-close {
+      display: inline-flex !important;
+      position: absolute !important;
+      top: 8px !important;
+      right: 8px !important;
+      z-index: 10050 !important;
+      width: 38px !important;
+      height: 38px !important;
+      align-items: center !important;
+      justify-content: center !important;
+      border: 1px solid rgba(248, 113, 113, .9) !important;
+      background: rgba(153, 27, 27, .98) !important;
+      color: #fff !important;
+      font-size: 28px !important;
+      font-weight: 950 !important;
+      line-height: 1 !important;
+      cursor: pointer !important;
+      pointer-events: auto !important;
+      border-radius: 4px !important;
+    }
+
+    body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench .iz-workbench-close-text-btn,
+    body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench .iz-workbench-close-btn {
+      border: 1px solid rgba(248, 113, 113, .7) !important;
+      background: rgba(127, 29, 29, .86) !important;
+      color: #fff !important;
+      border-radius: 4px !important;
+      padding: 8px 11px !important;
+      min-height: 34px !important;
+      font-size: 12px !important;
+      font-weight: 900 !important;
+      cursor: pointer !important;
+      pointer-events: auto !important;
+      white-space: nowrap !important;
+    }
+
+    body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench .iz-workbench-main {
+      padding: 10px !important;
+      gap: 10px !important;
+      grid-template-columns: minmax(210px, 250px) minmax(0, 1fr) !important;
+      overflow: hidden !important;
+    }
+
+    body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench .iz-workbench-columns {
+      grid-template-columns: repeat(3, minmax(180px, 1fr)) !important;
+      gap: 8px !important;
+    }
+
+    body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench .iz-workbench-footer {
+      min-height: 38px !important;
+      padding: 7px 10px !important;
+    }
+
 </style>
 </head>
 <body class="iz-compact-ui text-slate-900">
