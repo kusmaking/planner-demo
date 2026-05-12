@@ -4424,7 +4424,52 @@
     }
 
 
-  </style>
+  
+
+    /* v18.62c: prosjektpanelet bruker mer horisontal flate mot venstre, uten å endre kalenderlogikk. */
+    body.iz-compact-ui #calendarPanelCol.iz-project-inspector-shell {
+      right: 14px !important;
+      width: clamp(980px, 82vw, 1560px) !important;
+      max-width: calc(100vw - 28px) !important;
+    }
+
+    body.iz-compact-ui #calendarPanelCol.iz-project-inspector-shell .iz-project-inspector-body {
+      padding: 14px !important;
+    }
+
+    body.iz-compact-ui #calendarPanelCol.iz-project-inspector-shell .iz-project-inspector-kpis {
+      grid-template-columns: repeat(5, minmax(120px, 1fr)) !important;
+      gap: 10px !important;
+    }
+
+    body.iz-compact-ui #calendarPanelCol.iz-project-inspector-shell .project-available-person-row-v1811 {
+      min-height: 78px !important;
+    }
+
+    @media (min-width: 1280px) {
+      body.iz-compact-ui #calendarPanelCol.iz-project-inspector-shell {
+        width: min(82vw, calc(100vw - 240px)) !important;
+      }
+    }
+
+    @media (min-width: 1500px) {
+      body.iz-compact-ui #calendarPanelCol.iz-project-inspector-shell {
+        width: min(78vw, 1580px) !important;
+      }
+    }
+
+    @media (max-width: 1180px) {
+      body.iz-compact-ui #calendarPanelCol.iz-project-inspector-shell {
+        right: 10px !important;
+        width: calc(100vw - 20px) !important;
+        max-width: calc(100vw - 20px) !important;
+      }
+
+      body.iz-compact-ui #calendarPanelCol.iz-project-inspector-shell .iz-project-inspector-kpis {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+      }
+    }
+</style>
 </head>
 <body class="iz-compact-ui text-slate-900">
 
