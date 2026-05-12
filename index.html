@@ -5477,6 +5477,120 @@
       }
     }
 
+
+
+    /* v18.62r: Stabiliser prosjektvindu-kontroller, scroll og prioriter prosjektdata/tildelte. */
+    body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench,
+    body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench .iz-project-workbench-modal,
+    body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench #calendarPanelContent,
+    body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench .iz-project-workbench-container {
+      overscroll-behavior: contain !important;
+    }
+
+    body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench > .iz-workbench-control-island {
+      right: 8px !important;
+      top: 8px !important;
+      z-index: 26000 !important;
+    }
+
+    body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench > .iz-workbench-control-island .iz-workbench-control-edit {
+      border-color: rgba(80, 240, 199, .58) !important;
+      background: rgba(10, 82, 96, .98) !important;
+      color: #eafffb !important;
+      min-width: 86px !important;
+    }
+
+    body.iz-compact-ui #projectModal.flex {
+      position: fixed !important;
+      inset: 0 !important;
+      z-index: 30050 !important;
+    }
+
+    body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench .iz-workbench-main {
+      grid-template-columns: minmax(300px, 40%) minmax(0, 1fr) !important;
+      align-items: stretch !important;
+    }
+
+    body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench .iz-workbench-summary {
+      gap: 8px !important;
+    }
+
+    body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench .iz-workbench-projectdata-card,
+    body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench .iz-workbench-periods-card {
+      flex: 0 0 auto !important;
+    }
+
+    body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench .iz-workbench-assigned-card {
+      flex: 1 1 46% !important;
+      min-height: 150px !important;
+    }
+
+    body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench .iz-workbench-assigned-list {
+      max-height: none !important;
+      overscroll-behavior: contain !important;
+    }
+
+    body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench .iz-workbench-candidates {
+      min-width: 0 !important;
+      overflow: hidden !important;
+    }
+
+    body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench .iz-workbench-columns {
+      grid-template-columns: 1fr !important;
+      gap: 8px !important;
+      overflow: auto !important;
+      min-height: 0 !important;
+      padding-right: 2px !important;
+      overscroll-behavior: contain !important;
+    }
+
+    body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench .iz-workbench-column {
+      min-height: 0 !important;
+    }
+
+    body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench .iz-workbench-column-head {
+      min-height: 38px !important;
+      padding: 8px 10px !important;
+    }
+
+    body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench .iz-workbench-column-head p {
+      display: none !important;
+    }
+
+    body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench .iz-workbench-column-body {
+      max-height: 142px !important;
+      overflow: auto !important;
+      overscroll-behavior: contain !important;
+    }
+
+    body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench .iz-workbench-person {
+      padding: 7px 8px !important;
+      gap: 7px !important;
+    }
+
+    body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench .iz-workbench-person-meta,
+    body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench .iz-workbench-conflict-line,
+    body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench .iz-workbench-conflict-more {
+      font-size: 10px !important;
+    }
+
+    body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench .iz-workbench-add-panel {
+      padding: 9px !important;
+    }
+
+    body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench .iz-workbench-add-panel.is-empty {
+      min-height: 42px !important;
+      align-items: center !important;
+    }
+
+    @media (min-width: 1120px) {
+      body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench .iz-workbench-main {
+        grid-template-columns: minmax(340px, 42%) minmax(0, 1fr) !important;
+      }
+      body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench .iz-workbench-column-body {
+        max-height: 150px !important;
+      }
+    }
 </style>
 </head>
 <body class="iz-compact-ui text-slate-900">

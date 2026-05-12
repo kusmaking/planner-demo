@@ -8023,12 +8023,52 @@ Overbooking blir lagret og skal vises som konflikt i Ansattplan.`;
       shell.appendChild(island);
     }
     island.innerHTML = `
-      <button data-project-workbench-edit="${escapeHtml(projectId)}" type="button">Rediger prosjekt</button>
+      <button data-project-workbench-edit="${escapeHtml(projectId)}" type="button" class="iz-workbench-control-edit" title="Rediger prosjekt">✎ Rediger</button>
       <button data-project-workbench-reset-window="1" type="button">Nullstill</button>
       <button data-project-workbench-maximize="1" type="button">Fullvisning</button>
       <button data-project-workbench-close="1" type="button" class="iz-workbench-control-close" aria-label="Lukk prosjektvindu" title="Lukk prosjektvindu">×</button>
     `;
     return island;
+  }
+
+  function getProjectWorkbenchScrollableTarget(target, boundary) {
+    let node = target instanceof Element ? target : null;
+    while (node && node !== boundary && node !== document.body) {
+      const style = window.getComputedStyle ? window.getComputedStyle(node) : null;
+      const overflowY = style?.overflowY || "";
+      const overflowX = style?.overflowX || "";
+      const canScrollY = /(auto|scroll)/.test(overflowY) && node.scrollHeight > node.clientHeight + 1;
+      const canScrollX = /(auto|scroll)/.test(overflowX) && node.scrollWidth > node.clientWidth + 1;
+      if (canScrollY || canScrollX) return node;
+      node = node.parentElement;
+    }
+    return null;
+  }
+
+  function canProjectWorkbenchScrollableMove(element, event) {
+    if (!element) return false;
+    const dx = Number(event.deltaX) || 0;
+    const dy = Number(event.deltaY) || 0;
+    if (Math.abs(dx) > Math.abs(dy)) {
+      if (dx < 0) return element.scrollLeft > 0;
+      if (dx > 0) return element.scrollLeft + element.clientWidth < element.scrollWidth - 1;
+      return false;
+    }
+    if (dy < 0) return element.scrollTop > 0;
+    if (dy > 0) return element.scrollTop + element.clientHeight < element.scrollHeight - 1;
+    return false;
+  }
+
+  function openProjectWorkbenchEditModal(projectId = "") {
+    const id = projectId || state.focusProjectId || "";
+    if (!id) return;
+    openProjectModal(id);
+    // Sørg for at eksisterende prosjektmodal ligger over prosjektvinduet, ikke bak det.
+    if (els.projectModal) {
+      els.projectModal.style.setProperty("position", "fixed", "important");
+      els.projectModal.style.setProperty("z-index", "30050", "important");
+      els.projectModal.style.setProperty("inset", "0", "important");
+    }
   }
 
   function setupProjectWorkbenchWindowControls(project = null) {
@@ -8072,7 +8112,7 @@ Overbooking blir lagret og skal vises som konflikt i Ansattplan.`;
           event.preventDefault();
           event.stopPropagation();
           const projectId = editButton.dataset.projectWorkbenchEdit || editButton.dataset.calendarPanelEditProject || state.focusProjectId || "";
-          if (projectId) openProjectModal(projectId);
+          openProjectWorkbenchEditModal(projectId);
           return;
         }
       });
@@ -8082,8 +8122,14 @@ Overbooking blir lagret og skal vises som konflikt i Ansattplan.`;
       shell.dataset.workbenchWheelGuardBound = "true";
       shell.addEventListener("wheel", event => {
         // Når musepeker er over prosjektvinduet skal kalenderen bak ikke scrolle.
+        // Innholdet i prosjektvinduet får scrolle når det faktisk har mer innhold.
         event.stopPropagation();
-      }, { passive: true });
+        if (typeof event.stopImmediatePropagation === "function") event.stopImmediatePropagation();
+        const scrollable = getProjectWorkbenchScrollableTarget(event.target, shell);
+        if (!canProjectWorkbenchScrollableMove(scrollable, event)) {
+          event.preventDefault();
+        }
+      }, { passive: false, capture: true });
     }
 
     if (!window.__izomaxProjectWorkbenchEscapeBound) {
@@ -8369,7 +8415,7 @@ Overbooking blir lagret og skal vises som konflikt i Ansattplan.`;
             </div>
           </div>
           <div class="iz-workbench-header-actions">
-            <button data-calendar-panel-edit-project="${escapeHtml(project.id)}" type="button" class="iz-workbench-secondary-btn">Rediger prosjekt</button>
+            <button data-project-workbench-edit="${escapeHtml(project.id)}" type="button" class="iz-workbench-secondary-btn iz-workbench-edit-btn">Rediger prosjekt</button>
             <button data-project-workbench-reset-window="1" type="button" class="iz-workbench-secondary-btn">Nullstill</button>
             <button data-project-workbench-maximize="1" type="button" class="iz-workbench-secondary-btn">Fullvisning</button>
             <button data-project-workbench-close="1" type="button" class="iz-workbench-close-text-btn" aria-label="Lukk prosjektvindu">Lukk</button>
@@ -8379,7 +8425,7 @@ Overbooking blir lagret og skal vises som konflikt i Ansattplan.`;
 
         <div class="iz-workbench-main">
           <aside class="iz-workbench-summary">
-            <section class="iz-workbench-card">
+            <section class="iz-workbench-card iz-workbench-projectdata-card">
               <h3>Prosjektdata</h3>
               <div class="iz-workbench-facts">
                 <div><span>Periode</span><strong>${escapeHtml(projectPeriodText)}</strong></div>
@@ -8389,10 +8435,10 @@ Overbooking blir lagret og skal vises som konflikt i Ansattplan.`;
               </div>
             </section>
 
-            <section class="iz-workbench-card">
+            <section class="iz-workbench-card iz-workbench-periods-card">
               <div class="iz-workbench-card-head">
                 <h3>Periode(r)</h3>
-                <button data-calendar-panel-edit-project="${escapeHtml(project.id)}" type="button">Rediger</button>
+                <button data-project-workbench-edit="${escapeHtml(project.id)}" type="button">Rediger</button>
               </div>
               <div class="iz-workbench-periods">${renderPeriods()}</div>
             </section>
@@ -8466,8 +8512,13 @@ Overbooking blir lagret og skal vises som konflikt i Ansattplan.`;
       });
     }
 
-    els.calendarPanelContent.querySelectorAll("[data-calendar-panel-edit-project]").forEach(btn => {
-      btn.addEventListener("click", () => openProjectModal(btn.dataset.calendarPanelEditProject));
+    els.calendarPanelContent.querySelectorAll("[data-calendar-panel-edit-project], [data-project-workbench-edit]").forEach(btn => {
+      btn.addEventListener("click", event => {
+        event.preventDefault();
+        event.stopPropagation();
+        const projectId = btn.dataset.projectWorkbenchEdit || btn.dataset.calendarPanelEditProject || state.focusProjectId || "";
+        openProjectWorkbenchEditModal(projectId);
+      });
     });
 
     const selectProjectInspectorCandidate = (employeeName, suggestedRole = "", options = {}) => {
