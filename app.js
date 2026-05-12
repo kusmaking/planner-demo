@@ -798,7 +798,7 @@
           <button id="resetPasswordBtn" class="hidden">Send reset-link</button>
         </div>
         <footer class="iz-workbench-footer">
-          <span>Dra i toppfeltet for å flytte vinduet. Dra i kantene eller hjørnene for å endre størrelse.</span>
+          <span class="iz-workbench-footer-spacer" aria-hidden="true"></span>
           <button data-project-workbench-close="1" type="button" class="iz-workbench-close-btn">Lukk vindu</button>
         </footer>
       </div>
@@ -6556,6 +6556,9 @@ async function deleteEditedEntry() {
     state.projectModalPeriods = [];
     els.projectModal.classList.add("hidden");
     els.projectModal.classList.remove("flex");
+    els.projectModal.classList.remove("iz-workbench-project-edit");
+    els.projectModal.removeAttribute("data-opened-from-workbench");
+    ["position", "z-index", "inset"].forEach(prop => els.projectModal.style.removeProperty(prop));
     flushPendingRemoteRefresh();
   }
 
@@ -8063,8 +8066,10 @@ Overbooking blir lagret og skal vises som konflikt i Ansattplan.`;
     const id = projectId || state.focusProjectId || "";
     if (!id) return;
     openProjectModal(id);
-    // Sørg for at eksisterende prosjektmodal ligger over prosjektvinduet, ikke bak det.
+    // Åpnet fra prosjektvindu: bruk mørk prosjektmodal som matcher bemanningsvinduet.
     if (els.projectModal) {
+      els.projectModal.classList.add("iz-workbench-project-edit");
+      els.projectModal.dataset.openedFromWorkbench = "1";
       els.projectModal.style.setProperty("position", "fixed", "important");
       els.projectModal.style.setProperty("z-index", "30050", "important");
       els.projectModal.style.setProperty("inset", "0", "important");
@@ -8433,7 +8438,7 @@ Overbooking blir lagret og skal vises som konflikt i Ansattplan.`;
 
     els.calendarPanelContent.innerHTML = `
       <div class="iz-project-workbench-modal" role="dialog" aria-modal="true" aria-label="Bemanning og prosjektkontroll">
-        <header class="iz-workbench-header" data-project-workbench-drag-handle="1" title="Dra her for å flytte vinduet">
+        <header class="iz-workbench-header" data-project-workbench-drag-handle="1">
           <div class="iz-workbench-title-block">
             <div class="iz-workbench-eyebrow">Bemanning og prosjektkontroll</div>
             <h2>${escapeHtml(project.name || "Prosjekt")}</h2>
@@ -8492,7 +8497,7 @@ Overbooking blir lagret og skal vises som konflikt i Ansattplan.`;
           </main>
         </div>
         <footer class="iz-workbench-footer">
-          <span>Dra i toppfeltet for å flytte vinduet. Dra i kantene eller hjørnene for å endre størrelse.</span>
+          <span class="iz-workbench-footer-spacer" aria-hidden="true"></span>
           <button data-project-workbench-close="1" type="button" class="iz-workbench-close-btn">Lukk vindu</button>
         </footer>
       </div>
