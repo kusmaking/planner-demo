@@ -7902,11 +7902,12 @@ Overbooking blir lagret og skal vises som konflikt i Ansattplan.`;
   }
 
   function getProjectWorkbenchDefaultRect() {
-    const margin = 28;
+    const margin = 34;
     const viewportWidth = Math.max(window.innerWidth || 1280, 900);
     const viewportHeight = Math.max(window.innerHeight || 760, 620);
-    const width = Math.min(Math.max(1040, Math.round(viewportWidth * 0.72)), viewportWidth - (margin * 2));
-    const height = Math.min(Math.max(620, Math.round(viewportHeight * 0.78)), viewportHeight - (margin * 2));
+    // v18.62i: Outlook-like default. Large enough for staffing work, but never full width.
+    const width = Math.min(Math.max(980, Math.round(viewportWidth * 0.66)), viewportWidth - (margin * 4));
+    const height = Math.min(Math.max(600, Math.round(viewportHeight * 0.76)), viewportHeight - (margin * 2));
     return {
       left: Math.max(margin, Math.round((viewportWidth - width) / 2)),
       top: Math.max(margin, Math.round((viewportHeight - height) / 2)),
@@ -7918,18 +7919,20 @@ Overbooking blir lagret og skal vises som konflikt i Ansattplan.`;
   }
 
   function normalizeProjectWorkbenchRect(rect = {}) {
-    const margin = 14;
-    const minWidth = Math.min(760, Math.max(360, (window.innerWidth || 900) - (margin * 2)));
-    const minHeight = Math.min(500, Math.max(320, (window.innerHeight || 620) - (margin * 2)));
-    const maxWidth = Math.max(minWidth, (window.innerWidth || 1280) - (margin * 2));
-    const maxHeight = Math.max(minHeight, (window.innerHeight || 760) - (margin * 2));
+    const margin = 16;
+    const viewportWidth = window.innerWidth || 1280;
+    const viewportHeight = window.innerHeight || 760;
+    const minWidth = Math.min(720, Math.max(360, viewportWidth - (margin * 2)));
+    const minHeight = Math.min(480, Math.max(300, viewportHeight - (margin * 2)));
+    const maxWidth = Math.max(minWidth, viewportWidth - (margin * 2));
+    const maxHeight = Math.max(minHeight, viewportHeight - (margin * 2));
     const width = Math.min(Math.max(Number(rect.width || 0), minWidth), maxWidth);
     const height = Math.min(Math.max(Number(rect.height || 0), minHeight), maxHeight);
-    const maxLeft = Math.max(margin, (window.innerWidth || 1280) - width - margin);
-    const maxTop = Math.max(margin, (window.innerHeight || 760) - height - margin);
+    const maxLeft = Math.max(margin, viewportWidth - width - margin);
+    const maxTop = Math.max(margin, viewportHeight - height - margin);
     return {
-      left: Math.min(Math.max(margin, Number(rect.left || margin)), maxLeft),
-      top: Math.min(Math.max(margin, Number(rect.top || margin)), maxTop),
+      left: Math.min(Math.max(margin, Number(rect.left ?? margin)), maxLeft),
+      top: Math.min(Math.max(margin, Number(rect.top ?? margin)), maxTop),
       width,
       height,
       maximized: !!rect.maximized,
@@ -7964,6 +7967,8 @@ Overbooking blir lagret og skal vises som konflikt i Ansattplan.`;
     container.style.width = `${normalized.width}px`;
     container.style.height = `${normalized.height}px`;
     container.style.transform = "none";
+    container.style.zIndex = "9999";
+    container.style.pointerEvents = "auto";
   }
 
   function toggleProjectWorkbenchMaximize() {
@@ -7974,10 +7979,10 @@ Overbooking blir lagret og skal vises som konflikt i Ansattplan.`;
       state.projectWorkbenchWindow = normalizeProjectWorkbenchRect(state.projectWorkbenchWindow.restore || getProjectWorkbenchDefaultRect());
     } else {
       state.projectWorkbenchWindow = normalizeProjectWorkbenchRect({
-        left: 14,
-        top: 14,
-        width: Math.max(760, (window.innerWidth || 1280) - 28),
-        height: Math.max(500, (window.innerHeight || 760) - 28),
+        left: 16,
+        top: 16,
+        width: Math.max(760, (window.innerWidth || 1280) - 32),
+        height: Math.max(500, (window.innerHeight || 760) - 32),
         maximized: true,
         restore: current
       });
@@ -8044,10 +8049,13 @@ Overbooking blir lagret og skal vises som konflikt i Ansattplan.`;
           document.removeEventListener("pointerup", onUp);
           document.removeEventListener("pointercancel", onUp);
         };
+        dragHandle.setPointerCapture?.(event.pointerId);
+        handle.setPointerCapture?.(event.pointerId);
         document.addEventListener("pointermove", onMove);
         document.addEventListener("pointerup", onUp, { once: true });
         document.addEventListener("pointercancel", onUp, { once: true });
         event.preventDefault();
+        event.stopPropagation();
       });
     }
 
@@ -8252,6 +8260,7 @@ Overbooking blir lagret og skal vises som konflikt i Ansattplan.`;
 
     els.calendarPanelContent.innerHTML = `
       <div class="iz-project-workbench-modal" role="dialog" aria-modal="true" aria-label="Bemanning og prosjektkontroll">
+        <button data-project-workbench-close="1" type="button" class="iz-workbench-window-close" aria-label="Lukk prosjektvindu" title="Lukk">×</button>
         <header class="iz-workbench-header iz-workbench-drag-handle" data-project-workbench-drag-handle="1" title="Dra her for å flytte vinduet">
           <div class="iz-workbench-title-block">
             <div class="iz-workbench-eyebrow">Bemanning og prosjektkontroll</div>
@@ -8266,7 +8275,7 @@ Overbooking blir lagret og skal vises som konflikt i Ansattplan.`;
             <button data-calendar-panel-edit-project="${escapeHtml(project.id)}" type="button" class="iz-workbench-secondary-btn">Rediger prosjekt</button>
             <button data-project-workbench-reset-window="1" type="button" class="iz-workbench-secondary-btn">Nullstill</button>
             <button data-project-workbench-maximize="1" type="button" class="iz-workbench-secondary-btn" aria-label="Maksimer eller gjenopprett vindu">Fullvisning</button>
-            <button id="calendarProjectPanelCloseBtn" data-project-workbench-close="1" type="button" class="iz-workbench-close-text-btn" aria-label="Lukk prosjektvindu">Lukk</button>
+            <button id="calendarProjectPanelCloseBtn" data-project-workbench-close="1" type="button" class="iz-workbench-close-text-btn" aria-label="Lukk prosjektvindu">× Lukk</button>
           </div>
           <button data-project-workbench-close="1" type="button" class="iz-workbench-floating-close" aria-label="Lukk prosjektvindu">×</button>
         </header>
