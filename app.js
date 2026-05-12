@@ -115,7 +115,7 @@
     projectInspectorAddUseCustomRange: false,
     projectInspectorAddCustomStart: "",
     projectInspectorAddCustomEnd: "",
-    projectWorkbenchWindow: { left: null, top: null, width: null, height: null },
+    projectWorkbenchWindow: { left: null, top: null, width: null, height: null, maximized: false, restore: null },
     projectImportPreview: {
       fileName: "",
       rowCount: 0,
@@ -7889,40 +7889,100 @@ Overbooking blir lagret og skal vises som konflikt i Ansattplan.`;
   }
 
   function resetProjectWorkbenchWindow() {
-    state.projectWorkbenchWindow = { left: null, top: null, width: null, height: null };
+    state.projectWorkbenchWindow = { left: null, top: null, width: null, height: null, maximized: false, restore: null };
     if (els.calendarPanelContent) {
       els.calendarPanelContent.style.left = "";
       els.calendarPanelContent.style.top = "";
       els.calendarPanelContent.style.width = "";
       els.calendarPanelContent.style.height = "";
       els.calendarPanelContent.style.position = "";
+      els.calendarPanelContent.style.transform = "";
     }
     renderCalendarPanel();
   }
 
-  function clampProjectWorkbenchWindowPosition(left, top, width, height) {
-    const margin = 10;
-    const safeWidth = Math.max(Number(width || 0), 520);
-    const safeHeight = Math.max(Number(height || 0), 360);
-    const maxLeft = Math.max(margin, window.innerWidth - safeWidth - margin);
-    const maxTop = Math.max(margin, window.innerHeight - safeHeight - margin);
+  function getProjectWorkbenchDefaultRect() {
+    const margin = 28;
+    const viewportWidth = Math.max(window.innerWidth || 1280, 900);
+    const viewportHeight = Math.max(window.innerHeight || 760, 620);
+    const width = Math.min(Math.max(1040, Math.round(viewportWidth * 0.72)), viewportWidth - (margin * 2));
+    const height = Math.min(Math.max(620, Math.round(viewportHeight * 0.78)), viewportHeight - (margin * 2));
     return {
-      left: Math.min(Math.max(margin, Number(left || margin)), maxLeft),
-      top: Math.min(Math.max(margin, Number(top || margin)), maxTop)
+      left: Math.max(margin, Math.round((viewportWidth - width) / 2)),
+      top: Math.max(margin, Math.round((viewportHeight - height) / 2)),
+      width,
+      height,
+      maximized: false,
+      restore: null
     };
+  }
+
+  function normalizeProjectWorkbenchRect(rect = {}) {
+    const margin = 14;
+    const minWidth = Math.min(760, Math.max(360, (window.innerWidth || 900) - (margin * 2)));
+    const minHeight = Math.min(500, Math.max(320, (window.innerHeight || 620) - (margin * 2)));
+    const maxWidth = Math.max(minWidth, (window.innerWidth || 1280) - (margin * 2));
+    const maxHeight = Math.max(minHeight, (window.innerHeight || 760) - (margin * 2));
+    const width = Math.min(Math.max(Number(rect.width || 0), minWidth), maxWidth);
+    const height = Math.min(Math.max(Number(rect.height || 0), minHeight), maxHeight);
+    const maxLeft = Math.max(margin, (window.innerWidth || 1280) - width - margin);
+    const maxTop = Math.max(margin, (window.innerHeight || 760) - height - margin);
+    return {
+      left: Math.min(Math.max(margin, Number(rect.left || margin)), maxLeft),
+      top: Math.min(Math.max(margin, Number(rect.top || margin)), maxTop),
+      width,
+      height,
+      maximized: !!rect.maximized,
+      restore: rect.restore || null
+    };
+  }
+
+  function getCurrentProjectWorkbenchRect(container) {
+    const rect = container?.getBoundingClientRect?.();
+    if (!rect || !rect.width || !rect.height) return normalizeProjectWorkbenchRect(state.projectWorkbenchWindow || getProjectWorkbenchDefaultRect());
+    return normalizeProjectWorkbenchRect({
+      left: rect.left,
+      top: rect.top,
+      width: rect.width,
+      height: rect.height,
+      maximized: !!state.projectWorkbenchWindow?.maximized,
+      restore: state.projectWorkbenchWindow?.restore || null
+    });
   }
 
   function applyProjectWorkbenchWindowState(container) {
     if (!container) return;
-    const win = state.projectWorkbenchWindow || {};
-    if (Number.isFinite(win.left) && Number.isFinite(win.top) && Number.isFinite(win.width) && Number.isFinite(win.height)) {
-      const clamped = clampProjectWorkbenchWindowPosition(win.left, win.top, win.width, win.height);
-      container.style.position = "absolute";
-      container.style.left = `${clamped.left}px`;
-      container.style.top = `${clamped.top}px`;
-      container.style.width = `${Math.max(680, win.width)}px`;
-      container.style.height = `${Math.max(460, win.height)}px`;
+    let win = state.projectWorkbenchWindow || {};
+    if (!Number.isFinite(win.left) || !Number.isFinite(win.top) || !Number.isFinite(win.width) || !Number.isFinite(win.height)) {
+      win = getProjectWorkbenchDefaultRect();
     }
+    const normalized = normalizeProjectWorkbenchRect(win);
+    state.projectWorkbenchWindow = normalized;
+    container.style.position = "fixed";
+    container.style.left = `${normalized.left}px`;
+    container.style.top = `${normalized.top}px`;
+    container.style.width = `${normalized.width}px`;
+    container.style.height = `${normalized.height}px`;
+    container.style.transform = "none";
+  }
+
+  function toggleProjectWorkbenchMaximize() {
+    const container = els.calendarPanelContent;
+    if (!container) return;
+    const current = getCurrentProjectWorkbenchRect(container);
+    if (state.projectWorkbenchWindow?.maximized) {
+      state.projectWorkbenchWindow = normalizeProjectWorkbenchRect(state.projectWorkbenchWindow.restore || getProjectWorkbenchDefaultRect());
+    } else {
+      state.projectWorkbenchWindow = normalizeProjectWorkbenchRect({
+        left: 14,
+        top: 14,
+        width: Math.max(760, (window.innerWidth || 1280) - 28),
+        height: Math.max(500, (window.innerHeight || 760) - 28),
+        maximized: true,
+        restore: current
+      });
+    }
+    applyProjectWorkbenchWindowState(container);
   }
 
   function setupProjectWorkbenchWindowControls(project) {
@@ -7932,11 +7992,25 @@ Overbooking blir lagret og skal vises som konflikt i Ansattplan.`;
     applyProjectWorkbenchWindowState(container);
 
     container.querySelectorAll("[data-project-workbench-close]").forEach(btn => {
-      btn.addEventListener("click", closeProjectWorkbenchPanel);
+      btn.addEventListener("click", event => {
+        event.preventDefault();
+        event.stopPropagation();
+        closeProjectWorkbenchPanel();
+      });
     });
 
     container.querySelectorAll("[data-project-workbench-reset-window]").forEach(btn => {
-      btn.addEventListener("click", resetProjectWorkbenchWindow);
+      btn.addEventListener("click", event => {
+        event.preventDefault();
+        resetProjectWorkbenchWindow();
+      });
+    });
+
+    container.querySelectorAll("[data-project-workbench-maximize]").forEach(btn => {
+      btn.addEventListener("click", event => {
+        event.preventDefault();
+        toggleProjectWorkbenchMaximize();
+      });
     });
 
     const dragHandle = container.querySelector("[data-project-workbench-drag-handle]");
@@ -7944,29 +8018,23 @@ Overbooking blir lagret og skal vises som konflikt i Ansattplan.`;
       dragHandle.addEventListener("pointerdown", event => {
         if (event.button !== 0) return;
         if (event.target?.closest?.("button, input, select, textarea, a, [role='button']")) return;
-        const rect = container.getBoundingClientRect();
-        state.projectWorkbenchWindow = {
-          left: rect.left,
-          top: rect.top,
-          width: rect.width,
-          height: rect.height
-        };
-        container.style.position = "absolute";
-        container.style.left = `${rect.left}px`;
-        container.style.top = `${rect.top}px`;
-        container.style.width = `${rect.width}px`;
-        container.style.height = `${rect.height}px`;
+        const startRect = getCurrentProjectWorkbenchRect(container);
+        state.projectWorkbenchWindow = { ...startRect, maximized: false, restore: null };
+        applyProjectWorkbenchWindowState(container);
         container.classList.add("is-dragging");
         const startX = event.clientX;
         const startY = event.clientY;
-        const startLeft = rect.left;
-        const startTop = rect.top;
         const onMove = moveEvent => {
-          const width = state.projectWorkbenchWindow.width || rect.width;
-          const height = state.projectWorkbenchWindow.height || rect.height;
-          const next = clampProjectWorkbenchWindowPosition(startLeft + moveEvent.clientX - startX, startTop + moveEvent.clientY - startY, width, height);
-          state.projectWorkbenchWindow.left = next.left;
-          state.projectWorkbenchWindow.top = next.top;
+          const next = normalizeProjectWorkbenchRect({
+            ...state.projectWorkbenchWindow,
+            left: startRect.left + moveEvent.clientX - startX,
+            top: startRect.top + moveEvent.clientY - startY,
+            width: startRect.width,
+            height: startRect.height,
+            maximized: false,
+            restore: null
+          });
+          state.projectWorkbenchWindow = next;
           container.style.left = `${next.left}px`;
           container.style.top = `${next.top}px`;
         };
@@ -7983,22 +8051,47 @@ Overbooking blir lagret og skal vises som konflikt i Ansattplan.`;
       });
     }
 
-    if (typeof ResizeObserver !== "undefined") {
-      const resizeObserver = new ResizeObserver(entries => {
-        const entry = entries && entries[0];
-        if (!entry) return;
-        const rect = container.getBoundingClientRect();
-        if (!rect.width || !rect.height) return;
-        const clamped = clampProjectWorkbenchWindowPosition(rect.left, rect.top, rect.width, rect.height);
-        state.projectWorkbenchWindow = {
-          left: clamped.left,
-          top: clamped.top,
-          width: rect.width,
-          height: rect.height
+    container.querySelectorAll("[data-project-workbench-resize]").forEach(handle => {
+      handle.addEventListener("pointerdown", event => {
+        if (event.button !== 0) return;
+        const edge = handle.dataset.projectWorkbenchResize || "se";
+        const startRect = getCurrentProjectWorkbenchRect(container);
+        state.projectWorkbenchWindow = { ...startRect, maximized: false, restore: null };
+        applyProjectWorkbenchWindowState(container);
+        container.classList.add("is-resizing");
+        const startX = event.clientX;
+        const startY = event.clientY;
+        const onMove = moveEvent => {
+          const dx = moveEvent.clientX - startX;
+          const dy = moveEvent.clientY - startY;
+          let left = startRect.left;
+          let top = startRect.top;
+          let width = startRect.width;
+          let height = startRect.height;
+          if (edge.includes("e")) width = startRect.width + dx;
+          if (edge.includes("s")) height = startRect.height + dy;
+          if (edge.includes("w")) { left = startRect.left + dx; width = startRect.width - dx; }
+          if (edge.includes("n")) { top = startRect.top + dy; height = startRect.height - dy; }
+          const next = normalizeProjectWorkbenchRect({ left, top, width, height, maximized: false, restore: null });
+          state.projectWorkbenchWindow = next;
+          container.style.left = `${next.left}px`;
+          container.style.top = `${next.top}px`;
+          container.style.width = `${next.width}px`;
+          container.style.height = `${next.height}px`;
         };
+        const onUp = () => {
+          container.classList.remove("is-resizing");
+          document.removeEventListener("pointermove", onMove);
+          document.removeEventListener("pointerup", onUp);
+          document.removeEventListener("pointercancel", onUp);
+        };
+        document.addEventListener("pointermove", onMove);
+        document.addEventListener("pointerup", onUp, { once: true });
+        document.addEventListener("pointercancel", onUp, { once: true });
+        event.preventDefault();
+        event.stopPropagation();
       });
-      resizeObserver.observe(container);
-    }
+    });
   }
 
   function renderProjectInspectorPanel(project) {
@@ -8171,10 +8264,11 @@ Overbooking blir lagret og skal vises som konflikt i Ansattplan.`;
           </div>
           <div class="iz-workbench-header-actions">
             <button data-calendar-panel-edit-project="${escapeHtml(project.id)}" type="button" class="iz-workbench-secondary-btn">Rediger prosjekt</button>
-            <button data-project-workbench-reset-window="1" type="button" class="iz-workbench-secondary-btn">Nullstill vindu</button>
+            <button data-project-workbench-reset-window="1" type="button" class="iz-workbench-secondary-btn">Nullstill</button>
+            <button data-project-workbench-maximize="1" type="button" class="iz-workbench-secondary-btn" aria-label="Maksimer eller gjenopprett vindu">Fullvisning</button>
             <button id="calendarProjectPanelCloseBtn" data-project-workbench-close="1" type="button" class="iz-workbench-close-text-btn" aria-label="Lukk prosjektvindu">Lukk</button>
-            <button data-project-workbench-close="1" type="button" class="iz-workbench-close-btn" aria-label="Lukk">×</button>
           </div>
+          <button data-project-workbench-close="1" type="button" class="iz-workbench-floating-close" aria-label="Lukk prosjektvindu">×</button>
         </header>
 
         <div class="iz-workbench-main">
@@ -8218,12 +8312,21 @@ Overbooking blir lagret og skal vises som konflikt i Ansattplan.`;
         </div>
 
         <footer class="iz-workbench-footer">
-          <span>Dra i toppfeltet for å flytte vinduet. Bruk hjørnet nede til høyre for å endre størrelse.</span>
+          <span>Dra i toppfeltet for å flytte vinduet. Dra i kantene/hjørnene for å endre størrelse.</span>
           <div class="iz-workbench-footer-actions">
             <button data-project-workbench-reset-window="1" type="button" class="iz-workbench-secondary-btn">Nullstill vindu</button>
+            <button data-project-workbench-maximize="1" type="button" class="iz-workbench-secondary-btn">Fullvisning</button>
             <button data-project-workbench-close="1" type="button" class="iz-workbench-close-text-btn">Lukk vindu</button>
           </div>
         </footer>
+        <span class="iz-workbench-resize-handle iz-workbench-resize-n" data-project-workbench-resize="n" aria-hidden="true"></span>
+        <span class="iz-workbench-resize-handle iz-workbench-resize-e" data-project-workbench-resize="e" aria-hidden="true"></span>
+        <span class="iz-workbench-resize-handle iz-workbench-resize-s" data-project-workbench-resize="s" aria-hidden="true"></span>
+        <span class="iz-workbench-resize-handle iz-workbench-resize-w" data-project-workbench-resize="w" aria-hidden="true"></span>
+        <span class="iz-workbench-resize-handle iz-workbench-resize-ne" data-project-workbench-resize="ne" aria-hidden="true"></span>
+        <span class="iz-workbench-resize-handle iz-workbench-resize-nw" data-project-workbench-resize="nw" aria-hidden="true"></span>
+        <span class="iz-workbench-resize-handle iz-workbench-resize-se" data-project-workbench-resize="se" aria-hidden="true"></span>
+        <span class="iz-workbench-resize-handle iz-workbench-resize-sw" data-project-workbench-resize="sw" aria-hidden="true"></span>
       </div>
     `;
 
