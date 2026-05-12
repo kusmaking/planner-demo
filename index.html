@@ -1273,6 +1273,74 @@
       text-overflow: ellipsis;
     }
 
+    /* v18.62b: status strip and wider crew cards for the expanded project panel. */
+    body.iz-compact-ui #calendarPanelCol.iz-project-inspector-shell .iz-project-inspector-kpi.is-good,
+    body.iz-compact-ui #calendarPanelCol.iz-project-inspector-shell .iz-project-availability-card.is-good {
+      border-color: rgba(34,197,94,0.38) !important;
+      background: rgba(34,197,94,0.13) !important;
+    }
+    body.iz-compact-ui #calendarPanelCol.iz-project-inspector-shell .iz-project-inspector-kpi.is-warning,
+    body.iz-compact-ui #calendarPanelCol.iz-project-inspector-shell .iz-project-availability-card.is-warning {
+      border-color: rgba(245,158,11,0.40) !important;
+      background: rgba(245,158,11,0.14) !important;
+    }
+    body.iz-compact-ui #calendarPanelCol.iz-project-inspector-shell .iz-project-inspector-kpi.is-danger,
+    body.iz-compact-ui #calendarPanelCol.iz-project-inspector-shell .iz-project-availability-card.is-danger {
+      border-color: rgba(248,113,113,0.42) !important;
+      background: rgba(248,113,113,0.14) !important;
+    }
+    body.iz-compact-ui #calendarPanelCol.iz-project-inspector-shell .iz-project-inspector-kpi.is-good .iz-project-inspector-kpi-value,
+    body.iz-compact-ui #calendarPanelCol.iz-project-inspector-shell .iz-project-availability-card.is-good .iz-project-availability-value {
+      color: #86efac !important;
+    }
+    body.iz-compact-ui #calendarPanelCol.iz-project-inspector-shell .iz-project-inspector-kpi.is-warning .iz-project-inspector-kpi-value,
+    body.iz-compact-ui #calendarPanelCol.iz-project-inspector-shell .iz-project-availability-card.is-warning .iz-project-availability-value {
+      color: #fbbf24 !important;
+    }
+    body.iz-compact-ui #calendarPanelCol.iz-project-inspector-shell .iz-project-inspector-kpi.is-danger .iz-project-inspector-kpi-value,
+    body.iz-compact-ui #calendarPanelCol.iz-project-inspector-shell .iz-project-availability-card.is-danger .iz-project-availability-value {
+      color: #fca5a5 !important;
+    }
+    body.iz-compact-ui #calendarPanelCol.iz-project-inspector-shell .iz-project-availability-strip {
+      display: grid !important;
+      grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+      gap: 8px !important;
+      margin-bottom: 10px !important;
+    }
+    body.iz-compact-ui #calendarPanelCol.iz-project-inspector-shell .iz-project-availability-card {
+      border: 1px solid rgba(133,194,210,0.24) !important;
+      padding: 9px 10px !important;
+      border-radius: 4px !important;
+      min-height: 50px !important;
+    }
+    body.iz-compact-ui #calendarPanelCol.iz-project-inspector-shell .iz-project-availability-label {
+      font-size: 10px !important;
+      font-weight: 850 !important;
+      letter-spacing: .05em !important;
+      text-transform: uppercase !important;
+      color: rgba(232,244,248,0.70) !important;
+    }
+    body.iz-compact-ui #calendarPanelCol.iz-project-inspector-shell .iz-project-availability-value {
+      margin-top: 4px !important;
+      font-size: 18px !important;
+      line-height: 1 !important;
+      font-weight: 950 !important;
+    }
+    body.iz-compact-ui #calendarPanelCol.iz-project-inspector-shell .project-available-person-row-v1811.is-available {
+      border-left: 4px solid rgba(34,197,94,0.82) !important;
+    }
+    body.iz-compact-ui #calendarPanelCol.iz-project-inspector-shell .project-available-person-row-v1811.is-partial {
+      border-left: 4px solid rgba(245,158,11,0.88) !important;
+    }
+    body.iz-compact-ui #calendarPanelCol.iz-project-inspector-shell .project-available-person-row-v1811.is-busy {
+      border-left: 4px solid rgba(248,113,113,0.90) !important;
+    }
+    @media (max-width: 1180px) {
+      body.iz-compact-ui #calendarPanelCol.iz-project-inspector-shell {
+        width: calc(100vw - 36px) !important;
+      }
+    }
+
     @media (max-width: 1200px) {
       body.iz-compact-ui #calendarPanelCol.iz-project-inspector-shell .iz-project-inspector-kpis {
         grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1284,10 +1352,10 @@
     body.iz-compact-ui #calendarPanelCol.iz-project-inspector-shell {
       position: fixed !important;
       top: 98px !important;
-      right: 26px !important;
-      bottom: 26px !important;
-      width: clamp(560px, 48vw, 760px) !important;
-      max-width: calc(100vw - 52px) !important;
+      right: 18px !important;
+      bottom: 22px !important;
+      width: clamp(720px, 64vw, 1060px) !important;
+      max-width: calc(100vw - 36px) !important;
       z-index: 80 !important;
       background: linear-gradient(180deg, rgba(5, 48, 63, 0.98) 0%, rgba(3, 34, 45, 0.98) 100%) !important;
       color: #f8fbfd !important;

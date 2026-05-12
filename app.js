@@ -7770,12 +7770,6 @@ async function deleteEditedEntry() {
       alert(window.izomaxTranslateKey?.("selectEmployeeFirst") || "Velg en ansatt fra listen først.");
       return;
     }
-    if (employee.availability?.label === "Opptatt") {
-      projectPanelDebug("create blocked: employee busy", { employee: employee.name });
-      alert(window.izomaxTranslateKey?.("isBusy") || "Denne personen er opptatt i prosjektperioden.");
-      return;
-    }
-
     const range = getProjectInspectorAddRange(project);
     projectPanelDebug("create range resolved", range);
     if (!range.start || !range.end) {
@@ -7807,10 +7801,10 @@ async function deleteEditedEntry() {
     };
 
     const conflicts = getEntryOverlapConflicts(entry);
-    if (conflicts.length) {
-      projectPanelDebug("create blocked: conflicts", { conflictCount: conflicts.length, conflicts });
-      alert(getEntryConflictSummary(entry, conflicts));
-      return;
+    const isPanelOverbook = employee.availability?.label === "Opptatt" || conflicts.length > 0;
+    if (isPanelOverbook) {
+      projectPanelDebug("create allowed with overbooking", { conflictCount: conflicts.length, employee: employee.name });
+      entry.notes = "OVERBOOKET fra prosjektpanel - kontroller i Ansattplan";
     }
 
     projectPanelDebug("create pushing entry", entry);
@@ -7888,17 +7882,17 @@ async function deleteEditedEntry() {
           <div class="iz-project-inspector-kpi-value">${escapeHtml(String(assigned || 0))}</div>
           <div class="iz-project-inspector-kpi-sub">${required ? `${assigned}/${required}` : "uten krav"}</div>
         </div>
-        <div class="iz-project-inspector-kpi">
+        <div class="iz-project-inspector-kpi ${missingStaffCount ? 'is-danger' : 'is-good'}">
           <div class="iz-project-inspector-kpi-label">Mangler</div>
           <div class="iz-project-inspector-kpi-value">${escapeHtml(String(missingStaffCount || 0))}</div>
           <div class="iz-project-inspector-kpi-sub">${missingStaffCount ? "må bemannes" : "ok"}</div>
         </div>
-        <div class="iz-project-inspector-kpi">
+        <div class="iz-project-inspector-kpi is-good">
           <div class="iz-project-inspector-kpi-label">Ledige</div>
           <div class="iz-project-inspector-kpi-value">${escapeHtml(String(availabilitySummary.available || 0))}</div>
           <div class="iz-project-inspector-kpi-sub">hele perioden</div>
         </div>
-        <div class="iz-project-inspector-kpi">
+        <div class="iz-project-inspector-kpi is-warning">
           <div class="iz-project-inspector-kpi-label">Delvis</div>
           <div class="iz-project-inspector-kpi-value">${escapeHtml(String(availabilitySummary.partial || 0))}</div>
           <div class="iz-project-inspector-kpi-sub">kan dekke deler</div>
@@ -7925,6 +7919,7 @@ async function deleteEditedEntry() {
           <div style="min-width:0 !important;">
             <div style="font-size:13px !important;font-weight:900 !important;line-height:1.25 !important;color:#f8fbfd !important;">${window.izomaxTranslateKey?.("addProject") || "Legg til prosjekt"}: ${escapeHtml(addCandidate.name)}</div>
             <div style="margin-top:4px !important;font-size:11px !important;font-weight:600 !important;color:rgba(232,244,248,0.72) !important;">${window.izomaxTranslateKey?.("addProjectDescription") || "Velg rolle og periode, trykk deretter Legg til prosjekt."}</div>
+            ${addCandidate.availability?.label === "Opptatt" ? `<div style="margin-top:6px !important;border:1px solid rgba(248,113,113,0.42) !important;background:rgba(248,113,113,0.12) !important;color:#fecaca !important;border-radius:4px !important;padding:6px 8px !important;font-size:11px !important;font-weight:800 !important;">Overbooking tillates her og vil markeres som konflikt i Ansattplan.</div>` : ""}
           </div>
           <span style="display:inline-flex !important;align-items:center !important;justify-content:center !important;border:1px solid rgba(132,204,222,0.28) !important;background:rgba(255,255,255,0.06) !important;color:#f8fbfd !important;border-radius:4px !important;padding:5px 8px !important;font-size:11px !important;font-weight:900 !important;">${escapeHtml(addCandidate.availability?.label || "Valgt")}</span>
         </div>
@@ -8011,10 +8006,10 @@ async function deleteEditedEntry() {
 
     const availableHtml = shouldShowAvailable ? `<!-- v18.16-add-box-moved-up --><!-- v18.12-dark-available-cards -->
       <section>
-        <div class="mb-2 grid grid-cols-3 gap-1 text-[11px]">
-          <div class="rounded-lg border border-green-200 bg-green-50 px-2 py-1 text-center font-semibold text-green-700"><div>${window.izomaxTranslateKey?.("available") || "Ledig"}</div><div class="text-sm">${availabilitySummary.available}</div></div>
-          <div class="rounded-lg border border-amber-200 bg-amber-50 px-2 py-1 text-center font-semibold text-amber-700"><div>${window.izomaxTranslateKey?.("partly") || "Delvis"}</div><div class="text-sm">${availabilitySummary.partial}</div></div>
-          <div class="rounded-lg border border-red-200 bg-red-50 px-2 py-1 text-center font-semibold text-red-700"><div>${window.izomaxTranslateKey?.("busy") || "Opptatt"}</div><div class="text-sm">${availabilitySummary.busy}</div></div>
+        <div class="iz-project-availability-strip">
+          <div class="iz-project-availability-card is-good"><div class="iz-project-availability-label">${window.izomaxTranslateKey?.("available") || "Ledig"}</div><div class="iz-project-availability-value">${availabilitySummary.available}</div></div>
+          <div class="iz-project-availability-card is-warning"><div class="iz-project-availability-label">${window.izomaxTranslateKey?.("partly") || "Delvis"}</div><div class="iz-project-availability-value">${availabilitySummary.partial}</div></div>
+          <div class="iz-project-availability-card is-danger"><div class="iz-project-availability-label">${window.izomaxTranslateKey?.("busy") || "Opptatt / overbook"}</div><div class="iz-project-availability-value">${availabilitySummary.busy}</div></div>
         </div>
         <div class="mb-2 grid grid-cols-[1fr_auto] gap-2">
           <input id="projectInspectorSearchInput" type="text" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs" placeholder="${window.izomaxTranslateKey?.("searchNameGroupTitleStatus") || "Søk navn, gruppe, tittel eller status"}" value="${escapeHtml(state.projectInspectorSearch || "")}" />
@@ -8026,11 +8021,14 @@ async function deleteEditedEntry() {
           </div>
           ${employees.length ? employees.map(employee => {
             const isSelected = addCandidate && addCandidate.name === employee.name;
-            const canAssign = employee.availability.label !== "Opptatt";
+            const isBusyCandidate = employee.availability.label === "Opptatt";
+            const rowAvailabilityClass = employee.availability.label === "Ledig" ? "is-available" : (employee.availability.label === "Delvis ledig" ? "is-partial" : "is-busy");
+            const canAssign = true;
+            const addActionText = isBusyCandidate ? "Overbook" : (window.izomaxTranslateKey?.("add") || "Add");
             const expandedHtml = "";
             return `
               <div
-                class="project-available-person-row-v1811"
+                class="project-available-person-row-v1811 ${rowAvailabilityClass}"
                 data-project-available-person-row="${escapeHtml(employee.name)}"
                 data-project-inspector-row-role="${escapeHtml(getDefaultRoleForIndex(0))}"
                 style="display:block !important;width:100% !important;box-sizing:border-box !important;border:1px solid rgba(148,187,199,0.26) !important;background:${isSelected ? 'rgba(255,255,255,0.16)' : 'rgba(255,255,255,0.10)'} !important;color:#f8fbfd !important;border-radius:4px !important;visibility:visible !important;opacity:1 !important;overflow:hidden !important;cursor:pointer !important;"
@@ -8051,7 +8049,7 @@ async function deleteEditedEntry() {
                   type="button"
                   style="display:inline-flex !important;align-items:center !important;justify-content:center !important;min-width:34px !important;width:34px !important;height:32px !important;padding:0 !important;border-radius:8px !important;border:1px solid ${isSelected ? '#16a34a' : '#cbd5e1'} !important;background:${isSelected ? '#dcfce7' : '#ffffff'} !important;color:${isSelected ? '#166534' : '#0f172a'} !important;font-size:12px !important;font-weight:700 !important;line-height:1 !important;white-space:nowrap !important;overflow:visible !important;opacity:1 !important;"
                   aria-label="${(isSelected ? (window.izomaxTranslateKey?.('selected') || 'Selected') : (window.izomaxTranslateKey?.('add') || 'Add'))} ${escapeHtml(employee.name)}"
-                >${isSelected ? "✓" : "+"}</button>` : `<span style="display:inline-flex !important;align-items:center !important;justify-content:center !important;border:1px solid #e2e8f0 !important;background:#f8fafc !important;color:#64748b !important;border-radius:4px !important;padding:6px 9px !important;font-size:11px !important;font-weight:900 !important;visibility:visible !important;opacity:1 !important;">${window.izomaxTranslateKey?.("busy") || "Opptatt"}</span>`}
+                >${isSelected ? "✓" : (isBusyCandidate ? "!" : "+")}</button>` : `<span style="display:inline-flex !important;align-items:center !important;justify-content:center !important;border:1px solid #e2e8f0 !important;background:#f8fafc !important;color:#64748b !important;border-radius:4px !important;padding:6px 9px !important;font-size:11px !important;font-weight:900 !important;visibility:visible !important;opacity:1 !important;">${window.izomaxTranslateKey?.("busy") || "Opptatt"}</span>`}
                   </div>
                 </div>
                 <button
@@ -8060,7 +8058,7 @@ async function deleteEditedEntry() {
                   type="button"
                   style="display:flex !important;align-items:center !important;justify-content:center !important;width:calc(100% - 24px) !important;min-height:34px !important;margin:0 12px 10px 12px !important;padding:0 12px !important;border-radius:8px !important;border:1px solid ${isSelected ? '#16a34a' : 'rgba(132,204,222,0.42)'} !important;background:${isSelected ? 'rgba(22,163,74,0.18)' : 'rgba(255,255,255,0.10)'} !important;color:#f8fbfd !important;font-size:12px !important;font-weight:900 !important;letter-spacing:.01em !important;white-space:nowrap !important;overflow:visible !important;visibility:visible !important;opacity:1 !important;cursor:pointer !important;"
                   aria-label="${(isSelected ? (window.izomaxTranslateKey?.('selected') || 'Selected') : (window.izomaxTranslateKey?.('add') || 'Add'))} ${escapeHtml(employee.name)}"
-                >${isSelected ? (window.izomaxTranslateKey?.("selected") || "Selected") : (window.izomaxTranslateKey?.("add") || "Add")}</button>
+                >${isSelected ? (window.izomaxTranslateKey?.("selected") || "Selected") : addActionText}</button>
                 ${expandedHtml}
               </div>
             `;
