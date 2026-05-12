@@ -797,19 +797,7 @@
           <button id="logoutBtn" class="w-full text-left bg-white px-3 py-2 text-sm hover:bg-slate-50">Logg ut</button>
           <button id="resetPasswordBtn" class="hidden">Send reset-link</button>
         </div>
-        <footer class="iz-workbench-footer">
-          <span>Dra i toppfeltet for å flytte vinduet. Dra i kantene eller hjørnene for å endre størrelse.</span>
-          <button data-project-workbench-close="1" type="button" class="iz-workbench-close-btn">Lukk vindu</button>
-        </footer>
       </div>
-      <span class="iz-workbench-resize-handle iz-workbench-resize-n" data-project-workbench-resize="n" aria-hidden="true"></span>
-      <span class="iz-workbench-resize-handle iz-workbench-resize-e" data-project-workbench-resize="e" aria-hidden="true"></span>
-      <span class="iz-workbench-resize-handle iz-workbench-resize-s" data-project-workbench-resize="s" aria-hidden="true"></span>
-      <span class="iz-workbench-resize-handle iz-workbench-resize-w" data-project-workbench-resize="w" aria-hidden="true"></span>
-      <span class="iz-workbench-resize-handle iz-workbench-resize-ne" data-project-workbench-resize="ne" aria-hidden="true"></span>
-      <span class="iz-workbench-resize-handle iz-workbench-resize-nw" data-project-workbench-resize="nw" aria-hidden="true"></span>
-      <span class="iz-workbench-resize-handle iz-workbench-resize-se" data-project-workbench-resize="se" aria-hidden="true"></span>
-      <span class="iz-workbench-resize-handle iz-workbench-resize-sw" data-project-workbench-resize="sw" aria-hidden="true"></span>
     `;
 
     const anchor = els.storageBadge?.parentElement || document.body.firstElementChild || document.body;
@@ -8011,10 +7999,51 @@ Overbooking blir lagret og skal vises som konflikt i Ansattplan.`;
     applyProjectWorkbenchWindowState();
   }
 
-  function setupProjectWorkbenchWindowControls() {
+  function ensureProjectWorkbenchFloatingControls(project = null) {
+    const shell = els.calendarPanelCol;
+    if (!shell) return null;
+    const projectId = project?.id || state.focusProjectId || "";
+    let controls = document.getElementById("projectWorkbenchFloatingControls");
+    if (!controls || controls.parentElement !== shell) {
+      controls?.remove?.();
+      controls = document.createElement("div");
+      controls.id = "projectWorkbenchFloatingControls";
+      controls.className = "iz-workbench-floating-controls";
+      shell.appendChild(controls);
+    }
+    controls.innerHTML = `
+      <div class="iz-workbench-floating-title">
+        <span class="iz-workbench-window-dot" aria-hidden="true"></span>
+        <span>Prosjektbemanning</span>
+      </div>
+      <div class="iz-workbench-floating-actions">
+        <button data-project-workbench-edit="${escapeHtml(projectId)}" type="button" class="iz-workbench-floating-btn">Rediger prosjekt</button>
+        <button data-project-workbench-reset-window="1" type="button" class="iz-workbench-floating-btn">Nullstill</button>
+        <button data-project-workbench-maximize="1" type="button" class="iz-workbench-floating-btn">Fullvisning</button>
+        <button data-project-workbench-close="1" type="button" class="iz-workbench-floating-close" aria-label="Lukk prosjektvindu" title="Lukk prosjektvindu">×</button>
+      </div>
+    `;
+    return controls;
+  }
+
+  function setupProjectWorkbenchWindowControls(project = null) {
     const shell = els.calendarPanelCol;
     if (!shell) return;
     applyProjectWorkbenchWindowState();
+    const floatingControls = ensureProjectWorkbenchFloatingControls(project);
+    if (floatingControls && !floatingControls.dataset.boundPointerGuard) {
+      floatingControls.dataset.boundPointerGuard = "true";
+      ["pointerdown", "mousedown", "click"].forEach(type => {
+        floatingControls.addEventListener(type, event => event.stopPropagation());
+      });
+    }
+    if (!shell.dataset.workbenchWheelGuardBound) {
+      shell.dataset.workbenchWheelGuardBound = "true";
+      shell.addEventListener("wheel", event => {
+        const content = event.target?.closest?.("#calendarPanelContent, .iz-project-workbench-modal");
+        if (content) event.stopPropagation();
+      }, { passive: true });
+    }
 
     // v18.62m: One delegated close handler so all close buttons work even after rerender.
     if (!shell.dataset.workbenchDelegatedCloseBound) {
@@ -8045,6 +8074,15 @@ Overbooking blir lagret og skal vises som konflikt i Ansattplan.`;
       });
     });
 
+    shell.querySelectorAll("[data-project-workbench-edit]").forEach(btn => {
+      btn.addEventListener("click", event => {
+        event.preventDefault();
+        event.stopPropagation();
+        const projectId = btn.dataset.projectWorkbenchEdit || state.focusProjectId || "";
+        if (projectId) openProjectModal(projectId);
+      });
+    });
+
     shell.querySelectorAll("[data-project-workbench-reset-window]").forEach(btn => {
       btn.addEventListener("click", event => {
         event.preventDefault();
@@ -8061,7 +8099,7 @@ Overbooking blir lagret og skal vises som konflikt i Ansattplan.`;
       });
     });
 
-    const dragHandle = shell.querySelector("[data-project-workbench-drag-handle]");
+    const dragHandle = document.getElementById("projectWorkbenchFloatingControls") || shell.querySelector("[data-project-workbench-drag-handle]");
     if (dragHandle) {
       dragHandle.addEventListener("pointerdown", event => {
         if (event.button !== 0) return;
@@ -8403,7 +8441,7 @@ Overbooking blir lagret og skal vises som konflikt i Ansattplan.`;
       }
     };
 
-    setupProjectWorkbenchWindowControls();
+    setupProjectWorkbenchWindowControls(project);
 
     const searchInput = document.getElementById("projectInspectorSearchInput");
     if (searchInput) {

@@ -5541,6 +5541,103 @@
       }
     }
 
+
+
+    /* v18.62n: Emergency visible Outlook controls pinned directly to the floating window shell.
+       These controls are outside the scrollable workbench content so close/edit cannot disappear. */
+    body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench > .iz-workbench-floating-controls {
+      position: absolute !important;
+      top: 8px !important;
+      left: 8px !important;
+      right: 8px !important;
+      height: 38px !important;
+      z-index: 200000 !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: space-between !important;
+      gap: 10px !important;
+      padding: 4px 6px 4px 10px !important;
+      box-sizing: border-box !important;
+      pointer-events: auto !important;
+      border: 1px solid rgba(133, 194, 210, .45) !important;
+      background: linear-gradient(90deg, rgba(2, 24, 33, .99), rgba(5, 48, 63, .98)) !important;
+      box-shadow: 0 10px 28px rgba(2, 12, 18, .52) !important;
+      color: #f8fbfd !important;
+      cursor: grab !important;
+      user-select: none !important;
+    }
+
+    body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench.is-dragging > .iz-workbench-floating-controls {
+      cursor: grabbing !important;
+    }
+
+    body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench > .iz-workbench-floating-controls .iz-workbench-floating-title {
+      display: inline-flex !important;
+      align-items: center !important;
+      gap: 8px !important;
+      min-width: 0 !important;
+      overflow: hidden !important;
+      white-space: nowrap !important;
+      text-overflow: ellipsis !important;
+      font-size: 11px !important;
+      font-weight: 950 !important;
+      text-transform: uppercase !important;
+      letter-spacing: .08em !important;
+      color: #eaffff !important;
+    }
+
+    body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench > .iz-workbench-floating-controls .iz-workbench-floating-actions {
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: flex-end !important;
+      gap: 6px !important;
+      flex: 0 0 auto !important;
+    }
+
+    body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench > .iz-workbench-floating-controls button {
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      height: 28px !important;
+      min-height: 28px !important;
+      border-radius: 4px !important;
+      border: 1px solid rgba(133, 194, 210, .48) !important;
+      background: rgba(4, 30, 41, .94) !important;
+      color: #ffffff !important;
+      padding: 0 9px !important;
+      font-size: 11px !important;
+      line-height: 1 !important;
+      font-weight: 900 !important;
+      cursor: pointer !important;
+      pointer-events: auto !important;
+      white-space: nowrap !important;
+    }
+
+    body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench > .iz-workbench-floating-controls .iz-workbench-floating-close {
+      width: 30px !important;
+      min-width: 30px !important;
+      padding: 0 !important;
+      border-color: rgba(248, 113, 113, .95) !important;
+      background: rgba(153, 27, 27, .98) !important;
+      color: #ffffff !important;
+      font-size: 22px !important;
+      font-weight: 950 !important;
+    }
+
+    body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench > .iz-workbench-floating-controls .iz-workbench-floating-close:hover {
+      background: rgba(220, 38, 38, .98) !important;
+    }
+
+    body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench .iz-project-workbench-modal {
+      padding-top: 38px !important;
+    }
+
+    @media (max-width: 900px) {
+      body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench > .iz-workbench-floating-controls .iz-workbench-floating-btn:not(:first-child) {
+        display: none !important;
+      }
+    }
+
 </style>
 </head>
 <body class="iz-compact-ui text-slate-900">
