@@ -8121,13 +8121,15 @@ Overbooking blir lagret og skal vises som konflikt i Ansattplan.`;
     if (!shell.dataset.workbenchWheelGuardBound) {
       shell.dataset.workbenchWheelGuardBound = "true";
       shell.addEventListener("wheel", event => {
-        // Når musepeker er over prosjektvinduet skal kalenderen bak ikke scrolle.
-        // Innholdet i prosjektvinduet får scrolle når det faktisk har mer innhold.
+        // Når musepeker er over prosjektvinduet skal kalenderen bak aldri scrolle.
+        // Vi stopper default scrolling og flytter kun nærmeste interne scrollområde manuelt.
+        event.preventDefault();
         event.stopPropagation();
         if (typeof event.stopImmediatePropagation === "function") event.stopImmediatePropagation();
         const scrollable = getProjectWorkbenchScrollableTarget(event.target, shell);
-        if (!canProjectWorkbenchScrollableMove(scrollable, event)) {
-          event.preventDefault();
+        if (scrollable) {
+          scrollable.scrollTop += Number(event.deltaY) || 0;
+          scrollable.scrollLeft += Number(event.deltaX) || 0;
         }
       }, { passive: false, capture: true });
     }
@@ -8162,6 +8164,15 @@ Overbooking blir lagret og skal vises som konflikt i Ansattplan.`;
         event.preventDefault();
         event.stopPropagation();
         toggleProjectWorkbenchMaximize();
+      });
+    });
+
+    shell.querySelectorAll("[data-project-workbench-edit], [data-calendar-panel-edit-project]").forEach(btn => {
+      btn.addEventListener("click", event => {
+        event.preventDefault();
+        event.stopPropagation();
+        const projectId = btn.dataset.projectWorkbenchEdit || btn.dataset.calendarPanelEditProject || state.focusProjectId || "";
+        openProjectWorkbenchEditModal(projectId);
       });
     });
 
@@ -8330,8 +8341,16 @@ Overbooking blir lagret og skal vises som konflikt i Ansattplan.`;
       `;
     };
 
-    const renderCandidateColumn = (title, subtitle, employees, mode) => `
-      <section class="iz-workbench-column ${mode}">
+    const renderCandidateColumn = (title, subtitle, employees, mode, options = {}) => {
+      const bodyHtml = `
+        <div class="iz-workbench-column-body">
+          ${employees.length ? employees.slice(0, 40).map(employee => renderCandidateCard(employee, mode)).join("") : `<div class="iz-workbench-empty">Ingen treff.</div>`}
+          ${employees.length > 40 ? `<div class="iz-workbench-more">Viser 40 av ${employees.length}. Bruk søk/filter.</div>` : ""}
+        </div>
+      `;
+      const hasSelectedEmployee = !!(addCandidate && employees.some(employee => employee.name === addCandidate.name));
+      const shouldOpen = options.open === true || hasSelectedEmployee;
+      const headHtml = `
         <div class="iz-workbench-column-head">
           <div>
             <h3>${escapeHtml(title)}</h3>
@@ -8339,12 +8358,22 @@ Overbooking blir lagret og skal vises som konflikt i Ansattplan.`;
           </div>
           <span>${employees.length}</span>
         </div>
-        <div class="iz-workbench-column-body">
-          ${employees.length ? employees.slice(0, 40).map(employee => renderCandidateCard(employee, mode)).join("") : `<div class="iz-workbench-empty">Ingen treff.</div>`}
-          ${employees.length > 40 ? `<div class="iz-workbench-more">Viser 40 av ${employees.length}. Bruk søk/filter.</div>` : ""}
-        </div>
-      </section>
-    `;
+      `;
+      if (options.collapsible) {
+        return `
+          <details class="iz-workbench-column iz-workbench-collapsible-column ${mode}" ${shouldOpen ? "open" : ""}>
+            <summary class="iz-workbench-column-summary">${headHtml}</summary>
+            ${bodyHtml}
+          </details>
+        `;
+      }
+      return `
+        <section class="iz-workbench-column ${mode} is-open-default">
+          ${headHtml}
+          ${bodyHtml}
+        </section>
+      `;
+    };
 
     const selectedAddPanelHtml = addCandidate ? `
       <section id="projectInspectorStableAddBox" data-project-inspector-stable-add-box="1" class="iz-workbench-add-panel">
@@ -8456,9 +8485,9 @@ Overbooking blir lagret og skal vises som konflikt i Ansattplan.`;
               <select id="projectInspectorGroupFilter">${groupOptions}</select>
             </div>
             <div class="iz-workbench-columns">
-              ${renderCandidateColumn("Ledig hele perioden", "Beste kandidater for hele oppdraget.", availableEmployees, "available")}
-              ${renderCandidateColumn("Delvis ledig", "Kan dekke deler av perioden.", partialEmployees, "partial")}
-              ${renderCandidateColumn("Opptatt / overbook", "Viser konfliktprosjekt og kan overbookes.", busyEmployees, "busy")}
+              ${renderCandidateColumn("Ledig hele perioden", "Beste kandidater for hele oppdraget.", availableEmployees, "available", { open: true })}
+              ${renderCandidateColumn("Delvis ledig", "Kan dekke deler av perioden.", partialEmployees, "partial", { collapsible: true })}
+              ${renderCandidateColumn("Opptatt / overbook", "Viser konfliktprosjekt og kan overbookes.", busyEmployees, "busy", { collapsible: true })}
             </div>
           </main>
         </div>
