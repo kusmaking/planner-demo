@@ -5638,6 +5638,76 @@
       }
     }
 
+
+    /* v18.62o: Rydd prosjektvinduet. Kun én kontrollinje inne i vinduet; ingen ekstra topp-overlay. */
+    body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench > .iz-workbench-floating-controls {
+      display: none !important;
+    }
+    body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench .iz-project-workbench-modal {
+      padding-top: 0 !important;
+    }
+    body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench .iz-workbench-window-chrome {
+      border-radius: 0 !important;
+      flex: 0 0 40px !important;
+      height: 40px !important;
+      min-height: 40px !important;
+    }
+    body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench .iz-workbench-window-actions {
+      padding-right: 38px !important;
+    }
+    body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench .iz-workbench-header {
+      padding-top: 14px !important;
+    }
+    body.iz-compact-ui #projectModal.iz-project-modal-inside-workbench {
+      border-radius: 6px !important;
+    }
+    body.iz-compact-ui #projectModal.iz-project-modal-inside-workbench > div {
+      background: rgba(8, 42, 54, .98) !important;
+      color: #effcff !important;
+      border-radius: 6px !important;
+    }
+    body.iz-compact-ui #projectModal.iz-project-modal-inside-workbench > div > div:first-child,
+    body.iz-compact-ui #projectModal.iz-project-modal-inside-workbench .sticky {
+      background: linear-gradient(90deg, rgba(2, 32, 43, .98), rgba(4, 48, 62, .96)) !important;
+      color: #effcff !important;
+      border-color: rgba(133, 194, 210, .34) !important;
+    }
+    body.iz-compact-ui #projectModal.iz-project-modal-inside-workbench input,
+    body.iz-compact-ui #projectModal.iz-project-modal-inside-workbench select,
+    body.iz-compact-ui #projectModal.iz-project-modal-inside-workbench textarea {
+      background: rgba(255, 255, 255, .08) !important;
+      color: #f8ffff !important;
+      border-color: rgba(133, 194, 210, .38) !important;
+      border-radius: 6px !important;
+    }
+    body.iz-compact-ui #projectModal.iz-project-modal-inside-workbench input::placeholder,
+    body.iz-compact-ui #projectModal.iz-project-modal-inside-workbench textarea::placeholder {
+      color: rgba(226, 246, 251, .62) !important;
+    }
+    body.iz-compact-ui #projectModal.iz-project-modal-inside-workbench .bg-white,
+    body.iz-compact-ui #projectModal.iz-project-modal-inside-workbench .bg-slate-50,
+    body.iz-compact-ui #projectModal.iz-project-modal-inside-workbench [class*="bg-red-50"],
+    body.iz-compact-ui #projectModal.iz-project-modal-inside-workbench [class*="bg-green-50"] {
+      background: rgba(12, 51, 63, .94) !important;
+      color: #effcff !important;
+    }
+    body.iz-compact-ui #projectModal.iz-project-modal-inside-workbench .text-slate-800,
+    body.iz-compact-ui #projectModal.iz-project-modal-inside-workbench .text-slate-700,
+    body.iz-compact-ui #projectModal.iz-project-modal-inside-workbench .text-slate-600,
+    body.iz-compact-ui #projectModal.iz-project-modal-inside-workbench .text-slate-500,
+    body.iz-compact-ui #projectModal.iz-project-modal-inside-workbench .text-red-950,
+    body.iz-compact-ui #projectModal.iz-project-modal-inside-workbench .text-red-800,
+    body.iz-compact-ui #projectModal.iz-project-modal-inside-workbench .text-green-950,
+    body.iz-compact-ui #projectModal.iz-project-modal-inside-workbench .text-green-800 {
+      color: rgba(239, 252, 255, .86) !important;
+    }
+    body.iz-compact-ui #projectModal.iz-project-modal-inside-workbench .border-slate-200,
+    body.iz-compact-ui #projectModal.iz-project-modal-inside-workbench .border-slate-300,
+    body.iz-compact-ui #projectModal.iz-project-modal-inside-workbench .border-red-200,
+    body.iz-compact-ui #projectModal.iz-project-modal-inside-workbench .border-green-200 {
+      border-color: rgba(133, 194, 210, .32) !important;
+    }
+
 </style>
 </head>
 <body class="iz-compact-ui text-slate-900">

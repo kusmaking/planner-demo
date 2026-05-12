@@ -6503,6 +6503,61 @@ async function deleteEditedEntry() {
     return { ok: true, periods: sorted };
   }
 
+  function clearProjectModalWorkbenchMode() {
+    const modal = els.projectModal;
+    if (!modal) return;
+    const inner = modal.firstElementChild;
+    modal.classList.remove("iz-project-modal-inside-workbench");
+    ["position", "inset", "left", "top", "width", "height", "right", "bottom", "z-index", "background", "padding", "align-items", "justify-content", "overflow", "display"].forEach(prop => modal.style.removeProperty(prop));
+    if (inner) {
+      ["width", "max-width", "height", "max-height", "margin", "overflow", "border", "box-shadow"].forEach(prop => inner.style.removeProperty(prop));
+    }
+  }
+
+  function applyProjectModalWorkbenchMode() {
+    const shell = els.calendarPanelCol;
+    const modal = els.projectModal;
+    if (!shell || !modal || modal.classList.contains("hidden")) return;
+    const inner = modal.firstElementChild;
+    const shellRect = shell.getBoundingClientRect?.();
+    if (!shellRect || !shellRect.width || !shellRect.height) return;
+
+    const margin = 10;
+    const left = Math.max(margin, Math.min(shellRect.left + 12, (window.innerWidth || 1280) - 380));
+    const top = Math.max(margin, Math.min(shellRect.top + 48, (window.innerHeight || 760) - 320));
+    const width = Math.max(360, Math.min(shellRect.width - 24, (window.innerWidth || 1280) - left - margin));
+    const height = Math.max(300, Math.min(shellRect.height - 62, (window.innerHeight || 760) - top - margin));
+
+    modal.classList.add("iz-project-modal-inside-workbench");
+    modal.style.setProperty("position", "fixed", "important");
+    modal.style.setProperty("inset", "auto", "important");
+    modal.style.setProperty("left", `${left}px`, "important");
+    modal.style.setProperty("top", `${top}px`, "important");
+    modal.style.setProperty("width", `${width}px`, "important");
+    modal.style.setProperty("height", `${height}px`, "important");
+    modal.style.setProperty("z-index", "12050", "important");
+    modal.style.setProperty("background", "rgba(2, 20, 28, .34)", "important");
+    modal.style.setProperty("padding", "8px", "important");
+    modal.style.setProperty("align-items", "stretch", "important");
+    modal.style.setProperty("justify-content", "stretch", "important");
+    modal.style.setProperty("overflow", "hidden", "important");
+    if (inner) {
+      inner.style.setProperty("width", "100%", "important");
+      inner.style.setProperty("max-width", "none", "important");
+      inner.style.setProperty("height", "100%", "important");
+      inner.style.setProperty("max-height", "none", "important");
+      inner.style.setProperty("margin", "0", "important");
+      inner.style.setProperty("overflow", "auto", "important");
+      inner.style.setProperty("border", "1px solid rgba(133, 194, 210, .36)", "important");
+      inner.style.setProperty("box-shadow", "0 18px 55px rgba(0,0,0,.42)", "important");
+    }
+  }
+
+  function openProjectModalFromWorkbench(projectId = null) {
+    openProjectModal(projectId || state.focusProjectId || null);
+    requestAnimationFrame(applyProjectModalWorkbenchMode);
+  }
+
   function openProjectModal(projectId = null) {
     if (!canEditApp()) return;
     state.selectedProjectId = projectId;
@@ -6542,6 +6597,7 @@ async function deleteEditedEntry() {
   function closeProjectModal() {
     state.selectedProjectId = null;
     state.projectModalPeriods = [];
+    clearProjectModalWorkbenchMode();
     els.projectModal.classList.add("hidden");
     els.projectModal.classList.remove("flex");
     flushPendingRemoteRefresh();
@@ -7965,6 +8021,7 @@ Overbooking blir lagret og skal vises som konflikt i Ansattplan.`;
   }
 
   function closeProjectWorkbenchPanel() {
+    document.getElementById("projectWorkbenchFloatingControls")?.remove?.();
     state.calendarPanelOpen = false;
     state.focusProjectId = "";
     resetProjectInspectorFilters();
@@ -8030,13 +8087,9 @@ Overbooking blir lagret og skal vises som konflikt i Ansattplan.`;
     const shell = els.calendarPanelCol;
     if (!shell) return;
     applyProjectWorkbenchWindowState();
-    const floatingControls = ensureProjectWorkbenchFloatingControls(project);
-    if (floatingControls && !floatingControls.dataset.boundPointerGuard) {
-      floatingControls.dataset.boundPointerGuard = "true";
-      ["pointerdown", "mousedown", "click"].forEach(type => {
-        floatingControls.addEventListener(type, event => event.stopPropagation());
-      });
-    }
+    // v18.62o: Fjern den ekstra nød-topplinjen fra v18.62n.
+    // Vinduet skal kun ha én Outlook-lignende kontrollinje inne i selve boksen.
+    document.getElementById("projectWorkbenchFloatingControls")?.remove?.();
     if (!shell.dataset.workbenchWheelGuardBound) {
       shell.dataset.workbenchWheelGuardBound = "true";
       shell.addEventListener("wheel", event => {
@@ -8079,7 +8132,7 @@ Overbooking blir lagret og skal vises som konflikt i Ansattplan.`;
         event.preventDefault();
         event.stopPropagation();
         const projectId = btn.dataset.projectWorkbenchEdit || state.focusProjectId || "";
-        if (projectId) openProjectModal(projectId);
+        if (projectId) openProjectModalFromWorkbench(projectId);
       });
     });
 
@@ -8099,7 +8152,7 @@ Overbooking blir lagret og skal vises som konflikt i Ansattplan.`;
       });
     });
 
-    const dragHandle = document.getElementById("projectWorkbenchFloatingControls") || shell.querySelector("[data-project-workbench-drag-handle]");
+    const dragHandle = shell.querySelector("[data-project-workbench-drag-handle]");
     if (dragHandle) {
       dragHandle.addEventListener("pointerdown", event => {
         if (event.button !== 0) return;
@@ -8459,7 +8512,7 @@ Overbooking blir lagret og skal vises som konflikt i Ansattplan.`;
     }
 
     els.calendarPanelContent.querySelectorAll("[data-calendar-panel-edit-project]").forEach(btn => {
-      btn.addEventListener("click", () => openProjectModal(btn.dataset.calendarPanelEditProject));
+      btn.addEventListener("click", () => openProjectModalFromWorkbench(btn.dataset.calendarPanelEditProject));
     });
 
     const selectProjectInspectorCandidate = (employeeName, suggestedRole = "", options = {}) => {
