@@ -115,7 +115,6 @@
     projectInspectorAddUseCustomRange: false,
     projectInspectorAddCustomStart: "",
     projectInspectorAddCustomEnd: "",
-    projectWorkbenchWindow: null,
     projectImportPreview: {
       fileName: "",
       rowCount: 0,
@@ -797,19 +796,7 @@
           <button id="logoutBtn" class="w-full text-left bg-white px-3 py-2 text-sm hover:bg-slate-50">Logg ut</button>
           <button id="resetPasswordBtn" class="hidden">Send reset-link</button>
         </div>
-        <footer class="iz-workbench-footer">
-          <span>Dra i toppfeltet for å flytte vinduet. Dra i kantene eller hjørnene for å endre størrelse.</span>
-          <button data-project-workbench-close="1" type="button" class="iz-workbench-close-btn">Lukk vindu</button>
-        </footer>
       </div>
-      <span class="iz-workbench-resize-handle iz-workbench-resize-n" data-project-workbench-resize="n" aria-hidden="true"></span>
-      <span class="iz-workbench-resize-handle iz-workbench-resize-e" data-project-workbench-resize="e" aria-hidden="true"></span>
-      <span class="iz-workbench-resize-handle iz-workbench-resize-s" data-project-workbench-resize="s" aria-hidden="true"></span>
-      <span class="iz-workbench-resize-handle iz-workbench-resize-w" data-project-workbench-resize="w" aria-hidden="true"></span>
-      <span class="iz-workbench-resize-handle iz-workbench-resize-ne" data-project-workbench-resize="ne" aria-hidden="true"></span>
-      <span class="iz-workbench-resize-handle iz-workbench-resize-nw" data-project-workbench-resize="nw" aria-hidden="true"></span>
-      <span class="iz-workbench-resize-handle iz-workbench-resize-se" data-project-workbench-resize="se" aria-hidden="true"></span>
-      <span class="iz-workbench-resize-handle iz-workbench-resize-sw" data-project-workbench-resize="sw" aria-hidden="true"></span>
     `;
 
     const anchor = els.storageBadge?.parentElement || document.body.firstElementChild || document.body;
@@ -6515,61 +6502,6 @@ async function deleteEditedEntry() {
     return { ok: true, periods: sorted };
   }
 
-  function clearProjectModalWorkbenchMode() {
-    const modal = els.projectModal;
-    if (!modal) return;
-    const inner = modal.firstElementChild;
-    modal.classList.remove("iz-project-modal-inside-workbench");
-    ["position", "inset", "left", "top", "width", "height", "right", "bottom", "z-index", "background", "padding", "align-items", "justify-content", "overflow", "display"].forEach(prop => modal.style.removeProperty(prop));
-    if (inner) {
-      ["width", "max-width", "height", "max-height", "margin", "overflow", "border", "box-shadow"].forEach(prop => inner.style.removeProperty(prop));
-    }
-  }
-
-  function applyProjectModalWorkbenchMode() {
-    const shell = els.calendarPanelCol;
-    const modal = els.projectModal;
-    if (!shell || !modal || modal.classList.contains("hidden")) return;
-    const inner = modal.firstElementChild;
-    const shellRect = shell.getBoundingClientRect?.();
-    if (!shellRect || !shellRect.width || !shellRect.height) return;
-
-    const margin = 12;
-    const left = Math.max(margin, Math.min(shellRect.left + 18, (window.innerWidth || 1280) - 430));
-    const top = Math.max(margin, Math.min(shellRect.top + 58, (window.innerHeight || 760) - 360));
-    const width = Math.max(420, Math.min(shellRect.width - 36, (window.innerWidth || 1280) - left - margin));
-    const height = Math.max(340, Math.min(shellRect.height - 82, (window.innerHeight || 760) - top - margin));
-
-    modal.classList.add("iz-project-modal-inside-workbench");
-    modal.style.setProperty("position", "fixed", "important");
-    modal.style.setProperty("inset", "auto", "important");
-    modal.style.setProperty("left", `${left}px`, "important");
-    modal.style.setProperty("top", `${top}px`, "important");
-    modal.style.setProperty("width", `${width}px`, "important");
-    modal.style.setProperty("height", `${height}px`, "important");
-    modal.style.setProperty("z-index", "12050", "important");
-    modal.style.setProperty("background", "rgba(2, 20, 28, .36)", "important");
-    modal.style.setProperty("padding", "8px", "important");
-    modal.style.setProperty("align-items", "stretch", "important");
-    modal.style.setProperty("justify-content", "stretch", "important");
-    modal.style.setProperty("overflow", "hidden", "important");
-    if (inner) {
-      inner.style.setProperty("width", "100%", "important");
-      inner.style.setProperty("max-width", "none", "important");
-      inner.style.setProperty("height", "100%", "important");
-      inner.style.setProperty("max-height", "none", "important");
-      inner.style.setProperty("margin", "0", "important");
-      inner.style.setProperty("overflow", "auto", "important");
-      inner.style.setProperty("border", "1px solid rgba(133, 194, 210, .42)", "important");
-      inner.style.setProperty("box-shadow", "0 18px 55px rgba(0,0,0,.48)", "important");
-    }
-  }
-
-  function openProjectModalFromWorkbench(projectId = null) {
-    openProjectModal(projectId || state.focusProjectId || null);
-    requestAnimationFrame(applyProjectModalWorkbenchMode);
-  }
-
   function openProjectModal(projectId = null) {
     if (!canEditApp()) return;
     state.selectedProjectId = projectId;
@@ -6609,7 +6541,6 @@ async function deleteEditedEntry() {
   function closeProjectModal() {
     state.selectedProjectId = null;
     state.projectModalPeriods = [];
-    clearProjectModalWorkbenchMode();
     els.projectModal.classList.add("hidden");
     els.projectModal.classList.remove("flex");
     flushPendingRemoteRefresh();
@@ -7618,48 +7549,21 @@ async function deleteEditedEntry() {
     return getEmployeeGroupLabel(normalized) || "Annet";
   }
 
-  function getProjectInspectorConflictLabel(entry) {
-    const conflictProject = getProjectById(entry?.project_id);
-    const title = displayProjectName(conflictProject) || entry?.project_name || entry?.project || entry?.type || "Ukjent aktivitet";
-    const period = entry?.start_date && entry?.end_date ? `${formatDate(entry.start_date)} – ${formatDate(entry.end_date)}` : "Dato ikke satt";
-    return `${title} · ${period}`;
-  }
-
-  function entryFullyCoversPeriod(entry, period) {
-    const entryStart = asLocalDate(entry?.start_date);
-    const entryEnd = asLocalDate(entry?.end_date);
-    const periodStart = asLocalDate(period?.start);
-    const periodEnd = asLocalDate(period?.end);
-    if (!entryStart || !entryEnd || !periodStart || !periodEnd) return false;
-    return entryStart <= periodStart && entryEnd >= periodEnd;
-  }
-
   function getProjectInspectorAvailability(employee, project) {
     const periods = getProjectInspectorPeriods(project);
-    if (!periods.length) return { label: "Ukjent", tone: "text-slate-500", rank: 3, conflicts: [] };
+    if (!periods.length) return { label: "Ukjent", tone: "text-slate-500", rank: 3 };
 
-    const entries = (state.derived.entriesByEmployee.get(employee.name) || [])
-      .filter(entry => entry.project_id !== project.id);
-    const conflictMap = new Map();
     let conflictPeriods = 0;
-    let hasPartialConflict = false;
-
     for (const period of periods) {
-      const periodConflicts = entries.filter(entry => overlaps(entry.start_date, entry.end_date, period.start, period.end));
-      if (periodConflicts.length) {
-        conflictPeriods += 1;
-        periodConflicts.forEach(entry => conflictMap.set(entry.id || `${entry.project_id}-${entry.start_date}-${entry.end_date}`, entry));
-        const periodFullyCovered = periodConflicts.some(entry => entryFullyCoversPeriod(entry, period));
-        if (!periodFullyCovered) hasPartialConflict = true;
-      } else {
-        hasPartialConflict = true;
-      }
+      const conflicts = (state.derived.entriesByEmployee.get(employee.name) || [])
+        .filter(entry => overlaps(entry.start_date, entry.end_date, period.start, period.end))
+        .filter(entry => entry.project_id !== project.id);
+      if (conflicts.length) conflictPeriods += 1;
     }
 
-    const conflicts = Array.from(conflictMap.values());
-    if (conflictPeriods === 0) return { label: "Ledig", tone: "text-green-700", rank: 1, conflicts: [] };
-    if (hasPartialConflict || conflictPeriods < periods.length) return { label: "Delvis ledig", tone: "text-amber-700", rank: 2, conflicts };
-    return { label: "Opptatt", tone: "text-red-700", rank: 3, conflicts };
+    if (conflictPeriods === 0) return { label: "Ledig", tone: "text-green-700", rank: 1 };
+    if (conflictPeriods < periods.length) return { label: "Delvis ledig", tone: "text-amber-700", rank: 2 };
+    return { label: "Opptatt", tone: "text-red-700", rank: 3 };
   }
 
   function getProjectInspectorEmployees(project) {
@@ -7899,16 +7803,6 @@ async function deleteEditedEntry() {
     const conflicts = getEntryOverlapConflicts(entry);
     const isPanelOverbook = employee.availability?.label === "Opptatt" || conflicts.length > 0;
     if (isPanelOverbook) {
-      const conflictText = conflicts.length
-        ? getEntryConflictSummary(entry, conflicts)
-        : `${employee.name} er markert som opptatt i prosjektperioden. Vil du overbooke likevel?`;
-      const warningText = `${conflictText}
-
-Overbooking blir lagret og skal vises som konflikt i Ansattplan.`;
-      if (!confirm(warningText)) {
-        projectPanelDebug("create cancelled overbooking", { conflictCount: conflicts.length, employee: employee.name });
-        return;
-      }
       projectPanelDebug("create allowed with overbooking", { conflictCount: conflicts.length, employee: employee.name });
       entry.notes = "OVERBOOKET fra prosjektpanel - kontroller i Ansattplan";
     }
@@ -7940,322 +7834,8 @@ Overbooking blir lagret og skal vises som konflikt i Ansattplan.`;
     void addNotification(employee.name, project.name);
   }
 
-
-  function getProjectWorkbenchDefaultRect() {
-    // v18.62l: Default skal oppleves som et flyttbart Outlook-vindu, ikke som sidepanel/fullskjerm.
-    // Ca. 1/4-1/3 av arbeidsflaten, med tydelig kalender synlig bak.
-    const margin = 24;
-    const viewportWidth = Math.max(window.innerWidth || 1280, 360);
-    const viewportHeight = Math.max(window.innerHeight || 760, 360);
-    const maxWidth = Math.max(320, viewportWidth - margin * 2);
-    const maxHeight = Math.max(300, viewportHeight - margin * 2);
-    const width = Math.min(Math.max(620, Math.round(viewportWidth * 0.48)), Math.min(980, maxWidth));
-    const height = Math.min(Math.max(420, Math.round(viewportHeight * 0.54)), Math.min(680, maxHeight));
-    const left = Math.min(Math.max(margin + 80, Math.round(viewportWidth * 0.20)), Math.max(margin, viewportWidth - width - margin));
-    const top = Math.min(Math.max(margin + 76, Math.round(viewportHeight * 0.16)), Math.max(margin, viewportHeight - height - margin));
-    return {
-      left,
-      top,
-      width,
-      height,
-      maximized: false,
-      restore: null
-    };
-  }
-
-  function normalizeProjectWorkbenchRect(rect = {}) {
-    const margin = 12;
-    const viewportWidth = Math.max(window.innerWidth || 1280, 360);
-    const viewportHeight = Math.max(window.innerHeight || 760, 360);
-    const minWidth = Math.min(460, Math.max(300, viewportWidth - margin * 2));
-    const minHeight = Math.min(330, Math.max(260, viewportHeight - margin * 2));
-    const maxWidth = Math.max(minWidth, viewportWidth - margin * 2);
-    const maxHeight = Math.max(minHeight, viewportHeight - margin * 2);
-    const width = Math.min(Math.max(Number(rect.width) || minWidth, minWidth), maxWidth);
-    const height = Math.min(Math.max(Number(rect.height) || minHeight, minHeight), maxHeight);
-    const maxLeft = Math.max(margin, viewportWidth - width - margin);
-    const maxTop = Math.max(margin, viewportHeight - height - margin);
-    const rawLeft = Number.isFinite(Number(rect.left)) ? Number(rect.left) : Math.round((viewportWidth - width) / 2);
-    const rawTop = Number.isFinite(Number(rect.top)) ? Number(rect.top) : Math.round((viewportHeight - height) / 2);
-    return {
-      left: Math.min(Math.max(margin, rawLeft), maxLeft),
-      top: Math.min(Math.max(margin, rawTop), maxTop),
-      width,
-      height,
-      maximized: !!rect.maximized,
-      restore: rect.restore || null
-    };
-  }
-
-  function getCurrentProjectWorkbenchRect() {
-    const shell = els.calendarPanelCol;
-    const rect = shell?.getBoundingClientRect?.();
-    if (!rect || !rect.width || !rect.height) {
-      return normalizeProjectWorkbenchRect(state.projectWorkbenchWindow || getProjectWorkbenchDefaultRect());
-    }
-    return normalizeProjectWorkbenchRect({
-      left: rect.left,
-      top: rect.top,
-      width: rect.width,
-      height: rect.height,
-      maximized: !!state.projectWorkbenchWindow?.maximized,
-      restore: state.projectWorkbenchWindow?.restore || null
-    });
-  }
-
-  function applyProjectWorkbenchWindowState() {
-    const shell = els.calendarPanelCol;
-    if (!shell) return;
-    let rect = state.projectWorkbenchWindow || getProjectWorkbenchDefaultRect();
-    rect = normalizeProjectWorkbenchRect(rect);
-    state.projectWorkbenchWindow = rect;
-
-    // Viktig: gamle panelregler brukte `inset/width/height: ... !important`.
-    // Derfor må flytende vindu styres med inline !important, ellers låser CSS det til full bredde.
-    shell.style.setProperty("position", "fixed", "important");
-    shell.style.setProperty("inset", "auto", "important");
-    shell.style.setProperty("left", `${rect.left}px`, "important");
-    shell.style.setProperty("top", `${rect.top}px`, "important");
-    shell.style.setProperty("width", `${rect.width}px`, "important");
-    shell.style.setProperty("height", `${rect.height}px`, "important");
-    shell.style.setProperty("right", "auto", "important");
-    shell.style.setProperty("bottom", "auto", "important");
-    shell.style.setProperty("max-width", "calc(100vw - 24px)", "important");
-    shell.style.setProperty("max-height", "calc(100vh - 24px)", "important");
-    shell.style.setProperty("min-width", "460px", "important");
-    shell.style.setProperty("min-height", "330px", "important");
-    shell.style.setProperty("transform", "none", "important");
-    shell.style.setProperty("z-index", "10000", "important");
-    shell.style.setProperty("display", "block", "important");
-    shell.style.setProperty("pointer-events", "auto", "important");
-    shell.style.setProperty("box-sizing", "border-box", "important");
-    shell.style.setProperty("overflow", "visible", "important");
-  }
-
-  function closeProjectWorkbenchPanel() {
-    document.getElementById("projectWorkbenchFloatingControls")?.remove?.();
-    state.calendarPanelOpen = false;
-    state.focusProjectId = "";
-    resetProjectInspectorFilters();
-    if (els.calendarPanelCol) {
-      ["position", "inset", "left", "top", "width", "height", "right", "bottom", "min-width", "min-height", "max-width", "max-height", "transform", "z-index", "display", "pointer-events", "box-sizing", "overflow"].forEach(prop => {
-        els.calendarPanelCol.style.removeProperty(prop);
-      });
-    }
-    renderCalendarPanel();
-    renderCalendar();
-  }
-
-  function resetProjectWorkbenchWindow() {
-    state.projectWorkbenchWindow = getProjectWorkbenchDefaultRect();
-    applyProjectWorkbenchWindowState();
-  }
-
-  function toggleProjectWorkbenchMaximize() {
-    const current = getCurrentProjectWorkbenchRect();
-    if (state.projectWorkbenchWindow?.maximized) {
-      state.projectWorkbenchWindow = normalizeProjectWorkbenchRect(state.projectWorkbenchWindow.restore || getProjectWorkbenchDefaultRect());
-    } else {
-      state.projectWorkbenchWindow = normalizeProjectWorkbenchRect({
-        left: 12,
-        top: 12,
-        width: Math.max(740, (window.innerWidth || 1280) - 24),
-        height: Math.max(440, (window.innerHeight || 760) - 24),
-        maximized: true,
-        restore: current
-      });
-    }
-    applyProjectWorkbenchWindowState();
-  }
-
-  function ensureProjectWorkbenchFloatingControls(project = null) {
-    const shell = els.calendarPanelCol;
-    if (!shell) return null;
-    const projectId = project?.id || state.focusProjectId || "";
-    let controls = document.getElementById("projectWorkbenchFloatingControls");
-    if (!controls || controls.parentElement !== shell) {
-      controls?.remove?.();
-      controls = document.createElement("div");
-      controls.id = "projectWorkbenchFloatingControls";
-      controls.className = "iz-workbench-floating-controls";
-      controls.setAttribute("data-project-workbench-drag-handle", "1");
-      controls.setAttribute("title", "Dra her for å flytte vinduet");
-      shell.insertBefore(controls, shell.firstElementChild);
-    }
-    controls.innerHTML = `
-      <div class="iz-workbench-floating-title">
-        <span class="iz-workbench-window-dot" aria-hidden="true"></span>
-        <span>Prosjektbemanning</span>
-      </div>
-      <div class="iz-workbench-floating-actions">
-        <button data-project-workbench-edit="${escapeHtml(projectId)}" type="button" class="iz-workbench-floating-btn">Rediger prosjekt</button>
-        <button data-project-workbench-reset-window="1" type="button" class="iz-workbench-floating-btn">Nullstill</button>
-        <button data-project-workbench-maximize="1" type="button" class="iz-workbench-floating-btn">Fullvisning</button>
-        <button data-project-workbench-close="1" type="button" class="iz-workbench-floating-close" aria-label="Lukk prosjektvindu" title="Lukk prosjektvindu">×</button>
-      </div>
-    `;
-    return controls;
-  }
-
-  function setupProjectWorkbenchWindowControls(project = null) {
-    const shell = els.calendarPanelCol;
-    if (!shell) return;
-    applyProjectWorkbenchWindowState();
-    ensureProjectWorkbenchFloatingControls(project);
-
-    if (!shell.dataset.workbenchWheelGuardBound) {
-      shell.dataset.workbenchWheelGuardBound = "true";
-      shell.addEventListener("wheel", event => {
-        event.stopPropagation();
-      }, { passive: true });
-    }
-
-
-    if (!shell.dataset.workbenchDelegatedClickBound) {
-      shell.dataset.workbenchDelegatedClickBound = "true";
-      shell.addEventListener("click", event => {
-        const closeButton = event.target?.closest?.("[data-project-workbench-close]");
-        if (closeButton) {
-          event.preventDefault();
-          event.stopPropagation();
-          closeProjectWorkbenchPanel();
-          return;
-        }
-        const editButton = event.target?.closest?.("[data-project-workbench-edit]");
-        if (editButton) {
-          event.preventDefault();
-          event.stopPropagation();
-          const projectId = editButton.dataset.projectWorkbenchEdit || state.focusProjectId || "";
-          if (projectId) openProjectModalFromWorkbench(projectId);
-        }
-      });
-    }
-
-    if (!window.__izomaxProjectWorkbenchEscapeBound) {
-      window.__izomaxProjectWorkbenchEscapeBound = true;
-      document.addEventListener("keydown", event => {
-        if (event.key !== "Escape") return;
-        if (!state.calendarPanelOpen || state.calendarMode !== "project") return;
-        closeProjectWorkbenchPanel();
-      });
-    }
-
-    shell.querySelectorAll("[data-project-workbench-edit]").forEach(btn => {
-      btn.addEventListener("click", event => {
-        event.preventDefault();
-        event.stopPropagation();
-        const projectId = btn.dataset.projectWorkbenchEdit || state.focusProjectId || "";
-        if (projectId) openProjectModalFromWorkbench(projectId);
-      });
-    });
-
-    shell.querySelectorAll("[data-project-workbench-close]").forEach(btn => {
-      btn.addEventListener("click", event => {
-        event.preventDefault();
-        event.stopPropagation();
-        closeProjectWorkbenchPanel();
-      });
-    });
-
-    shell.querySelectorAll("[data-project-workbench-reset-window]").forEach(btn => {
-      btn.addEventListener("click", event => {
-        event.preventDefault();
-        event.stopPropagation();
-        resetProjectWorkbenchWindow();
-      });
-    });
-
-    shell.querySelectorAll("[data-project-workbench-maximize]").forEach(btn => {
-      btn.addEventListener("click", event => {
-        event.preventDefault();
-        event.stopPropagation();
-        toggleProjectWorkbenchMaximize();
-      });
-    });
-
-    const dragHandle = shell.querySelector("[data-project-workbench-drag-handle]");
-    if (dragHandle) {
-      dragHandle.addEventListener("pointerdown", event => {
-        if (event.button !== 0) return;
-        if (event.target?.closest?.("button, input, select, textarea, a, [role='button']")) return;
-        const startRect = getCurrentProjectWorkbenchRect();
-        state.projectWorkbenchWindow = { ...startRect, maximized: false, restore: null };
-        const startX = event.clientX;
-        const startY = event.clientY;
-        shell.classList.add("is-dragging");
-        const onMove = moveEvent => {
-          const next = normalizeProjectWorkbenchRect({
-            left: startRect.left + moveEvent.clientX - startX,
-            top: startRect.top + moveEvent.clientY - startY,
-            width: startRect.width,
-            height: startRect.height,
-            maximized: false,
-            restore: null
-          });
-          state.projectWorkbenchWindow = next;
-          shell.style.setProperty("left", `${next.left}px`, "important");
-          shell.style.setProperty("top", `${next.top}px`, "important");
-          shell.style.setProperty("width", `${next.width}px`, "important");
-          shell.style.setProperty("height", `${next.height}px`, "important");
-        };
-        const onUp = () => {
-          shell.classList.remove("is-dragging");
-          document.removeEventListener("pointermove", onMove);
-          document.removeEventListener("pointerup", onUp);
-          document.removeEventListener("pointercancel", onUp);
-        };
-        document.addEventListener("pointermove", onMove);
-        document.addEventListener("pointerup", onUp, { once: true });
-        document.addEventListener("pointercancel", onUp, { once: true });
-        event.preventDefault();
-        event.stopPropagation();
-      });
-    }
-
-    shell.querySelectorAll("[data-project-workbench-resize]").forEach(handle => {
-      handle.addEventListener("pointerdown", event => {
-        if (event.button !== 0) return;
-        const edge = handle.dataset.projectWorkbenchResize || "se";
-        const startRect = getCurrentProjectWorkbenchRect();
-        state.projectWorkbenchWindow = { ...startRect, maximized: false, restore: null };
-        const startX = event.clientX;
-        const startY = event.clientY;
-        shell.classList.add("is-resizing");
-        const onMove = moveEvent => {
-          const dx = moveEvent.clientX - startX;
-          const dy = moveEvent.clientY - startY;
-          let left = startRect.left;
-          let top = startRect.top;
-          let width = startRect.width;
-          let height = startRect.height;
-          if (edge.includes("e")) width = startRect.width + dx;
-          if (edge.includes("s")) height = startRect.height + dy;
-          if (edge.includes("w")) { left = startRect.left + dx; width = startRect.width - dx; }
-          if (edge.includes("n")) { top = startRect.top + dy; height = startRect.height - dy; }
-          const next = normalizeProjectWorkbenchRect({ left, top, width, height, maximized: false, restore: null });
-          state.projectWorkbenchWindow = next;
-          shell.style.setProperty("left", `${next.left}px`, "important");
-          shell.style.setProperty("top", `${next.top}px`, "important");
-          shell.style.setProperty("width", `${next.width}px`, "important");
-          shell.style.setProperty("height", `${next.height}px`, "important");
-        };
-        const onUp = () => {
-          shell.classList.remove("is-resizing");
-          document.removeEventListener("pointermove", onMove);
-          document.removeEventListener("pointerup", onUp);
-          document.removeEventListener("pointercancel", onUp);
-        };
-        document.addEventListener("pointermove", onMove);
-        document.addEventListener("pointerup", onUp, { once: true });
-        document.addEventListener("pointercancel", onUp, { once: true });
-        event.preventDefault();
-        event.stopPropagation();
-      });
-    });
-  }
-
   function renderProjectInspectorPanel(project) {
-    // v18.62e: Project assignment is now a modal workbench, not a narrow side panel.
+    // v17.8: Assigned rows render visible Endre and remove buttons directly in this panel.
     if (!els.calendarPanelContent || !project) return;
 
     const assignedEntries = state.entries
@@ -8264,228 +7844,328 @@ Overbooking blir lagret og skal vises som konflikt i Ansattplan.`;
       .sort((a, b) => a.employee_name.localeCompare(b.employee_name, "no"));
     const assignedNames = new Set(assignedEntries.map(entry => entry.employee_name));
     const assigned = assignedEntries.length;
-    const required = Math.max(Number(project.headcount_required || 0), 0);
+    const required = Number(project.headcount_required || 0);
+    const isFullyStaffed = required > 0 && assigned >= required;
+    const needsStaffing = required > 0 && assigned < required;
     const missingStaffCount = Math.max(required - assigned, 0);
+    const shouldShowAvailable = !isFullyStaffed || state.projectInspectorShowAvailable === true;
+    const staffing = getProjectStaffingLabel(project.id, required);
     const periods = getProjectInspectorPeriods(project);
-    const projectBounds = getProjectInspectorProjectBounds(project);
-    const projectPeriodText = projectBounds.start && projectBounds.end
-      ? `${formatDate(projectBounds.start)} – ${formatDate(projectBounds.end)}`
-      : (periods.length ? `${periods.length} perioder` : "Ikke satt");
-    const projectOwner = project.project_responsible || project.projectResponsible || project.responsible || "Ikke satt";
+    const availabilitySummary = getProjectInspectorAvailabilitySummary(project, assignedNames);
+    const filteredEmployees = shouldShowAvailable ? getProjectInspectorFilteredEmployees(project, assignedNames) : [];
+    const employees = filteredEmployees.slice(0, 10);
     const groupOptions = getProjectInspectorFilterOptions()
       .map(option => `<option value="${escapeHtml(option.id)}" ${state.projectInspectorGroup === option.id ? "selected" : ""}>${escapeHtml(option.label)}</option>`)
       .join("");
-
-    // In the workbench, availability is central and should always be visible.
-    const filteredEmployees = getProjectInspectorFilteredEmployees(project, assignedNames);
-    const availableEmployees = filteredEmployees.filter(employee => employee.availability.label === "Ledig");
-    const partialEmployees = filteredEmployees.filter(employee => employee.availability.label === "Delvis ledig");
-    const busyEmployees = filteredEmployees.filter(employee => employee.availability.label === "Opptatt" || employee.availability.label === "Ukjent");
+    const staffingTone = staffing.variant.includes("green")
+      ? "text-green-700"
+      : staffing.variant.includes("amber")
+        ? "text-amber-700"
+        : "text-red-700";
     const addCandidate = getProjectInspectorAddCandidate(project);
     const addCandidateRole = getProjectInspectorAddRole(addCandidate);
+    const projectBounds = getProjectInspectorProjectBounds(project);
     const addRange = getProjectInspectorAddRange(project);
-
-    const renderPeriods = () => {
-      if (!periods.length) {
-        return `<div class="iz-workbench-empty">Ingen periode satt.</div>`;
-      }
-      return periods.map((period, index) => `
-        <div class="iz-workbench-period-row">
-          <span>Periode ${index + 1}</span>
-          <strong>${escapeHtml(formatDate(period.start))} – ${escapeHtml(formatDate(period.end))}</strong>
+    const showAddFromList = needsStaffing && shouldShowAvailable;
+    const projectPeriodText = projectBounds.start && projectBounds.end
+      ? `${formatDate(projectBounds.start)} – ${formatDate(projectBounds.end)}`
+      : (periods.length ? `${periods.length} perioder` : "Ikke satt");
+    const projectPanelKpiHtml = `
+      <div class="iz-project-inspector-kpis">
+        <div class="iz-project-inspector-kpi">
+          <div class="iz-project-inspector-kpi-label">Behov</div>
+          <div class="iz-project-inspector-kpi-value">${escapeHtml(String(required || 0))}</div>
+          <div class="iz-project-inspector-kpi-sub">${escapeHtml(window.izomaxTranslateKey?.("people") || "personer")}</div>
         </div>
-      `).join("");
-    };
-
-    const renderConflictList = (employee) => {
-      const conflicts = employee?.availability?.conflicts || [];
-      if (!conflicts.length) return "";
-      const rows = conflicts.slice(0, 3).map(conflict => `<div class="iz-workbench-conflict-line">${escapeHtml(getProjectInspectorConflictLabel(conflict))}</div>`).join("");
-      const more = conflicts.length > 3 ? `<div class="iz-workbench-conflict-more">+${conflicts.length - 3} flere konflikter</div>` : "";
-      return `<div class="iz-workbench-conflicts">${rows}${more}</div>`;
-    };
-
-    const renderCandidateCard = (employee, mode) => {
-      const isSelected = addCandidate && addCandidate.name === employee.name;
-      const label = employee.availability.label;
-      const toneClass = label === "Ledig" ? "is-available" : (label === "Delvis ledig" ? "is-partial" : "is-busy");
-      const buttonText = label === "Opptatt" ? "Overbook" : (label === "Delvis ledig" ? "Legg til delperiode" : "Legg til");
-      const role = getDefaultRoleForIndex(0);
-      return `
-        <div
-          class="iz-workbench-person ${toneClass} ${isSelected ? "is-selected" : ""}"
-          data-project-available-person-row="${escapeHtml(employee.name)}"
-          data-project-inspector-row-role="${escapeHtml(role)}"
-        >
-          <div class="iz-workbench-person-main">
-            <div class="iz-workbench-person-icon">${getEmployeeGroupIconHtml(employee.normalizedGroup, "inline-flex h-5 w-5 items-center justify-center text-cyan-100 shrink-0 opacity-90") || "•"}</div>
-            <div class="iz-workbench-person-text">
-              <div class="iz-workbench-person-name">${escapeHtml(employee.name)}</div>
-              <div class="iz-workbench-person-meta">${escapeHtml(employee.title || "Tittel ikke satt")} · ${escapeHtml(getProjectStaffingGroupLabel(employee.normalizedGroup))}</div>
-              ${renderConflictList(employee)}
+        <div class="iz-project-inspector-kpi">
+          <div class="iz-project-inspector-kpi-label">Tildelt</div>
+          <div class="iz-project-inspector-kpi-value">${escapeHtml(String(assigned || 0))}</div>
+          <div class="iz-project-inspector-kpi-sub">${required ? `${assigned}/${required}` : "uten krav"}</div>
+        </div>
+        <div class="iz-project-inspector-kpi ${missingStaffCount ? 'is-danger' : 'is-good'}">
+          <div class="iz-project-inspector-kpi-label">Mangler</div>
+          <div class="iz-project-inspector-kpi-value">${escapeHtml(String(missingStaffCount || 0))}</div>
+          <div class="iz-project-inspector-kpi-sub">${missingStaffCount ? "må bemannes" : "ok"}</div>
+        </div>
+        <div class="iz-project-inspector-kpi is-good">
+          <div class="iz-project-inspector-kpi-label">Ledige</div>
+          <div class="iz-project-inspector-kpi-value">${escapeHtml(String(availabilitySummary.available || 0))}</div>
+          <div class="iz-project-inspector-kpi-sub">hele perioden</div>
+        </div>
+        <div class="iz-project-inspector-kpi is-warning">
+          <div class="iz-project-inspector-kpi-label">Delvis</div>
+          <div class="iz-project-inspector-kpi-value">${escapeHtml(String(availabilitySummary.partial || 0))}</div>
+          <div class="iz-project-inspector-kpi-sub">kan dekke deler</div>
+        </div>
+      </div>
+    `;
+    projectPanelDebug("renderProjectInspectorPanel", {
+      projectId: project.id,
+      projectName: project.name,
+      assigned,
+      required,
+      needsStaffing,
+      shouldShowAvailable,
+      selectedCandidateName: state.projectInspectorAddCandidateName,
+      addCandidateFound: !!addCandidate,
+      addCandidateName: addCandidate?.name || "",
+      employeesShown: employees.length,
+      filteredEmployees: filteredEmployees.length,
+      stableAddBoxShouldRender: !!addCandidate
+    });
+    const selectedAddPanelHtml = addCandidate ? `
+      <div id="projectInspectorStableAddBox" data-project-inspector-stable-add-box="1" data-v1816-add-box-visible="1" style="display:block !important;width:100% !important;box-sizing:border-box !important;border:1px solid rgba(132,204,222,0.38) !important;background:rgba(15,23,42,0.92) !important;color:#f8fbfd !important;border-radius:4px !important;padding:12px !important;margin-top:10px !important;visibility:visible !important;opacity:1 !important;">
+        <div style="display:flex !important;align-items:flex-start !important;justify-content:space-between !important;gap:10px !important;margin-bottom:10px !important;">
+          <div style="min-width:0 !important;">
+            <div style="font-size:13px !important;font-weight:900 !important;line-height:1.25 !important;color:#f8fbfd !important;">${window.izomaxTranslateKey?.("addProject") || "Legg til prosjekt"}: ${escapeHtml(addCandidate.name)}</div>
+            <div style="margin-top:4px !important;font-size:11px !important;font-weight:600 !important;color:rgba(232,244,248,0.72) !important;">${window.izomaxTranslateKey?.("addProjectDescription") || "Velg rolle og periode, trykk deretter Legg til prosjekt."}</div>
+            ${addCandidate.availability?.label === "Opptatt" ? `<div style="margin-top:6px !important;border:1px solid rgba(248,113,113,0.42) !important;background:rgba(248,113,113,0.12) !important;color:#fecaca !important;border-radius:4px !important;padding:6px 8px !important;font-size:11px !important;font-weight:800 !important;">Overbooking tillates her og vil markeres som konflikt i Ansattplan.</div>` : ""}
+          </div>
+          <span style="display:inline-flex !important;align-items:center !important;justify-content:center !important;border:1px solid rgba(132,204,222,0.28) !important;background:rgba(255,255,255,0.06) !important;color:#f8fbfd !important;border-radius:4px !important;padding:5px 8px !important;font-size:11px !important;font-weight:900 !important;">${escapeHtml(addCandidate.availability?.label || "Valgt")}</span>
+        </div>
+        <button id="projectInspectorAddConfirmTopBtn" data-project-inspector-confirm-add="1" data-project-inspector-confirm-employee="${escapeHtml(addCandidate.name)}" type="button" style="display:flex !important;align-items:center !important;justify-content:center !important;width:100% !important;box-sizing:border-box !important;border:1px solid rgba(34,197,94,0.45) !important;background:#16a34a !important;color:#ffffff !important;border-radius:4px !important;padding:11px 12px !important;margin:0 0 10px 0 !important;font-size:13px !important;font-weight:950 !important;line-height:1.1 !important;cursor:pointer !important;visibility:visible !important;opacity:1 !important;position:relative !important;z-index:20 !important;">${window.izomaxTranslateKey?.("addProject") || "Legg til prosjekt"}</button>
+        <div style="display:grid !important;gap:10px !important;">
+          <label style="display:grid !important;gap:5px !important;font-size:11px !important;font-weight:800 !important;text-transform:uppercase !important;letter-spacing:.04em !important;color:rgba(232,244,248,0.76) !important;">
+            ${window.izomaxTranslateKey?.("role") || "Rolle"}
+            <select id="projectInspectorAddRoleSelect" style="width:100% !important;border:1px solid rgba(132,204,222,0.34) !important;background:#ffffff !important;color:#0f172a !important;border-radius:4px !important;padding:9px !important;font-size:12px !important;">${ROLE_OPTIONS.map(role => `<option value="${escapeHtml(role)}" ${role === addCandidateRole ? "selected" : ""}>${escapeHtml(role)}</option>`).join("")}</select>
+          </label>
+          <div style="display:grid !important;gap:8px !important;border:1px solid rgba(132,204,222,0.22) !important;background:rgba(255,255,255,0.08) !important;border-radius:4px !important;padding:10px !important;">
+            <label style="display:flex !important;align-items:flex-start !important;gap:8px !important;color:#f8fbfd !important;font-size:12px !important;">
+              <input id="projectInspectorWholePeriodRadio" type="radio" name="projectInspectorPeriodMode" value="whole" ${state.projectInspectorAddUseCustomRange ? "" : "checked"} style="margin-top:2px !important;" />
+              <span><span style="display:block !important;font-weight:800 !important;color:#f8fbfd !important;">Hele prosjektperioden</span><span style="display:block !important;margin-top:2px !important;font-size:11px !important;color:rgba(232,244,248,0.72) !important;">${escapeHtml(projectBounds.start ? `${formatDate(projectBounds.start)} – ${formatDate(projectBounds.end)}` : (window.izomaxTranslateKey?.("periodNotSet") || "Periode ikke satt"))}</span></span>
+            </label>
+            <label style="display:flex !important;align-items:flex-start !important;gap:8px !important;color:#f8fbfd !important;font-size:12px !important;">
+              <input id="projectInspectorCustomPeriodRadio" type="radio" name="projectInspectorPeriodMode" value="custom" ${state.projectInspectorAddUseCustomRange ? "checked" : ""} style="margin-top:2px !important;" />
+              <span><span style="display:block !important;font-weight:800 !important;color:#f8fbfd !important;">Egendefinert periode</span><span style="display:block !important;margin-top:2px !important;font-size:11px !important;color:rgba(232,244,248,0.72) !important;">${window.izomaxTranslateKey?.("chooseWithinProjectPeriod") || "Velg fra/til innenfor prosjektperioden."}</span></span>
+            </label>
+            <div style="display:grid !important;grid-template-columns:repeat(2,minmax(0,1fr)) !important;gap:8px !important;opacity:${state.projectInspectorAddUseCustomRange ? "1" : "0.62"} !important;">
+              <label style="display:grid !important;gap:4px !important;font-size:10px !important;font-weight:800 !important;text-transform:uppercase !important;letter-spacing:.04em !important;color:rgba(232,244,248,0.72) !important;">
+                Fra
+                <input id="projectInspectorCustomStartInput" type="date" value="${escapeHtml(addRange.start || projectBounds.start || "")}" min="${escapeHtml(projectBounds.start || "")}" max="${escapeHtml(projectBounds.end || "")}" ${state.projectInspectorAddUseCustomRange ? "" : "disabled"} style="width:100% !important;border:1px solid rgba(132,204,222,0.34) !important;background:#ffffff !important;color:#0f172a !important;border-radius:4px !important;padding:8px !important;font-size:12px !important;" />
+              </label>
+              <label style="display:grid !important;gap:4px !important;font-size:10px !important;font-weight:800 !important;text-transform:uppercase !important;letter-spacing:.04em !important;color:rgba(232,244,248,0.72) !important;">
+                Til
+                <input id="projectInspectorCustomEndInput" type="date" value="${escapeHtml(addRange.end || projectBounds.end || "")}" min="${escapeHtml(projectBounds.start || "")}" max="${escapeHtml(projectBounds.end || "")}" ${state.projectInspectorAddUseCustomRange ? "" : "disabled"} style="width:100% !important;border:1px solid rgba(132,204,222,0.34) !important;background:#ffffff !important;color:#0f172a !important;border-radius:4px !important;padding:8px !important;font-size:12px !important;" />
+              </label>
             </div>
           </div>
-          <div class="iz-workbench-person-actions">
-            <span class="iz-workbench-status-pill ${toneClass}">${escapeHtml(window.izomaxTranslateValue?.(label) || label)}</span>
-            <button
-              type="button"
-              class="iz-workbench-add-btn ${toneClass}"
-              data-project-inspector-select-employee="${escapeHtml(employee.name)}"
-              data-project-inspector-select-role="${escapeHtml(role)}"
-            >${isSelected ? "Valgt" : buttonText}</button>
-          </div>
+          ${addCandidate.availability?.label === "Delvis ledig" ? `<div style="border:1px solid rgba(245,158,11,0.35) !important;background:rgba(245,158,11,0.12) !important;color:#fde68a !important;border-radius:4px !important;padding:8px !important;font-size:11px !important;line-height:1.35 !important;">${window.izomaxTranslateKey?.("partlyAvailableHelp") || "Denne personen er delvis tilgjengelig. Velg riktig delperiode før du legger til."}</div>` : ""}
         </div>
-      `;
-    };
+        <div style="display:grid !important;grid-template-columns:repeat(2,minmax(0,1fr)) !important;gap:8px !important;margin-top:12px !important;">
+          <button id="projectInspectorAddCancelBtn" type="button" style="border:1px solid rgba(132,204,222,0.28) !important;background:rgba(255,255,255,0.06) !important;color:#f8fbfd !important;border-radius:4px !important;padding:9px 10px !important;font-size:12px !important;font-weight:800 !important;cursor:pointer !important;">Avbryt</button>
+          <button id="projectInspectorAddConfirmBtn" data-project-inspector-confirm-add="1" data-project-inspector-confirm-employee="${escapeHtml(addCandidate.name)}" type="button" style="border:1px solid rgba(34,197,94,0.38) !important;background:rgba(22,163,74,0.92) !important;color:#ffffff !important;border-radius:4px !important;padding:10px 10px !important;font-size:12px !important;font-weight:900 !important;cursor:pointer !important;">${window.izomaxTranslateKey?.("addProject") || "Legg til prosjekt"}</button>
+        </div>
+      </div>
+    ` : "";
 
-    const renderCandidateColumn = (title, subtitle, employees, mode) => `
-      <section class="iz-workbench-column ${mode}">
-        <div class="iz-workbench-column-head">
-          <div>
-            <h3>${escapeHtml(title)}</h3>
-            <p>${escapeHtml(subtitle)}</p>
-          </div>
-          <span>${employees.length}</span>
+    const assignedHtml = `
+      <section>
+        <div class="mb-2 flex items-center justify-between gap-2">
+          <h3 class="font-semibold text-slate-900">${window.izomaxTranslateKey?.("assigned") || "Tildelte"} (${assigned}${required ? `/${required}` : ""})</h3>
+          ${isFullyStaffed ? `<button id="projectInspectorChangeCrewHeaderBtn" type="button" class="border border-cyan-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-800 hover:bg-slate-50">${shouldShowAvailable ? (window.izomaxTranslateKey?.("hideAnalysis") || "Skjul analyse") : (window.izomaxTranslateKey?.("changeCrew") || "Endre crew")}</button>` : ""}
         </div>
-        <div class="iz-workbench-column-body">
-          ${employees.length ? employees.slice(0, 40).map(employee => renderCandidateCard(employee, mode)).join("") : `<div class="iz-workbench-empty">Ingen treff.</div>`}
-          ${employees.length > 40 ? `<div class="iz-workbench-more">Viser 40 av ${employees.length}. Bruk søk/filter.</div>` : ""}
+        <div class="space-y-2">
+          ${assignedEntries.length ? assignedEntries.slice(0, 10).map(entry => `
+            <div
+              class="project-assigned-row"
+              data-project-assigned-row="${escapeHtml(entry.id)}"
+              style="display:flex !important;align-items:center !important;justify-content:space-between !important;gap:10px !important;width:100% !important;min-height:56px !important;box-sizing:border-box !important;border:1px solid rgba(148, 187, 199, 0.26) !important;background:rgba(255,255,255,0.10) !important;padding:10px 12px !important;border-radius:4px !important;overflow:visible !important;"
+            >
+              <div style="min-width:0 !important;flex:1 1 auto !important;overflow:hidden !important;">
+                <div style="font-size:12px !important;font-weight:700 !important;line-height:1.25 !important;color:#f8fbfd !important;white-space:nowrap !important;overflow:hidden !important;text-overflow:ellipsis !important;">${escapeHtml(entry.employee_name)}</div>
+                <div style="margin-top:4px !important;font-size:11px !important;line-height:1.25 !important;color:rgba(232,244,248,0.78) !important;white-space:nowrap !important;overflow:hidden !important;text-overflow:ellipsis !important;">${escapeHtml(entry.role || (window.izomaxTranslateKey?.("roleNotSet") || "Rolle ikke satt"))}</div>
+              </div>
+              <div style="display:flex !important;align-items:center !important;justify-content:flex-end !important;gap:6px !important;flex:0 0 auto !important;visibility:visible !important;opacity:1 !important;">
+                <button
+                  data-project-entry-edit-id="${escapeHtml(entry.id)}"
+                  type="button"
+                  class="project-assigned-edit-pencil-btn"
+                  style="display:inline-flex !important;align-items:center !important;justify-content:center !important;width:30px !important;height:30px !important;border:1px solid rgba(132,204,222,0.32) !important;background:rgba(255,255,255,0.06) !important;color:rgba(248,251,253,0.82) !important;border-radius:4px !important;font-size:14px !important;font-weight:700 !important;line-height:1 !important;cursor:pointer !important;visibility:visible !important;opacity:1 !important;position:relative !important;z-index:5 !important;"
+                  title="${window.izomaxTranslateKey?.("editAssignment") || "Endre tildeling"}"
+                  aria-label="${window.izomaxTranslateKey?.("editAssignment") || "Endre tildeling"}"
+                >✎</button>
+              </div>
+            </div>
+          `).join("") : `<div class="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-3 py-3 text-xs text-slate-500">${window.izomaxTranslateKey?.("noAssignedResources") || "Ingen tildelte ressurser."}</div>`}
+          ${needsStaffing ? `
+            <button
+              id="projectInspectorAddStaffBtn"
+              type="button"
+              class="project-add-staff-slot"
+              style="display:flex !important;align-items:center !important;justify-content:center !important;gap:8px !important;width:100% !important;min-height:48px !important;box-sizing:border-box !important;border:1px dashed rgba(132,204,222,0.62) !important;background:rgba(255,255,255,0.08) !important;color:#f8fbfd !important;border-radius:4px !important;font-size:13px !important;font-weight:700 !important;cursor:pointer !important;visibility:visible !important;opacity:1 !important;"
+              title="${window.izomaxTranslateKey?.("addEmployee") || "Legg til ansatt"}"
+            >
+              <span style="font-size:18px !important;line-height:1 !important;">+</span>
+              <span>${window.izomaxTranslateKey?.("addEmployee") || "Legg til ansatt"}</span>
+              <span style="font-size:11px !important;font-weight:600 !important;color:rgba(232,244,248,0.72) !important;">${window.izomaxTranslateKey?.("selectFromAvailable") || "Velg fra tilgjengelige personer under"} · ${missingStaffCount} ${window.izomaxTranslateKey?.("missing") || "mangler"}</span>
+            </button>
+          ` : ""}
         </div>
       </section>
     `;
 
-    const selectedAddPanelHtml = addCandidate ? `
-      <section id="projectInspectorStableAddBox" data-project-inspector-stable-add-box="1" class="iz-workbench-add-panel">
-        <div class="iz-workbench-add-head">
-          <div>
-            <div class="iz-workbench-add-title">Legg til: ${escapeHtml(addCandidate.name)}</div>
-            <div class="iz-workbench-add-sub">Velg rolle og periode før du legger personen til prosjektet.</div>
-          </div>
-          <button id="projectInspectorAddCancelBtn" type="button" class="iz-workbench-secondary-btn">Avbryt</button>
+    const availableHtml = shouldShowAvailable ? `<!-- v18.16-add-box-moved-up --><!-- v18.12-dark-available-cards -->
+      <section>
+        <div class="iz-project-availability-strip">
+          <div class="iz-project-availability-card is-good"><div class="iz-project-availability-label">${window.izomaxTranslateKey?.("available") || "Ledig"}</div><div class="iz-project-availability-value">${availabilitySummary.available}</div></div>
+          <div class="iz-project-availability-card is-warning"><div class="iz-project-availability-label">${window.izomaxTranslateKey?.("partly") || "Delvis"}</div><div class="iz-project-availability-value">${availabilitySummary.partial}</div></div>
+          <div class="iz-project-availability-card is-danger"><div class="iz-project-availability-label">${window.izomaxTranslateKey?.("busy") || "Opptatt / overbook"}</div><div class="iz-project-availability-value">${availabilitySummary.busy}</div></div>
         </div>
-        ${addCandidate.availability?.label === "Opptatt" ? `<div class="iz-workbench-warning is-busy">Denne personen er opptatt i perioden. Ved overbooking blir konflikten synlig i Ansattplan.</div>` : ""}
-        ${addCandidate.availability?.label === "Delvis ledig" ? `<div class="iz-workbench-warning is-partial">Denne personen er delvis ledig. Velg riktig delperiode før du legger til.</div>` : ""}
-        <div class="iz-workbench-add-grid">
-          <label>
-            Rolle
-            <select id="projectInspectorAddRoleSelect">${ROLE_OPTIONS.map(role => `<option value="${escapeHtml(role)}" ${role === addCandidateRole ? "selected" : ""}>${escapeHtml(role)}</option>`).join("")}</select>
-          </label>
-          <div class="iz-workbench-period-choice">
-            <label class="iz-workbench-radio-row">
-              <input id="projectInspectorWholePeriodRadio" type="radio" name="projectInspectorPeriodMode" value="whole" ${state.projectInspectorAddUseCustomRange ? "" : "checked"} />
-              <span><strong>Hele prosjektperioden</strong><small>${escapeHtml(projectBounds.start ? `${formatDate(projectBounds.start)} – ${formatDate(projectBounds.end)}` : "Periode ikke satt")}</small></span>
-            </label>
-            <label class="iz-workbench-radio-row">
-              <input id="projectInspectorCustomPeriodRadio" type="radio" name="projectInspectorPeriodMode" value="custom" ${state.projectInspectorAddUseCustomRange ? "checked" : ""} />
-              <span><strong>Delperiode</strong><small>Brukes ved delvis tilgjengelighet eller planlagt split.</small></span>
-            </label>
-          </div>
-          <label>
-            Fra
-            <input id="projectInspectorCustomStartInput" type="date" value="${escapeHtml(addRange.start || projectBounds.start || "")}" min="${escapeHtml(projectBounds.start || "")}" max="${escapeHtml(projectBounds.end || "")}" ${state.projectInspectorAddUseCustomRange ? "" : "disabled"} />
-          </label>
-          <label>
-            Til
-            <input id="projectInspectorCustomEndInput" type="date" value="${escapeHtml(addRange.end || projectBounds.end || "")}" min="${escapeHtml(projectBounds.start || "")}" max="${escapeHtml(projectBounds.end || "")}" ${state.projectInspectorAddUseCustomRange ? "" : "disabled"} />
-          </label>
-          <button id="projectInspectorAddConfirmBtn" data-project-inspector-confirm-add="1" data-project-inspector-confirm-employee="${escapeHtml(addCandidate.name)}" type="button" class="iz-workbench-primary-btn">
-            ${addCandidate.availability?.label === "Opptatt" ? "Overbook og legg til" : "Legg til prosjekt"}
-          </button>
+        <div class="mb-2 grid grid-cols-[1fr_auto] gap-2">
+          <input id="projectInspectorSearchInput" type="text" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs" placeholder="${window.izomaxTranslateKey?.("searchNameGroupTitleStatus") || "Søk navn, gruppe, tittel eller status"}" value="${escapeHtml(state.projectInspectorSearch || "")}" />
+          <select id="projectInspectorGroupFilter" class="rounded-xl border border-slate-300 px-2 py-2 text-xs">${groupOptions}</select>
         </div>
+        <div style="display:grid !important;gap:8px !important;background:transparent !important;border:0 !important;overflow:visible !important;">
+          <div style="display:grid !important;grid-template-columns:1fr auto !important;align-items:center !important;padding:0 2px 2px 2px !important;font-size:11px !important;font-weight:800 !important;text-transform:uppercase !important;letter-spacing:.04em !important;color:rgba(232,244,248,0.78) !important;">
+            <span>${window.izomaxTranslateKey?.("availableOthers") || "Tilgjengelige / øvrige"}</span><span>${window.izomaxTranslateKey?.("status") || "Status"}</span>
+          </div>
+          ${employees.length ? employees.map(employee => {
+            const isSelected = addCandidate && addCandidate.name === employee.name;
+            const isBusyCandidate = employee.availability.label === "Opptatt";
+            const rowAvailabilityClass = employee.availability.label === "Ledig" ? "is-available" : (employee.availability.label === "Delvis ledig" ? "is-partial" : "is-busy");
+            const canAssign = true;
+            const addActionText = isBusyCandidate ? "Overbook" : (window.izomaxTranslateKey?.("add") || "Add");
+            const expandedHtml = "";
+            return `
+              <div
+                class="project-available-person-row-v1811 ${rowAvailabilityClass}"
+                data-project-available-person-row="${escapeHtml(employee.name)}"
+                data-project-inspector-row-role="${escapeHtml(getDefaultRoleForIndex(0))}"
+                style="display:block !important;width:100% !important;box-sizing:border-box !important;border:1px solid rgba(148,187,199,0.26) !important;background:${isSelected ? 'rgba(255,255,255,0.16)' : 'rgba(255,255,255,0.10)'} !important;color:#f8fbfd !important;border-radius:4px !important;visibility:visible !important;opacity:1 !important;overflow:hidden !important;cursor:pointer !important;"
+              >
+                <div style="display:flex !important;align-items:center !important;justify-content:space-between !important;gap:10px !important;width:100% !important;box-sizing:border-box !important;padding:10px 12px !important;color:#f8fbfd !important;visibility:visible !important;opacity:1 !important;">
+                  <div style="display:flex !important;align-items:center !important;gap:9px !important;min-width:0 !important;flex:1 1 auto !important;color:#f8fbfd !important;visibility:visible !important;opacity:1 !important;">
+                    ${getEmployeeGroupIconHtml(employee.normalizedGroup, "inline-flex h-5 w-5 items-center justify-center text-cyan-100 shrink-0 opacity-80") || `<span style="display:inline-flex !important;width:20px !important;height:20px !important;align-items:center !important;justify-content:center !important;color:rgba(232,244,248,0.62) !important;flex:0 0 auto !important;">•</span>`}
+                    <div style="display:block !important;min-width:0 !important;flex:1 1 auto !important;color:#f8fbfd !important;visibility:visible !important;opacity:1 !important;">
+                      <div class="project-available-person-name v1811-visible-name v1812-dark-card-name" style="display:block !important;font-size:13px !important;font-weight:800 !important;line-height:1.2 !important;color:#f8fbfd !important;background:transparent !important;white-space:nowrap !important;overflow:hidden !important;text-overflow:ellipsis !important;visibility:visible !important;opacity:1 !important;position:relative !important;z-index:2 !important;">${escapeHtml(employee.name)}</div>
+                      <div class="project-available-person-title v1811-visible-title v1812-dark-card-title" style="display:block !important;margin-top:3px !important;font-size:11px !important;font-weight:600 !important;line-height:1.2 !important;color:rgba(232,244,248,0.78) !important;background:transparent !important;white-space:nowrap !important;overflow:hidden !important;text-overflow:ellipsis !important;visibility:visible !important;opacity:1 !important;position:relative !important;z-index:2 !important;">${escapeHtml(employee.title || "Tittel ikke satt")}</div>
+                    </div>
+                  </div>
+                  <div style="display:flex !important;align-items:center !important;justify-content:flex-end !important;gap:8px !important;flex:0 0 auto !important;color:#f8fbfd !important;visibility:visible !important;opacity:1 !important;">
+                    <span style="display:inline-flex !important;align-items:center !important;justify-content:center !important;min-width:58px !important;font-size:12px !important;font-weight:850 !important;line-height:1.1 !important;color:${employee.availability.label === 'Ledig' ? '#15803d' : employee.availability.label === 'Delvis ledig' ? '#b45309' : '#b91c1c'} !important;visibility:visible !important;opacity:1 !important;">${escapeHtml(window.izomaxTranslateValue?.(employee.availability.label) || employee.availability.label)}</span>
+                    ${canAssign ? `<button
+                  data-project-inspector-select-employee="${escapeHtml(employee.name)}"
+                  data-project-inspector-select-role="${escapeHtml(getDefaultRoleForIndex(0))}"
+                  type="button"
+                  style="display:inline-flex !important;align-items:center !important;justify-content:center !important;min-width:34px !important;width:34px !important;height:32px !important;padding:0 !important;border-radius:8px !important;border:1px solid ${isSelected ? '#16a34a' : '#cbd5e1'} !important;background:${isSelected ? '#dcfce7' : '#ffffff'} !important;color:${isSelected ? '#166534' : '#0f172a'} !important;font-size:12px !important;font-weight:700 !important;line-height:1 !important;white-space:nowrap !important;overflow:visible !important;opacity:1 !important;"
+                  aria-label="${(isSelected ? (window.izomaxTranslateKey?.('selected') || 'Selected') : (window.izomaxTranslateKey?.('add') || 'Add'))} ${escapeHtml(employee.name)}"
+                >${isSelected ? "✓" : (isBusyCandidate ? "!" : "+")}</button>` : `<span style="display:inline-flex !important;align-items:center !important;justify-content:center !important;border:1px solid #e2e8f0 !important;background:#f8fafc !important;color:#64748b !important;border-radius:4px !important;padding:6px 9px !important;font-size:11px !important;font-weight:900 !important;visibility:visible !important;opacity:1 !important;">${window.izomaxTranslateKey?.("busy") || "Opptatt"}</span>`}
+                  </div>
+                </div>
+                <button
+                  data-project-inspector-select-employee="${escapeHtml(employee.name)}"
+                  data-project-inspector-select-role="${escapeHtml(getDefaultRoleForIndex(0))}"
+                  type="button"
+                  style="display:flex !important;align-items:center !important;justify-content:center !important;width:calc(100% - 24px) !important;min-height:34px !important;margin:0 12px 10px 12px !important;padding:0 12px !important;border-radius:8px !important;border:1px solid ${isSelected ? '#16a34a' : 'rgba(132,204,222,0.42)'} !important;background:${isSelected ? 'rgba(22,163,74,0.18)' : 'rgba(255,255,255,0.10)'} !important;color:#f8fbfd !important;font-size:12px !important;font-weight:900 !important;letter-spacing:.01em !important;white-space:nowrap !important;overflow:visible !important;visibility:visible !important;opacity:1 !important;cursor:pointer !important;"
+                  aria-label="${(isSelected ? (window.izomaxTranslateKey?.('selected') || 'Selected') : (window.izomaxTranslateKey?.('add') || 'Add'))} ${escapeHtml(employee.name)}"
+                >${isSelected ? (window.izomaxTranslateKey?.("selected") || "Selected") : addActionText}</button>
+                ${expandedHtml}
+              </div>
+            `;
+          }).join("") : `<div class="px-3 py-4 text-xs text-slate-500">${window.izomaxTranslateKey?.("noAvailableHits") || "Ingen treff i tilgjengelig-listen."}</div>`}
+        </div>
+        ${filteredEmployees.length > employees.length ? `<div class="mt-2 text-[11px] text-slate-500">Viser ${employees.length} av ${filteredEmployees.length}. ${window.izomaxTranslateKey?.("showingNarrow") || "Bruk søk eller gruppefilter for å snevre inn."}</div>` : ""}
       </section>
-    ` : `<section class="iz-workbench-add-panel is-empty"><strong>Velg en ansatt</strong><span>Trykk Legg til, Legg til delperiode eller Overbook i listene under.</span></section>`;
+    ` : "";
 
-    const assignedHtml = assignedEntries.length ? assignedEntries.map(entry => `
-      <div class="iz-workbench-assigned-row">
-        <div class="iz-workbench-assigned-avatar">${escapeHtml(getInitials(entry.employee_name))}</div>
-        <div class="iz-workbench-assigned-text">
-          <div>${escapeHtml(entry.employee_name)}</div>
-          <span>${escapeHtml(entry.role || "Rolle ikke satt")} · ${escapeHtml(formatDate(entry.start_date))} – ${escapeHtml(formatDate(entry.end_date))}</span>
-          ${entry.notes ? `<small>${escapeHtml(entry.notes)}</small>` : ""}
-        </div>
-        <div class="iz-workbench-assigned-actions">
-          <button data-project-entry-edit-id="${escapeHtml(entry.id)}" type="button" title="Endre tildeling">✎</button>
-          <button data-project-entry-delete-id="${escapeHtml(entry.id)}" type="button" title="Fjern tildeling">×</button>
-        </div>
-      </div>
-    `).join("") : `<div class="iz-workbench-empty">Ingen tildelte ressurser ennå.</div>`;
+    const fullStaffedCrewActionHtml = isFullyStaffed ? `
+      <section>
+        <button id="projectInspectorChangeCrewBtn" type="button" class="w-full rounded-xl border border-cyan-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-800 hover:bg-slate-50">
+          ${shouldShowAvailable ? (window.izomaxTranslateKey?.("hideAvailableOthers") || "Skjul tilgjengelige / øvrige") : (window.izomaxTranslateKey?.("changeCrew") || "Endre crew")}
+        </button>
+        ${!shouldShowAvailable ? `<div class="mt-2 text-xs text-slate-500">${window.izomaxTranslateKey?.("fullyStaffedHelp") || "Prosjektet er fullt bemannet. Tilgjengelighetsanalyse vises først når du skal endre crew."}</div>` : ""}
+      </section>
+    ` : "";
 
     els.calendarPanelContent.innerHTML = `
-      <div class="iz-project-workbench-modal" role="dialog" aria-modal="true" aria-label="Bemanning og prosjektkontroll">
-        <header class="iz-workbench-header">
-          <div class="iz-workbench-title-block">
-            <div class="iz-workbench-eyebrow">Bemanning og prosjektkontroll</div>
-            <h2>${escapeHtml(project.name || "Prosjekt")}</h2>
-            <div class="iz-workbench-header-meta">
-              <span>Prosjekteier: <strong>${escapeHtml(projectOwner)}</strong></span>
-              <span>Type: <strong>${escapeHtml(window.izomaxTranslateValue?.(project.category || "Ikke satt") || project.category || "Ikke satt")}</strong></span>
-              <span>Status: <strong>${escapeHtml(window.izomaxTranslateValue?.(project.status || "Ikke satt") || project.status || "Ikke satt")}</strong></span>
+      <!-- v18.18-period-fallback-confirm-safe v18.17-confirm-button-visible-top v18.16-add-box-visible-under-assigned -->
+      <div class="flex h-full flex-col">
+        <div class="flex items-start justify-between gap-3 border-b border-slate-200 p-4">
+          <div class="min-w-0">
+            <h2 class="text-base font-semibold text-slate-950">Bemanning og prosjektkontroll</h2>
+            <div class="mt-1 truncate text-sm font-medium text-slate-800">${escapeHtml(project.name)}</div>
+            <div class="mt-1 text-xs font-medium ${staffingTone}">${escapeHtml(projectPeriodText)} · ${escapeHtml(staffing.text)}${required ? ` (${assigned}/${required})` : ""}</div>
+          </div>
+          <div class="flex items-center gap-2 shrink-0">
+            <button data-calendar-panel-edit-project="${escapeHtml(project.id)}" type="button" class="rounded-xl border border-slate-300 bg-slate-900 px-3 py-1.5 text-sm font-semibold text-white hover:bg-slate-800">${window.izomaxTranslateKey?.("editProject") || "Rediger prosjekt"}</button>
+            <button id="calendarProjectPanelCloseBtn" type="button" class="rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50">×</button>
+          </div>
+        </div>
+
+        <div class="iz-project-inspector-body min-h-0 flex-1 space-y-4 overflow-auto p-4 text-sm">
+          ${projectPanelKpiHtml}
+          <div style="display:block !important;margin:0 0 14px 0 !important;width:100% !important;">
+            <button
+              id="projectInspectorEditProjectVisibleBtn"
+              data-calendar-panel-edit-project="${escapeHtml(project.id)}"
+              type="button"
+              style="display:flex !important;align-items:center !important;justify-content:space-between !important;gap:12px !important;width:100% !important;min-height:58px !important;box-sizing:border-box !important;border:1px solid rgba(80,240,199,0.58) !important;background:linear-gradient(180deg, rgba(80,240,199,0.20) 0%, rgba(80,240,199,0.12) 100%) !important;color:#f8fbfd !important;border-radius:6px !important;padding:12px 14px !important;font-size:13px !important;font-weight:900 !important;line-height:1.15 !important;cursor:pointer !important;visibility:visible !important;opacity:1 !important;position:relative !important;z-index:30 !important;text-align:left !important;box-shadow:0 0 0 1px rgba(80,240,199,0.10) inset !important;"
+            >
+              <span style="display:flex !important;align-items:center !important;gap:12px !important;min-width:0 !important;">
+                <span style="display:inline-flex !important;align-items:center !important;justify-content:center !important;width:32px !important;height:32px !important;border-radius:6px !important;background:rgba(255,255,255,0.12) !important;border:1px solid rgba(255,255,255,0.16) !important;font-size:16px !important;font-weight:900 !important;color:#50f0c7 !important;flex:0 0 auto !important;">✎</span>
+                <span style="display:block !important;min-width:0 !important;">
+                  <span style="display:block !important;font-size:14px !important;font-weight:900 !important;color:#f8fbfd !important;">${window.izomaxTranslateKey?.("editProject") || "Rediger prosjekt"}</span>
+                  <span style="display:block !important;margin-top:4px !important;font-size:11px !important;font-weight:650 !important;color:rgba(232,244,248,0.76) !important;">${window.izomaxTranslateKey?.("fieldPeriodWorkshopResources") || "Feltperiode · workshop · ressursbehov"}</span>
+                </span>
+              </span>
+              <span style="display:inline-flex !important;align-items:center !important;justify-content:center !important;color:#50f0c7 !important;font-size:16px !important;font-weight:900 !important;flex:0 0 auto !important;">→</span>
+            </button>
+          </div>
+          <div class="grid grid-cols-2 gap-2">
+            <div class="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+              <div class="text-[11px] uppercase tracking-wide text-slate-500">${window.izomaxTranslateKey?.("category") || "Kategori"}</div>
+              <div class="mt-1 font-semibold text-slate-900">${escapeHtml(window.izomaxTranslateValue?.(project.category || "Ikke satt") || project.category || "Ikke satt")}</div>
+            </div>
+            <div class="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+              <div class="text-[11px] uppercase tracking-wide text-slate-500">${window.izomaxTranslateKey?.("staffingNeed") || "Bemanningsbehov"}</div>
+              <div class="mt-1 font-semibold text-slate-900">${required || 0} ${window.izomaxTranslateKey?.("people") || "personer"}</div>
             </div>
           </div>
-          <div class="iz-workbench-header-actions" aria-hidden="true"></div>
-        </header>
 
-        <div class="iz-workbench-main">
-          <aside class="iz-workbench-summary">
-            <section class="iz-workbench-card">
-              <h3>Prosjektdata</h3>
-              <div class="iz-workbench-facts">
-                <div><span>Periode</span><strong>${escapeHtml(projectPeriodText)}</strong></div>
-                <div><span>Bemanningsbehov</span><strong>${required || 0} personer</strong></div>
-                <div><span>Tildelt</span><strong>${assigned}${required ? ` / ${required}` : ""}</strong></div>
-                <div class="${missingStaffCount ? "is-missing" : "is-ok"}"><span>Mangler</span><strong>${missingStaffCount}</strong></div>
-              </div>
-            </section>
-
-            <section class="iz-workbench-card">
-              <div class="iz-workbench-card-head">
-                <h3>Periode(r)</h3>
-                <button data-calendar-panel-edit-project="${escapeHtml(project.id)}" type="button">Rediger</button>
-              </div>
-              <div class="iz-workbench-periods">${renderPeriods()}</div>
-            </section>
-
-            <section class="iz-workbench-card iz-workbench-assigned-card">
-              <h3>Tildelte (${assigned}${required ? `/${required}` : ""})</h3>
-              <div class="iz-workbench-assigned-list">${assignedHtml}</div>
-            </section>
-          </aside>
-
-          <main class="iz-workbench-candidates">
-            ${selectedAddPanelHtml}
-            <div class="iz-workbench-filter-row">
-              <input id="projectInspectorSearchInput" type="text" placeholder="Søk navn, gruppe, tittel eller status" value="${escapeHtml(state.projectInspectorSearch || "")}" />
-              <select id="projectInspectorGroupFilter">${groupOptions}</select>
+          <section>
+            <div class="mb-2 flex items-center justify-between gap-2">
+              <h3 class="font-semibold text-slate-900">${window.izomaxTranslateKey?.("periods") || "Perioder"}</h3>
+              <button data-calendar-panel-edit-project="${escapeHtml(project.id)}" type="button" class="rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50">${window.izomaxTranslateKey?.("editPeriods") || "Rediger perioder"}</button>
             </div>
-            <div class="iz-workbench-columns">
-              ${renderCandidateColumn("Ledig hele perioden", "Beste kandidater for hele oppdraget.", availableEmployees, "available")}
-              ${renderCandidateColumn("Delvis ledig", "Kan dekke deler av perioden.", partialEmployees, "partial")}
-              ${renderCandidateColumn("Opptatt / overbook", "Viser konfliktprosjekt og kan overbookes.", busyEmployees, "busy")}
+            <div class="space-y-2">
+              ${periods.length ? periods.map((period, index) => `
+                <div class="flex items-center justify-between gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2">
+                  <span class="font-medium text-slate-700">${window.izomaxTranslateKey?.("period") || "Periode"} ${index + 1}</span>
+                  <span class="text-xs text-slate-500">${escapeHtml(formatDate(period.start))} – ${escapeHtml(formatDate(period.end))}</span>
+                </div>
+              `).join("") : `<div class="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-3 py-3 text-xs text-slate-500">${window.izomaxTranslateKey?.("noPeriodSet") || "Ingen periode satt."}</div>`}
             </div>
-          </main>
+          </section>
+
+          <section>
+            <div class="mb-2 flex items-center justify-between gap-2">
+              <h3 class="font-semibold text-slate-900">${window.izomaxTranslateKey?.("staffing") || "Bemanning"}</h3>
+              <button data-calendar-panel-staff-project="${escapeHtml(project.id)}" type="button" class="rounded-xl bg-slate-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-slate-800">${window.izomaxTranslateKey?.("staffProject") || "Bemann prosjekt"}</button>
+            </div>
+          </section>
+
+          ${assignedHtml}
+          ${selectedAddPanelHtml}
+          ${fullStaffedCrewActionHtml}
+          ${availableHtml}
         </div>
-        <footer class="iz-workbench-footer">
-          <span>Dra i toppfeltet for å flytte vinduet. Dra i kantene eller hjørnene for å endre størrelse.</span>
-          <button data-project-workbench-close="1" type="button" class="iz-workbench-close-btn">Lukk vindu</button>
-        </footer>
+
+        <div class="grid grid-cols-2 gap-2 border-t border-slate-200 p-4">
+          <button data-calendar-panel-edit-project="${escapeHtml(project.id)}" type="button" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">${window.izomaxTranslateKey?.("editProject") || "Rediger prosjekt"}</button>
+          <button data-calendar-panel-staff-project="${escapeHtml(project.id)}" type="button" class="rounded-xl bg-green-600 px-3 py-2 text-sm font-medium text-white hover:bg-green-700">${window.izomaxTranslateKey?.("staff") || "Bemann"}</button>
+        </div>
       </div>
-      <span class="iz-workbench-resize-handle iz-workbench-resize-n" data-project-workbench-resize="n" aria-hidden="true"></span>
-      <span class="iz-workbench-resize-handle iz-workbench-resize-e" data-project-workbench-resize="e" aria-hidden="true"></span>
-      <span class="iz-workbench-resize-handle iz-workbench-resize-s" data-project-workbench-resize="s" aria-hidden="true"></span>
-      <span class="iz-workbench-resize-handle iz-workbench-resize-w" data-project-workbench-resize="w" aria-hidden="true"></span>
-      <span class="iz-workbench-resize-handle iz-workbench-resize-ne" data-project-workbench-resize="ne" aria-hidden="true"></span>
-      <span class="iz-workbench-resize-handle iz-workbench-resize-nw" data-project-workbench-resize="nw" aria-hidden="true"></span>
-      <span class="iz-workbench-resize-handle iz-workbench-resize-se" data-project-workbench-resize="se" aria-hidden="true"></span>
-      <span class="iz-workbench-resize-handle iz-workbench-resize-sw" data-project-workbench-resize="sw" aria-hidden="true"></span>
     `;
 
-    projectPanelDebug("after modal innerHTML", {
+    projectPanelDebug("after innerHTML", {
+      stableAddBoxExists: !!document.getElementById("projectInspectorStableAddBox"),
       confirmButtonExists: !!document.getElementById("projectInspectorAddConfirmBtn"),
       selectButtons: els.calendarPanelContent.querySelectorAll("[data-project-inspector-select-employee]").length,
       availableRows: els.calendarPanelContent.querySelectorAll("[data-project-available-person-row]").length
     });
 
     const rerenderPanel = (focusSearch = false) => {
+      projectPanelDebug("rerenderPanel called", { focusSearch });
       renderProjectInspectorPanel(project);
       if (focusSearch) {
         const input = document.getElementById("projectInspectorSearchInput");
@@ -8497,7 +8177,39 @@ Overbooking blir lagret og skal vises som konflikt i Ansattplan.`;
       }
     };
 
-    setupProjectWorkbenchWindowControls(project);
+    const closeBtn = document.getElementById("calendarProjectPanelCloseBtn");
+    if (closeBtn) closeBtn.addEventListener("click", () => {
+      state.calendarPanelOpen = false;
+      state.focusProjectId = "";
+      resetProjectInspectorFilters();
+      renderCalendarPanel();
+      renderCalendar();
+    });
+
+    const wireChangeCrewButton = (button) => {
+      if (!button) return;
+      button.addEventListener("click", () => {
+        state.projectInspectorShowAvailable = !state.projectInspectorShowAvailable;
+        rerenderPanel(false);
+      });
+    };
+    wireChangeCrewButton(document.getElementById("projectInspectorChangeCrewBtn"));
+    wireChangeCrewButton(document.getElementById("projectInspectorChangeCrewHeaderBtn"));
+
+    const addStaffBtn = document.getElementById("projectInspectorAddStaffBtn");
+    if (addStaffBtn) {
+      addStaffBtn.addEventListener("click", () => {
+        projectPanelDebug("add staff slot clicked");
+        state.projectInspectorShowAvailable = true;
+        state.projectInspectorAddCandidateName = "";
+        state.projectInspectorAddRole = "";
+        state.projectInspectorAddUseCustomRange = false;
+        const bounds = getProjectInspectorProjectBounds(project);
+        state.projectInspectorAddCustomStart = bounds.start || "";
+        state.projectInspectorAddCustomEnd = bounds.end || "";
+        rerenderPanel(false);
+      });
+    }
 
     const searchInput = document.getElementById("projectInspectorSearchInput");
     if (searchInput) {
@@ -8514,17 +8226,35 @@ Overbooking blir lagret og skal vises som konflikt i Ansattplan.`;
       });
     }
 
-    els.calendarPanelContent.querySelectorAll("[data-calendar-panel-edit-project]").forEach(btn => {
-      btn.addEventListener("click", event => {
+    const visibleEditBtn = document.getElementById("projectInspectorEditProjectVisibleBtn");
+    if (visibleEditBtn) {
+      visibleEditBtn.addEventListener("click", event => {
         event.preventDefault();
         event.stopPropagation();
-        openProjectModalFromWorkbench(btn.dataset.calendarPanelEditProject);
+        openProjectModal(visibleEditBtn.dataset.calendarPanelEditProject);
       });
+    }
+    els.calendarPanelContent.querySelectorAll("[data-calendar-panel-edit-project]").forEach(btn => {
+      if (btn.dataset.boundProjectEdit === "true") return;
+      btn.dataset.boundProjectEdit = "true";
+      btn.addEventListener("click", () => openProjectModal(btn.dataset.calendarPanelEditProject));
     });
-
+    els.calendarPanelContent.querySelectorAll("[data-calendar-panel-staff-project]").forEach(btn => {
+      btn.addEventListener("click", () => startProjectStaffing(btn.dataset.calendarPanelStaffProject));
+    });
     const selectProjectInspectorCandidate = (employeeName, suggestedRole = "", options = {}) => {
-      if (!employeeName) return;
+      projectPanelDebug("selectProjectInspectorCandidate called", {
+        employeeName,
+        suggestedRole,
+        options,
+        previousCandidate: state.projectInspectorAddCandidateName
+      });
+      if (!employeeName) {
+        projectPanelDebug("select blocked: empty employeeName");
+        return;
+      }
       if (options.toggle && state.projectInspectorAddCandidateName === employeeName) {
+        projectPanelDebug("select toggled off", { employeeName });
         state.projectInspectorAddCandidateName = "";
         state.projectInspectorAddRole = "";
         state.projectInspectorAddUseCustomRange = false;
@@ -8532,6 +8262,12 @@ Overbooking blir lagret og skal vises som konflikt i Ansattplan.`;
         return;
       }
       primeProjectInspectorCandidate(project, employeeName, suggestedRole || getDefaultRoleForIndex(0));
+      projectPanelDebug("candidate primed", {
+        selectedCandidateName: state.projectInspectorAddCandidateName,
+        selectedRole: state.projectInspectorAddRole,
+        customStart: state.projectInspectorAddCustomStart,
+        customEnd: state.projectInspectorAddCustomEnd
+      });
       state.projectInspectorShowAvailable = true;
       rerenderPanel(false);
       requestAnimationFrame(() => {
@@ -8544,6 +8280,10 @@ Overbooking blir lagret og skal vises som konflikt i Ansattplan.`;
 
     els.calendarPanelContent.querySelectorAll("[data-project-available-person-row]").forEach(row => {
       row.addEventListener("click", event => {
+        projectPanelDebug("available row clicked", {
+          employeeName: row.dataset.projectAvailablePersonRow || "",
+          ignoredTarget: !!event.target?.closest?.("button, input, select, textarea, label")
+        });
         if (event.target?.closest?.("button, input, select, textarea, label")) return;
         selectProjectInspectorCandidate(row.dataset.projectAvailablePersonRow || "", row.dataset.projectInspectorRowRole || getDefaultRoleForIndex(0), { toggle: true });
       });
@@ -8553,6 +8293,10 @@ Overbooking blir lagret og skal vises som konflikt i Ansattplan.`;
       btn.addEventListener("click", event => {
         event.preventDefault();
         event.stopPropagation();
+        projectPanelDebug("select button clicked", {
+          employeeName: btn.dataset.projectInspectorSelectEmployee || "",
+          role: btn.dataset.projectInspectorSelectRole || ""
+        });
         selectProjectInspectorCandidate(btn.dataset.projectInspectorSelectEmployee || "", btn.dataset.projectInspectorSelectRole || getDefaultRoleForIndex(0), { toggle: true });
       });
     });
@@ -8566,6 +8310,7 @@ Overbooking blir lagret og skal vises som konflikt i Ansattplan.`;
     });
     document.getElementById("projectInspectorAddRoleSelect")?.addEventListener("change", event => {
       state.projectInspectorAddRole = event.target.value || "";
+      projectPanelDebug("role changed", { role: state.projectInspectorAddRole });
     });
     document.getElementById("projectInspectorWholePeriodRadio")?.addEventListener("change", () => {
       state.projectInspectorAddUseCustomRange = false;
@@ -8589,11 +8334,16 @@ Overbooking blir lagret og skal vises som konflikt i Ansattplan.`;
     document.getElementById("projectInspectorCustomEndInput")?.addEventListener("change", event => {
       state.projectInspectorAddCustomEnd = event.target.value || "";
     });
-
-    els.calendarPanelContent.querySelectorAll("[data-project-inspector-confirm-add]").forEach(confirmBtn => {
+    const confirmButtons = Array.from(els.calendarPanelContent.querySelectorAll("[data-project-inspector-confirm-add]"));
+    projectPanelDebug("wire confirm buttons", { count: confirmButtons.length });
+    confirmButtons.forEach(confirmBtn => {
       confirmBtn.addEventListener("click", event => {
         event.preventDefault();
         event.stopPropagation();
+        projectPanelDebug("confirm button clicked", {
+          stateCandidateBefore: state.projectInspectorAddCandidateName,
+          buttonEmployee: event.currentTarget?.dataset?.projectInspectorConfirmEmployee || ""
+        });
         const btn = event.currentTarget;
         const employeeName = btn?.dataset?.projectInspectorConfirmEmployee || state.projectInspectorAddCandidateName || "";
         if (employeeName && state.projectInspectorAddCandidateName !== employeeName) {
@@ -8601,6 +8351,7 @@ Overbooking blir lagret og skal vises som konflikt i Ansattplan.`;
         }
         const roleSelect = document.getElementById("projectInspectorAddRoleSelect");
         if (roleSelect) state.projectInspectorAddRole = roleSelect.value || state.projectInspectorAddRole || getDefaultRoleForIndex(0);
+        const wholePeriodRadio = document.getElementById("projectInspectorWholePeriodRadio");
         const customPeriodRadio = document.getElementById("projectInspectorCustomPeriodRadio");
         const bounds = getProjectInspectorProjectBounds(project);
         const customStart = document.getElementById("projectInspectorCustomStartInput");
@@ -8613,11 +8364,18 @@ Overbooking blir lagret og skal vises som konflikt i Ansattplan.`;
           state.projectInspectorAddUseCustomRange = false;
           state.projectInspectorAddCustomStart = bounds.start || project?.planned_start_date || state.projectInspectorAddCustomStart || "";
           state.projectInspectorAddCustomEnd = bounds.end || project?.planned_end_date || state.projectInspectorAddCustomEnd || "";
+          if (wholePeriodRadio) wholePeriodRadio.checked = true;
         }
+        projectPanelDebug("before createProjectInspectorAssignment", {
+          candidate: state.projectInspectorAddCandidateName,
+          role: state.projectInspectorAddRole,
+          useCustomRange: state.projectInspectorAddUseCustomRange,
+          customStart: state.projectInspectorAddCustomStart,
+          customEnd: state.projectInspectorAddCustomEnd
+        });
         void createProjectInspectorAssignment(project.id);
       });
     });
-
     els.calendarPanelContent.querySelectorAll("[data-project-entry-edit-id]").forEach(btn => {
       btn.addEventListener("click", () => openEditModal(btn.dataset.projectEntryEditId));
     });
@@ -8632,32 +8390,20 @@ Overbooking blir lagret og skal vises som konflikt i Ansattplan.`;
     if (state.calendarMode === "project") {
       const project = state.calendarPanelOpen ? getProjectById(state.focusProjectId || "") : null;
       if (!project) {
-        if (els.calendarPanelCol) {
-          ["position", "inset", "left", "top", "width", "height", "right", "bottom", "min-width", "min-height", "max-width", "max-height", "transform", "z-index", "display", "pointer-events", "box-sizing", "overflow"].forEach(prop => {
-            els.calendarPanelCol.style.removeProperty(prop);
-          });
-        }
         els.calendarPanelCol.className = "hidden";
         els.calendarPanelContent.className = "hidden min-w-0 flex-1";
         return;
       }
-      els.calendarPanelCol.className = "iz-project-inspector-shell iz-project-modal-workbench";
-      els.calendarPanelHandleBtn.className = "hidden";
-      els.calendarPanelHandleBtn.textContent = "";
-      els.calendarPanelContent.className = "iz-project-workbench-container min-w-0";
-      if (!state.projectWorkbenchWindow) state.projectWorkbenchWindow = getProjectWorkbenchDefaultRect();
-      applyProjectWorkbenchWindowState();
+      els.calendarPanelCol.className = "iz-project-inspector-shell w-full shrink-0 bg-white border border-slate-200 shadow-sm overflow-hidden transition-all duration-300";
+      els.calendarPanelHandleBtn.className = "iz-project-panel-tab w-10 shrink-0 border-r border-slate-200 bg-slate-50 text-slate-700 text-xs font-semibold tracking-wide [writing-mode:vertical-rl] rotate-180";
+      els.calendarPanelHandleBtn.textContent = "Panel";
+      els.calendarPanelContent.className = "min-w-0 flex-1";
       renderProjectInspectorPanel(project);
       return;
     }
 
     // v18.31e: Ansattplan skal ikke arve prosjektpanelet.
     // Høyrepanelet skjules helt utenfor Prosjektplan for å unngå tom mørk boks/regresjon.
-    if (els.calendarPanelCol) {
-      ["position", "inset", "left", "top", "width", "height", "right", "bottom", "min-width", "min-height", "max-width", "max-height", "transform", "z-index", "display", "pointer-events", "box-sizing", "overflow"].forEach(prop => {
-        els.calendarPanelCol.style.removeProperty(prop);
-      });
-    }
     els.calendarPanelCol.className = "hidden";
     els.calendarPanelContent.className = "hidden min-w-0 flex-1";
     els.calendarPanelHandleBtn.className = "hidden";
