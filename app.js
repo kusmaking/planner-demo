@@ -7873,6 +7873,38 @@ async function deleteEditedEntry() {
     const projectBounds = getProjectInspectorProjectBounds(project);
     const addRange = getProjectInspectorAddRange(project);
     const showAddFromList = needsStaffing && shouldShowAvailable;
+    const projectPeriodText = projectBounds.start && projectBounds.end
+      ? `${formatDate(projectBounds.start)} – ${formatDate(projectBounds.end)}`
+      : (periods.length ? `${periods.length} perioder` : "Ikke satt");
+    const projectPanelKpiHtml = `
+      <div class="iz-project-inspector-kpis">
+        <div class="iz-project-inspector-kpi">
+          <div class="iz-project-inspector-kpi-label">Behov</div>
+          <div class="iz-project-inspector-kpi-value">${escapeHtml(String(required || 0))}</div>
+          <div class="iz-project-inspector-kpi-sub">${escapeHtml(window.izomaxTranslateKey?.("people") || "personer")}</div>
+        </div>
+        <div class="iz-project-inspector-kpi">
+          <div class="iz-project-inspector-kpi-label">Tildelt</div>
+          <div class="iz-project-inspector-kpi-value">${escapeHtml(String(assigned || 0))}</div>
+          <div class="iz-project-inspector-kpi-sub">${required ? `${assigned}/${required}` : "uten krav"}</div>
+        </div>
+        <div class="iz-project-inspector-kpi">
+          <div class="iz-project-inspector-kpi-label">Mangler</div>
+          <div class="iz-project-inspector-kpi-value">${escapeHtml(String(missingStaffCount || 0))}</div>
+          <div class="iz-project-inspector-kpi-sub">${missingStaffCount ? "må bemannes" : "ok"}</div>
+        </div>
+        <div class="iz-project-inspector-kpi">
+          <div class="iz-project-inspector-kpi-label">Ledige</div>
+          <div class="iz-project-inspector-kpi-value">${escapeHtml(String(availabilitySummary.available || 0))}</div>
+          <div class="iz-project-inspector-kpi-sub">hele perioden</div>
+        </div>
+        <div class="iz-project-inspector-kpi">
+          <div class="iz-project-inspector-kpi-label">Delvis</div>
+          <div class="iz-project-inspector-kpi-value">${escapeHtml(String(availabilitySummary.partial || 0))}</div>
+          <div class="iz-project-inspector-kpi-sub">kan dekke deler</div>
+        </div>
+      </div>
+    `;
     projectPanelDebug("renderProjectInspectorPanel", {
       projectId: project.id,
       projectName: project.name,
@@ -8052,9 +8084,9 @@ async function deleteEditedEntry() {
       <div class="flex h-full flex-col">
         <div class="flex items-start justify-between gap-3 border-b border-slate-200 p-4">
           <div class="min-w-0">
-            <h2 class="text-base font-semibold text-slate-950">${window.izomaxTranslateKey?.("projectDetails") || "Prosjektdetaljer"}</h2>
+            <h2 class="text-base font-semibold text-slate-950">Bemanning og prosjektkontroll</h2>
             <div class="mt-1 truncate text-sm font-medium text-slate-800">${escapeHtml(project.name)}</div>
-            <div class="mt-1 text-xs font-medium ${staffingTone}">${escapeHtml(staffing.text)}${required ? ` (${assigned}/${required})` : ""}</div>
+            <div class="mt-1 text-xs font-medium ${staffingTone}">${escapeHtml(projectPeriodText)} · ${escapeHtml(staffing.text)}${required ? ` (${assigned}/${required})` : ""}</div>
           </div>
           <div class="flex items-center gap-2 shrink-0">
             <button data-calendar-panel-edit-project="${escapeHtml(project.id)}" type="button" class="rounded-xl border border-slate-300 bg-slate-900 px-3 py-1.5 text-sm font-semibold text-white hover:bg-slate-800">${window.izomaxTranslateKey?.("editProject") || "Rediger prosjekt"}</button>
@@ -8062,7 +8094,8 @@ async function deleteEditedEntry() {
           </div>
         </div>
 
-        <div class="min-h-0 flex-1 space-y-4 overflow-auto p-4 text-sm">
+        <div class="iz-project-inspector-body min-h-0 flex-1 space-y-4 overflow-auto p-4 text-sm">
+          ${projectPanelKpiHtml}
           <div style="display:block !important;margin:0 0 14px 0 !important;width:100% !important;">
             <button
               id="projectInspectorEditProjectVisibleBtn"
@@ -10518,6 +10551,11 @@ async function deleteEditedEntry() {
     return " project-spotlight-muted";
   }
 
+  function getProjectPanelFocusClass(projectId) {
+    if (state.calendarMode !== "project" || !state.calendarPanelOpen || !state.focusProjectId) return "";
+    return projectId === state.focusProjectId ? " project-panel-focus-active" : " project-panel-focus-muted";
+  }
+
   function renderCalendar() {
     if (!els.calendarWrap) return;
     const range = getCurrentRange();
@@ -10785,7 +10823,7 @@ async function deleteEditedEntry() {
       const projectPeriods = filterProjectPeriodsByPhase(project, getProjectTimelinePeriodsWithWorkshop(project));
 
       html += `
-        <button type="button" data-project-list-row-id="${escapeHtml(project.id)}" class="sticky-col project-plan-name-cell border-r border-b border-slate-200 px-3 py-1.5 text-left ${project.id === state.focusProjectId ? "bg-blue-50 ring-2 ring-blue-200" : isClosedProject(project) ? "bg-slate-100" : "bg-white"}">
+        <button type="button" data-project-list-row-id="${escapeHtml(project.id)}" class="sticky-col project-plan-name-cell border-r border-b border-slate-200 px-3 py-1.5 text-left ${project.id === state.focusProjectId ? "bg-blue-50 ring-2 ring-blue-200" : isClosedProject(project) ? "bg-slate-100" : "bg-white"}${getProjectPanelFocusClass(project.id)}">
           <div class="project-plan-title">${escapeHtml(project.name)}</div>
           <div class="project-plan-meta">
             <span class="${staffing.variant}">${escapeHtml(staffing.text)}${required ? ` (${assigned}/${required})` : ""}</span>
@@ -10821,7 +10859,7 @@ async function deleteEditedEntry() {
 
         html += `
           <div
-            class="entry-bar ${periodClasses} ${(period.phase === "workshop" || (period.phase !== "workshop" && !project.has_multiple_periods)) ? "cursor-move" : ""} ${project.id === state.focusProjectId ? 'ring-2 ring-blue-300 ring-offset-1' : ''}"
+            class="entry-bar ${periodClasses} ${(period.phase === "workshop" || (period.phase !== "workshop" && !project.has_multiple_periods)) ? "cursor-move" : ""} ${project.id === state.focusProjectId ? 'ring-2 ring-blue-300 ring-offset-1' : ''}${getProjectPanelFocusClass(project.id)}"
             style="left:${left}px; width:${width}px;"
             data-project-row-id="${escapeHtml(project.id)}"
             data-project-period-phase="${escapeHtml(period.phase || "field")}"
@@ -10885,7 +10923,7 @@ async function deleteEditedEntry() {
       const staffing = getProjectStaffingLabel(project.id, required);
 
       html += `
-        <div class="sticky-col border-r border-b border-slate-200 px-3 py-3 ${isClosedProject(project) ? "bg-slate-100" : ""}">
+        <div class="sticky-col project-plan-name-cell border-r border-b border-slate-200 px-3 py-3 ${isClosedProject(project) ? "bg-slate-100" : ""}${getProjectPanelFocusClass(project.id)}">
           <div class="font-medium">${escapeHtml(project.name)}</div>
           <div class="text-xs text-slate-500">${escapeHtml(project.location || "")}</div>
           <div class="text-xs ${staffing.variant} mt-1">${escapeHtml(staffing.text)}${required ? ` (${assigned}/${required})` : ""}</div>
@@ -10914,7 +10952,7 @@ async function deleteEditedEntry() {
 
         html += `
           <div
-            class="entry-bar ${getProjectPeriodBarClasses(project, period)} ${project.id === state.focusProjectId ? 'ring-2 ring-blue-300 ring-offset-1' : ''}"
+            class="entry-bar ${getProjectPeriodBarClasses(project, period)} ${project.id === state.focusProjectId ? 'ring-2 ring-blue-300 ring-offset-1' : ''}${getProjectPanelFocusClass(project.id)}"
             style="left:${left}px; width:${width}px;"
             data-project-row-id="${escapeHtml(project.id)}"
             title="${escapeHtml(`${project.name} | ${period.phase === "workshop" ? (window.izomaxTranslateKey?.("workshopMobilization") || "Workshop / mobilisering") : (window.izomaxTranslateKey?.("fieldAssignment") || "Feltoppdrag")} | ${formatDate(period.start)} – ${formatDate(period.end)} | ${period.phase === "workshop" ? `${window.izomaxTranslateKey?.("workshopNeed") || "Workshopbehov"} ${period.required || 2}` : staffing.text}`)}"

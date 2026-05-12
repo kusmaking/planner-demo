@@ -1210,13 +1210,83 @@
     }
 
 
+    /* v18.62a: Focused project remains clear while the panel is open; other project rows are visually toned down only. */
+    .entry-bar.project-panel-focus-muted {
+      opacity: 0.20;
+      filter: grayscale(1) saturate(0.18);
+      box-shadow: none !important;
+    }
+
+    .entry-bar.project-panel-focus-active {
+      opacity: 1;
+      filter: none;
+      z-index: 38;
+      box-shadow: 0 0 0 2px rgba(80,240,199,0.74), 0 10px 24px rgba(2,12,18,0.22) !important;
+    }
+
+    .project-plan-name-cell.project-panel-focus-muted {
+      opacity: 0.50;
+      filter: grayscale(1) saturate(0.22);
+    }
+
+    .project-plan-name-cell.project-panel-focus-active {
+      opacity: 1;
+      box-shadow: inset 3px 0 0 rgba(80,240,199,0.86), 0 0 0 1px rgba(80,240,199,0.28) !important;
+    }
+
+    body.iz-compact-ui #calendarPanelCol.iz-project-inspector-shell .iz-project-inspector-kpis {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    body.iz-compact-ui #calendarPanelCol.iz-project-inspector-shell .iz-project-inspector-kpi {
+      border: 1px solid rgba(133, 194, 210, 0.24);
+      background: rgba(255, 255, 255, 0.09);
+      padding: 10px;
+      min-height: 64px;
+    }
+
+    body.iz-compact-ui #calendarPanelCol.iz-project-inspector-shell .iz-project-inspector-kpi-label {
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      color: rgba(232,244,248,0.66);
+    }
+
+    body.iz-compact-ui #calendarPanelCol.iz-project-inspector-shell .iz-project-inspector-kpi-value {
+      margin-top: 5px;
+      font-size: 20px;
+      line-height: 1;
+      font-weight: 950;
+      color: #f8fbfd;
+    }
+
+    body.iz-compact-ui #calendarPanelCol.iz-project-inspector-shell .iz-project-inspector-kpi-sub {
+      margin-top: 5px;
+      font-size: 11px;
+      font-weight: 700;
+      color: rgba(232,244,248,0.70);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    @media (max-width: 1200px) {
+      body.iz-compact-ui #calendarPanelCol.iz-project-inspector-shell .iz-project-inspector-kpis {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+
     /* v16.9: Prosjektinspektør som mørk overlay over kalenderen, med hvit tekst. */
     body.iz-compact-ui #calendarPanelCol.iz-project-inspector-shell {
       position: fixed !important;
       top: 98px !important;
       right: 26px !important;
       bottom: 26px !important;
-      width: 380px !important;
+      width: clamp(560px, 48vw, 760px) !important;
       max-width: calc(100vw - 52px) !important;
       z-index: 80 !important;
       background: linear-gradient(180deg, rgba(5, 48, 63, 0.98) 0%, rgba(3, 34, 45, 0.98) 100%) !important;
