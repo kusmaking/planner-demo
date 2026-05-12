@@ -115,6 +115,7 @@
     projectInspectorAddUseCustomRange: false,
     projectInspectorAddCustomStart: "",
     projectInspectorAddCustomEnd: "",
+    projectWorkbenchWindow: { left: null, top: null, width: null, height: null },
     projectImportPreview: {
       fileName: "",
       rowCount: 0,
@@ -7871,6 +7872,135 @@ Overbooking blir lagret og skal vises som konflikt i Ansattplan.`;
     void addNotification(employee.name, project.name);
   }
 
+
+  function closeProjectWorkbenchPanel() {
+    state.calendarPanelOpen = false;
+    state.focusProjectId = "";
+    resetProjectInspectorFilters();
+    if (els.calendarPanelContent) {
+      els.calendarPanelContent.style.left = "";
+      els.calendarPanelContent.style.top = "";
+      els.calendarPanelContent.style.width = "";
+      els.calendarPanelContent.style.height = "";
+      els.calendarPanelContent.style.position = "";
+    }
+    renderCalendarPanel();
+    renderCalendar();
+  }
+
+  function resetProjectWorkbenchWindow() {
+    state.projectWorkbenchWindow = { left: null, top: null, width: null, height: null };
+    if (els.calendarPanelContent) {
+      els.calendarPanelContent.style.left = "";
+      els.calendarPanelContent.style.top = "";
+      els.calendarPanelContent.style.width = "";
+      els.calendarPanelContent.style.height = "";
+      els.calendarPanelContent.style.position = "";
+    }
+    renderCalendarPanel();
+  }
+
+  function clampProjectWorkbenchWindowPosition(left, top, width, height) {
+    const margin = 10;
+    const safeWidth = Math.max(Number(width || 0), 520);
+    const safeHeight = Math.max(Number(height || 0), 360);
+    const maxLeft = Math.max(margin, window.innerWidth - safeWidth - margin);
+    const maxTop = Math.max(margin, window.innerHeight - safeHeight - margin);
+    return {
+      left: Math.min(Math.max(margin, Number(left || margin)), maxLeft),
+      top: Math.min(Math.max(margin, Number(top || margin)), maxTop)
+    };
+  }
+
+  function applyProjectWorkbenchWindowState(container) {
+    if (!container) return;
+    const win = state.projectWorkbenchWindow || {};
+    if (Number.isFinite(win.left) && Number.isFinite(win.top) && Number.isFinite(win.width) && Number.isFinite(win.height)) {
+      const clamped = clampProjectWorkbenchWindowPosition(win.left, win.top, win.width, win.height);
+      container.style.position = "absolute";
+      container.style.left = `${clamped.left}px`;
+      container.style.top = `${clamped.top}px`;
+      container.style.width = `${Math.max(680, win.width)}px`;
+      container.style.height = `${Math.max(460, win.height)}px`;
+    }
+  }
+
+  function setupProjectWorkbenchWindowControls(project) {
+    const container = els.calendarPanelContent;
+    if (!container) return;
+
+    applyProjectWorkbenchWindowState(container);
+
+    container.querySelectorAll("[data-project-workbench-close]").forEach(btn => {
+      btn.addEventListener("click", closeProjectWorkbenchPanel);
+    });
+
+    container.querySelectorAll("[data-project-workbench-reset-window]").forEach(btn => {
+      btn.addEventListener("click", resetProjectWorkbenchWindow);
+    });
+
+    const dragHandle = container.querySelector("[data-project-workbench-drag-handle]");
+    if (dragHandle) {
+      dragHandle.addEventListener("pointerdown", event => {
+        if (event.button !== 0) return;
+        if (event.target?.closest?.("button, input, select, textarea, a, [role='button']")) return;
+        const rect = container.getBoundingClientRect();
+        state.projectWorkbenchWindow = {
+          left: rect.left,
+          top: rect.top,
+          width: rect.width,
+          height: rect.height
+        };
+        container.style.position = "absolute";
+        container.style.left = `${rect.left}px`;
+        container.style.top = `${rect.top}px`;
+        container.style.width = `${rect.width}px`;
+        container.style.height = `${rect.height}px`;
+        container.classList.add("is-dragging");
+        const startX = event.clientX;
+        const startY = event.clientY;
+        const startLeft = rect.left;
+        const startTop = rect.top;
+        const onMove = moveEvent => {
+          const width = state.projectWorkbenchWindow.width || rect.width;
+          const height = state.projectWorkbenchWindow.height || rect.height;
+          const next = clampProjectWorkbenchWindowPosition(startLeft + moveEvent.clientX - startX, startTop + moveEvent.clientY - startY, width, height);
+          state.projectWorkbenchWindow.left = next.left;
+          state.projectWorkbenchWindow.top = next.top;
+          container.style.left = `${next.left}px`;
+          container.style.top = `${next.top}px`;
+        };
+        const onUp = () => {
+          container.classList.remove("is-dragging");
+          document.removeEventListener("pointermove", onMove);
+          document.removeEventListener("pointerup", onUp);
+          document.removeEventListener("pointercancel", onUp);
+        };
+        document.addEventListener("pointermove", onMove);
+        document.addEventListener("pointerup", onUp, { once: true });
+        document.addEventListener("pointercancel", onUp, { once: true });
+        event.preventDefault();
+      });
+    }
+
+    if (typeof ResizeObserver !== "undefined") {
+      const resizeObserver = new ResizeObserver(entries => {
+        const entry = entries && entries[0];
+        if (!entry) return;
+        const rect = container.getBoundingClientRect();
+        if (!rect.width || !rect.height) return;
+        const clamped = clampProjectWorkbenchWindowPosition(rect.left, rect.top, rect.width, rect.height);
+        state.projectWorkbenchWindow = {
+          left: clamped.left,
+          top: clamped.top,
+          width: rect.width,
+          height: rect.height
+        };
+      });
+      resizeObserver.observe(container);
+    }
+  }
+
   function renderProjectInspectorPanel(project) {
     // v18.62e: Project assignment is now a modal workbench, not a narrow side panel.
     if (!els.calendarPanelContent || !project) return;
@@ -8029,7 +8159,7 @@ Overbooking blir lagret og skal vises som konflikt i Ansattplan.`;
 
     els.calendarPanelContent.innerHTML = `
       <div class="iz-project-workbench-modal" role="dialog" aria-modal="true" aria-label="Bemanning og prosjektkontroll">
-        <header class="iz-workbench-header">
+        <header class="iz-workbench-header iz-workbench-drag-handle" data-project-workbench-drag-handle="1" title="Dra her for å flytte vinduet">
           <div class="iz-workbench-title-block">
             <div class="iz-workbench-eyebrow">Bemanning og prosjektkontroll</div>
             <h2>${escapeHtml(project.name || "Prosjekt")}</h2>
@@ -8041,7 +8171,9 @@ Overbooking blir lagret og skal vises som konflikt i Ansattplan.`;
           </div>
           <div class="iz-workbench-header-actions">
             <button data-calendar-panel-edit-project="${escapeHtml(project.id)}" type="button" class="iz-workbench-secondary-btn">Rediger prosjekt</button>
-            <button id="calendarProjectPanelCloseBtn" type="button" class="iz-workbench-close-btn" aria-label="Lukk">×</button>
+            <button data-project-workbench-reset-window="1" type="button" class="iz-workbench-secondary-btn">Nullstill vindu</button>
+            <button id="calendarProjectPanelCloseBtn" data-project-workbench-close="1" type="button" class="iz-workbench-close-text-btn" aria-label="Lukk prosjektvindu">Lukk</button>
+            <button data-project-workbench-close="1" type="button" class="iz-workbench-close-btn" aria-label="Lukk">×</button>
           </div>
         </header>
 
@@ -8084,6 +8216,14 @@ Overbooking blir lagret og skal vises som konflikt i Ansattplan.`;
             </div>
           </main>
         </div>
+
+        <footer class="iz-workbench-footer">
+          <span>Dra i toppfeltet for å flytte vinduet. Bruk hjørnet nede til høyre for å endre størrelse.</span>
+          <div class="iz-workbench-footer-actions">
+            <button data-project-workbench-reset-window="1" type="button" class="iz-workbench-secondary-btn">Nullstill vindu</button>
+            <button data-project-workbench-close="1" type="button" class="iz-workbench-close-text-btn">Lukk vindu</button>
+          </div>
+        </footer>
       </div>
     `;
 
@@ -8092,6 +8232,8 @@ Overbooking blir lagret og skal vises som konflikt i Ansattplan.`;
       selectButtons: els.calendarPanelContent.querySelectorAll("[data-project-inspector-select-employee]").length,
       availableRows: els.calendarPanelContent.querySelectorAll("[data-project-available-person-row]").length
     });
+
+    setupProjectWorkbenchWindowControls(project);
 
     const rerenderPanel = (focusSearch = false) => {
       renderProjectInspectorPanel(project);
@@ -8105,14 +8247,6 @@ Overbooking blir lagret og skal vises som konflikt i Ansattplan.`;
       }
     };
 
-    const closeBtn = document.getElementById("calendarProjectPanelCloseBtn");
-    if (closeBtn) closeBtn.addEventListener("click", () => {
-      state.calendarPanelOpen = false;
-      state.focusProjectId = "";
-      resetProjectInspectorFilters();
-      renderCalendarPanel();
-      renderCalendar();
-    });
 
     const searchInput = document.getElementById("projectInspectorSearchInput");
     if (searchInput) {

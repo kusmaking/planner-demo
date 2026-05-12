@@ -2431,6 +2431,26 @@
       align-items: center;
     }
 
+    body.iz-compact-ui .iz-workbench-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 10px 14px;
+      border-top: 1px solid rgba(133, 194, 210, 0.20);
+      background: rgba(2, 20, 28, 0.42);
+      color: rgba(232,244,248,.68);
+      font-size: 11px;
+      flex: 0 0 auto;
+    }
+
+    body.iz-compact-ui .iz-workbench-footer-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex: 0 0 auto;
+    }
+
     @media (max-width: 1100px) {
       #plannerStartPage {
         grid-template-columns: 1fr;
@@ -4499,13 +4519,17 @@
     body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench #calendarPanelContent,
     body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench .iz-project-workbench-container {
       pointer-events: auto !important;
-      width: min(1220px, calc(100vw - 72px)) !important;
-      height: min(820px, calc(100vh - 104px)) !important;
-      max-width: calc(100vw - 72px) !important;
-      max-height: calc(100vh - 104px) !important;
+      width: min(1220px, calc(100vw - 72px));
+      height: min(820px, calc(100vh - 104px));
+      min-width: min(720px, calc(100vw - 22px));
+      min-height: min(520px, calc(100vh - 22px));
+      max-width: calc(100vw - 22px);
+      max-height: calc(100vh - 22px);
       background: transparent !important;
       color: #f8fbfd !important;
       border-radius: 4px !important;
+      resize: both !important;
+      overflow: hidden !important;
     }
 
     body.iz-compact-ui .iz-project-workbench-modal {
@@ -4528,6 +4552,17 @@
       padding: 18px 20px;
       border-bottom: 1px solid rgba(133, 194, 210, 0.24);
       background: rgba(255, 255, 255, 0.045);
+    }
+
+    body.iz-compact-ui .iz-workbench-drag-handle {
+      cursor: move;
+      user-select: none;
+    }
+
+    body.iz-compact-ui .iz-project-workbench-container.is-dragging,
+    body.iz-compact-ui .iz-project-workbench-container.is-dragging * {
+      cursor: move !important;
+      user-select: none !important;
     }
 
     body.iz-compact-ui .iz-workbench-eyebrow {
@@ -4750,6 +4785,7 @@
 
     body.iz-compact-ui .iz-workbench-assigned-actions button,
     body.iz-compact-ui .iz-workbench-secondary-btn,
+    body.iz-compact-ui .iz-workbench-close-text-btn,
     body.iz-compact-ui .iz-workbench-close-btn {
       border: 1px solid rgba(133, 194, 210, 0.28);
       background: rgba(255, 255, 255, 0.08);
@@ -4770,6 +4806,14 @@
     body.iz-compact-ui .iz-workbench-secondary-btn {
       padding: 9px 12px;
       font-size: 12px;
+    }
+
+    body.iz-compact-ui .iz-workbench-close-text-btn {
+      padding: 9px 14px;
+      font-size: 12px;
+      background: rgba(248,113,113,.18) !important;
+      border-color: rgba(248,113,113,.42) !important;
+      color: #fecaca !important;
     }
 
     body.iz-compact-ui .iz-workbench-close-btn {
@@ -5065,6 +5109,9 @@
         height: calc(100vh - 50px) !important;
         max-width: calc(100vw - 22px) !important;
         max-height: calc(100vh - 50px) !important;
+        min-width: calc(100vw - 22px) !important;
+        resize: none !important;
+        position: static !important;
       }
       body.iz-compact-ui .iz-workbench-main {
         grid-template-columns: 1fr;
@@ -5083,6 +5130,10 @@
       }
       body.iz-compact-ui .iz-workbench-add-grid {
         grid-template-columns: 1fr 1fr;
+      }
+      body.iz-compact-ui .iz-workbench-footer {
+        align-items: flex-start;
+        flex-direction: column;
       }
     }
 </style>
