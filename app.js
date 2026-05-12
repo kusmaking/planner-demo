@@ -7873,6 +7873,34 @@ Overbooking blir lagret og skal vises som konflikt i Ansattplan.`;
   }
 
 
+  let projectWorkbenchOriginalParent = null;
+  let projectWorkbenchOriginalNextSibling = null;
+
+  function ensureProjectWorkbenchFloatingMount() {
+    if (!els.calendarPanelContent) return;
+    if (!projectWorkbenchOriginalParent) {
+      projectWorkbenchOriginalParent = els.calendarPanelContent.parentElement || els.calendarPanelCol || null;
+      projectWorkbenchOriginalNextSibling = els.calendarPanelContent.nextSibling || null;
+    }
+    if (els.calendarPanelContent.parentElement !== document.body) {
+      document.body.appendChild(els.calendarPanelContent);
+    }
+    document.body.classList.add("iz-project-workbench-open");
+  }
+
+  function restoreProjectWorkbenchFloatingMount() {
+    if (!els.calendarPanelContent) return;
+    document.body.classList.remove("iz-project-workbench-open");
+    if (els.calendarPanelContent.parentElement !== document.body) return;
+    const parent = projectWorkbenchOriginalParent || els.calendarPanelCol;
+    if (!parent) return;
+    const next = projectWorkbenchOriginalNextSibling && projectWorkbenchOriginalNextSibling.parentElement === parent
+      ? projectWorkbenchOriginalNextSibling
+      : null;
+    if (next) parent.insertBefore(els.calendarPanelContent, next);
+    else parent.appendChild(els.calendarPanelContent);
+  }
+
   function closeProjectWorkbenchPanel() {
     state.calendarPanelOpen = false;
     state.focusProjectId = "";
@@ -7883,31 +7911,31 @@ Overbooking blir lagret og skal vises som konflikt i Ansattplan.`;
       els.calendarPanelContent.style.width = "";
       els.calendarPanelContent.style.height = "";
       els.calendarPanelContent.style.position = "";
+      els.calendarPanelContent.style.transform = "";
+      els.calendarPanelContent.style.zIndex = "";
     }
+    restoreProjectWorkbenchFloatingMount();
     renderCalendarPanel();
     renderCalendar();
   }
 
   function resetProjectWorkbenchWindow() {
-    state.projectWorkbenchWindow = { left: null, top: null, width: null, height: null, maximized: false, restore: null };
+    state.projectWorkbenchWindow = getProjectWorkbenchDefaultRect();
     if (els.calendarPanelContent) {
-      els.calendarPanelContent.style.left = "";
-      els.calendarPanelContent.style.top = "";
-      els.calendarPanelContent.style.width = "";
-      els.calendarPanelContent.style.height = "";
-      els.calendarPanelContent.style.position = "";
-      els.calendarPanelContent.style.transform = "";
+      applyProjectWorkbenchWindowState(els.calendarPanelContent);
     }
-    renderCalendarPanel();
   }
 
   function getProjectWorkbenchDefaultRect() {
-    const margin = 34;
-    const viewportWidth = Math.max(window.innerWidth || 1280, 900);
-    const viewportHeight = Math.max(window.innerHeight || 760, 620);
-    // v18.62i: Outlook-like default. Large enough for staffing work, but never full width.
-    const width = Math.min(Math.max(980, Math.round(viewportWidth * 0.66)), viewportWidth - (margin * 4));
-    const height = Math.min(Math.max(600, Math.round(viewportHeight * 0.76)), viewportHeight - (margin * 2));
+    const margin = 24;
+    const viewportWidth = Math.max(window.innerWidth || 1280, 360);
+    const viewportHeight = Math.max(window.innerHeight || 760, 360);
+    const availableWidth = Math.max(360, viewportWidth - (margin * 2));
+    const availableHeight = Math.max(320, viewportHeight - (margin * 2));
+    const preferredWidth = Math.round(viewportWidth * 0.68);
+    const preferredHeight = Math.round(viewportHeight * 0.78);
+    const width = Math.min(Math.max(860, preferredWidth), 1180, availableWidth);
+    const height = Math.min(Math.max(560, preferredHeight), 760, availableHeight);
     return {
       left: Math.max(margin, Math.round((viewportWidth - width) / 2)),
       top: Math.max(margin, Math.round((viewportHeight - height) / 2)),
@@ -7920,19 +7948,23 @@ Overbooking blir lagret og skal vises som konflikt i Ansattplan.`;
 
   function normalizeProjectWorkbenchRect(rect = {}) {
     const margin = 16;
-    const viewportWidth = window.innerWidth || 1280;
-    const viewportHeight = window.innerHeight || 760;
-    const minWidth = Math.min(720, Math.max(360, viewportWidth - (margin * 2)));
-    const minHeight = Math.min(480, Math.max(300, viewportHeight - (margin * 2)));
+    const viewportWidth = Math.max(window.innerWidth || 1280, 360);
+    const viewportHeight = Math.max(window.innerHeight || 760, 360);
+    const minWidth = Math.min(640, Math.max(320, viewportWidth - (margin * 2)));
+    const minHeight = Math.min(420, Math.max(260, viewportHeight - (margin * 2)));
     const maxWidth = Math.max(minWidth, viewportWidth - (margin * 2));
     const maxHeight = Math.max(minHeight, viewportHeight - (margin * 2));
-    const width = Math.min(Math.max(Number(rect.width || 0), minWidth), maxWidth);
-    const height = Math.min(Math.max(Number(rect.height || 0), minHeight), maxHeight);
+    const rawWidth = Number(rect.width || 0);
+    const rawHeight = Number(rect.height || 0);
+    const width = Math.min(Math.max(rawWidth, minWidth), maxWidth);
+    const height = Math.min(Math.max(rawHeight, minHeight), maxHeight);
     const maxLeft = Math.max(margin, viewportWidth - width - margin);
     const maxTop = Math.max(margin, viewportHeight - height - margin);
+    const rawLeft = Number.isFinite(Number(rect.left)) ? Number(rect.left) : Math.round((viewportWidth - width) / 2);
+    const rawTop = Number.isFinite(Number(rect.top)) ? Number(rect.top) : Math.round((viewportHeight - height) / 2);
     return {
-      left: Math.min(Math.max(margin, Number(rect.left ?? margin)), maxLeft),
-      top: Math.min(Math.max(margin, Number(rect.top ?? margin)), maxTop),
+      left: Math.min(Math.max(margin, rawLeft), maxLeft),
+      top: Math.min(Math.max(margin, rawTop), maxTop),
       width,
       height,
       maximized: !!rect.maximized,
@@ -7956,7 +7988,7 @@ Overbooking blir lagret og skal vises som konflikt i Ansattplan.`;
   function applyProjectWorkbenchWindowState(container) {
     if (!container) return;
     let win = state.projectWorkbenchWindow || {};
-    if (!Number.isFinite(win.left) || !Number.isFinite(win.top) || !Number.isFinite(win.width) || !Number.isFinite(win.height)) {
+    if (!Number.isFinite(Number(win.left)) || !Number.isFinite(Number(win.top)) || !Number.isFinite(Number(win.width)) || !Number.isFinite(Number(win.height))) {
       win = getProjectWorkbenchDefaultRect();
     }
     const normalized = normalizeProjectWorkbenchRect(win);
@@ -7966,9 +7998,14 @@ Overbooking blir lagret og skal vises som konflikt i Ansattplan.`;
     container.style.top = `${normalized.top}px`;
     container.style.width = `${normalized.width}px`;
     container.style.height = `${normalized.height}px`;
+    container.style.minWidth = "0";
+    container.style.minHeight = "0";
+    container.style.maxWidth = "none";
+    container.style.maxHeight = "none";
     container.style.transform = "none";
-    container.style.zIndex = "9999";
+    container.style.zIndex = "10000";
     container.style.pointerEvents = "auto";
+    container.style.boxSizing = "border-box";
   }
 
   function toggleProjectWorkbenchMaximize() {
@@ -7981,8 +8018,8 @@ Overbooking blir lagret og skal vises som konflikt i Ansattplan.`;
       state.projectWorkbenchWindow = normalizeProjectWorkbenchRect({
         left: 16,
         top: 16,
-        width: Math.max(760, (window.innerWidth || 1280) - 32),
-        height: Math.max(500, (window.innerHeight || 760) - 32),
+        width: Math.max(640, (window.innerWidth || 1280) - 32),
+        height: Math.max(420, (window.innerHeight || 760) - 32),
         maximized: true,
         restore: current
       });
@@ -8007,6 +8044,7 @@ Overbooking blir lagret og skal vises som konflikt i Ansattplan.`;
     container.querySelectorAll("[data-project-workbench-reset-window]").forEach(btn => {
       btn.addEventListener("click", event => {
         event.preventDefault();
+        event.stopPropagation();
         resetProjectWorkbenchWindow();
       });
     });
@@ -8014,6 +8052,7 @@ Overbooking blir lagret og skal vises som konflikt i Ansattplan.`;
     container.querySelectorAll("[data-project-workbench-maximize]").forEach(btn => {
       btn.addEventListener("click", event => {
         event.preventDefault();
+        event.stopPropagation();
         toggleProjectWorkbenchMaximize();
       });
     });
@@ -8031,7 +8070,6 @@ Overbooking blir lagret og skal vises som konflikt i Ansattplan.`;
         const startY = event.clientY;
         const onMove = moveEvent => {
           const next = normalizeProjectWorkbenchRect({
-            ...state.projectWorkbenchWindow,
             left: startRect.left + moveEvent.clientX - startX,
             top: startRect.top + moveEvent.clientY - startY,
             width: startRect.width,
@@ -8050,7 +8088,6 @@ Overbooking blir lagret og skal vises som konflikt i Ansattplan.`;
           document.removeEventListener("pointercancel", onUp);
         };
         dragHandle.setPointerCapture?.(event.pointerId);
-        handle.setPointerCapture?.(event.pointerId);
         document.addEventListener("pointermove", onMove);
         document.addEventListener("pointerup", onUp, { once: true });
         document.addEventListener("pointercancel", onUp, { once: true });
@@ -8093,6 +8130,7 @@ Overbooking blir lagret og skal vises som konflikt i Ansattplan.`;
           document.removeEventListener("pointerup", onUp);
           document.removeEventListener("pointercancel", onUp);
         };
+        handle.setPointerCapture?.(event.pointerId);
         document.addEventListener("pointermove", onMove);
         document.addEventListener("pointerup", onUp, { once: true });
         document.addEventListener("pointercancel", onUp, { once: true });
@@ -8262,6 +8300,7 @@ Overbooking blir lagret og skal vises som konflikt i Ansattplan.`;
       <div class="iz-project-workbench-modal" role="dialog" aria-modal="true" aria-label="Bemanning og prosjektkontroll">
         <button data-project-workbench-close="1" type="button" class="iz-workbench-window-close" aria-label="Lukk prosjektvindu" title="Lukk">×</button>
         <header class="iz-workbench-header iz-workbench-drag-handle" data-project-workbench-drag-handle="1" title="Dra her for å flytte vinduet">
+          <button data-project-workbench-close="1" type="button" class="iz-workbench-visible-close" aria-label="Lukk prosjektvindu">× Lukk</button>
           <div class="iz-workbench-title-block">
             <div class="iz-workbench-eyebrow">Bemanning og prosjektkontroll</div>
             <h2>${escapeHtml(project.name || "Prosjekt")}</h2>
@@ -8489,20 +8528,25 @@ Overbooking blir lagret og skal vises som konflikt i Ansattplan.`;
     if (state.calendarMode === "project") {
       const project = state.calendarPanelOpen ? getProjectById(state.focusProjectId || "") : null;
       if (!project) {
+        restoreProjectWorkbenchFloatingMount();
         els.calendarPanelCol.className = "hidden";
         els.calendarPanelContent.className = "hidden min-w-0 flex-1";
+        els.calendarPanelHandleBtn.className = "hidden";
         return;
       }
-      els.calendarPanelCol.className = "iz-project-inspector-shell iz-project-modal-workbench";
+      // v18.62j: Mount workbench directly under body to avoid clipping by calendar/sidebar layout.
+      ensureProjectWorkbenchFloatingMount();
+      els.calendarPanelCol.className = "hidden";
       els.calendarPanelHandleBtn.className = "hidden";
       els.calendarPanelHandleBtn.textContent = "";
-      els.calendarPanelContent.className = "iz-project-workbench-container min-w-0";
+      els.calendarPanelContent.className = "iz-project-workbench-container iz-floating-project-workbench";
       renderProjectInspectorPanel(project);
       return;
     }
 
     // v18.31e: Ansattplan skal ikke arve prosjektpanelet.
     // Høyrepanelet skjules helt utenfor Prosjektplan for å unngå tom mørk boks/regresjon.
+    restoreProjectWorkbenchFloatingMount();
     els.calendarPanelCol.className = "hidden";
     els.calendarPanelContent.className = "hidden min-w-0 flex-1";
     els.calendarPanelHandleBtn.className = "hidden";

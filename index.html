@@ -5678,6 +5678,199 @@
         min-height: calc(100vh - 20px) !important;
       }
     }
+
+
+    /* v18.62j: true Outlook-style floating workbench, mounted under body. */
+    body.iz-compact-ui.iz-project-workbench-open #calendarPanelCol {
+      display: none !important;
+    }
+
+    body.iz-compact-ui #calendarPanelContent.iz-floating-project-workbench {
+      position: fixed !important;
+      display: block !important;
+      z-index: 10000 !important;
+      pointer-events: auto !important;
+      box-sizing: border-box !important;
+      background: transparent !important;
+      color: #f8fbfd !important;
+      border: 0 !important;
+      box-shadow: none !important;
+      overflow: visible !important;
+      resize: none !important;
+      min-width: 0 !important;
+      min-height: 0 !important;
+      max-width: none !important;
+      max-height: none !important;
+      transform: none !important;
+    }
+
+    body.iz-compact-ui #calendarPanelContent.iz-floating-project-workbench .iz-project-workbench-modal {
+      position: relative !important;
+      width: 100% !important;
+      height: 100% !important;
+      display: flex !important;
+      flex-direction: column !important;
+      background: linear-gradient(180deg, rgba(5, 48, 63, 0.99) 0%, rgba(3, 34, 45, 0.99) 100%) !important;
+      border: 1px solid rgba(133, 194, 210, 0.48) !important;
+      box-shadow: 0 24px 80px rgba(2, 12, 18, 0.64) !important;
+      border-radius: 6px !important;
+      overflow: hidden !important;
+      color: #f8fbfd !important;
+    }
+
+    body.iz-compact-ui #calendarPanelContent.iz-floating-project-workbench .iz-workbench-header {
+      position: relative !important;
+      display: flex !important;
+      align-items: flex-start !important;
+      gap: 14px !important;
+      padding: 14px 72px 14px 14px !important;
+      cursor: move !important;
+      user-select: none !important;
+      flex: 0 0 auto !important;
+      min-height: 74px !important;
+    }
+
+    body.iz-compact-ui #calendarPanelContent.iz-floating-project-workbench .iz-workbench-title-block {
+      min-width: 0 !important;
+      flex: 1 1 auto !important;
+    }
+
+    body.iz-compact-ui #calendarPanelContent.iz-floating-project-workbench .iz-workbench-header-actions {
+      flex: 0 1 auto !important;
+      max-width: 520px !important;
+      padding-right: 0 !important;
+      flex-wrap: wrap !important;
+      justify-content: flex-end !important;
+    }
+
+    body.iz-compact-ui #calendarPanelContent.iz-floating-project-workbench .iz-workbench-visible-close {
+      flex: 0 0 auto !important;
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      gap: 6px !important;
+      height: 34px !important;
+      padding: 0 12px !important;
+      border-radius: 5px !important;
+      border: 1px solid rgba(248, 113, 113, .72) !important;
+      background: rgba(127, 29, 29, .92) !important;
+      color: #fff !important;
+      font-size: 13px !important;
+      font-weight: 900 !important;
+      cursor: pointer !important;
+      pointer-events: auto !important;
+      white-space: nowrap !important;
+    }
+
+    body.iz-compact-ui #calendarPanelContent.iz-floating-project-workbench .iz-workbench-window-close {
+      position: absolute !important;
+      top: 10px !important;
+      right: 10px !important;
+      z-index: 10030 !important;
+      width: 42px !important;
+      height: 42px !important;
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      border-radius: 6px !important;
+      border: 1px solid rgba(248, 113, 113, .78) !important;
+      background: rgba(127, 29, 29, .96) !important;
+      color: #fff !important;
+      font-size: 28px !important;
+      line-height: 1 !important;
+      font-weight: 900 !important;
+      cursor: pointer !important;
+      pointer-events: auto !important;
+      box-shadow: 0 12px 32px rgba(2, 12, 18, .48) !important;
+    }
+
+    body.iz-compact-ui #calendarPanelContent.iz-floating-project-workbench .iz-workbench-floating-close {
+      display: none !important;
+    }
+
+    body.iz-compact-ui #calendarPanelContent.iz-floating-project-workbench .iz-workbench-window-close:hover,
+    body.iz-compact-ui #calendarPanelContent.iz-floating-project-workbench .iz-workbench-visible-close:hover {
+      background: rgba(220, 38, 38, .98) !important;
+      color: #ffffff !important;
+    }
+
+    body.iz-compact-ui #calendarPanelContent.iz-floating-project-workbench .iz-workbench-main {
+      min-height: 0 !important;
+      overflow: hidden !important;
+    }
+
+    body.iz-compact-ui #calendarPanelContent.iz-floating-project-workbench .iz-workbench-summary,
+    body.iz-compact-ui #calendarPanelContent.iz-floating-project-workbench .iz-workbench-candidates,
+    body.iz-compact-ui #calendarPanelContent.iz-floating-project-workbench .iz-workbench-column-body,
+    body.iz-compact-ui #calendarPanelContent.iz-floating-project-workbench .iz-workbench-assigned-list {
+      scrollbar-width: thin;
+    }
+
+    body.iz-compact-ui #calendarPanelContent.iz-floating-project-workbench.is-dragging,
+    body.iz-compact-ui #calendarPanelContent.iz-floating-project-workbench.is-resizing {
+      opacity: .985;
+      user-select: none !important;
+    }
+
+    body.iz-compact-ui #calendarPanelContent.iz-floating-project-workbench .iz-workbench-resize-handle {
+      position: absolute !important;
+      z-index: 10020 !important;
+      display: block !important;
+      background: transparent !important;
+      pointer-events: auto !important;
+    }
+
+    body.iz-compact-ui #calendarPanelContent.iz-floating-project-workbench .iz-workbench-resize-n,
+    body.iz-compact-ui #calendarPanelContent.iz-floating-project-workbench .iz-workbench-resize-s {
+      left: 10px !important;
+      right: 10px !important;
+      height: 12px !important;
+      cursor: ns-resize !important;
+    }
+    body.iz-compact-ui #calendarPanelContent.iz-floating-project-workbench .iz-workbench-resize-n { top: -6px !important; }
+    body.iz-compact-ui #calendarPanelContent.iz-floating-project-workbench .iz-workbench-resize-s { bottom: -6px !important; }
+
+    body.iz-compact-ui #calendarPanelContent.iz-floating-project-workbench .iz-workbench-resize-e,
+    body.iz-compact-ui #calendarPanelContent.iz-floating-project-workbench .iz-workbench-resize-w {
+      top: 10px !important;
+      bottom: 10px !important;
+      width: 12px !important;
+      cursor: ew-resize !important;
+    }
+    body.iz-compact-ui #calendarPanelContent.iz-floating-project-workbench .iz-workbench-resize-e { right: -6px !important; }
+    body.iz-compact-ui #calendarPanelContent.iz-floating-project-workbench .iz-workbench-resize-w { left: -6px !important; }
+
+    body.iz-compact-ui #calendarPanelContent.iz-floating-project-workbench .iz-workbench-resize-ne,
+    body.iz-compact-ui #calendarPanelContent.iz-floating-project-workbench .iz-workbench-resize-nw,
+    body.iz-compact-ui #calendarPanelContent.iz-floating-project-workbench .iz-workbench-resize-se,
+    body.iz-compact-ui #calendarPanelContent.iz-floating-project-workbench .iz-workbench-resize-sw {
+      width: 24px !important;
+      height: 24px !important;
+    }
+    body.iz-compact-ui #calendarPanelContent.iz-floating-project-workbench .iz-workbench-resize-ne { top: -9px !important; right: -9px !important; cursor: nesw-resize !important; }
+    body.iz-compact-ui #calendarPanelContent.iz-floating-project-workbench .iz-workbench-resize-nw { top: -9px !important; left: -9px !important; cursor: nwse-resize !important; }
+    body.iz-compact-ui #calendarPanelContent.iz-floating-project-workbench .iz-workbench-resize-se { bottom: -9px !important; right: -9px !important; cursor: nwse-resize !important; }
+    body.iz-compact-ui #calendarPanelContent.iz-floating-project-workbench .iz-workbench-resize-sw { bottom: -9px !important; left: -9px !important; cursor: nesw-resize !important; }
+
+    body.iz-compact-ui #calendarPanelContent.iz-floating-project-workbench .iz-workbench-resize-se::after {
+      content: "" !important;
+      position: absolute !important;
+      right: 5px !important;
+      bottom: 5px !important;
+      width: 13px !important;
+      height: 13px !important;
+      border-right: 2px solid rgba(232, 244, 248, .78) !important;
+      border-bottom: 2px solid rgba(232, 244, 248, .78) !important;
+    }
+
+    @media (max-width: 900px) {
+      body.iz-compact-ui #calendarPanelContent.iz-floating-project-workbench {
+        left: 10px !important;
+        top: 10px !important;
+        width: calc(100vw - 20px) !important;
+        height: calc(100vh - 20px) !important;
+      }
+    }
 </style>
 </head>
 <body class="iz-compact-ui text-slate-900">
