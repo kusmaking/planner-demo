@@ -5412,6 +5412,135 @@
       padding: 7px 10px !important;
     }
 
+
+
+    /* v18.62m: Robust Outlook-style titlebar for project workbench.
+       The close/edit controls live in their own visible chrome bar so they cannot disappear in the content layout. */
+    body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench .iz-project-workbench-modal {
+      display: flex !important;
+      flex-direction: column !important;
+    }
+
+    body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench .iz-workbench-window-chrome {
+      flex: 0 0 42px !important;
+      height: 42px !important;
+      min-height: 42px !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: space-between !important;
+      gap: 10px !important;
+      padding: 6px 50px 6px 12px !important;
+      position: relative !important;
+      border-bottom: 1px solid rgba(133, 194, 210, .32) !important;
+      background: linear-gradient(90deg, rgba(2, 32, 43, .98), rgba(4, 48, 62, .96)) !important;
+      cursor: grab !important;
+      user-select: none !important;
+      z-index: 10060 !important;
+      color: #eefcff !important;
+    }
+
+    body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench.is-dragging .iz-workbench-window-chrome {
+      cursor: grabbing !important;
+    }
+
+    body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench .iz-workbench-window-title {
+      display: flex !important;
+      align-items: center !important;
+      gap: 8px !important;
+      min-width: 0 !important;
+      overflow: hidden !important;
+      white-space: nowrap !important;
+      text-overflow: ellipsis !important;
+      font-size: 12px !important;
+      letter-spacing: .08em !important;
+      text-transform: uppercase !important;
+    }
+
+    body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench .iz-workbench-window-dot {
+      width: 9px !important;
+      height: 9px !important;
+      border-radius: 999px !important;
+      background: #38f2c2 !important;
+      box-shadow: 0 0 16px rgba(56, 242, 194, .62) !important;
+      flex: 0 0 auto !important;
+    }
+
+    body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench .iz-workbench-window-actions {
+      display: flex !important;
+      align-items: center !important;
+      justify-content: flex-end !important;
+      gap: 6px !important;
+      flex: 0 0 auto !important;
+      min-width: 0 !important;
+      pointer-events: auto !important;
+      overflow: hidden !important;
+      padding-right: 0 !important;
+    }
+
+    body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench .iz-workbench-chrome-btn,
+    body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench .iz-workbench-chrome-close {
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      height: 30px !important;
+      min-height: 30px !important;
+      border-radius: 4px !important;
+      border: 1px solid rgba(133, 194, 210, .45) !important;
+      background: rgba(4, 30, 41, .92) !important;
+      color: #f4fcff !important;
+      padding: 0 10px !important;
+      font-size: 11px !important;
+      line-height: 1 !important;
+      font-weight: 900 !important;
+      cursor: pointer !important;
+      pointer-events: auto !important;
+      white-space: nowrap !important;
+    }
+
+    body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench .iz-workbench-chrome-close {
+      position: absolute !important;
+      top: 6px !important;
+      right: 8px !important;
+      z-index: 10090 !important;
+      width: 34px !important;
+      min-width: 34px !important;
+      padding: 0 !important;
+      border-color: rgba(248, 113, 113, .92) !important;
+      background: rgba(153, 27, 27, .98) !important;
+      color: #ffffff !important;
+      font-size: 24px !important;
+      font-weight: 950 !important;
+    }
+
+    body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench .iz-workbench-chrome-close:hover,
+    body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench .iz-workbench-close-text-btn:hover,
+    body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench .iz-workbench-close-btn:hover {
+      background: rgba(220, 38, 38, .98) !important;
+      color: #ffffff !important;
+    }
+
+    body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench .iz-workbench-header {
+      flex: 0 0 auto !important;
+      cursor: default !important;
+    }
+
+    body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench .iz-workbench-header-actions {
+      display: none !important;
+    }
+
+    body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench .iz-workbench-corner-close {
+      display: none !important;
+    }
+
+    @media (max-width: 760px) {
+      body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench .iz-workbench-window-actions .iz-workbench-chrome-btn {
+        display: none !important;
+      }
+      body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench .iz-workbench-window-actions .iz-workbench-chrome-btn:first-child {
+        display: inline-flex !important;
+      }
+    }
+
 </style>
 </head>
 <body class="iz-compact-ui text-slate-900">

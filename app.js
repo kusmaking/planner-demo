@@ -8016,6 +8016,27 @@ Overbooking blir lagret og skal vises som konflikt i Ansattplan.`;
     if (!shell) return;
     applyProjectWorkbenchWindowState();
 
+    // v18.62m: One delegated close handler so all close buttons work even after rerender.
+    if (!shell.dataset.workbenchDelegatedCloseBound) {
+      shell.dataset.workbenchDelegatedCloseBound = "true";
+      shell.addEventListener("click", event => {
+        const closeButton = event.target?.closest?.("[data-project-workbench-close]");
+        if (!closeButton) return;
+        event.preventDefault();
+        event.stopPropagation();
+        closeProjectWorkbenchPanel();
+      });
+    }
+
+    if (!window.__izomaxProjectWorkbenchEscapeBound) {
+      window.__izomaxProjectWorkbenchEscapeBound = true;
+      document.addEventListener("keydown", event => {
+        if (event.key !== "Escape") return;
+        if (!state.calendarPanelOpen || state.calendarMode !== "project") return;
+        closeProjectWorkbenchPanel();
+      });
+    }
+
     shell.querySelectorAll("[data-project-workbench-close]").forEach(btn => {
       btn.addEventListener("click", event => {
         event.preventDefault();
@@ -8279,7 +8300,19 @@ Overbooking blir lagret og skal vises som konflikt i Ansattplan.`;
 
     els.calendarPanelContent.innerHTML = `
       <div class="iz-project-workbench-modal" role="dialog" aria-modal="true" aria-label="Bemanning og prosjektkontroll">
-        <header class="iz-workbench-header" data-project-workbench-drag-handle="1" title="Dra her for å flytte vinduet">
+        <div class="iz-workbench-window-chrome" data-project-workbench-drag-handle="1" title="Dra her for å flytte vinduet">
+          <div class="iz-workbench-window-title">
+            <span class="iz-workbench-window-dot"></span>
+            <strong>Prosjektbemanning</strong>
+          </div>
+          <div class="iz-workbench-window-actions">
+            <button data-calendar-panel-edit-project="${escapeHtml(project.id)}" type="button" class="iz-workbench-chrome-btn">Rediger prosjekt</button>
+            <button data-project-workbench-reset-window="1" type="button" class="iz-workbench-chrome-btn">Nullstill</button>
+            <button data-project-workbench-maximize="1" type="button" class="iz-workbench-chrome-btn">Fullvisning</button>
+            <button data-project-workbench-close="1" type="button" class="iz-workbench-chrome-close" aria-label="Lukk prosjektvindu" title="Lukk">×</button>
+          </div>
+        </div>
+        <header class="iz-workbench-header" title="Dra i øverste vinduslinje for å flytte vinduet">
           <div class="iz-workbench-title-block">
             <div class="iz-workbench-eyebrow">Bemanning og prosjektkontroll</div>
             <h2>${escapeHtml(project.name || "Prosjekt")}</h2>
