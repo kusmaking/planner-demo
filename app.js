@@ -757,6 +757,11 @@
       els.resetPasswordBtn = document.getElementById("resetPasswordBtn");
       els.logoutBtn = document.getElementById("logoutBtn");
       els.loginBtn = document.getElementById("loginBtn");
+      // v18.62u: Guard against accidental workbench controls being rendered in the profile/header area.
+      els.accountPanel?.querySelectorAll?.(".iz-workbench-footer, .iz-workbench-resize-handle, .iz-workbench-control-island, [data-project-workbench-close], [data-project-workbench-resize]")?.forEach(node => {
+        if (node.closest?.("#calendarPanelCol")) return;
+        node.remove();
+      });
       if (els.accountMenuButton && !els.accountMenuButton.dataset.boundAccountMenu) {
         els.accountMenuButton.dataset.boundAccountMenu = "true";
         els.accountMenuButton.addEventListener("click", event => {
@@ -797,19 +802,7 @@
           <button id="logoutBtn" class="w-full text-left bg-white px-3 py-2 text-sm hover:bg-slate-50">Logg ut</button>
           <button id="resetPasswordBtn" class="hidden">Send reset-link</button>
         </div>
-        <footer class="iz-workbench-footer">
-          <span class="iz-workbench-footer-spacer" aria-hidden="true"></span>
-          <button data-project-workbench-close="1" type="button" class="iz-workbench-close-btn">Lukk vindu</button>
-        </footer>
       </div>
-      <span class="iz-workbench-resize-handle iz-workbench-resize-n" data-project-workbench-resize="n" aria-hidden="true"></span>
-      <span class="iz-workbench-resize-handle iz-workbench-resize-e" data-project-workbench-resize="e" aria-hidden="true"></span>
-      <span class="iz-workbench-resize-handle iz-workbench-resize-s" data-project-workbench-resize="s" aria-hidden="true"></span>
-      <span class="iz-workbench-resize-handle iz-workbench-resize-w" data-project-workbench-resize="w" aria-hidden="true"></span>
-      <span class="iz-workbench-resize-handle iz-workbench-resize-ne" data-project-workbench-resize="ne" aria-hidden="true"></span>
-      <span class="iz-workbench-resize-handle iz-workbench-resize-nw" data-project-workbench-resize="nw" aria-hidden="true"></span>
-      <span class="iz-workbench-resize-handle iz-workbench-resize-se" data-project-workbench-resize="se" aria-hidden="true"></span>
-      <span class="iz-workbench-resize-handle iz-workbench-resize-sw" data-project-workbench-resize="sw" aria-hidden="true"></span>
     `;
 
     const anchor = els.storageBadge?.parentElement || document.body.firstElementChild || document.body;
