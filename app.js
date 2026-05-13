@@ -10300,23 +10300,36 @@ async function deleteEditedEntry() {
     const confirmText = `Fjern tildeling for ${entry.employee_name} fra ${project?.name || "prosjekt"}?`;
     if (!confirm(confirmText)) return;
 
-    document.querySelectorAll(`[data-project-assigned-entry-id="${entryId}"], [data-project-assigned-control-id="${entryId}"]`).forEach(node => {
+    // v18.62ah: Gi umiddelbar respons i prosjektvinduet før tyngre render/DB-kall.
+    // Tidligere ble kalender og analyser rendret synkront først, som kunne oppleves som 3-4 sekunders heng.
+    const affectedNodes = Array.from(document.querySelectorAll(`[data-project-assigned-entry-id="${entryId}"], [data-project-assigned-control-id="${entryId}"]`));
+    affectedNodes.forEach(node => {
       node.classList.add("is-removing");
       node.setAttribute("aria-busy", "true");
+      node.style.opacity = "0.45";
+      node.style.pointerEvents = "none";
       node.querySelectorAll("button").forEach(button => {
         button.disabled = true;
         if (button.matches("[data-project-entry-delete-id]")) button.textContent = "Fjerner…";
       });
     });
 
+    // La browseren male "Fjerner…" / demping før vi gjør state-rendering.
+    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+
     state.entries = state.entries.filter(item => item.id !== entryId);
     rebuildDerivedState();
+
     if (project) {
       renderProjectInspectorPanel(project);
-      renderCalendar();
-      renderHomeDashboard();
-      updateBadge();
-      updateAvailabilityAnalysis();
+      // Kalender og dashboard oppdateres rett etter at prosjektvinduet har svart visuelt.
+      // Dette holder UI-et responsivt uten å endre lagringslogikken.
+      setTimeout(() => {
+        renderCalendar();
+        renderHomeDashboard();
+        updateBadge();
+        updateAvailabilityAnalysis();
+      }, 0);
     } else {
       renderAll();
     }

@@ -1,59 +1,21 @@
-# PATCH HISTORY
+# PATCH_HISTORY
 
-## v18.62ab-project-workbench-core-staffing-controls
+## v18.62ah-project-workbench-remove-response-optimization
 
-Basert på siste prosjektbemanningsarbeid fra v18.62u/v18.62aa.
+Base: v18.62ag-project-workbench-simplified-staffing-flow-sandbox
 
 Endringer:
-- Prosjektbemanning behandles som nøkkelfunksjon.
-- Tildelte ansatte får tydelige handlinger på samme linje: Endre og Fjern.
-- Fjern gir raskere visuell respons og bruker eksisterende slettelogikk for planner_entries.
-- Kandidatkort har tydelig + Legg til for ledige ansatte.
-- Delvis/opptatt kan fortsatt åpnes for rolle/periode/overbook.
-- Flere ansatte kan hukes av og legges til samlet via samme rolle/periode.
-- Ved overbemanning får bruker bekreftelse i stedet for hard blokk.
-- Overbooking er fortsatt mulig med bekreftelse og merkes i notat.
-- Ingen endringer i Supabase schema, RLS, Edge Functions, login eller main.
+- Optimaliserer respons når en tildelt ansatt fjernes fra prosjektbemanningsvinduet.
+- Viser umiddelbart "Fjerner…" og demper raden før tyngre rendering starter.
+- Oppdaterer prosjektvinduet først, og skyver kalender/dashboard/analyse-rendering til neste tick.
+- Beholder eksisterende slettelogikk mot `planner_entries`.
+- Ved feil i sletting rulles lokal state tilbake og appen rendres på nytt.
 
-Test før lock:
-1. Login.
-2. Åpne Prosjektplan og prosjektbemanning.
-3. Legg til én ledig ansatt med + Legg til.
-4. Huk av flere ansatte og legg til samlet.
-5. Endre en tildeling fra Tildelte.
-6. Fjern en tildeling fra Tildelte.
-7. Sjekk at Ansattplan oppdateres.
-
-## v18.62ac-project-workbench-core-staffing-ux-fix
-- Gjør Legg til / Legg til valgte-knappen tydelig og synlig i prosjektbemanningsvinduet.
-- Flytter bekreftelsesknappen ut av trang grid slik at den ikke forsvinner utenfor bredden.
-- Beholder valg av én eller flere ansatte, rollevalg og hel/delperiode.
-- Gjør kandidatkort mer eksplisitte med synlig legg-til-handling.
-- Sikrer at Endre/Fjern på tildelte vises på samme rad.
-- Ingen endringer i login, Supabase, RLS, Edge Functions eller main.
-
-## v18.62ad-project-workbench-staffing-ux-cleanup
-- Rydder bemanningsflyten i prosjektvinduet.
-- Fjerner synlige avhukingsbokser som standard, slik at enkel tildeling skjer med én tydelig + Legg til-knapp.
-- Legger flervalg bak en egen Velg flere-knapp for å unngå rot i normal arbeidsflyt.
-- Viser kandidatnavn bedre, uten at navn kappes aggressivt.
-- Holder Endre/Fjern på tildelte ansatte synlig på samme linje.
-- Gir raskere visuell respons ved Legg til og Fjern.
-- Reduserer tung full re-render etter add/remove i prosjektvinduet.
-- Ingen endringer i Supabase schema, RLS, Edge Functions, login eller main.
-
-
-## v18.62ae - Project workbench staffing card layout cleanup
-
-- Ryddet kandidatkortene i prosjektbemanning.
-- Forankret `+ Legg til` inne i hvert ansattkort, ikke i bakgrunnen.
-- Fjernet dobbelt handling for ledige ansatte: ledig kort viser nå kun direkte `+ Legg til`.
-- Delvis ledig/opptatt beholder valg for periode/overbook.
-- Økte minimumsbredde på kandidatkort slik at navn/stilling ikke kappes like hardt.
-- Ingen endring i login, Supabase, RLS, Edge Functions, kalenderdata eller main.
-
-## v18.62ag - Simplify assigned staffing flow
-- Removed the assigned-row Endre button from project staffing workbench.
-- Keeps the deliberate workflow: Fjern assigned employee, then + Legg til new employee.
-- Keeps existing Fjern logic and the improved candidate card layout from v18.62ae.
-- No changes to login, Supabase schema, RLS, Edge Functions, calendar data or main branch.
+Ikke endret:
+- Login
+- Supabase schema
+- RLS
+- Edge Functions
+- Kalenderdata-modell
+- Overbookinglogikk
+- Main
