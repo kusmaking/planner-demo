@@ -8424,7 +8424,7 @@ async function deleteEditedEntry() {
         </div>
         ${addCandidate?.availability?.label === "Opptatt" ? `<div class="iz-workbench-warning is-busy">Denne personen er opptatt i perioden. Ved overbooking blir konflikten synlig i Ansattplan.</div>` : ""}
         ${addCandidate?.availability?.label === "Delvis ledig" ? `<div class="iz-workbench-warning is-partial">Denne personen er delvis ledig. Velg riktig delperiode før du legger til.</div>` : ""}
-        <div class="iz-workbench-add-grid">
+        <div class="iz-workbench-add-grid iz-workbench-add-grid-v18-62ac">
           <label>
             Rolle
             <select id="projectInspectorAddRoleSelect">${ROLE_OPTIONS.map(role => `<option value="${escapeHtml(role)}" ${role === addCandidateRole ? "selected" : ""}>${escapeHtml(role)}</option>`).join("")}</select>
@@ -8447,7 +8447,10 @@ async function deleteEditedEntry() {
             Til
             <input id="projectInspectorCustomEndInput" type="date" value="${escapeHtml(addRange.end || projectBounds.end || "")}" min="${escapeHtml(projectBounds.start || "")}" max="${escapeHtml(projectBounds.end || "")}" ${state.projectInspectorAddUseCustomRange ? "" : "disabled"} />
           </label>
-          <button id="projectInspectorAddConfirmBtn" ${confirmAttrs} type="button" class="iz-workbench-primary-btn">${escapeHtml(confirmText)}</button>
+        </div>
+        <div class="iz-workbench-add-footer">
+          <button id="projectInspectorAddConfirmBtn" ${confirmAttrs} type="button" class="iz-workbench-primary-btn iz-workbench-primary-btn-large">${escapeHtml(confirmText)}</button>
+          <span>Velg rolle og periode, trykk deretter på knappen for å legge til.</span>
         </div>
       </section>
     `;
@@ -8466,7 +8469,7 @@ async function deleteEditedEntry() {
             `Legg til ${selectedBatchNames.length} valgt${selectedBatchNames.length > 1 ? "e" : ""}`,
             `data-project-inspector-confirm-batch="1"`
           )
-        : `<section class="iz-workbench-add-panel is-empty"><strong>Velg ansatte</strong><span>Bruk + Legg til for én ansatt, eller huk av flere og legg til samlet.</span></section>`;
+        : `<section class="iz-workbench-add-panel is-empty"><strong>Velg ansatte</strong><span>Huk av én eller flere ansatte, eller trykk Legg til på en ansatt.</span></section>`;
 
     const assignedHtml = assignedEntries.length ? assignedEntries.map(entry => `
       <div class="iz-workbench-assigned-row" data-project-assigned-entry-id="${escapeHtml(entry.id)}">

@@ -23,3 +23,11 @@ Test før lock:
 5. Endre en tildeling fra Tildelte.
 6. Fjern en tildeling fra Tildelte.
 7. Sjekk at Ansattplan oppdateres.
+
+## v18.62ac-project-workbench-core-staffing-ux-fix
+- Gjør Legg til / Legg til valgte-knappen tydelig og synlig i prosjektbemanningsvinduet.
+- Flytter bekreftelsesknappen ut av trang grid slik at den ikke forsvinner utenfor bredden.
+- Beholder valg av én eller flere ansatte, rollevalg og hel/delperiode.
+- Gjør kandidatkort mer eksplisitte med synlig legg-til-handling.
+- Sikrer at Endre/Fjern på tildelte vises på samme rad.
+- Ingen endringer i login, Supabase, RLS, Edge Functions eller main.

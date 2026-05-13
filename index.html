@@ -6310,6 +6310,148 @@
       }
     }
 
+
+
+    /* v18.62ac: prosjektbemanning core UX - synlig legg-til-knapp, trygg bulk-add og ryddige tildelte handlinger. */
+    body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench .iz-workbench-add-panel-active {
+      position: sticky !important;
+      top: 0 !important;
+      z-index: 8 !important;
+      background: linear-gradient(135deg, rgba(13, 59, 71, .98), rgba(8, 45, 57, .98)) !important;
+    }
+
+    body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench .iz-workbench-add-grid-v18-62ac {
+      grid-template-columns: minmax(180px, 1fr) minmax(230px, 1.35fr) minmax(135px, .72fr) minmax(135px, .72fr) !important;
+      align-items: end !important;
+      overflow: visible !important;
+    }
+
+    body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench .iz-workbench-add-footer {
+      display: flex !important;
+      align-items: center !important;
+      justify-content: flex-start !important;
+      gap: 12px !important;
+      margin-top: 10px !important;
+      padding-top: 10px !important;
+      border-top: 1px solid rgba(133, 194, 210, .20) !important;
+      overflow: visible !important;
+    }
+
+    body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench .iz-workbench-primary-btn-large {
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      min-width: 210px !important;
+      height: 40px !important;
+      padding: 0 18px !important;
+      border-color: rgba(80, 240, 199, .62) !important;
+      background: rgba(22, 163, 74, .98) !important;
+      box-shadow: 0 10px 24px rgba(22, 163, 74, .18) !important;
+      opacity: 1 !important;
+      visibility: visible !important;
+      pointer-events: auto !important;
+    }
+
+    body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench .iz-workbench-add-footer span {
+      color: rgba(232, 244, 248, .68) !important;
+      font-size: 11px !important;
+      font-weight: 700 !important;
+    }
+
+    body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench .iz-workbench-person-v2 {
+      grid-template-columns: 28px minmax(0, 1fr) minmax(132px, max-content) !important;
+      min-height: 62px !important;
+      padding: 9px !important;
+    }
+
+    body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench .iz-workbench-person-actions {
+      display: flex !important;
+      flex-direction: column !important;
+      align-items: stretch !important;
+      justify-content: center !important;
+      gap: 5px !important;
+      min-width: 122px !important;
+      max-width: 150px !important;
+      overflow: visible !important;
+    }
+
+    body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench .iz-workbench-status-pill {
+      align-self: flex-end !important;
+      min-width: 58px !important;
+      text-align: center !important;
+      font-size: 10px !important;
+      line-height: 1.1 !important;
+    }
+
+    body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench .iz-workbench-add-btn {
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      width: 100% !important;
+      min-width: 92px !important;
+      height: 30px !important;
+      opacity: 1 !important;
+      visibility: visible !important;
+      pointer-events: auto !important;
+    }
+
+    body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench .iz-workbench-add-btn.is-secondary {
+      display: none !important;
+    }
+
+    body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench .iz-workbench-person-v2.is-batch-selected .iz-workbench-add-btn {
+      border-color: rgba(80, 240, 199, .72) !important;
+      background: rgba(80, 240, 199, .22) !important;
+      color: #ecfeff !important;
+    }
+
+    body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench .iz-workbench-assigned-row {
+      grid-template-columns: 34px minmax(0, 1fr) minmax(128px, auto) !important;
+      align-items: center !important;
+      overflow: visible !important;
+    }
+
+    body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench .iz-workbench-assigned-row-actions {
+      display: flex !important;
+      justify-content: flex-end !important;
+      align-items: center !important;
+      gap: 6px !important;
+      min-width: 128px !important;
+      opacity: 1 !important;
+      visibility: visible !important;
+      pointer-events: auto !important;
+    }
+
+    body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench .iz-workbench-assigned-row-btn {
+      display: inline-flex !important;
+      opacity: 1 !important;
+      visibility: visible !important;
+      pointer-events: auto !important;
+    }
+
+    @media (max-width: 1180px) {
+      body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench .iz-workbench-add-grid-v18-62ac {
+        grid-template-columns: 1fr 1fr !important;
+      }
+      body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench .iz-workbench-add-footer {
+        align-items: stretch !important;
+        flex-direction: column !important;
+      }
+      body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench .iz-workbench-primary-btn-large {
+        width: 100% !important;
+      }
+      body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench .iz-workbench-person-v2 {
+        grid-template-columns: 28px minmax(0, 1fr) !important;
+      }
+      body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench .iz-workbench-person-actions,
+      body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench .iz-workbench-assigned-row-actions {
+        grid-column: 1 / -1 !important;
+        max-width: none !important;
+        width: 100% !important;
+        min-width: 0 !important;
+      }
+    }
+
 </style>
 </head>
 <body class="iz-compact-ui text-slate-900">
