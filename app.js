@@ -8423,8 +8423,8 @@ Overbooking blir lagret og skal vises som konflikt i Ansattplan.`;
           ${entry.notes ? `<small>${escapeHtml(entry.notes)}</small>` : ""}
         </div>
         <div class="iz-workbench-assigned-actions">
-          <button data-project-entry-edit-id="${escapeHtml(entry.id)}" type="button" title="Endre tildeling">✎</button>
-          <button data-project-entry-delete-id="${escapeHtml(entry.id)}" type="button" title="Fjern tildeling">×</button>
+          <button data-project-entry-edit-id="${escapeHtml(entry.id)}" type="button" class="iz-workbench-assigned-action-btn" title="Endre tildeling">Endre</button>
+          <button data-project-entry-delete-id="${escapeHtml(entry.id)}" type="button" class="iz-workbench-assigned-action-btn danger" title="Fjern tildeling fra prosjektet">Fjern</button>
         </div>
       </div>
     `).join("") : `<div class="iz-workbench-empty">Ingen tildelte ressurser ennå.</div>`;
@@ -8645,10 +8645,18 @@ Overbooking blir lagret og skal vises som konflikt i Ansattplan.`;
     });
 
     els.calendarPanelContent.querySelectorAll("[data-project-entry-edit-id]").forEach(btn => {
-      btn.addEventListener("click", () => openEditModal(btn.dataset.projectEntryEditId));
+      btn.addEventListener("click", event => {
+        event.preventDefault();
+        event.stopPropagation();
+        openEditModal(btn.dataset.projectEntryEditId);
+      });
     });
     els.calendarPanelContent.querySelectorAll("[data-project-entry-delete-id]").forEach(btn => {
-      btn.addEventListener("click", () => deleteEntryFromProjectCard(btn.dataset.projectEntryDeleteId));
+      btn.addEventListener("click", event => {
+        event.preventDefault();
+        event.stopPropagation();
+        deleteEntryFromProjectCard(btn.dataset.projectEntryDeleteId);
+      });
     });
   }
 
