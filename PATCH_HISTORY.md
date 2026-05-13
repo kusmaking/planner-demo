@@ -31,3 +31,13 @@ Test før lock:
 - Gjør kandidatkort mer eksplisitte med synlig legg-til-handling.
 - Sikrer at Endre/Fjern på tildelte vises på samme rad.
 - Ingen endringer i login, Supabase, RLS, Edge Functions eller main.
+
+## v18.62ad-project-workbench-staffing-ux-cleanup
+- Rydder bemanningsflyten i prosjektvinduet.
+- Fjerner synlige avhukingsbokser som standard, slik at enkel tildeling skjer med én tydelig + Legg til-knapp.
+- Legger flervalg bak en egen Velg flere-knapp for å unngå rot i normal arbeidsflyt.
+- Viser kandidatnavn bedre, uten at navn kappes aggressivt.
+- Holder Endre/Fjern på tildelte ansatte synlig på samme linje.
+- Gir raskere visuell respons ved Legg til og Fjern.
+- Reduserer tung full re-render etter add/remove i prosjektvinduet.
+- Ingen endringer i Supabase schema, RLS, Edge Functions, login eller main.

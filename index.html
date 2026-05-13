@@ -6452,6 +6452,150 @@
       }
     }
 
+
+
+    /* v18.62ad: Prosjektbemanning - ryddigere kandidater og raskere bemanningsflyt */
+    body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench .iz-workbench-add-panel-compact {
+      min-height: auto !important;
+      padding: 10px 12px !important;
+    }
+    body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench .iz-workbench-add-panel-compact span {
+      color: rgba(232,244,248,.78) !important;
+      font-size: 12px !important;
+    }
+    body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench .iz-workbench-batch-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin: 0 0 8px;
+      padding: 8px 10px;
+      border: 1px solid rgba(133,194,210,.20);
+      background: rgba(5,34,44,.45);
+      color: rgba(232,244,248,.78);
+      font-size: 12px;
+      font-weight: 700;
+    }
+    body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench .iz-workbench-batch-toolbar.is-active {
+      border-color: rgba(80,240,199,.38);
+      background: rgba(80,240,199,.08);
+      color: #dffcf6;
+    }
+    body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench .iz-workbench-batch-toolbar .iz-workbench-secondary-btn {
+      min-height: 28px !important;
+      padding: 6px 10px !important;
+      font-size: 11px !important;
+    }
+    body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench .iz-workbench-column-body {
+      overflow: visible !important;
+      max-height: none !important;
+      padding: 10px !important;
+    }
+    body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench .iz-workbench-column.is-open-default .iz-workbench-column-body {
+      overflow: visible !important;
+      max-height: none !important;
+    }
+    body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench .iz-workbench-person-clean {
+      display: grid !important;
+      grid-template-columns: minmax(220px, 1fr) auto !important;
+      align-items: center !important;
+      column-gap: 10px !important;
+      padding: 10px 12px !important;
+    }
+    body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench .iz-workbench-person-clean .iz-workbench-person-check {
+      grid-column: 1 / -1;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 6px;
+    }
+    body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench .iz-workbench-person-clean .iz-workbench-person-main {
+      min-width: 0 !important;
+    }
+    body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench .iz-workbench-person-clean .iz-workbench-person-name {
+      white-space: normal !important;
+      overflow: visible !important;
+      text-overflow: clip !important;
+      line-height: 1.15 !important;
+      font-size: 13px !important;
+    }
+    body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench .iz-workbench-person-clean .iz-workbench-person-meta {
+      white-space: normal !important;
+      overflow: visible !important;
+      text-overflow: clip !important;
+      line-height: 1.25 !important;
+      max-width: none !important;
+    }
+    body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench .iz-workbench-person-clean .iz-workbench-person-actions {
+      margin-top: 0 !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: flex-end !important;
+      gap: 6px !important;
+      flex-wrap: nowrap !important;
+    }
+    body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench .iz-workbench-person-clean .iz-workbench-add-btn {
+      min-width: 92px !important;
+      padding: 7px 10px !important;
+      text-align: center !important;
+    }
+    body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench .iz-workbench-person-clean .iz-workbench-add-btn.is-secondary {
+      min-width: 90px !important;
+      opacity: .82;
+      background: rgba(255,255,255,.05) !important;
+    }
+    body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench .iz-workbench-person-clean .iz-workbench-status-pill {
+      min-width: 46px;
+      text-align: right;
+    }
+    body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench .iz-workbench-person-clean.is-pending {
+      opacity: .70;
+      pointer-events: none;
+    }
+    body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench .iz-workbench-assigned-row {
+      grid-template-columns: 34px minmax(0, 1fr) auto !important;
+      align-items: center !important;
+    }
+    body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench .iz-workbench-assigned-row-actions {
+      display: flex !important;
+      align-items: center !important;
+      gap: 6px !important;
+      justify-content: flex-end !important;
+    }
+    body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench .iz-workbench-assigned-row-btn {
+      display: inline-flex !important;
+      align-items: center;
+      justify-content: center;
+      min-height: 28px !important;
+      padding: 6px 10px !important;
+      border-radius: 4px !important;
+      border: 1px solid rgba(133,194,210,.35) !important;
+      background: rgba(11,67,82,.76) !important;
+      color: #e8f4f8 !important;
+      font-size: 11px !important;
+      font-weight: 900 !important;
+      white-space: nowrap !important;
+      cursor: pointer !important;
+    }
+    body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench .iz-workbench-assigned-row-btn.danger {
+      border-color: rgba(248,113,113,.48) !important;
+      background: rgba(127,29,29,.35) !important;
+      color: #fecaca !important;
+    }
+    body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench .iz-workbench-assigned-row.is-removing {
+      opacity: .55;
+      filter: grayscale(.25);
+    }
+    @media (max-width: 1100px) {
+      body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench .iz-workbench-person-clean {
+        grid-template-columns: 1fr !important;
+      }
+      body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench .iz-workbench-person-clean .iz-workbench-person-actions {
+        justify-content: flex-start !important;
+        margin-top: 8px !important;
+        flex-wrap: wrap !important;
+      }
+    }
 </style>
 </head>
 <body class="iz-compact-ui text-slate-900">

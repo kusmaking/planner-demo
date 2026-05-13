@@ -116,6 +116,7 @@
     projectInspectorAddCustomStart: "",
     projectInspectorAddCustomEnd: "",
     projectInspectorSelectedNames: [],
+    projectInspectorBatchMode: false,
     projectWorkbenchWindow: null,
     projectImportPreview: {
       fileName: "",
@@ -7699,6 +7700,7 @@ async function deleteEditedEntry() {
     state.projectInspectorAddCustomStart = "";
     state.projectInspectorAddCustomEnd = "";
     state.projectInspectorSelectedNames = [];
+    state.projectInspectorBatchMode = false;
   }
 
   function getProjectInspectorProjectBounds(project) {
@@ -7879,13 +7881,18 @@ async function deleteEditedEntry() {
     state.entries.push(...newEntries);
     const addedNames = new Set(newEntries.map(entry => entry.employee_name));
     state.projectInspectorSelectedNames = getProjectInspectorSelectedNames(project).filter(name => !addedNames.has(name));
+    if (!state.projectInspectorSelectedNames.length) state.projectInspectorBatchMode = false;
     state.projectInspectorAddCandidateName = "";
     state.projectInspectorAddRole = "";
     state.projectInspectorAddUseCustomRange = false;
     state.projectInspectorAddCustomStart = "";
     state.projectInspectorAddCustomEnd = "";
     rebuildDerivedState();
-    renderAll();
+    renderProjectInspectorPanel(project);
+    renderCalendar();
+    renderHomeDashboard();
+    updateBadge();
+    updateAvailabilityAnalysis();
 
     const result = newEntries.length === 1
       ? await saveRow("planner_entries", newEntries[0])
@@ -8342,38 +8349,40 @@ async function deleteEditedEntry() {
     const renderCandidateCard = (employee, mode) => {
       const isSelected = addCandidate && addCandidate.name === employee.name;
       const isBatchSelected = selectedBatchNames.includes(employee.name);
+      const batchMode = !!state.projectInspectorBatchMode;
       const label = employee.availability.label;
       const toneClass = label === "Ledig" ? "is-available" : (label === "Delvis ledig" ? "is-partial" : "is-busy");
-      const buttonText = label === "Opptatt" ? "Overbook" : (label === "Delvis ledig" ? "Legg til delperiode" : "Legg til");
-      const quickText = label === "Opptatt" ? "Overbook" : (label === "Delvis ledig" ? "Velg periode" : "+ Legg til");
       const role = getDefaultRoleForIndex(0);
       const canQuickAdd = label === "Ledig";
+      const secondaryText = label === "Opptatt" ? "Overbook" : (label === "Delvis ledig" ? "Velg delperiode" : "Velg periode");
       return `
         <div
-          class="iz-workbench-person iz-workbench-person-v2 ${toneClass} ${isSelected ? "is-selected" : ""} ${isBatchSelected ? "is-batch-selected" : ""}"
+          class="iz-workbench-person iz-workbench-person-v2 iz-workbench-person-clean ${toneClass} ${isSelected ? "is-selected" : ""} ${isBatchSelected ? "is-batch-selected" : ""}"
           data-project-available-person-row="${escapeHtml(employee.name)}"
           data-project-inspector-row-role="${escapeHtml(role)}"
         >
-          <label class="iz-workbench-person-check" title="Velg for samlet tildeling">
-            <input type="checkbox" data-project-inspector-batch-select="${escapeHtml(employee.name)}" ${isBatchSelected ? "checked" : ""} />
-          </label>
+          ${batchMode ? `
+            <label class="iz-workbench-person-check" title="Velg for samlet tildeling">
+              <input type="checkbox" data-project-inspector-batch-select="${escapeHtml(employee.name)}" ${isBatchSelected ? "checked" : ""} />
+            </label>
+          ` : ""}
           <div class="iz-workbench-person-main">
             <div class="iz-workbench-person-icon">${getEmployeeGroupIconHtml(employee.normalizedGroup, "inline-flex h-5 w-5 items-center justify-center text-cyan-100 shrink-0 opacity-90") || "•"}</div>
             <div class="iz-workbench-person-text">
-              <div class="iz-workbench-person-name">${escapeHtml(employee.name)}</div>
-              <div class="iz-workbench-person-meta">${escapeHtml(employee.title || "Tittel ikke satt")} · ${escapeHtml(getProjectStaffingGroupLabel(employee.normalizedGroup))}</div>
+              <div class="iz-workbench-person-name" title="${escapeHtml(employee.name)}">${escapeHtml(employee.name)}</div>
+              <div class="iz-workbench-person-meta" title="${escapeHtml((employee.title || "Tittel ikke satt") + " · " + getProjectStaffingGroupLabel(employee.normalizedGroup))}">${escapeHtml(employee.title || "Tittel ikke satt")} · ${escapeHtml(getProjectStaffingGroupLabel(employee.normalizedGroup))}</div>
               ${renderConflictList(employee)}
             </div>
           </div>
           <div class="iz-workbench-person-actions">
             <span class="iz-workbench-status-pill ${toneClass}">${escapeHtml(window.izomaxTranslateValue?.(label) || label)}</span>
-            ${canQuickAdd ? `<button type="button" class="iz-workbench-add-btn ${toneClass}" data-project-inspector-quick-add="${escapeHtml(employee.name)}" data-project-inspector-select-role="${escapeHtml(role)}">${quickText}</button>` : ""}
+            ${canQuickAdd ? `<button type="button" class="iz-workbench-add-btn ${toneClass} iz-workbench-quick-add-main" data-project-inspector-quick-add="${escapeHtml(employee.name)}" data-project-inspector-select-role="${escapeHtml(role)}">+ Legg til</button>` : ""}
             <button
               type="button"
               class="iz-workbench-add-btn ${toneClass} ${canQuickAdd ? "is-secondary" : ""}"
               data-project-inspector-select-employee="${escapeHtml(employee.name)}"
               data-project-inspector-select-role="${escapeHtml(role)}"
-            >${isSelected ? "Valgt" : buttonText}</button>
+            >${isSelected ? "Valgt" : secondaryText}</button>
           </div>
         </div>
       `;
@@ -8462,14 +8471,18 @@ async function deleteEditedEntry() {
           addCandidate.availability?.label === "Opptatt" ? "Overbook og legg til" : "Legg til prosjekt",
           `data-project-inspector-confirm-add="1" data-project-inspector-confirm-employee="${escapeHtml(addCandidate.name)}"`
         )
-      : selectedBatchNames.length
+      : state.projectInspectorBatchMode && selectedBatchNames.length
         ? renderAddPanelForm(
             `Legg til valgte (${selectedBatchNames.length})`,
             selectedBatchNames.slice(0, 3).join(", ") + (selectedBatchNames.length > 3 ? ` +${selectedBatchNames.length - 3} flere` : ""),
             `Legg til ${selectedBatchNames.length} valgt${selectedBatchNames.length > 1 ? "e" : ""}`,
             `data-project-inspector-confirm-batch="1"`
           )
-        : `<section class="iz-workbench-add-panel is-empty"><strong>Velg ansatte</strong><span>Huk av én eller flere ansatte, eller trykk Legg til på en ansatt.</span></section>`;
+        : `<section class="iz-workbench-add-panel is-empty iz-workbench-add-panel-compact"><strong>Velg ansatte</strong><span>Trykk <b>+ Legg til</b> for rask tildeling, eller bruk <b>Velg periode</b> for rolle/delperiode.</span></section>`;
+
+    const batchToolbarHtml = state.projectInspectorBatchMode
+      ? `<div class="iz-workbench-batch-toolbar is-active"><span>${selectedBatchNames.length} valgt</span><button data-project-inspector-toggle-batch="0" type="button" class="iz-workbench-secondary-btn">Avslutt flervalg</button></div>`
+      : `<div class="iz-workbench-batch-toolbar"><span>Legg til flere ansatte samtidig ved behov.</span><button data-project-inspector-toggle-batch="1" type="button" class="iz-workbench-secondary-btn">Velg flere</button></div>`;
 
     const assignedHtml = assignedEntries.length ? assignedEntries.map(entry => `
       <div class="iz-workbench-assigned-row" data-project-assigned-entry-id="${escapeHtml(entry.id)}">
@@ -8542,6 +8555,7 @@ async function deleteEditedEntry() {
               <input id="projectInspectorSearchInput" type="text" placeholder="Søk navn, gruppe, tittel eller status" value="${escapeHtml(state.projectInspectorSearch || "")}" />
               <select id="projectInspectorGroupFilter">${groupOptions}</select>
             </div>
+            ${batchToolbarHtml}
             <div class="iz-workbench-columns">
               ${renderCandidateColumn("Ledig hele perioden", "Beste kandidater for hele oppdraget.", availableEmployees, "available", { open: true })}
               ${renderCandidateColumn("Delvis ledig", "Kan dekke deler av perioden.", partialEmployees, "partial", { collapsible: true })}
@@ -8648,6 +8662,9 @@ async function deleteEditedEntry() {
         event.preventDefault();
         event.stopPropagation();
         const employeeName = btn.dataset.projectInspectorQuickAdd || "";
+        btn.disabled = true;
+        btn.textContent = "Legger til…";
+        btn.closest(".iz-workbench-person")?.classList.add("is-pending");
         state.projectInspectorAddUseCustomRange = false;
         state.projectInspectorAddRole = btn.dataset.projectInspectorSelectRole || getDefaultRoleForIndex(0);
         void createProjectInspectorAssignments(project.id, [employeeName], { role: state.projectInspectorAddRole });
@@ -8659,6 +8676,17 @@ async function deleteEditedEntry() {
       input.addEventListener("change", event => {
         event.stopPropagation();
         toggleProjectInspectorSelectedName(project, input.dataset.projectInspectorBatchSelect || "", input.checked);
+        state.projectInspectorAddCandidateName = "";
+        rerenderPanel(false);
+      });
+    });
+
+    els.calendarPanelContent.querySelectorAll("[data-project-inspector-toggle-batch]").forEach(btn => {
+      btn.addEventListener("click", event => {
+        event.preventDefault();
+        event.stopPropagation();
+        state.projectInspectorBatchMode = btn.dataset.projectInspectorToggleBatch === "1";
+        if (!state.projectInspectorBatchMode) state.projectInspectorSelectedNames = [];
         state.projectInspectorAddCandidateName = "";
         rerenderPanel(false);
       });
@@ -10288,7 +10316,15 @@ async function deleteEditedEntry() {
 
     state.entries = state.entries.filter(item => item.id !== entryId);
     rebuildDerivedState();
-    renderAll();
+    if (project) {
+      renderProjectInspectorPanel(project);
+      renderCalendar();
+      renderHomeDashboard();
+      updateBadge();
+      updateAvailabilityAnalysis();
+    } else {
+      renderAll();
+    }
 
     const result = await deleteRow("planner_entries", entryId);
     if (!result.ok) {
