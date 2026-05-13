@@ -8421,13 +8421,27 @@ Overbooking blir lagret og skal vises som konflikt i Ansattplan.`;
           <div>${escapeHtml(entry.employee_name)}</div>
           <span>${escapeHtml(entry.role || "Rolle ikke satt")} · ${escapeHtml(formatDate(entry.start_date))} – ${escapeHtml(formatDate(entry.end_date))}</span>
           ${entry.notes ? `<small>${escapeHtml(entry.notes)}</small>` : ""}
-          <div class="iz-workbench-assigned-inline-actions" aria-label="Handlinger for tildelt ansatt" style="display:flex;gap:8px;margin-top:10px;width:100%;">
-            <button data-project-entry-edit-id="${escapeHtml(entry.id)}" type="button" class="iz-workbench-assigned-action-btn" title="Bytt ansatt eller endre rolle/periode" style="flex:1;min-width:0;height:34px;border:1px solid rgba(80,240,199,.45);background:rgba(80,240,199,.13);color:#d1fae5;border-radius:6px;font-weight:900;font-size:11px;cursor:pointer;">Bytt / endre</button>
-            <button data-project-entry-delete-id="${escapeHtml(entry.id)}" type="button" class="iz-workbench-assigned-action-btn danger" title="Fjern tildeling fra prosjektet" style="flex:1;min-width:0;height:34px;border:1px solid rgba(248,113,113,.58);background:rgba(248,113,113,.16);color:#fecaca;border-radius:6px;font-weight:900;font-size:11px;cursor:pointer;">Fjern</button>
-          </div>
         </div>
       </div>
     `).join("") : `<div class="iz-workbench-empty">Ingen tildelte ressurser ennå.</div>`;
+
+    const assignedControlsHtml = assignedEntries.length ? `
+      <div class="iz-workbench-assigned-controls" aria-label="Handlinger for tildelte ansatte">
+        <div class="iz-workbench-assigned-controls-title">Endre tildelte</div>
+        ${assignedEntries.map(entry => `
+          <div class="iz-workbench-assigned-control-row" data-project-assigned-control-id="${escapeHtml(entry.id)}">
+            <div class="iz-workbench-assigned-control-person">
+              <strong>${escapeHtml(entry.employee_name)}</strong>
+              <span>${escapeHtml(entry.role || "Rolle ikke satt")}</span>
+            </div>
+            <div class="iz-workbench-assigned-control-actions">
+              <button data-project-entry-edit-id="${escapeHtml(entry.id)}" type="button" class="iz-workbench-assigned-control-btn">Bytt / endre</button>
+              <button data-project-entry-delete-id="${escapeHtml(entry.id)}" type="button" class="iz-workbench-assigned-control-btn danger">Fjern</button>
+            </div>
+          </div>
+        `).join("")}
+      </div>
+    ` : "";
 
     els.calendarPanelContent.innerHTML = `
       <div class="iz-project-workbench-modal" role="dialog" aria-modal="true" aria-label="Bemanning og prosjektkontroll">
@@ -8473,6 +8487,7 @@ Overbooking blir lagret og skal vises som konflikt i Ansattplan.`;
             <section class="iz-workbench-card iz-workbench-assigned-card">
               <h3>Tildelte (${assigned}${required ? `/${required}` : ""})</h3>
               <div class="iz-workbench-assigned-list">${assignedHtml}</div>
+              ${assignedControlsHtml}
             </section>
           </aside>
 
