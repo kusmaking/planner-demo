@@ -8415,15 +8415,15 @@ Overbooking blir lagret og skal vises som konflikt i Ansattplan.`;
     ` : `<section class="iz-workbench-add-panel is-empty"><strong>Velg en ansatt</strong><span>Trykk Legg til, Legg til delperiode eller Overbook i listene under.</span></section>`;
 
     const assignedHtml = assignedEntries.length ? assignedEntries.map(entry => `
-      <div class="iz-workbench-assigned-row">
+      <div class="iz-workbench-assigned-row" data-project-assigned-entry-id="${escapeHtml(entry.id)}">
         <div class="iz-workbench-assigned-avatar">${escapeHtml(getInitials(entry.employee_name))}</div>
         <div class="iz-workbench-assigned-text">
           <div>${escapeHtml(entry.employee_name)}</div>
           <span>${escapeHtml(entry.role || "Rolle ikke satt")} · ${escapeHtml(formatDate(entry.start_date))} – ${escapeHtml(formatDate(entry.end_date))}</span>
           ${entry.notes ? `<small>${escapeHtml(entry.notes)}</small>` : ""}
         </div>
-        <div class="iz-workbench-assigned-actions">
-          <button data-project-entry-edit-id="${escapeHtml(entry.id)}" type="button" class="iz-workbench-assigned-action-btn" title="Endre tildeling">Endre</button>
+        <div class="iz-workbench-assigned-actions" aria-label="Handlinger for tildelt ansatt">
+          <button data-project-entry-edit-id="${escapeHtml(entry.id)}" type="button" class="iz-workbench-assigned-action-btn" title="Bytt ansatt eller endre rolle/periode">Bytt / endre</button>
           <button data-project-entry-delete-id="${escapeHtml(entry.id)}" type="button" class="iz-workbench-assigned-action-btn danger" title="Fjern tildeling fra prosjektet">Fjern</button>
         </div>
       </div>

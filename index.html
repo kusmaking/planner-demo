@@ -4701,7 +4701,7 @@
 
     body.iz-compact-ui .iz-workbench-assigned-row {
       display: grid;
-      grid-template-columns: 34px minmax(0, 1fr) auto;
+      grid-template-columns: 34px minmax(0, 1fr);
       gap: 9px;
       align-items: center;
       border: 1px solid rgba(133, 194, 210, 0.18);
@@ -4744,8 +4744,11 @@
     }
 
     body.iz-compact-ui .iz-workbench-assigned-actions {
-      display: flex;
-      gap: 5px;
+      grid-column: 1 / -1;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      gap: 6px;
+      margin-top: 2px;
     }
 
     body.iz-compact-ui .iz-workbench-assigned-actions button,
@@ -4768,13 +4771,15 @@
     }
 
     body.iz-compact-ui .iz-workbench-assigned-actions .iz-workbench-assigned-action-btn {
-      width: auto;
-      min-width: 56px;
-      height: 30px;
+      width: 100%;
+      min-width: 0;
+      height: 32px;
       padding: 0 10px;
       font-size: 11px;
       letter-spacing: 0.01em;
       white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
     body.iz-compact-ui .iz-workbench-assigned-actions .iz-workbench-assigned-action-btn.danger {
@@ -5907,6 +5912,31 @@
       padding: 8px !important;
     }
 
+
+
+    /* v18.62x: Tildelte-rader i prosjektvinduet skal alltid vise Bytt/endre og Fjern. */
+    body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench .iz-workbench-assigned-row {
+      grid-template-columns: 34px minmax(0, 1fr) !important;
+      align-items: start !important;
+    }
+
+    body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench .iz-workbench-assigned-actions {
+      grid-column: 1 / -1 !important;
+      display: grid !important;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important;
+      gap: 6px !important;
+      width: 100% !important;
+      margin-top: 4px !important;
+    }
+
+    body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench .iz-workbench-assigned-action-btn {
+      width: 100% !important;
+      min-width: 0 !important;
+      height: 32px !important;
+      opacity: 1 !important;
+      visibility: visible !important;
+      pointer-events: auto !important;
+    }
 </style>
 </head>
 <body class="iz-compact-ui text-slate-900">
