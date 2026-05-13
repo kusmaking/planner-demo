@@ -1,3 +1,12 @@
+# PATCH HISTORY
+
+## v18.62an — single calendar scroll
+- Removed the internal vertical scrollbar from `calendarWrap`.
+- Calendar keeps horizontal scrolling only.
+- Normal mouse-wheel over the calendar now scrolls the outer page/frame.
+- Shift+wheel / horizontal touchpad movement still scrolls the calendar horizontally.
+- No changes to project staffing, Supabase, RLS, Edge Functions, login, or main.
+
 ## v18.62al-today-line-clean-marker
 - Fjernet tekstbadge "I dag" fra datoheaderen.
 - Fjernet blå fyll/highlight i dagens datokolonne.

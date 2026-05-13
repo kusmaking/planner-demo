@@ -4037,31 +4037,23 @@ Dette oppretter ikke Auth-bruker. Hvis Auth-brukeren mangler, får du en tydelig
     if (!wrap) return;
     if (event.target?.closest?.("#calendarPanelCol, #calendarContextMenu, #projectModal, #editModal, #employeeModal, #loginModal, select, option")) return;
 
-    const maxY = Math.max(0, wrap.scrollHeight - wrap.clientHeight);
     const maxX = Math.max(0, wrap.scrollWidth - wrap.clientWidth);
-    if (maxY <= 1 && maxX <= 1) return;
+    if (maxX <= 1) return;
 
     const dy = normalizeCalendarWheelDelta(event.deltaY, event.deltaMode, wrap.clientHeight);
     const dx = normalizeCalendarWheelDelta(event.deltaX, event.deltaMode, wrap.clientWidth);
     if (!dy && !dx) return;
 
-    const beforeTop = wrap.scrollTop;
+    // v18.62an: vertical wheel must belong to the outer page/frame, not to the inner calendar.
+    // Only handle horizontal intent here: Shift+wheel, touchpad horizontal delta, or dominant deltaX.
+    const wantsHorizontal = event.shiftKey || Math.abs(dx) > Math.abs(dy);
+    if (!wantsHorizontal) return;
+
     const beforeLeft = wrap.scrollLeft;
-    const preferHorizontal = event.shiftKey || Math.abs(dx) > Math.abs(dy);
+    const horizontalDelta = dx || dy;
+    wrap.scrollLeft = Math.max(0, Math.min(maxX, wrap.scrollLeft + horizontalDelta));
 
-    if (preferHorizontal && maxX > 1) {
-      const horizontalDelta = dx || dy;
-      wrap.scrollLeft = Math.max(0, Math.min(maxX, wrap.scrollLeft + horizontalDelta));
-    } else if (maxY > 1) {
-      wrap.scrollTop = Math.max(0, Math.min(maxY, wrap.scrollTop + dy));
-      if (Math.abs(dx) > 0 && maxX > 1) {
-        wrap.scrollLeft = Math.max(0, Math.min(maxX, wrap.scrollLeft + dx));
-      }
-    } else if (maxX > 1) {
-      wrap.scrollLeft = Math.max(0, Math.min(maxX, wrap.scrollLeft + (dx || dy)));
-    }
-
-    if (wrap.scrollTop !== beforeTop || wrap.scrollLeft !== beforeLeft) {
+    if (wrap.scrollLeft !== beforeLeft) {
       event.preventDefault();
       event.stopPropagation();
     }

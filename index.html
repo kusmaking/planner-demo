@@ -414,6 +414,26 @@
     body.iz-compact-ui .sticky-col { color: #0f172a; }
 
 
+    /* v18.62an: one vertical scroll only.
+       Remove the internal vertical scrollbar from the calendar; keep horizontal calendar scrolling.
+       The page/frame scrollbar now owns vertical movement so mouse wheel behaves naturally. */
+    body.iz-compact-ui #calendarWrap {
+      overflow-x: auto !important;
+      overflow-y: visible !important;
+      max-height: none !important;
+      height: auto !important;
+      overscroll-behavior-x: contain !important;
+      overscroll-behavior-y: auto !important;
+    }
+    body.iz-compact-ui #calendarMainCol {
+      overflow: visible !important;
+    }
+    body.iz-compact-ui #tabCalendarSection {
+      overflow: visible !important;
+      align-items: flex-start !important;
+    }
+
+
     /* v18.58a Ansattplan visual cleanup - visual layer only */
     body.iz-compact-ui .employee-plan-group-header {
       background: #edf4f6 !important;
