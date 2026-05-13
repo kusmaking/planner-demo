@@ -1,51 +1,30 @@
-# PATCH HISTORY
+# PATCH_HISTORY
 
-## v18.62an — single calendar scroll
-- Removed the internal vertical scrollbar from `calendarWrap`.
-- Calendar keeps horizontal scrolling only.
-- Normal mouse-wheel over the calendar now scrolls the outer page/frame.
-- Shift+wheel / horizontal touchpad movement still scrolls the calendar horizontally.
-- No changes to project staffing, Supabase, RLS, Edge Functions, login, or main.
+## v18.63a-workshop-offshore-capacity-calculation-model-sandbox
 
-## v18.62al-today-line-clean-marker
-- Fjernet tekstbadge "I dag" fra datoheaderen.
-- Fjernet blå fyll/highlight i dagens datokolonne.
-- La inn én ren vertikal dagens-dato-linje som ikke lager horisontale merker i prosjektblokkene.
-- Ingen endring i prosjektbemanning, Supabase, RLS, Edge Functions eller login.
+Starter kapasitetskalkyle for dashboard.
 
-# PATCH HISTORY
+Endret:
+- Dashboardets kapasitetsanalyse bruker nå ressursbehov mot tilgjengelige ressurser for Offshore og Workshop.
+- Offshore-kapasitet beregnes mot aktive offshore feltperioder og `headcount_required`.
+- Workshop-kapasitet beregnes mot aktive workshop-/mobiliseringsperioder og `workshop_headcount_required`.
+- Workshopressurser telles strengt som aktive ansatte med tittel som Onshore Workshop Technician / Workshop Technician eller Apprentice.
+- Workshopressurser ekskluderer Management, 3. part / innleie, Lager/logistikk og Offshore.
+- Kapasitet dag-for-dag viser netto kapasitet:
+  - tilgjengelige ressurser minus gjenstående prosjektbehov
+- Lav kapasitet-panelet viser kapasitetsgap/marginer for kommende uke.
+- Eksisterende Engineering og 3 parts innleie vises fortsatt som tilgjengelighetsrader, ikke behovsberegning.
 
-## v18.62aj — project workbench remove race-condition fix
-- Basert på v18.62ai.
-- Fikser at tildelt ansatt kunne forsvinne kort, komme tilbake, og først forsvinne etter Supabase-latency.
-- Innfører pending-delete guard for prosjektbemanning slik at realtime/poll-refresh ikke henter slettet tildeling tilbake mens delete-kallet pågår.
-- Prosjektvinduet oppdateres umiddelbart etter bekreftet Fjern-klikk.
-- Tunge oppdateringer av kalender/dashboard/analyse kjøres etter at prosjektvinduet har respondert.
-- Ingen endring i Supabase schema, RLS, Edge Functions, login eller kalenderdatamodell.
+Ikke endret:
+- Login
+- Supabase schema
+- RLS
+- Edge Functions
+- Prosjektbemanning / legg til / fjern ansatte
+- Kalenderstruktur
+- Main
 
-## v18.62ak - Today marker + project plan scroll polish
-- Ryddet dagens dato-markering: fjernet doble blå sidelinjer og tunge highlights.
-- Beholder en roligere I dag-markering i datoheaderen.
-- La til trygg scroll-stabilisering på kalenderen: auto scroll-behavior, stable scrollbar gutter og overflow-anchor av.
-- Ikke rørt bemanningslogikk, Supabase, RLS, Edge Functions, login eller main.
+## Base
 
-## v18.62am-calendar-wheel-scroll-fix-sandbox
-- Fikset mouse-wheel scrolling i kalender/prosjektplan slik at vertikal scroll fungerer direkte over kalenderen.
-- Beholder scrollbar-dragging og horisontal scroll.
-- Ingen endring i prosjektbemanning, Supabase, RLS, Edge Functions, login eller main.
-
-
-
-## v18.62ao - single vertical page scroll hard fix
-- Fjernet `overflow-auto` fra calendarWrap-markup.
-- Tvinger kalenderen til kun å eie horisontal scrolling.
-- Skjuler/fjerner intern vertikal scrollbar i kalenderområdet.
-- Mouse-wheel over kalender flytter nå ytre side/frame vertikalt.
-- Beholder horisontal scroll for kalender/tidslinje.
-- Ingen endringer i prosjektbemanning, login, Supabase, RLS, Edge Functions eller main.
-
-## v18.62ap - workshop-only field rendering fix
-- Workshop-only prosjekt med feltbehov 0 vises nå kun som grønn workshop/mobilisering i prosjektplanen.
-- Planlagt feltperiode kan fortsatt ligge som referansedata i redigeringsvinduet, men lager ikke rød feltblokk når workshopfase er aktiv og feltbehov er 0.
-- Prosjektlisten viser "Workshop-only" i stedet for "Ikke bemannet" for slike prosjekter.
-- Ingen endring i Supabase, RLS, Edge Functions, login eller bemanningslogikk.
+Bygget fra:
+Locked-v18.62ap-workshop-only-field-render-scroll-approved

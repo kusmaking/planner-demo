@@ -7238,6 +7238,131 @@ async function deleteEditedEntry() {
       return { total: employees.length, unavailable, onProject, available: Math.max(employees.length - unavailable - onProject, 0) };
     }
 
+
+    const normalizeCapacityText = (value) => String(value || "")
+      .toLowerCase()
+      .normalize("NFKD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .trim();
+
+    function isWorkshopCapacityEmployee(employee) {
+      if (!employee || employee.active === false) return false;
+      const title = normalizeCapacityText(employee.title);
+      const type = normalizeCapacityText(employee.employee_type);
+      const group = normalizeCapacityText(employee.employee_group);
+      const combined = `${title} ${type} ${group}`;
+
+      if (combined.includes("management") || combined.includes("manager") || combined.includes("projectledelse")) return false;
+      if (combined.includes("3 part") || combined.includes("3 parts") || combined.includes("innleie")) return false;
+      if (combined.includes("lager") || combined.includes("logistikk") || combined.includes("warehouse") || combined.includes("logistics")) return false;
+      if (combined.includes("offshore") && !combined.includes("onshore workshop")) return false;
+
+      const isOnshoreWorkshopTechnician = title.includes("onshore workshop technician") || title.includes("workshop technician");
+      const isApprentice = title === "apprentice" || title.includes("apprentice");
+      return isOnshoreWorkshopTechnician || isApprentice;
+    }
+
+    function isOffshoreCapacityEmployee(employee) {
+      return Boolean(employee && employee.active !== false && normalizeEmployeeGroup(employee.employee_group || "") === "Offshore arbeider");
+    }
+
+    function getCapacityEmployees(resourceType) {
+      if (resourceType === "workshop") return activeEmployees.filter(isWorkshopCapacityEmployee);
+      if (resourceType === "offshore") return activeEmployees.filter(isOffshoreCapacityEmployee);
+      if (resourceType === "engineering") return activeEmployees.filter(employee => normalizeEmployeeGroup(employee.employee_group || "") === "Engineering");
+      if (resourceType === "thirdParty") return activeEmployees.filter(employee => normalizeEmployeeGroup(employee.employee_group || "") === "3 parts innleie");
+      return [];
+    }
+
+    function isEmployeeBlockedOnDate(employee, date) {
+      const key = dayKey(date);
+      const entries = entriesForRange(date, date).filter(entry => getEntryEmployee(entry) === employee.name && getEntryStart(entry) <= key && getEntryEnd(entry) >= key);
+      const unavailable = entries.some(isUnavailable);
+      const onProject = entries.some(isRealProject);
+      return { unavailable, onProject, blocked: unavailable || onProject };
+    }
+
+    function getAssignedRelevantCountForProjectOnDate(project, date, resourceType) {
+      if (!project?.id) return 0;
+      const key = dayKey(date);
+      const resourceNames = new Set(getCapacityEmployees(resourceType).map(employee => employee.name).filter(Boolean));
+      const assigned = new Set();
+      (state.entries || []).forEach(entry => {
+        if (getEntryProject(entry) !== project.id) return;
+        if (!getEntryStart(entry) || !getEntryEnd(entry)) return;
+        if (!(getEntryStart(entry) <= key && getEntryEnd(entry) >= key)) return;
+        const name = getEntryEmployee(entry);
+        if (resourceNames.has(name)) assigned.add(name);
+      });
+      return assigned.size;
+    }
+
+    function getCapacityDemandForDate(resourceType, date) {
+      const key = dayKey(date);
+      const demandProjects = [];
+      let totalNeed = 0;
+      let remainingNeed = 0;
+
+      activeProjects.forEach(project => {
+        if (!project || isClosedProject(project)) return;
+        const periods = getProjectTimelinePeriodsWithWorkshop(project).filter(period => period?.start && period?.end && period.start <= key && period.end >= key);
+        periods.forEach(period => {
+          let required = 0;
+          if (resourceType === "workshop" && period.phase === "workshop") {
+            required = Math.max(Number(period.required ?? project.workshop_headcount_required ?? 0), 0);
+          } else if (resourceType === "offshore" && period.phase !== "workshop" && String(project.category || "").toLowerCase() === "offshore") {
+            required = Math.max(Number(project.headcount_required || 0), 0);
+          }
+          if (!required) return;
+          const assigned = getAssignedRelevantCountForProjectOnDate(project, date, resourceType);
+          const remaining = Math.max(required - assigned, 0);
+          totalNeed += required;
+          remainingNeed += remaining;
+          demandProjects.push({ project, phase: period.phase || "field", required, assigned, remaining });
+        });
+      });
+
+      return { totalNeed, remainingNeed, projectCount: demandProjects.length, demandProjects };
+    }
+
+    function dailyCapacityMetric(capacityGroup, date) {
+      if (capacityGroup.mode === "legacy") {
+        const legacy = dailyGroupMetric(capacityGroup.legacyGroup, date);
+        return {
+          ...legacy,
+          totalNeed: 0,
+          remainingNeed: 0,
+          net: legacy.available,
+          projectCount: legacy.onProject,
+          resourceTotal: legacy.total
+        };
+      }
+
+      const employees = getCapacityEmployees(capacityGroup.resourceType);
+      let unavailable = 0;
+      let onProject = 0;
+      employees.forEach(employee => {
+        const blocked = isEmployeeBlockedOnDate(employee, date);
+        if (blocked.unavailable) unavailable += 1;
+        else if (blocked.onProject) onProject += 1;
+      });
+      const available = Math.max(employees.length - unavailable - onProject, 0);
+      const demand = getCapacityDemandForDate(capacityGroup.resourceType, date);
+      const net = available - demand.remainingNeed;
+      return {
+        total: employees.length,
+        resourceTotal: employees.length,
+        unavailable,
+        onProject,
+        available,
+        totalNeed: demand.totalNeed,
+        remainingNeed: demand.remainingNeed,
+        net,
+        projectCount: demand.projectCount,
+        demandProjects: demand.demandProjects
+      };
+    }
+
     const today = new Date();
     const analysisStart = new Date(today);
     analysisStart.setHours(0, 0, 0, 0);
@@ -7408,19 +7533,48 @@ async function deleteEditedEntry() {
     const weekDays = Array.from({ length: 5 }, (_, i) => addDays(today, i + 1));
     const capacityDays = Array.from({ length: 14 }, (_, i) => addDays(today, i));
 
-    const GROUP_THRESHOLDS = {
-      "Offshore arbeider": { critical: 2, low: 4, note: "Lav ≤4 · Kritisk ≤2" },
-      "Onshore arbeider": { critical: 2, low: 4, note: "Lav ≤4 · Kritisk ≤2" },
-      "Engineering": { critical: 0, low: 1, note: "Lav 1 · Kritisk 0" },
-      "3 parts innleie": { critical: 0, low: 2, note: "Lav ≤2 · Kritisk 0" }
-    };
+    const CAPACITY_GROUPS = [
+      {
+        value: "Offshore",
+        label: "Offshore",
+        color: "#2dd4bf",
+        resourceType: "offshore",
+        threshold: { critical: -1, low: 1, note: "Gap <0 · Lav 0–1" },
+        mode: "demand"
+      },
+      {
+        value: "Workshop",
+        label: "Workshop",
+        color: "#22c55e",
+        resourceType: "workshop",
+        threshold: { critical: -1, low: 1, note: "Kun Onshore Workshop Technician + Apprentice" },
+        mode: "demand"
+      },
+      {
+        value: "Engineering",
+        label: "Engineering",
+        color: "#fb923c",
+        legacyGroup: GROUPS.find(group => group.value === "Engineering"),
+        threshold: { critical: 0, low: 1, note: "Tilgjengelighet" },
+        mode: "legacy"
+      },
+      {
+        value: "3 parts innleie",
+        label: "3 parts innleie",
+        color: "#c084fc",
+        legacyGroup: GROUPS.find(group => group.value === "3 parts innleie"),
+        threshold: { critical: 0, low: 2, note: "Tilgjengelighet" },
+        mode: "legacy"
+      }
+    ];
 
-    const getThreshold = (group) => GROUP_THRESHOLDS[group.value] || { critical: 1, low: 3, note: "Lav terskel" };
-    const heatLevel = (group, metric) => {
-      const threshold = getThreshold(group);
-      if (!metric.total) return "ok";
-      if (metric.available <= threshold.critical) return "critical";
-      if (metric.available <= threshold.low) return "low";
+    const getCapacityThreshold = (group) => group.threshold || { critical: -1, low: 1, note: "Gap <0 · Lav 0–1" };
+    const capacityHeatLevel = (group, metric) => {
+      const threshold = getCapacityThreshold(group);
+      if (!metric.total && !metric.remainingNeed) return "ok";
+      const value = group.mode === "legacy" ? metric.available : metric.net;
+      if (value <= threshold.critical) return "critical";
+      if (value <= threshold.low) return "low";
       return "ok";
     };
     const heatClass = (level) => level === "critical" ? "dash27-heat-critical" : level === "low" ? "dash27-heat-low" : "dash27-heat-ok";
@@ -7432,21 +7586,25 @@ async function deleteEditedEntry() {
       <div class="grid grid-cols-[116px_repeat(5,1fr)] gap-2 items-center">
         <div></div>
         ${weekDays.map(day => `<div class="text-center text-xs font-bold dash27-muted">${escapeHtml(day.toLocaleDateString("no-NO", { weekday: "short" }).replace(".", ""))}<br><span class="text-[11px]">${escapeHtml(day.toLocaleDateString("no-NO", { day: "numeric", month: "numeric" }))}</span></div>`).join("")}
-        ${GROUPS.map(group => `
+        ${CAPACITY_GROUPS.map(group => `
           <div>
             <div class="text-sm font-bold text-white">${escapeHtml(group.label)}</div>
-            <div class="dash27-threshold-note">${escapeHtml(getThreshold(group).note)}</div>
+            <div class="dash27-threshold-note">${escapeHtml(getCapacityThreshold(group).note)}</div>
           </div>
           ${weekDays.map(day => {
-            const m = dailyGroupMetric(group, day);
-            const level = heatLevel(group, m);
+            const m = dailyCapacityMetric(group, day);
+            const level = capacityHeatLevel(group, m);
             if (level !== "ok") {
               lowSituations += 1;
-              if (lowSituationRows.length < 4) {
-                lowSituationRows.push({ group: group.label, day, metric: m, level });
+              if (lowSituationRows.length < 5) {
+                lowSituationRows.push({ group: group.label, day, metric: m, level, mode: group.mode });
               }
             }
-            return `<div class="dash27-heatcell ${heatClass(level)}" title="${escapeHtml(group.label)} ${escapeHtml(day.toLocaleDateString("no-NO"))}: ledig ${m.available}, prosjekt ${m.onProject}, borte ${m.unavailable}">${m.available}<span class="block text-[10px] font-medium">${heatLabel(level)}</span></div>`;
+            const mainValue = group.mode === "legacy" ? m.available : m.net;
+            const sub = group.mode === "legacy"
+              ? `${heatLabel(level)}`
+              : `Behov ${m.remainingNeed}`;
+            return `<div class="dash27-heatcell ${heatClass(level)}" title="${escapeHtml(group.label)} ${escapeHtml(day.toLocaleDateString("no-NO"))}: netto ${m.net}, tilgjengelig ${m.available}, gjenstående behov ${m.remainingNeed}, på prosjekt ${m.onProject}, borte ${m.unavailable}">${mainValue}<span class="block text-[10px] font-medium">${escapeHtml(sub)}</span></div>`;
           }).join("")}
         `).join("")}
       </div>
@@ -7457,20 +7615,27 @@ async function deleteEditedEntry() {
         <div class="dash27-capacity-table">
           <div></div>
           ${capacityDays.map(day => `<div class="dash27-capacity-head">${escapeHtml(day.toLocaleDateString("no-NO", { weekday: "short" }).replace(".", ""))}<br>${escapeHtml(day.toLocaleDateString("no-NO", { day: "numeric", month: "numeric" }))}</div>`).join("")}
-          ${GROUPS.map(group => `
+          ${CAPACITY_GROUPS.map(group => `
             <div class="dash27-capacity-group">
               <div class="flex items-center gap-2">
                 <span class="inline-flex h-2.5 w-2.5 rounded-full" style="background:${group.color}"></span>
                 <strong>${escapeHtml(group.label)}</strong>
               </div>
-              <div class="dash27-threshold-note">${escapeHtml(getThreshold(group).note)}</div>
+              <div class="dash27-threshold-note">${escapeHtml(getCapacityThreshold(group).note)}</div>
             </div>
             ${capacityDays.map(day => {
-              const metric = dailyGroupMetric(group, day);
-              const level = heatLevel(group, metric);
-              return `<div class="dash27-capacity-cell ${heatClass(level)}" title="${escapeHtml(group.label)} ${escapeHtml(day.toLocaleDateString("no-NO"))}: ledig ${metric.available}, på prosjekt ${metric.onProject}, borte ${metric.unavailable}">
-                <strong>${metric.available}</strong>
-                <span>P:${metric.onProject} · B:${metric.unavailable}</span>
+              const metric = dailyCapacityMetric(group, day);
+              const level = capacityHeatLevel(group, metric);
+              const mainValue = group.mode === "legacy" ? metric.available : metric.net;
+              const subText = group.mode === "legacy"
+                ? `P:${metric.onProject} · B:${metric.unavailable}`
+                : `Behov:${metric.remainingNeed} · Ledig:${metric.available}`;
+              const title = group.mode === "legacy"
+                ? `${group.label} ${day.toLocaleDateString("no-NO")}: ledig ${metric.available}, på prosjekt ${metric.onProject}, borte ${metric.unavailable}`
+                : `${group.label} ${day.toLocaleDateString("no-NO")}: netto ${metric.net}, tilgjengelig ${metric.available}, gjenstående behov ${metric.remainingNeed}, totalbehov ${metric.totalNeed}, på jobb ${metric.onProject}, borte ${metric.unavailable}, aktive faser ${metric.projectCount}`;
+              return `<div class="dash27-capacity-cell ${heatClass(level)}" title="${escapeHtml(title)}">
+                <strong>${mainValue}</strong>
+                <span>${escapeHtml(subText)}</span>
               </div>`;
             }).join("")}
           `).join("")}
@@ -7479,7 +7644,13 @@ async function deleteEditedEntry() {
     `;
 
     const lowSituationSummaryHtml = lowSituationRows.length
-      ? `<div class="dash27-why-low">${lowSituationRows.map(item => `<div class="dash27-alert-line"><strong>${escapeHtml(item.group)}</strong> · ${escapeHtml(item.day.toLocaleDateString("no-NO", { weekday: "short", day: "numeric", month: "numeric" }))}: ${item.metric.available} ledig · ${item.metric.onProject} på prosjekt · ${item.metric.unavailable} borte</div>`).join("")}</div>`
+      ? `<div class="dash27-why-low">${lowSituationRows.map(item => {
+          const metric = item.metric || {};
+          const detail = item.mode === "legacy"
+            ? `${metric.available} ledig · ${metric.onProject} på prosjekt · ${metric.unavailable} borte`
+            : `netto ${metric.net} · behov ${metric.remainingNeed} · tilgjengelig ${metric.available}`;
+          return `<div class="dash27-alert-line"><strong>${escapeHtml(item.group)}</strong> · ${escapeHtml(item.day.toLocaleDateString("no-NO", { weekday: "short", day: "numeric", month: "numeric" }))}: ${escapeHtml(detail)}</div>`;
+        }).join("")}</div>`
       : `<div class="dash27-why-low"><div class="dash27-alert-line">Ingen lave kapasitetsdager i denne ukevisningen.</div></div>`;
 
     let deg = 0;
@@ -7515,8 +7686,8 @@ async function deleteEditedEntry() {
         ${next14ProjectKpiHtml}
         <div class="dash27-panel overflow-hidden"><div class="px-5 pt-4 text-xl font-extrabold">Operativ status – neste 14 dager</div><div class="grid grid-cols-1 lg:grid-cols-4">${kpiCards}</div></div>
         <div class="grid grid-cols-1 2xl:grid-cols-[1.25fr_.75fr] gap-4">
-          <div class="dash27-panel p-5"><div class="flex items-center justify-between gap-3 mb-4"><div class="dash27-card-title">Kapasitet dag for dag – neste 14 dager <span class="dash27-info">i</span></div><div class="text-sm dash27-muted">Ledig kapasitet · P = prosjekt · B = borte</div></div>${capacityOverviewHtml}<div class="mt-3 text-xs dash27-muted">Viser antall ledige per gruppe per dag. Farge følger egne terskler per gruppe, slik at Engineering ikke vurderes likt som Offshore/Onshore.</div></div>
-          <div class="dash27-panel p-5"><div class="flex items-center justify-between gap-3 mb-4"><div class="dash27-card-title">Lav kapasitet – neste uke <span class="dash27-info">i</span></div><button type="button" data-home-action="project" class="text-cyan-300 text-sm font-bold">Se detaljer →</button></div>${heatmapHtml}<div class="mt-4 pt-4 border-t border-white/10 text-sm"><span class="text-orange-300 font-bold">⚠</span> Totalt ${lowSituations} lav-kapasitetssituasjoner i kommende uke</div>${lowSituationSummaryHtml}</div>
+          <div class="dash27-panel p-5"><div class="flex items-center justify-between gap-3 mb-4"><div class="dash27-card-title">Kapasitet dag for dag – neste 14 dager <span class="dash27-info">i</span></div><div class="text-sm dash27-muted">Netto kapasitet · Behov vs ledige ressurser</div></div>${capacityOverviewHtml}<div class="mt-3 text-xs dash27-muted">Offshore og Workshop viser netto kapasitet: tilgjengelige ressurser minus gjenstående prosjektbehov. Workshop teller kun Onshore Workshop Technician og Apprentice.</div></div>
+          <div class="dash27-panel p-5"><div class="flex items-center justify-between gap-3 mb-4"><div class="dash27-card-title">Kapasitetsgap – neste uke <span class="dash27-info">i</span></div><button type="button" data-home-action="project" class="text-cyan-300 text-sm font-bold">Se detaljer →</button></div>${heatmapHtml}<div class="mt-4 pt-4 border-t border-white/10 text-sm"><span class="text-orange-300 font-bold">⚠</span> Totalt ${lowSituations} kapasitetsgap/lave marginer i kommende uke</div>${lowSituationSummaryHtml}</div>
         </div>
         <div class="grid grid-cols-1 xl:grid-cols-3 gap-4">
           <div class="dash27-panel p-5"><div class="dash27-card-title mb-4">Prosjektfordeling pr gruppe <span class="dash27-info">i</span></div><div class="grid grid-cols-1 md:grid-cols-[190px_1fr] gap-5 items-center"><div class="dash27-donut mx-auto" style="background:${donutBg}"><div class="dash27-donut-inner"><div class="text-sm dash27-muted">Totalt</div><div class="text-4xl font-black">${totalProjectPeople}</div><div class="text-xs dash27-muted">personer</div></div></div><div>${distLegend}</div></div></div>
