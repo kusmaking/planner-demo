@@ -4044,10 +4044,18 @@ Dette oppretter ikke Auth-bruker. Hvis Auth-brukeren mangler, får du en tydelig
     const dx = normalizeCalendarWheelDelta(event.deltaX, event.deltaMode, wrap.clientWidth);
     if (!dy && !dx) return;
 
-    // v18.62an: vertical wheel must belong to the outer page/frame, not to the inner calendar.
-    // Only handle horizontal intent here: Shift+wheel, touchpad horizontal delta, or dominant deltaX.
+    // v18.62ao: the calendar must only own horizontal scrolling.
+    // Plain mouse wheel over the calendar should move the outer page/frame, not an internal calendar scrollbar.
     const wantsHorizontal = event.shiftKey || Math.abs(dx) > Math.abs(dy);
-    if (!wantsHorizontal) return;
+    if (!wantsHorizontal) {
+      const outer = document.scrollingElement || document.documentElement || document.body;
+      if (outer && dy) {
+        event.preventDefault();
+        event.stopPropagation();
+        outer.scrollTop += dy;
+      }
+      return;
+    }
 
     const beforeLeft = wrap.scrollLeft;
     const horizontalDelta = dx || dy;

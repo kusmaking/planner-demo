@@ -433,6 +433,31 @@
       align-items: flex-start !important;
     }
 
+    /* v18.62ao: force single vertical page scroll.
+       #calendarWrap must only own horizontal movement; the browser/page owns vertical movement. */
+    body.iz-compact-ui #calendarWrap,
+    body.iz-compact-ui #calendarWrap.calendar-single-scroll {
+      display: block !important;
+      overflow-x: auto !important;
+      overflow-y: hidden !important;
+      max-height: none !important;
+      height: auto !important;
+      min-height: 0 !important;
+      overscroll-behavior-x: contain !important;
+      overscroll-behavior-y: auto !important;
+      scrollbar-gutter: stable !important;
+      contain: none !important;
+    }
+    body.iz-compact-ui #calendarWrap::-webkit-scrollbar:vertical {
+      width: 0 !important;
+      display: none !important;
+    }
+    body.iz-compact-ui #calendarWrap .calendar-shell {
+      overflow-y: visible !important;
+      max-height: none !important;
+      height: auto !important;
+    }
+
 
     /* v18.58a Ansattplan visual cleanup - visual layer only */
     body.iz-compact-ui .employee-plan-group-header {
@@ -7021,7 +7046,7 @@
         </div>
 
         <div id="warningBox" class="hidden mx-4 mt-4 rounded-2xl border border-red-300 bg-red-50 p-4 text-red-700 text-sm"></div>
-        <div id="calendarWrap" class="overflow-auto scrollbar-thin"></div>
+        <div id="calendarWrap" class="calendar-single-scroll scrollbar-thin"></div>
       </div>
 
       <aside id="calendarPanelCol" class="w-full xl:w-12 shrink-0 rounded-2xl bg-white border border-slate-200 shadow-sm overflow-hidden transition-all duration-300">

@@ -34,3 +34,12 @@
 - Beholder scrollbar-dragging og horisontal scroll.
 - Ingen endring i prosjektbemanning, Supabase, RLS, Edge Functions, login eller main.
 
+
+
+## v18.62ao - single vertical page scroll hard fix
+- Fjernet `overflow-auto` fra calendarWrap-markup.
+- Tvinger kalenderen til kun å eie horisontal scrolling.
+- Skjuler/fjerner intern vertikal scrollbar i kalenderområdet.
+- Mouse-wheel over kalender flytter nå ytre side/frame vertikalt.
+- Beholder horisontal scroll for kalender/tidslinje.
+- Ingen endringer i prosjektbemanning, login, Supabase, RLS, Edge Functions eller main.
