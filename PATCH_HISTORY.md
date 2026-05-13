@@ -1,3 +1,9 @@
+## v18.62al-today-line-clean-marker
+- Fjernet tekstbadge "I dag" fra datoheaderen.
+- Fjernet blå fyll/highlight i dagens datokolonne.
+- La inn én ren vertikal dagens-dato-linje som ikke lager horisontale merker i prosjektblokkene.
+- Ingen endring i prosjektbemanning, Supabase, RLS, Edge Functions eller login.
+
 # PATCH HISTORY
 
 ## v18.62aj — project workbench remove race-condition fix

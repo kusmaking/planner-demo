@@ -457,18 +457,25 @@
     return !!date && toIsoDate(date) === toIsoDate(new Date());
   }
 
-  // v18.62ak: clean today marker - one calm header marker, no double blue rails through the calendar.
+  // v18.62al: clean today marker. No badge text and no blue column fill.
+  // A single vertical overlay line marks today without creating horizontal marks in project bars.
   function getTodayColumnStyle(date, mode = "cell") {
     if (!isTodayDate(date)) return "";
     if (mode === "header") {
-      return "background:linear-gradient(180deg, rgba(239,246,255,0.96), rgba(248,250,252,0.98)); color:#1d4ed8; border-top:3px solid #2563eb; box-shadow:none; position:relative; z-index:5;";
+      return "color:#1d4ed8; font-weight:800; box-shadow:none; outline:none; position:relative; z-index:5;";
     }
-    return "background:rgba(37,99,235,0.045); box-shadow:none; z-index:1;";
+    return "background:transparent; box-shadow:none; outline:none;";
   }
 
   function getTodayHeaderBadgeHtml(date) {
-    if (!isTodayDate(date)) return "";
-    return `<div style="margin:3px auto 0; width:max-content; border-radius:999px; background:#e0f2fe; color:#075985; border:1px solid rgba(14,165,233,0.42); padding:1px 6px; font-size:9px; font-weight:800; line-height:1.2;">I dag</div>`;
+    return "";
+  }
+
+  function renderTodayLineOverlay(days, stickyWidth, colWidth) {
+    const todayIndex = days.findIndex(day => isTodayDate(day));
+    if (todayIndex < 0) return "";
+    const left = stickyWidth + (todayIndex * colWidth) + Math.floor(colWidth / 2);
+    return `<div class="today-clean-line" aria-hidden="true" style="left:${left}px;"></div>`;
   }
 
   function getHolidayNamesForYear(year) {
@@ -11047,7 +11054,8 @@ async function deleteEditedEntry() {
     const totalWidth = colWidth * days.length;
 
     let html = dashboardFilterBanner;
-    html += `<div class="calendar-shell" style="width:${stickyWidth + totalWidth}px; min-width:${stickyWidth + totalWidth}px;">`;
+    html += `<div class="calendar-shell" style="width:${stickyWidth + totalWidth}px; min-width:${stickyWidth + totalWidth}px; position:relative;">`;
+    html += renderTodayLineOverlay(days, stickyWidth, colWidth);
     html += `<div class="day-grid border border-slate-200 rounded-2xl overflow-visible" style="grid-template-columns:${stickyWidth}px repeat(${days.length}, ${colWidth}px);">`;
     html += renderTimelineHeaderRows(days, "Ansatt");
 
@@ -11265,7 +11273,8 @@ async function deleteEditedEntry() {
     const colWidth = Math.max(28, state.viewMode === "Uke" ? 38 : 32);
     const totalWidth = colWidth * days.length;
 
-    let html = `<div class="calendar-shell" style="width:${stickyWidth + totalWidth}px; min-width:${stickyWidth + totalWidth}px;">`;
+    let html = `<div class="calendar-shell" style="width:${stickyWidth + totalWidth}px; min-width:${stickyWidth + totalWidth}px; position:relative;">`;
+    html += renderTodayLineOverlay(days, stickyWidth, colWidth);
     html += `<div class="day-grid border border-slate-200 rounded-2xl overflow-visible" style="grid-template-columns:${stickyWidth}px repeat(${days.length}, ${colWidth}px);">`;
     html += renderTimelineHeaderRows(days, window.izomaxTranslateKey?.("projectHeader") || "Prosjekt");
 

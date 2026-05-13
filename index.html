@@ -375,6 +375,32 @@
       box-shadow: none !important;
       outline: none !important;
     }
+
+    /* v18.62al: single clean today line, no badge and no column fill. */
+    body.iz-compact-ui .today-clean-line {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 2px;
+      background: #2563eb;
+      opacity: 0.95;
+      z-index: 18;
+      pointer-events: none;
+      box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.08);
+    }
+    body.iz-compact-ui [data-today-header="true"] {
+      background: #ffffff !important;
+      color: #1d4ed8 !important;
+      box-shadow: none !important;
+      outline: none !important;
+      border-top: 0 !important;
+    }
+    body.iz-compact-ui [data-today-column="true"] {
+      background: transparent !important;
+      box-shadow: none !important;
+      outline: none !important;
+    }
+
     body.iz-compact-ui .calendar-shell,
     body.iz-compact-ui .day-grid,
     body.iz-compact-ui .month-summary-grid {
