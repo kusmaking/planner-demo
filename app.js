@@ -115,6 +115,7 @@
     projectInspectorAddUseCustomRange: false,
     projectInspectorAddCustomStart: "",
     projectInspectorAddCustomEnd: "",
+    projectInspectorSelectedNames: [],
     projectWorkbenchWindow: null,
     projectImportPreview: {
       fileName: "",
@@ -7697,6 +7698,7 @@ async function deleteEditedEntry() {
     state.projectInspectorAddUseCustomRange = false;
     state.projectInspectorAddCustomStart = "";
     state.projectInspectorAddCustomEnd = "";
+    state.projectInspectorSelectedNames = [];
   }
 
   function getProjectInspectorProjectBounds(project) {
@@ -7767,94 +7769,116 @@ async function deleteEditedEntry() {
     } catch (_) {}
   }
 
-  async function createProjectInspectorAssignment(projectId) {
-    projectPanelDebug("createProjectInspectorAssignment called", {
-      projectId,
-      selectedCandidateName: state.projectInspectorAddCandidateName,
-      selectedRole: state.projectInspectorAddRole,
-      useCustomRange: state.projectInspectorAddUseCustomRange,
-      customStart: state.projectInspectorAddCustomStart,
-      customEnd: state.projectInspectorAddCustomEnd,
-      canEdit: canEditApp()
-    });
-    if (!canEditApp()) {
-      projectPanelDebug("create blocked: canEditApp false");
-      return;
-    }
+  function getProjectInspectorSelectableEmployee(project, employeeName) {
+    const name = String(employeeName || "").trim();
+    if (!project || !name) return null;
+    const assignedNames = new Set(state.entries.filter(entry => entry.project_id === project.id).map(entry => entry.employee_name));
+    if (assignedNames.has(name)) return null;
+    return getProjectInspectorEmployees(project).find(employee => employee.name === name) || null;
+  }
+
+  function getProjectInspectorSelectedNames(project) {
+    const raw = Array.isArray(state.projectInspectorSelectedNames) ? state.projectInspectorSelectedNames : [];
+    const seen = new Set();
+    return raw
+      .map(name => String(name || "").trim())
+      .filter(name => {
+        if (!name || seen.has(name)) return false;
+        seen.add(name);
+        return !!getProjectInspectorSelectableEmployee(project, name);
+      });
+  }
+
+  function toggleProjectInspectorSelectedName(project, employeeName, checked = null) {
+    const name = String(employeeName || "").trim();
+    if (!name || !getProjectInspectorSelectableEmployee(project, name)) return;
+    const current = new Set(getProjectInspectorSelectedNames(project));
+    const shouldSelect = checked === null ? !current.has(name) : !!checked;
+    if (shouldSelect) current.add(name);
+    else current.delete(name);
+    state.projectInspectorSelectedNames = Array.from(current);
+  }
+
+  function getProjectInspectorRoleForBatch(project) {
+    const current = String(state.projectInspectorAddRole || "").trim();
+    if (current && ROLE_OPTIONS.includes(current)) return current;
+    const first = getProjectInspectorSelectedNames(project)[0];
+    const employee = first ? getProjectInspectorSelectableEmployee(project, first) : null;
+    return getProjectInspectorAddRole(employee) || getDefaultRoleForIndex(0);
+  }
+
+  function validateProjectInspectorRange(project) {
+    const range = getProjectInspectorAddRange(project);
+    if (!range.start || !range.end) return { ok: false, message: "Velg en gyldig periode." };
+    if (range.start > range.end) return { ok: false, message: "Fra-dato kan ikke være senere enn til-dato." };
+    if (range.bounds.start && range.start < range.bounds.start) return { ok: false, message: "Fra-dato må være innenfor prosjektperioden." };
+    if (range.bounds.end && range.end > range.bounds.end) return { ok: false, message: "Til-dato må være innenfor prosjektperioden." };
+    return { ok: true, range };
+  }
+
+  async function createProjectInspectorAssignments(projectId, employeeNames, options = {}) {
+    projectPanelDebug("createProjectInspectorAssignments called", { projectId, employeeNames, options });
+    if (!canEditApp()) return;
     const project = getProjectById(projectId);
-    if (!project) {
-      projectPanelDebug("create blocked: project not found", { projectId });
+    if (!project) return;
+
+    const requestedNames = Array.isArray(employeeNames) ? employeeNames : [employeeNames];
+    const uniqueNames = [...new Set(requestedNames.map(name => String(name || "").trim()).filter(Boolean))];
+    const employees = uniqueNames.map(name => getProjectInspectorSelectableEmployee(project, name)).filter(Boolean);
+    if (!employees.length) {
+      alert(window.izomaxTranslateKey?.("selectEmployeeFirst") || "Velg minst én ansatt fra listen først.");
       return;
     }
 
     const assigned = state.entries.filter(entry => entry.project_id === project.id).length;
     const required = Math.max(Number(project.headcount_required || 0), 0);
-    if (required > 0 && assigned >= required) {
-      projectPanelDebug("create blocked: project fully staffed", { assigned, required });
-      alert("Prosjektet er allerede fullbemannet.");
-      return;
+    if (required > 0 && assigned + employees.length > required) {
+      const overBy = assigned + employees.length - required;
+      const ok = confirm(`Dette gir ${overBy} person(er) mer enn bemanningsbehovet. Vil du fortsette?`);
+      if (!ok) return;
     }
 
-    const employee = getProjectInspectorAddCandidate(project);
-    projectPanelDebug("create candidate resolved", {
-      candidateName: state.projectInspectorAddCandidateName,
-      found: !!employee,
-      employeeName: employee?.name || "",
-      availability: employee?.availability?.label || ""
-    });
-    if (!employee) {
-      alert(window.izomaxTranslateKey?.("selectEmployeeFirst") || "Velg en ansatt fra listen først.");
+    const validation = validateProjectInspectorRange(project);
+    if (!validation.ok) {
+      alert(validation.message);
       return;
     }
-    const range = getProjectInspectorAddRange(project);
-    projectPanelDebug("create range resolved", range);
-    if (!range.start || !range.end) {
-      alert("Velg en gyldig periode.");
-      return;
-    }
-    if (range.start > range.end) {
-      alert("Fra-dato kan ikke være senere enn til-dato.");
-      return;
-    }
-    if (range.bounds.start && range.start < range.bounds.start) {
-      alert("Fra-dato må være innenfor prosjektperioden.");
-      return;
-    }
-    if (range.bounds.end && range.end > range.bounds.end) {
-      alert("Til-dato må være innenfor prosjektperioden.");
-      return;
-    }
+    const { range } = validation;
 
-    const role = getProjectInspectorAddRole(employee);
-    const entry = {
-      id: crypto.randomUUID(),
-      project_id: project.id,
-      employee_name: employee.name,
-      role,
-      start_date: range.start,
-      end_date: range.end,
-      notes: ""
-    };
+    const role = options.role || getProjectInspectorRoleForBatch(project) || getDefaultRoleForIndex(0);
+    const newEntries = [];
+    const overbookWarnings = [];
 
-    const conflicts = getEntryOverlapConflicts(entry);
-    const isPanelOverbook = employee.availability?.label === "Opptatt" || conflicts.length > 0;
-    if (isPanelOverbook) {
-      const conflictText = conflicts.length
-        ? getEntryConflictSummary(entry, conflicts)
-        : `${employee.name} er markert som opptatt i prosjektperioden. Vil du overbooke likevel?`;
-      const warningText = `${conflictText}
-
-Overbooking blir lagret og skal vises som konflikt i Ansattplan.`;
-      if (!confirm(warningText)) {
-        projectPanelDebug("create cancelled overbooking", { conflictCount: conflicts.length, employee: employee.name });
-        return;
+    for (const employee of employees) {
+      const entry = {
+        id: crypto.randomUUID(),
+        project_id: project.id,
+        employee_name: employee.name,
+        role,
+        start_date: range.start,
+        end_date: range.end,
+        notes: ""
+      };
+      const conflicts = getEntryOverlapConflicts(entry);
+      const isPanelOverbook = employee.availability?.label === "Opptatt" || conflicts.length > 0;
+      if (isPanelOverbook) {
+        const conflictText = conflicts.length
+          ? getEntryConflictSummary(entry, conflicts)
+          : `${employee.name} er markert som opptatt i prosjektperioden.`;
+        overbookWarnings.push(conflictText);
+        entry.notes = "OVERBOOKET fra prosjektpanel - kontroller i Ansattplan";
       }
-      projectPanelDebug("create allowed with overbooking", { conflictCount: conflicts.length, employee: employee.name });
-      entry.notes = "OVERBOOKET fra prosjektpanel - kontroller i Ansattplan";
+      newEntries.push(entry);
     }
 
-    projectPanelDebug("create pushing entry", entry);
-    state.entries.push(entry);
+    if (overbookWarnings.length) {
+      const warningText = `${overbookWarnings.slice(0, 5).join("\n\n")}${overbookWarnings.length > 5 ? `\n\n+${overbookWarnings.length - 5} flere konflikt(er).` : ""}\n\nOverbooking blir lagret og skal vises som konflikt i Ansattplan. Fortsette?`;
+      if (!confirm(warningText)) return;
+    }
+
+    state.entries.push(...newEntries);
+    const addedNames = new Set(newEntries.map(entry => entry.employee_name));
+    state.projectInspectorSelectedNames = getProjectInspectorSelectedNames(project).filter(name => !addedNames.has(name));
     state.projectInspectorAddCandidateName = "";
     state.projectInspectorAddRole = "";
     state.projectInspectorAddUseCustomRange = false;
@@ -7863,10 +7887,12 @@ Overbooking blir lagret og skal vises som konflikt i Ansattplan.`;
     rebuildDerivedState();
     renderAll();
 
-    const result = await saveRow("planner_entries", entry);
-    projectPanelDebug("saveRow result", { ok: result?.ok, error: result?.error?.message || result?.error || null });
+    const result = newEntries.length === 1
+      ? await saveRow("planner_entries", newEntries[0])
+      : await saveRows("planner_entries", newEntries);
     if (!result.ok) {
-      state.entries = state.entries.filter(item => item.id !== entry.id);
+      const ids = new Set(newEntries.map(entry => entry.id));
+      state.entries = state.entries.filter(item => !ids.has(item.id));
       rebuildDerivedState();
       renderAll();
       return;
@@ -7876,8 +7902,14 @@ Overbooking blir lagret og skal vises som konflikt i Ansattplan.`;
     state.focusProjectId = project.id;
     state.calendarPanelOpen = true;
     renderAll();
-    void addAudit(`La til ${employee.name} på ${project.name} fra prosjektpanelet`);
-    void addNotification(employee.name, project.name);
+    void addAudit(`La til ${newEntries.length} tildeling${newEntries.length > 1 ? "er" : ""} på ${project.name} fra prosjektpanelet`);
+    newEntries.forEach(entry => void addNotification(entry.employee_name, project.name));
+  }
+
+  async function createProjectInspectorAssignment(projectId) {
+    const project = getProjectById(projectId);
+    const employee = getProjectInspectorAddCandidate(project);
+    return createProjectInspectorAssignments(projectId, employee?.name || state.projectInspectorAddCandidateName || "");
   }
 
 
@@ -8283,7 +8315,8 @@ Overbooking blir lagret og skal vises som konflikt i Ansattplan.`;
     const partialEmployees = filteredEmployees.filter(employee => employee.availability.label === "Delvis ledig");
     const busyEmployees = filteredEmployees.filter(employee => employee.availability.label === "Opptatt" || employee.availability.label === "Ukjent");
     const addCandidate = getProjectInspectorAddCandidate(project);
-    const addCandidateRole = getProjectInspectorAddRole(addCandidate);
+    const selectedBatchNames = getProjectInspectorSelectedNames(project);
+    const addCandidateRole = addCandidate ? getProjectInspectorAddRole(addCandidate) : getProjectInspectorRoleForBatch(project);
     const addRange = getProjectInspectorAddRange(project);
 
     const renderPeriods = () => {
@@ -8308,16 +8341,22 @@ Overbooking blir lagret og skal vises som konflikt i Ansattplan.`;
 
     const renderCandidateCard = (employee, mode) => {
       const isSelected = addCandidate && addCandidate.name === employee.name;
+      const isBatchSelected = selectedBatchNames.includes(employee.name);
       const label = employee.availability.label;
       const toneClass = label === "Ledig" ? "is-available" : (label === "Delvis ledig" ? "is-partial" : "is-busy");
       const buttonText = label === "Opptatt" ? "Overbook" : (label === "Delvis ledig" ? "Legg til delperiode" : "Legg til");
+      const quickText = label === "Opptatt" ? "Overbook" : (label === "Delvis ledig" ? "Velg periode" : "+ Legg til");
       const role = getDefaultRoleForIndex(0);
+      const canQuickAdd = label === "Ledig";
       return `
         <div
-          class="iz-workbench-person ${toneClass} ${isSelected ? "is-selected" : ""}"
+          class="iz-workbench-person iz-workbench-person-v2 ${toneClass} ${isSelected ? "is-selected" : ""} ${isBatchSelected ? "is-batch-selected" : ""}"
           data-project-available-person-row="${escapeHtml(employee.name)}"
           data-project-inspector-row-role="${escapeHtml(role)}"
         >
+          <label class="iz-workbench-person-check" title="Velg for samlet tildeling">
+            <input type="checkbox" data-project-inspector-batch-select="${escapeHtml(employee.name)}" ${isBatchSelected ? "checked" : ""} />
+          </label>
           <div class="iz-workbench-person-main">
             <div class="iz-workbench-person-icon">${getEmployeeGroupIconHtml(employee.normalizedGroup, "inline-flex h-5 w-5 items-center justify-center text-cyan-100 shrink-0 opacity-90") || "•"}</div>
             <div class="iz-workbench-person-text">
@@ -8328,9 +8367,10 @@ Overbooking blir lagret og skal vises som konflikt i Ansattplan.`;
           </div>
           <div class="iz-workbench-person-actions">
             <span class="iz-workbench-status-pill ${toneClass}">${escapeHtml(window.izomaxTranslateValue?.(label) || label)}</span>
+            ${canQuickAdd ? `<button type="button" class="iz-workbench-add-btn ${toneClass}" data-project-inspector-quick-add="${escapeHtml(employee.name)}" data-project-inspector-select-role="${escapeHtml(role)}">${quickText}</button>` : ""}
             <button
               type="button"
-              class="iz-workbench-add-btn ${toneClass}"
+              class="iz-workbench-add-btn ${toneClass} ${canQuickAdd ? "is-secondary" : ""}"
               data-project-inspector-select-employee="${escapeHtml(employee.name)}"
               data-project-inspector-select-role="${escapeHtml(role)}"
             >${isSelected ? "Valgt" : buttonText}</button>
@@ -8373,17 +8413,17 @@ Overbooking blir lagret og skal vises som konflikt i Ansattplan.`;
       `;
     };
 
-    const selectedAddPanelHtml = addCandidate ? `
-      <section id="projectInspectorStableAddBox" data-project-inspector-stable-add-box="1" class="iz-workbench-add-panel">
+    const renderAddPanelForm = (title, subTitle, confirmText, confirmAttrs = "") => `
+      <section id="projectInspectorStableAddBox" data-project-inspector-stable-add-box="1" class="iz-workbench-add-panel iz-workbench-add-panel-active">
         <div class="iz-workbench-add-head">
           <div>
-            <div class="iz-workbench-add-title">Legg til: ${escapeHtml(addCandidate.name)}</div>
-            <div class="iz-workbench-add-sub">Velg rolle og periode før du legger personen til prosjektet.</div>
+            <div class="iz-workbench-add-title">${escapeHtml(title)}</div>
+            <div class="iz-workbench-add-sub">${escapeHtml(subTitle)}</div>
           </div>
           <button id="projectInspectorAddCancelBtn" type="button" class="iz-workbench-secondary-btn">Avbryt</button>
         </div>
-        ${addCandidate.availability?.label === "Opptatt" ? `<div class="iz-workbench-warning is-busy">Denne personen er opptatt i perioden. Ved overbooking blir konflikten synlig i Ansattplan.</div>` : ""}
-        ${addCandidate.availability?.label === "Delvis ledig" ? `<div class="iz-workbench-warning is-partial">Denne personen er delvis ledig. Velg riktig delperiode før du legger til.</div>` : ""}
+        ${addCandidate?.availability?.label === "Opptatt" ? `<div class="iz-workbench-warning is-busy">Denne personen er opptatt i perioden. Ved overbooking blir konflikten synlig i Ansattplan.</div>` : ""}
+        ${addCandidate?.availability?.label === "Delvis ledig" ? `<div class="iz-workbench-warning is-partial">Denne personen er delvis ledig. Velg riktig delperiode før du legger til.</div>` : ""}
         <div class="iz-workbench-add-grid">
           <label>
             Rolle
@@ -8407,12 +8447,26 @@ Overbooking blir lagret og skal vises som konflikt i Ansattplan.`;
             Til
             <input id="projectInspectorCustomEndInput" type="date" value="${escapeHtml(addRange.end || projectBounds.end || "")}" min="${escapeHtml(projectBounds.start || "")}" max="${escapeHtml(projectBounds.end || "")}" ${state.projectInspectorAddUseCustomRange ? "" : "disabled"} />
           </label>
-          <button id="projectInspectorAddConfirmBtn" data-project-inspector-confirm-add="1" data-project-inspector-confirm-employee="${escapeHtml(addCandidate.name)}" type="button" class="iz-workbench-primary-btn">
-            ${addCandidate.availability?.label === "Opptatt" ? "Overbook og legg til" : "Legg til prosjekt"}
-          </button>
+          <button id="projectInspectorAddConfirmBtn" ${confirmAttrs} type="button" class="iz-workbench-primary-btn">${escapeHtml(confirmText)}</button>
         </div>
       </section>
-    ` : `<section class="iz-workbench-add-panel is-empty"><strong>Velg en ansatt</strong><span>Trykk Legg til, Legg til delperiode eller Overbook i listene under.</span></section>`;
+    `;
+
+    const selectedAddPanelHtml = addCandidate
+      ? renderAddPanelForm(
+          `Legg til: ${addCandidate.name}`,
+          "Velg rolle og periode før du legger personen til prosjektet.",
+          addCandidate.availability?.label === "Opptatt" ? "Overbook og legg til" : "Legg til prosjekt",
+          `data-project-inspector-confirm-add="1" data-project-inspector-confirm-employee="${escapeHtml(addCandidate.name)}"`
+        )
+      : selectedBatchNames.length
+        ? renderAddPanelForm(
+            `Legg til valgte (${selectedBatchNames.length})`,
+            selectedBatchNames.slice(0, 3).join(", ") + (selectedBatchNames.length > 3 ? ` +${selectedBatchNames.length - 3} flere` : ""),
+            `Legg til ${selectedBatchNames.length} valgt${selectedBatchNames.length > 1 ? "e" : ""}`,
+            `data-project-inspector-confirm-batch="1"`
+          )
+        : `<section class="iz-workbench-add-panel is-empty"><strong>Velg ansatte</strong><span>Bruk + Legg til for én ansatt, eller huk av flere og legg til samlet.</span></section>`;
 
     const assignedHtml = assignedEntries.length ? assignedEntries.map(entry => `
       <div class="iz-workbench-assigned-row" data-project-assigned-entry-id="${escapeHtml(entry.id)}">
@@ -8422,26 +8476,14 @@ Overbooking blir lagret og skal vises som konflikt i Ansattplan.`;
           <span>${escapeHtml(entry.role || "Rolle ikke satt")} · ${escapeHtml(formatDate(entry.start_date))} – ${escapeHtml(formatDate(entry.end_date))}</span>
           ${entry.notes ? `<small>${escapeHtml(entry.notes)}</small>` : ""}
         </div>
+        <div class="iz-workbench-assigned-row-actions" aria-label="Handlinger for ${escapeHtml(entry.employee_name)}">
+          <button data-project-entry-edit-id="${escapeHtml(entry.id)}" type="button" class="iz-workbench-assigned-row-btn">Endre</button>
+          <button data-project-entry-delete-id="${escapeHtml(entry.id)}" type="button" class="iz-workbench-assigned-row-btn danger">Fjern</button>
+        </div>
       </div>
     `).join("") : `<div class="iz-workbench-empty">Ingen tildelte ressurser ennå.</div>`;
 
-    const assignedControlsHtml = assignedEntries.length ? `
-      <div class="iz-workbench-assigned-controls" aria-label="Handlinger for tildelte ansatte">
-        <div class="iz-workbench-assigned-controls-title">Endre tildelte</div>
-        ${assignedEntries.map(entry => `
-          <div class="iz-workbench-assigned-control-row" data-project-assigned-control-id="${escapeHtml(entry.id)}">
-            <div class="iz-workbench-assigned-control-person">
-              <strong>${escapeHtml(entry.employee_name)}</strong>
-              <span>${escapeHtml(entry.role || "Rolle ikke satt")}</span>
-            </div>
-            <div class="iz-workbench-assigned-control-actions">
-              <button data-project-entry-edit-id="${escapeHtml(entry.id)}" type="button" class="iz-workbench-assigned-control-btn">Bytt / endre</button>
-              <button data-project-entry-delete-id="${escapeHtml(entry.id)}" type="button" class="iz-workbench-assigned-control-btn danger">Fjern</button>
-            </div>
-          </div>
-        `).join("")}
-      </div>
-    ` : "";
+    const assignedControlsHtml = "";
 
     els.calendarPanelContent.innerHTML = `
       <div class="iz-project-workbench-modal" role="dialog" aria-modal="true" aria-label="Bemanning og prosjektkontroll">
@@ -8598,9 +8640,31 @@ Overbooking blir lagret og skal vises som konflikt i Ansattplan.`;
       });
     });
 
+    els.calendarPanelContent.querySelectorAll("[data-project-inspector-quick-add]").forEach(btn => {
+      btn.addEventListener("click", event => {
+        event.preventDefault();
+        event.stopPropagation();
+        const employeeName = btn.dataset.projectInspectorQuickAdd || "";
+        state.projectInspectorAddUseCustomRange = false;
+        state.projectInspectorAddRole = btn.dataset.projectInspectorSelectRole || getDefaultRoleForIndex(0);
+        void createProjectInspectorAssignments(project.id, [employeeName], { role: state.projectInspectorAddRole });
+      });
+    });
+
+    els.calendarPanelContent.querySelectorAll("[data-project-inspector-batch-select]").forEach(input => {
+      input.addEventListener("click", event => event.stopPropagation());
+      input.addEventListener("change", event => {
+        event.stopPropagation();
+        toggleProjectInspectorSelectedName(project, input.dataset.projectInspectorBatchSelect || "", input.checked);
+        state.projectInspectorAddCandidateName = "";
+        rerenderPanel(false);
+      });
+    });
+
     document.getElementById("projectInspectorAddCancelBtn")?.addEventListener("click", event => {
       event.preventDefault();
       state.projectInspectorAddCandidateName = "";
+      state.projectInspectorSelectedNames = [];
       state.projectInspectorAddRole = "";
       state.projectInspectorAddUseCustomRange = false;
       rerenderPanel(false);
@@ -8631,6 +8695,24 @@ Overbooking blir lagret og skal vises som konflikt i Ansattplan.`;
       state.projectInspectorAddCustomEnd = event.target.value || "";
     });
 
+    const captureProjectInspectorAddForm = () => {
+      const roleSelect = document.getElementById("projectInspectorAddRoleSelect");
+      if (roleSelect) state.projectInspectorAddRole = roleSelect.value || state.projectInspectorAddRole || getDefaultRoleForIndex(0);
+      const customPeriodRadio = document.getElementById("projectInspectorCustomPeriodRadio");
+      const bounds = getProjectInspectorProjectBounds(project);
+      const customStart = document.getElementById("projectInspectorCustomStartInput");
+      const customEnd = document.getElementById("projectInspectorCustomEndInput");
+      if (customPeriodRadio?.checked) {
+        state.projectInspectorAddUseCustomRange = true;
+        if (customStart) state.projectInspectorAddCustomStart = customStart.value || state.projectInspectorAddCustomStart || bounds.start || "";
+        if (customEnd) state.projectInspectorAddCustomEnd = customEnd.value || state.projectInspectorAddCustomEnd || bounds.end || "";
+      } else {
+        state.projectInspectorAddUseCustomRange = false;
+        state.projectInspectorAddCustomStart = bounds.start || project?.planned_start_date || state.projectInspectorAddCustomStart || "";
+        state.projectInspectorAddCustomEnd = bounds.end || project?.planned_end_date || state.projectInspectorAddCustomEnd || "";
+      }
+    };
+
     els.calendarPanelContent.querySelectorAll("[data-project-inspector-confirm-add]").forEach(confirmBtn => {
       confirmBtn.addEventListener("click", event => {
         event.preventDefault();
@@ -8640,22 +8722,18 @@ Overbooking blir lagret og skal vises som konflikt i Ansattplan.`;
         if (employeeName && state.projectInspectorAddCandidateName !== employeeName) {
           primeProjectInspectorCandidate(project, employeeName, state.projectInspectorAddRole || getDefaultRoleForIndex(0));
         }
-        const roleSelect = document.getElementById("projectInspectorAddRoleSelect");
-        if (roleSelect) state.projectInspectorAddRole = roleSelect.value || state.projectInspectorAddRole || getDefaultRoleForIndex(0);
-        const customPeriodRadio = document.getElementById("projectInspectorCustomPeriodRadio");
-        const bounds = getProjectInspectorProjectBounds(project);
-        const customStart = document.getElementById("projectInspectorCustomStartInput");
-        const customEnd = document.getElementById("projectInspectorCustomEndInput");
-        if (customPeriodRadio?.checked) {
-          state.projectInspectorAddUseCustomRange = true;
-          if (customStart) state.projectInspectorAddCustomStart = customStart.value || state.projectInspectorAddCustomStart || bounds.start || "";
-          if (customEnd) state.projectInspectorAddCustomEnd = customEnd.value || state.projectInspectorAddCustomEnd || bounds.end || "";
-        } else {
-          state.projectInspectorAddUseCustomRange = false;
-          state.projectInspectorAddCustomStart = bounds.start || project?.planned_start_date || state.projectInspectorAddCustomStart || "";
-          state.projectInspectorAddCustomEnd = bounds.end || project?.planned_end_date || state.projectInspectorAddCustomEnd || "";
-        }
+        captureProjectInspectorAddForm();
         void createProjectInspectorAssignment(project.id);
+      });
+    });
+
+    els.calendarPanelContent.querySelectorAll("[data-project-inspector-confirm-batch]").forEach(confirmBtn => {
+      confirmBtn.addEventListener("click", event => {
+        event.preventDefault();
+        event.stopPropagation();
+        captureProjectInspectorAddForm();
+        const names = getProjectInspectorSelectedNames(project);
+        void createProjectInspectorAssignments(project.id, names, { role: state.projectInspectorAddRole || getProjectInspectorRoleForBatch(project) });
       });
     });
 
@@ -10195,6 +10273,15 @@ Overbooking blir lagret og skal vises som konflikt i Ansattplan.`;
     const project = getProjectById(entry.project_id);
     const confirmText = `Fjern tildeling for ${entry.employee_name} fra ${project?.name || "prosjekt"}?`;
     if (!confirm(confirmText)) return;
+
+    document.querySelectorAll(`[data-project-assigned-entry-id="${entryId}"], [data-project-assigned-control-id="${entryId}"]`).forEach(node => {
+      node.classList.add("is-removing");
+      node.setAttribute("aria-busy", "true");
+      node.querySelectorAll("button").forEach(button => {
+        button.disabled = true;
+        if (button.matches("[data-project-entry-delete-id]")) button.textContent = "Fjerner…";
+      });
+    });
 
     state.entries = state.entries.filter(item => item.id !== entryId);
     rebuildDerivedState();
