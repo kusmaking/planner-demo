@@ -5830,6 +5830,83 @@
       backdrop-filter: blur(8px) !important;
     }
 
+
+    /* v18.62w: Project workbench collapse layout fix.
+       Keep "Ledig hele perioden" open, but ensure collapsed "Delvis" and "Opptatt" rows do not float over available employees. */
+    body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench .iz-workbench-columns {
+      display: flex !important;
+      flex-direction: column !important;
+      gap: 8px !important;
+      overflow-y: auto !important;
+      overflow-x: hidden !important;
+      min-height: 0 !important;
+      align-content: stretch !important;
+      overscroll-behavior: contain !important;
+    }
+
+    body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench .iz-workbench-column,
+    body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench details.iz-workbench-collapsible-column {
+      position: relative !important;
+      z-index: 1 !important;
+      flex: 0 0 auto !important;
+      min-height: 0 !important;
+      overflow: visible !important;
+      background: rgba(8, 47, 60, .88) !important;
+    }
+
+    body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench .iz-workbench-column.is-open-default {
+      flex: 0 0 auto !important;
+      min-height: 0 !important;
+      overflow: visible !important;
+    }
+
+    body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench .iz-workbench-column.is-open-default .iz-workbench-column-body {
+      display: grid !important;
+      grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)) !important;
+      gap: 8px !important;
+      max-height: none !important;
+      overflow: visible !important;
+      padding: 8px !important;
+    }
+
+    body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench details.iz-workbench-collapsible-column:not([open]) {
+      flex: 0 0 auto !important;
+      min-height: 42px !important;
+      max-height: 48px !important;
+      overflow: hidden !important;
+    }
+
+    body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench details.iz-workbench-collapsible-column:not([open]) .iz-workbench-column-body {
+      display: none !important;
+      height: 0 !important;
+      max-height: 0 !important;
+      overflow: hidden !important;
+      padding: 0 !important;
+      margin: 0 !important;
+    }
+
+    body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench details.iz-workbench-collapsible-column .iz-workbench-column-summary {
+      position: relative !important;
+      z-index: 2 !important;
+      background: rgba(8, 47, 60, .96) !important;
+      border: 1px solid rgba(133, 194, 210, .22) !important;
+      border-radius: 4px !important;
+    }
+
+    body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench details.iz-workbench-collapsible-column[open] {
+      max-height: none !important;
+      overflow: visible !important;
+    }
+
+    body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench details.iz-workbench-collapsible-column[open] .iz-workbench-column-body {
+      display: grid !important;
+      grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)) !important;
+      gap: 8px !important;
+      max-height: none !important;
+      overflow: visible !important;
+      padding: 8px !important;
+    }
+
 </style>
 </head>
 <body class="iz-compact-ui text-slate-900">
