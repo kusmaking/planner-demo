@@ -1,9 +1,9 @@
-# PATCH_HISTORY
+# PATCH HISTORY
 
-## v18.62ai — Project workbench remove immediate UI response
-- Based on v18.62ah.
-- Fixes slow perceived remove action in project staffing.
-- Assigned row is now visually removed immediately after confirmation.
-- Supabase deletion still runs using existing planner_entries delete logic.
-- If deletion fails, the row is restored and the user is warned.
-- No Supabase schema, RLS, login, calendar data model, or main changes.
+## v18.62aj — project workbench remove race-condition fix
+- Basert på v18.62ai.
+- Fikser at tildelt ansatt kunne forsvinne kort, komme tilbake, og først forsvinne etter Supabase-latency.
+- Innfører pending-delete guard for prosjektbemanning slik at realtime/poll-refresh ikke henter slettet tildeling tilbake mens delete-kallet pågår.
+- Prosjektvinduet oppdateres umiddelbart etter bekreftet Fjern-klikk.
+- Tunge oppdateringer av kalender/dashboard/analyse kjøres etter at prosjektvinduet har respondert.
+- Ingen endring i Supabase schema, RLS, Edge Functions, login eller kalenderdatamodell.

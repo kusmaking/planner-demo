@@ -117,6 +117,7 @@
     projectInspectorAddCustomEnd: "",
     projectInspectorSelectedNames: [],
     projectInspectorBatchMode: false,
+    projectInspectorPendingDeleteIds: new Set(),
     projectWorkbenchWindow: null,
     projectImportPreview: {
       fileName: "",
@@ -4847,6 +4848,19 @@ Dette oppretter ikke Auth-bruker. Hvis Auth-brukeren mangler, får du en tydelig
     });
   }
 
+  function getProjectInspectorPendingDeleteIds() {
+    if (!(state.projectInspectorPendingDeleteIds instanceof Set)) {
+      state.projectInspectorPendingDeleteIds = new Set();
+    }
+    return state.projectInspectorPendingDeleteIds;
+  }
+
+  function filterPendingDeletedEntries(rows = []) {
+    const pendingDeleteIds = getProjectInspectorPendingDeleteIds();
+    if (!pendingDeleteIds.size) return rows || [];
+    return (rows || []).filter(row => !pendingDeleteIds.has(row?.id));
+  }
+
   async function fetchFromSupabase() {
     if (!state.supabaseReady) return;
 
@@ -4864,7 +4878,7 @@ Dette oppretter ikke Auth-bruker. Hvis Auth-brukeren mangler, får du en tydelig
 
         state.employees = normalizeEmployees(employeesRes.data || []);
         state.projects = normalizeProjects(projectsRes.data || []);
-        state.entries = entriesRes.data || [];
+        state.entries = filterPendingDeletedEntries(entriesRes.data || []);
         state.auditLog = [];
         state.notificationLog = [];
         await fetchEmployeePortalCrewForProjects((state.entries || []).map(entry => entry.project_id));
@@ -4896,7 +4910,7 @@ Dette oppretter ikke Auth-bruker. Hvis Auth-brukeren mangler, får du en tydelig
 
       state.employees = normalizeEmployees(employeesRes.data || []);
       state.projects = normalizeProjects(projectsRes.data || []);
-      state.entries = entriesRes.data || [];
+      state.entries = filterPendingDeletedEntries(entriesRes.data || []);
       state.auditLog = auditRes.data || [];
       state.notificationLog = notificationRes.data || [];
 
@@ -10300,62 +10314,44 @@ async function deleteEditedEntry() {
     const confirmText = `Fjern tildeling for ${entry.employee_name} fra ${project?.name || "prosjekt"}?`;
     if (!confirm(confirmText)) return;
 
-    // v18.62ai: Optimistisk fjerning i selve prosjektvinduet.
-    // Målet er at tildelt-raden forsvinner umiddelbart etter bekreftelse,
-    // i stedet for å vente på Supabase + full kalender/render som kan ta flere sekunder.
-    const selector = `[data-project-assigned-entry-id="${entryId}"], [data-project-assigned-control-id="${entryId}"]`;
-    const affectedNodes = Array.from(document.querySelectorAll(selector));
-    const domSnapshots = affectedNodes.map(node => ({
-      node,
-      parent: node.parentNode,
-      nextSibling: node.nextSibling
-    }));
-
-    affectedNodes.forEach(node => {
-      node.classList.add("is-removing");
-      node.setAttribute("aria-busy", "true");
-      node.style.opacity = "0.35";
-      node.style.pointerEvents = "none";
-      node.querySelectorAll("button").forEach(button => {
-        button.disabled = true;
-        if (button.matches("[data-project-entry-delete-id]")) button.textContent = "Fjerner…";
-      });
-    });
-
-    // La browseren male statusen først, og fjern deretter raden direkte fra DOM.
-    await new Promise(resolve => requestAnimationFrame(resolve));
-    affectedNodes.forEach(node => node.remove());
+    // v18.62aj: Hold sletting lokalt som "pending" slik at realtime/poll-refresh
+    // ikke kan hente raden tilbake fra Supabase mens delete-kallet fortsatt pågår.
+    const pendingDeleteIds = getProjectInspectorPendingDeleteIds();
+    pendingDeleteIds.add(entryId);
 
     const previousEntries = state.entries.slice();
     state.entries = state.entries.filter(item => item.id !== entryId);
+    rebuildDerivedState();
+    saveAllLocal();
+
+    // Vis endringen umiddelbart i prosjektvinduet. Dette er viktigere enn å vente
+    // på tung kalender-/dashboard-rendering og Supabase-latency.
+    if (project && state.focusProjectId === project.id) {
+      renderProjectInspectorPanel(project);
+    } else {
+      renderCalendarPanel();
+    }
 
     const result = await deleteRow("planner_entries", entryId);
     if (!result.ok) {
+      pendingDeleteIds.delete(entryId);
       state.entries = previousEntries;
-      domSnapshots.forEach(snapshot => {
-        if (!snapshot.parent) return;
-        if (snapshot.nextSibling && snapshot.nextSibling.parentNode === snapshot.parent) {
-          snapshot.parent.insertBefore(snapshot.node, snapshot.nextSibling);
-        } else {
-          snapshot.parent.appendChild(snapshot.node);
-        }
-        snapshot.node.classList.remove("is-removing");
-        snapshot.node.removeAttribute("aria-busy");
-        snapshot.node.style.opacity = "";
-        snapshot.node.style.pointerEvents = "";
-        snapshot.node.querySelectorAll("button").forEach(button => {
-          button.disabled = false;
-          if (button.matches("[data-project-entry-delete-id]")) button.textContent = "Fjern";
-        });
-      });
+      rebuildDerivedState();
+      saveAllLocal();
+      renderAll();
       alert("Kunne ikke fjerne tildelingen. Prøv igjen.");
       return;
     }
 
-    rebuildDerivedState();
     void addAudit(`Slettet tildeling fra prosjektkort: ${entry.employee_name} → ${displayProjectName(project) || "Ukjent prosjekt"}`);
 
-    // Tyngre oppdateringer kjøres etter at bruker allerede har fått visuell respons.
+    // Hold ID-en i pending litt etter vellykket delete for å unngå race fra
+    // pågående realtime/poll/visibility-refresh som startet før delete var ferdig.
+    window.setTimeout(() => {
+      pendingDeleteIds.delete(entryId);
+    }, 4000);
+
+    // Oppdater tunge deler etter at brukergrensesnittet allerede har respondert.
     window.setTimeout(() => {
       if (project && state.focusProjectId === project.id) {
         renderProjectInspectorPanel(project);
