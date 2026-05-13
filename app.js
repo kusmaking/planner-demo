@@ -10300,13 +10300,21 @@ async function deleteEditedEntry() {
     const confirmText = `Fjern tildeling for ${entry.employee_name} fra ${project?.name || "prosjekt"}?`;
     if (!confirm(confirmText)) return;
 
-    // v18.62ah: Gi umiddelbar respons i prosjektvinduet før tyngre render/DB-kall.
-    // Tidligere ble kalender og analyser rendret synkront først, som kunne oppleves som 3-4 sekunders heng.
-    const affectedNodes = Array.from(document.querySelectorAll(`[data-project-assigned-entry-id="${entryId}"], [data-project-assigned-control-id="${entryId}"]`));
+    // v18.62ai: Optimistisk fjerning i selve prosjektvinduet.
+    // Målet er at tildelt-raden forsvinner umiddelbart etter bekreftelse,
+    // i stedet for å vente på Supabase + full kalender/render som kan ta flere sekunder.
+    const selector = `[data-project-assigned-entry-id="${entryId}"], [data-project-assigned-control-id="${entryId}"]`;
+    const affectedNodes = Array.from(document.querySelectorAll(selector));
+    const domSnapshots = affectedNodes.map(node => ({
+      node,
+      parent: node.parentNode,
+      nextSibling: node.nextSibling
+    }));
+
     affectedNodes.forEach(node => {
       node.classList.add("is-removing");
       node.setAttribute("aria-busy", "true");
-      node.style.opacity = "0.45";
+      node.style.opacity = "0.35";
       node.style.pointerEvents = "none";
       node.querySelectorAll("button").forEach(button => {
         button.disabled = true;
@@ -10314,35 +10322,49 @@ async function deleteEditedEntry() {
       });
     });
 
-    // La browseren male "Fjerner…" / demping før vi gjør state-rendering.
-    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    // La browseren male statusen først, og fjern deretter raden direkte fra DOM.
+    await new Promise(resolve => requestAnimationFrame(resolve));
+    affectedNodes.forEach(node => node.remove());
 
+    const previousEntries = state.entries.slice();
     state.entries = state.entries.filter(item => item.id !== entryId);
-    rebuildDerivedState();
-
-    if (project) {
-      renderProjectInspectorPanel(project);
-      // Kalender og dashboard oppdateres rett etter at prosjektvinduet har svart visuelt.
-      // Dette holder UI-et responsivt uten å endre lagringslogikken.
-      setTimeout(() => {
-        renderCalendar();
-        renderHomeDashboard();
-        updateBadge();
-        updateAvailabilityAnalysis();
-      }, 0);
-    } else {
-      renderAll();
-    }
 
     const result = await deleteRow("planner_entries", entryId);
     if (!result.ok) {
-      state.entries.push(entry);
-      rebuildDerivedState();
-      renderAll();
+      state.entries = previousEntries;
+      domSnapshots.forEach(snapshot => {
+        if (!snapshot.parent) return;
+        if (snapshot.nextSibling && snapshot.nextSibling.parentNode === snapshot.parent) {
+          snapshot.parent.insertBefore(snapshot.node, snapshot.nextSibling);
+        } else {
+          snapshot.parent.appendChild(snapshot.node);
+        }
+        snapshot.node.classList.remove("is-removing");
+        snapshot.node.removeAttribute("aria-busy");
+        snapshot.node.style.opacity = "";
+        snapshot.node.style.pointerEvents = "";
+        snapshot.node.querySelectorAll("button").forEach(button => {
+          button.disabled = false;
+          if (button.matches("[data-project-entry-delete-id]")) button.textContent = "Fjern";
+        });
+      });
+      alert("Kunne ikke fjerne tildelingen. Prøv igjen.");
       return;
     }
 
+    rebuildDerivedState();
     void addAudit(`Slettet tildeling fra prosjektkort: ${entry.employee_name} → ${displayProjectName(project) || "Ukjent prosjekt"}`);
+
+    // Tyngre oppdateringer kjøres etter at bruker allerede har fått visuell respons.
+    window.setTimeout(() => {
+      if (project && state.focusProjectId === project.id) {
+        renderProjectInspectorPanel(project);
+      }
+      renderCalendar();
+      renderHomeDashboard();
+      updateBadge();
+      updateAvailabilityAnalysis();
+    }, 0);
   }
 
   function bindEmployeeAdminFilters() {

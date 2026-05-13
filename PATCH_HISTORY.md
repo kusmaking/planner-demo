@@ -1,21 +1,9 @@
 # PATCH_HISTORY
 
-## v18.62ah-project-workbench-remove-response-optimization
-
-Base: v18.62ag-project-workbench-simplified-staffing-flow-sandbox
-
-Endringer:
-- Optimaliserer respons når en tildelt ansatt fjernes fra prosjektbemanningsvinduet.
-- Viser umiddelbart "Fjerner…" og demper raden før tyngre rendering starter.
-- Oppdaterer prosjektvinduet først, og skyver kalender/dashboard/analyse-rendering til neste tick.
-- Beholder eksisterende slettelogikk mot `planner_entries`.
-- Ved feil i sletting rulles lokal state tilbake og appen rendres på nytt.
-
-Ikke endret:
-- Login
-- Supabase schema
-- RLS
-- Edge Functions
-- Kalenderdata-modell
-- Overbookinglogikk
-- Main
+## v18.62ai — Project workbench remove immediate UI response
+- Based on v18.62ah.
+- Fixes slow perceived remove action in project staffing.
+- Assigned row is now visually removed immediately after confirmation.
+- Supabase deletion still runs using existing planner_entries delete logic.
+- If deletion fails, the row is restored and the user is warned.
+- No Supabase schema, RLS, login, calendar data model, or main changes.
