@@ -7263,7 +7263,9 @@ async function deleteEditedEntry() {
     }
 
     function isOffshoreCapacityEmployee(employee) {
-      return Boolean(employee && employee.active !== false && normalizeEmployeeGroup(employee.employee_group || "") === "Offshore arbeider");
+      if (!employee || employee.active === false) return false;
+      const group = normalizeEmployeeGroup(employee.employee_group || "");
+      return group === "Offshore arbeider" || group === "3 parts innleie";
     }
 
     function getCapacityEmployees(resourceType) {
@@ -7539,7 +7541,7 @@ async function deleteEditedEntry() {
         label: "Offshore",
         color: "#2dd4bf",
         resourceType: "offshore",
-        threshold: { critical: -1, low: 1, note: "Gap <0 · Lav 0–1" },
+        threshold: { critical: -1, low: 1, note: "Inkl. 3 parts innleie · Gap <0 · Lav 0–1" },
         mode: "demand"
       },
       {
@@ -7549,14 +7551,6 @@ async function deleteEditedEntry() {
         resourceType: "workshop",
         threshold: { critical: -1, low: 1, note: "Kun Onshore Workshop Technician + Apprentice" },
         mode: "demand"
-      },
-      {
-        value: "Engineering",
-        label: "Engineering",
-        color: "#fb923c",
-        legacyGroup: GROUPS.find(group => group.value === "Engineering"),
-        threshold: { critical: 0, low: 1, note: "Tilgjengelighet" },
-        mode: "legacy"
       },
       {
         value: "3 parts innleie",
@@ -7686,7 +7680,7 @@ async function deleteEditedEntry() {
         ${next14ProjectKpiHtml}
         <div class="dash27-panel overflow-hidden"><div class="px-5 pt-4 text-xl font-extrabold">Operativ status – neste 14 dager</div><div class="grid grid-cols-1 lg:grid-cols-4">${kpiCards}</div></div>
         <div class="grid grid-cols-1 2xl:grid-cols-[1.25fr_.75fr] gap-4">
-          <div class="dash27-panel p-5"><div class="flex items-center justify-between gap-3 mb-4"><div class="dash27-card-title">Kapasitet dag for dag – neste 14 dager <span class="dash27-info">i</span></div><div class="text-sm dash27-muted">Netto kapasitet · Behov vs ledige ressurser</div></div>${capacityOverviewHtml}<div class="mt-3 text-xs dash27-muted">Offshore og Workshop viser netto kapasitet: tilgjengelige ressurser minus gjenstående prosjektbehov. Workshop teller kun Onshore Workshop Technician og Apprentice.</div></div>
+          <div class="dash27-panel p-5"><div class="flex items-center justify-between gap-3 mb-4"><div class="dash27-card-title">Kapasitet dag for dag – neste 14 dager <span class="dash27-info">i</span></div><div class="text-sm dash27-muted">Netto kapasitet · Behov vs ledige ressurser</div></div>${capacityOverviewHtml}<div class="mt-3 text-xs dash27-muted">Offshore viser netto kapasitet inkl. 3 parts innleie. Workshop teller kun Onshore Workshop Technician og Apprentice. Engineering er skjult fra kapasitetsradene.</div></div>
           <div class="dash27-panel p-5"><div class="flex items-center justify-between gap-3 mb-4"><div class="dash27-card-title">Kapasitetsgap – neste uke <span class="dash27-info">i</span></div><button type="button" data-home-action="project" class="text-cyan-300 text-sm font-bold">Se detaljer →</button></div>${heatmapHtml}<div class="mt-4 pt-4 border-t border-white/10 text-sm"><span class="text-orange-300 font-bold">⚠</span> Totalt ${lowSituations} kapasitetsgap/lave marginer i kommende uke</div>${lowSituationSummaryHtml}</div>
         </div>
         <div class="grid grid-cols-1 xl:grid-cols-3 gap-4">

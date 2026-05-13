@@ -1,5 +1,26 @@
 # PATCH_HISTORY
 
+
+## v18.63b-offshore-thirdparty-hide-engineering-capacity-sandbox
+
+Justerer dashboardets kapasitetsmodell etter operativ bruk.
+
+Endret:
+- Offshore-kapasitet inkluderer nå aktive ansatte i gruppen `3 parts innleie` i tillegg til `Offshore arbeider`.
+- Offshore-raden er merket med at den inkluderer 3 parts innleie.
+- Engineering er fjernet fra kapasitetsradene i dashboardet, siden Engineering ikke inngår i ordinær prosjektbemanning i denne modellen.
+- 3 parts innleie beholdes fortsatt som egen tilgjengelighetsrad for oversikt.
+
+Ikke endret:
+- Workshop-kapasitet teller fortsatt kun Onshore Workshop Technician / Workshop Technician og Apprentice.
+- Prosjektbemanning / legg til / fjern ansatte
+- Login
+- Supabase schema
+- RLS
+- Edge Functions
+- Kalenderstruktur
+- Main
+
 ## v18.63a-workshop-offshore-capacity-calculation-model-sandbox
 
 Starter kapasitetskalkyle for dashboard.
