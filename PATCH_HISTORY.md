@@ -51,3 +51,9 @@ Test før lock:
 - Delvis ledig/opptatt beholder valg for periode/overbook.
 - Økte minimumsbredde på kandidatkort slik at navn/stilling ikke kappes like hardt.
 - Ingen endring i login, Supabase, RLS, Edge Functions, kalenderdata eller main.
+
+## v18.62ag - Simplify assigned staffing flow
+- Removed the assigned-row Endre button from project staffing workbench.
+- Keeps the deliberate workflow: Fjern assigned employee, then + Legg til new employee.
+- Keeps existing Fjern logic and the improved candidate card layout from v18.62ae.
+- No changes to login, Supabase schema, RLS, Edge Functions, calendar data or main branch.

@@ -8474,7 +8474,7 @@ async function deleteEditedEntry() {
             `Legg til ${selectedBatchNames.length} valgt${selectedBatchNames.length > 1 ? "e" : ""}`,
             `data-project-inspector-confirm-batch="1"`
           )
-        : `<section class="iz-workbench-add-panel is-empty iz-workbench-add-panel-compact"><strong>Velg ansatte</strong><span>Trykk <b>+ Legg til</b> for rask tildeling, eller bruk <b>Velg periode</b> for rolle/delperiode.</span></section>`;
+        : `<section class="iz-workbench-add-panel is-empty iz-workbench-add-panel-compact"><strong>Velg ansatte</strong><span>Trykk <b>+ Legg til</b> for rask tildeling. For bytte: fjern tildelt ansatt og legg til ny.</span></section>`;
 
     const batchToolbarHtml = state.projectInspectorBatchMode
       ? `<div class="iz-workbench-batch-toolbar is-active"><span>${selectedBatchNames.length} valgt</span><button data-project-inspector-toggle-batch="0" type="button" class="iz-workbench-secondary-btn">Avslutt flervalg</button></div>`
@@ -8489,7 +8489,6 @@ async function deleteEditedEntry() {
           ${entry.notes ? `<small>${escapeHtml(entry.notes)}</small>` : ""}
         </div>
         <div class="iz-workbench-assigned-row-actions" aria-label="Handlinger for ${escapeHtml(entry.employee_name)}">
-          <button data-project-entry-edit-id="${escapeHtml(entry.id)}" type="button" class="iz-workbench-assigned-row-btn">Endre</button>
           <button data-project-entry-delete-id="${escapeHtml(entry.id)}" type="button" class="iz-workbench-assigned-row-btn danger">Fjern</button>
         </div>
       </div>
