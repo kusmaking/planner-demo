@@ -4023,6 +4023,50 @@ Dette oppretter ikke Auth-bruker. Hvis Auth-brukeren mangler, får du en tydelig
     openCalendarContextMenuFromEvent(event);
   }
 
+
+  function normalizeCalendarWheelDelta(value, mode, referenceSize) {
+    const numeric = Number(value) || 0;
+    if (!numeric) return 0;
+    if (mode === 1) return numeric * 32;
+    if (mode === 2) return numeric * Math.max(240, Number(referenceSize) || 0);
+    return numeric;
+  }
+
+  function handleCalendarWrapWheelScroll(event) {
+    const wrap = els.calendarWrap;
+    if (!wrap) return;
+    if (event.target?.closest?.("#calendarPanelCol, #calendarContextMenu, #projectModal, #editModal, #employeeModal, #loginModal, select, option")) return;
+
+    const maxY = Math.max(0, wrap.scrollHeight - wrap.clientHeight);
+    const maxX = Math.max(0, wrap.scrollWidth - wrap.clientWidth);
+    if (maxY <= 1 && maxX <= 1) return;
+
+    const dy = normalizeCalendarWheelDelta(event.deltaY, event.deltaMode, wrap.clientHeight);
+    const dx = normalizeCalendarWheelDelta(event.deltaX, event.deltaMode, wrap.clientWidth);
+    if (!dy && !dx) return;
+
+    const beforeTop = wrap.scrollTop;
+    const beforeLeft = wrap.scrollLeft;
+    const preferHorizontal = event.shiftKey || Math.abs(dx) > Math.abs(dy);
+
+    if (preferHorizontal && maxX > 1) {
+      const horizontalDelta = dx || dy;
+      wrap.scrollLeft = Math.max(0, Math.min(maxX, wrap.scrollLeft + horizontalDelta));
+    } else if (maxY > 1) {
+      wrap.scrollTop = Math.max(0, Math.min(maxY, wrap.scrollTop + dy));
+      if (Math.abs(dx) > 0 && maxX > 1) {
+        wrap.scrollLeft = Math.max(0, Math.min(maxX, wrap.scrollLeft + dx));
+      }
+    } else if (maxX > 1) {
+      wrap.scrollLeft = Math.max(0, Math.min(maxX, wrap.scrollLeft + (dx || dy)));
+    }
+
+    if (wrap.scrollTop !== beforeTop || wrap.scrollLeft !== beforeLeft) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+  }
+
   function getEmployeeGroupBadgeClass(group) {
     return EMPLOYEE_GROUP_BADGE_STYLES[group] || "border-slate-200 bg-slate-100 text-slate-700";
   }
@@ -4289,6 +4333,7 @@ Dette oppretter ikke Auth-bruker. Hvis Auth-brukeren mangler, får du en tydelig
     document.addEventListener("click", handleEmployeeGroupFilterOutsideClick);
     if (els.calendarWrap) {
       els.calendarWrap.addEventListener("contextmenu", handleCalendarWrapContextMenu, true);
+      els.calendarWrap.addEventListener("wheel", handleCalendarWrapWheelScroll, { passive: false });
       els.calendarWrap.addEventListener("pointerdown", event => {
         if (event.button === 2) openCalendarContextMenuFromEvent(event);
       }, true);

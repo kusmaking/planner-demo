@@ -19,3 +19,9 @@
 - Beholder en roligere I dag-markering i datoheaderen.
 - La til trygg scroll-stabilisering på kalenderen: auto scroll-behavior, stable scrollbar gutter og overflow-anchor av.
 - Ikke rørt bemanningslogikk, Supabase, RLS, Edge Functions, login eller main.
+
+## v18.62am-calendar-wheel-scroll-fix-sandbox
+- Fikset mouse-wheel scrolling i kalender/prosjektplan slik at vertikal scroll fungerer direkte over kalenderen.
+- Beholder scrollbar-dragging og horisontal scroll.
+- Ingen endring i prosjektbemanning, Supabase, RLS, Edge Functions, login eller main.
+
