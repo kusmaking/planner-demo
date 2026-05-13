@@ -650,6 +650,34 @@
     ];
   }
 
+  function projectHasConfiguredWorkshopPhase(project) {
+    return Boolean(
+      project &&
+      project.workshop_enabled !== false &&
+      project.workshop_start_date &&
+      project.workshop_end_date &&
+      String(project.workshop_start_date) <= String(project.workshop_end_date)
+    );
+  }
+
+  function projectHasActiveFieldPhase(project) {
+    if (!project || isSystemPersonalProject(project)) return false;
+    if (isCancelledProject(project)) return true;
+    const fieldNeed = Math.max(Number(project?.headcount_required || 0), 0);
+
+    // Field need = 0 means the project should not create/show a red field period
+    // when a valid workshop phase exists. This supports workshop-only projects where
+    // planned_start/end are kept as reference data, but operational rendering should
+    // only show the green workshop/mobilisation block.
+    if (projectHasConfiguredWorkshopPhase(project) && fieldNeed === 0) return false;
+
+    return Boolean(
+      project?.has_multiple_periods
+        ? normalizeProjectPeriods(project?.project_periods_json || []).some(period => period.start && period.end)
+        : (project?.planned_start_date && project?.planned_end_date)
+    );
+  }
+
   function getProjectTimelinePhaseTypes(project) {
     const periods = getProjectTimelinePeriodsWithWorkshop(project);
     const hasField = periods.some(period => period.phase !== "workshop");
@@ -6383,6 +6411,11 @@ async function deleteEditedEntry() {
 
   function getProjectTimelinePeriods(project) {
     if (!project) return [];
+
+    if (!projectHasActiveFieldPhase(project)) {
+      return [];
+    }
+
     const periods = normalizeProjectPeriods(project?.project_periods_json || []);
     if (project?.has_multiple_periods && periods.length) {
       return periods
@@ -12329,12 +12362,22 @@ function getDashboardAnalysisRange() {
     }
 
     const assigned = getProjectAssignedCount(projectId);
+    const phases = project ? getProjectTimelinePhaseTypes(project) : { isWorkshopOnly: false };
+    const requiredCount = Math.max(Number(required || 0), 0);
+
+    if (phases.isWorkshopOnly) {
+      return { text: "Workshop-only", variant: "text-green-700" };
+    }
+
+    if (requiredCount === 0) {
+      return { text: "Ingen feltbemanning", variant: "text-slate-500" };
+    }
 
     if (assigned === 0) {
       return { text: window.izomaxTranslateKey?.("notStaffed") || "Ikke bemannet", variant: "text-red-700" };
     }
 
-    if (required > 0 && assigned < required) {
+    if (assigned < requiredCount) {
       return { text: window.izomaxTranslateKey?.("partlyStaffed") || "Delvis bemannet", variant: "text-amber-700" };
     }
 

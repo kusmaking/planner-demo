@@ -43,3 +43,9 @@
 - Mouse-wheel over kalender flytter nå ytre side/frame vertikalt.
 - Beholder horisontal scroll for kalender/tidslinje.
 - Ingen endringer i prosjektbemanning, login, Supabase, RLS, Edge Functions eller main.
+
+## v18.62ap - workshop-only field rendering fix
+- Workshop-only prosjekt med feltbehov 0 vises nå kun som grønn workshop/mobilisering i prosjektplanen.
+- Planlagt feltperiode kan fortsatt ligge som referansedata i redigeringsvinduet, men lager ikke rød feltblokk når workshopfase er aktiv og feltbehov er 0.
+- Prosjektlisten viser "Workshop-only" i stedet for "Ikke bemannet" for slike prosjekter.
+- Ingen endring i Supabase, RLS, Edge Functions, login eller bemanningslogikk.
