@@ -6596,6 +6596,160 @@
         flex-wrap: wrap !important;
       }
     }
+
+
+    /* v18.62ae: Bemanningskort - ryddig kortlayout og forankret Legg til-knapp.
+       Denne overstyrer tidligere eksperimentelle workbench-regler uten å endre kalenderlogikk. */
+    body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench .iz-workbench-column.is-open-default .iz-workbench-column-body {
+      display: grid !important;
+      grid-template-columns: repeat(auto-fit, minmax(330px, 1fr)) !important;
+      gap: 10px !important;
+      align-items: stretch !important;
+      overflow: visible !important;
+      max-height: none !important;
+    }
+
+    body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench .iz-workbench-person-clean,
+    body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench .iz-workbench-person-v2.iz-workbench-person-clean {
+      position: relative !important;
+      display: grid !important;
+      grid-template-columns: minmax(0, 1fr) 118px !important;
+      grid-template-areas: "main action" !important;
+      align-items: center !important;
+      gap: 12px !important;
+      width: 100% !important;
+      min-height: 76px !important;
+      padding: 12px !important;
+      box-sizing: border-box !important;
+      overflow: hidden !important;
+      isolation: isolate !important;
+    }
+
+    body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench .iz-workbench-person-clean .iz-workbench-person-main {
+      grid-area: main !important;
+      position: relative !important;
+      z-index: 1 !important;
+      min-width: 0 !important;
+      display: flex !important;
+      align-items: flex-start !important;
+      gap: 10px !important;
+      overflow: hidden !important;
+    }
+
+    body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench .iz-workbench-person-clean .iz-workbench-person-icon {
+      flex: 0 0 24px !important;
+      width: 24px !important;
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      padding-top: 2px !important;
+    }
+
+    body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench .iz-workbench-person-clean .iz-workbench-person-text {
+      min-width: 0 !important;
+      flex: 1 1 auto !important;
+      overflow: hidden !important;
+    }
+
+    body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench .iz-workbench-person-clean .iz-workbench-person-name {
+      display: block !important;
+      max-width: 100% !important;
+      white-space: nowrap !important;
+      overflow: hidden !important;
+      text-overflow: ellipsis !important;
+      font-size: 13.5px !important;
+      line-height: 1.25 !important;
+      color: #f8fbfd !important;
+    }
+
+    body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench .iz-workbench-person-clean .iz-workbench-person-meta {
+      display: block !important;
+      max-width: 100% !important;
+      white-space: nowrap !important;
+      overflow: hidden !important;
+      text-overflow: ellipsis !important;
+      margin-top: 3px !important;
+      line-height: 1.25 !important;
+    }
+
+    body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench .iz-workbench-person-clean .iz-workbench-person-actions {
+      grid-area: action !important;
+      position: static !important;
+      z-index: 2 !important;
+      display: flex !important;
+      flex-direction: column !important;
+      align-items: stretch !important;
+      justify-content: center !important;
+      gap: 6px !important;
+      width: 118px !important;
+      min-width: 118px !important;
+      max-width: 118px !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      transform: none !important;
+      overflow: visible !important;
+    }
+
+    body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench .iz-workbench-person-clean .iz-workbench-status-pill {
+      position: static !important;
+      display: block !important;
+      width: 100% !important;
+      min-width: 0 !important;
+      max-width: 100% !important;
+      text-align: right !important;
+      font-size: 10px !important;
+      line-height: 1.1 !important;
+      transform: none !important;
+    }
+
+    body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench .iz-workbench-person-clean .iz-workbench-add-btn {
+      position: static !important;
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      width: 100% !important;
+      min-width: 0 !important;
+      max-width: 100% !important;
+      height: 32px !important;
+      padding: 0 10px !important;
+      margin: 0 !important;
+      border-radius: 4px !important;
+      font-size: 11px !important;
+      font-weight: 900 !important;
+      white-space: nowrap !important;
+      opacity: 1 !important;
+      visibility: visible !important;
+      pointer-events: auto !important;
+      transform: none !important;
+    }
+
+    body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench .iz-workbench-person-clean .iz-workbench-person-check {
+      grid-column: 1 / -1 !important;
+      grid-row: auto !important;
+      margin: 0 0 6px 0 !important;
+    }
+
+    body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench .iz-workbench-person-clean.is-pending {
+      opacity: .62 !important;
+      pointer-events: none !important;
+    }
+
+    @media (max-width: 980px) {
+      body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench .iz-workbench-column.is-open-default .iz-workbench-column-body {
+        grid-template-columns: 1fr !important;
+      }
+      body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench .iz-workbench-person-clean,
+      body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench .iz-workbench-person-v2.iz-workbench-person-clean {
+        grid-template-columns: minmax(0, 1fr) !important;
+        grid-template-areas: "main" "action" !important;
+      }
+      body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench .iz-workbench-person-clean .iz-workbench-person-actions {
+        width: 100% !important;
+        min-width: 0 !important;
+        max-width: none !important;
+      }
+    }
+
 </style>
 </head>
 <body class="iz-compact-ui text-slate-900">

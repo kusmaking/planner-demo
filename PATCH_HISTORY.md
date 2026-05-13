@@ -41,3 +41,13 @@ Test før lock:
 - Gir raskere visuell respons ved Legg til og Fjern.
 - Reduserer tung full re-render etter add/remove i prosjektvinduet.
 - Ingen endringer i Supabase schema, RLS, Edge Functions, login eller main.
+
+
+## v18.62ae - Project workbench staffing card layout cleanup
+
+- Ryddet kandidatkortene i prosjektbemanning.
+- Forankret `+ Legg til` inne i hvert ansattkort, ikke i bakgrunnen.
+- Fjernet dobbelt handling for ledige ansatte: ledig kort viser nå kun direkte `+ Legg til`.
+- Delvis ledig/opptatt beholder valg for periode/overbook.
+- Økte minimumsbredde på kandidatkort slik at navn/stilling ikke kappes like hardt.
+- Ingen endring i login, Supabase, RLS, Edge Functions, kalenderdata eller main.

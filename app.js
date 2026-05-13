@@ -8376,13 +8376,9 @@ async function deleteEditedEntry() {
           </div>
           <div class="iz-workbench-person-actions">
             <span class="iz-workbench-status-pill ${toneClass}">${escapeHtml(window.izomaxTranslateValue?.(label) || label)}</span>
-            ${canQuickAdd ? `<button type="button" class="iz-workbench-add-btn ${toneClass} iz-workbench-quick-add-main" data-project-inspector-quick-add="${escapeHtml(employee.name)}" data-project-inspector-select-role="${escapeHtml(role)}">+ Legg til</button>` : ""}
-            <button
-              type="button"
-              class="iz-workbench-add-btn ${toneClass} ${canQuickAdd ? "is-secondary" : ""}"
-              data-project-inspector-select-employee="${escapeHtml(employee.name)}"
-              data-project-inspector-select-role="${escapeHtml(role)}"
-            >${isSelected ? "Valgt" : secondaryText}</button>
+            ${canQuickAdd
+              ? `<button type="button" class="iz-workbench-add-btn ${toneClass} iz-workbench-quick-add-main" data-project-inspector-quick-add="${escapeHtml(employee.name)}" data-project-inspector-select-role="${escapeHtml(role)}">+ Legg til</button>`
+              : `<button type="button" class="iz-workbench-add-btn ${toneClass}" data-project-inspector-select-employee="${escapeHtml(employee.name)}" data-project-inspector-select-role="${escapeHtml(role)}">${isSelected ? "Valgt" : secondaryText}</button>`}
           </div>
         </div>
       `;
