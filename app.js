@@ -457,18 +457,18 @@
     return !!date && toIsoDate(date) === toIsoDate(new Date());
   }
 
-  // v18.21-ansattplan-today-highlight-safe
+  // v18.62ak: clean today marker - one calm header marker, no double blue rails through the calendar.
   function getTodayColumnStyle(date, mode = "cell") {
     if (!isTodayDate(date)) return "";
     if (mode === "header") {
-      return "background:linear-gradient(180deg, rgba(219,234,254,0.98), rgba(239,246,255,0.98)); color:#1d4ed8; box-shadow:inset 2px 0 0 #3b82f6, inset -2px 0 0 #3b82f6; position:relative; z-index:5;";
+      return "background:linear-gradient(180deg, rgba(239,246,255,0.96), rgba(248,250,252,0.98)); color:#1d4ed8; border-top:3px solid #2563eb; box-shadow:none; position:relative; z-index:5;";
     }
-    return "background:rgba(59,130,246,0.10); box-shadow:inset 2px 0 0 rgba(37,99,235,0.85), inset -2px 0 0 rgba(37,99,235,0.35); z-index:1;";
+    return "background:rgba(37,99,235,0.045); box-shadow:none; z-index:1;";
   }
 
   function getTodayHeaderBadgeHtml(date) {
     if (!isTodayDate(date)) return "";
-    return `<div style="margin:2px auto 0; width:max-content; border-radius:999px; background:#2563eb; color:#ffffff; padding:1px 6px; font-size:9px; font-weight:800; line-height:1.2;">I dag</div>`;
+    return `<div style="margin:3px auto 0; width:max-content; border-radius:999px; background:#e0f2fe; color:#075985; border:1px solid rgba(14,165,233,0.42); padding:1px 6px; font-size:9px; font-weight:800; line-height:1.2;">I dag</div>`;
   }
 
   function getHolidayNamesForYear(year) {
