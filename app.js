@@ -8421,10 +8421,10 @@ Overbooking blir lagret og skal vises som konflikt i Ansattplan.`;
           <div>${escapeHtml(entry.employee_name)}</div>
           <span>${escapeHtml(entry.role || "Rolle ikke satt")} · ${escapeHtml(formatDate(entry.start_date))} – ${escapeHtml(formatDate(entry.end_date))}</span>
           ${entry.notes ? `<small>${escapeHtml(entry.notes)}</small>` : ""}
-        </div>
-        <div class="iz-workbench-assigned-actions" aria-label="Handlinger for tildelt ansatt">
-          <button data-project-entry-edit-id="${escapeHtml(entry.id)}" type="button" class="iz-workbench-assigned-action-btn" title="Bytt ansatt eller endre rolle/periode">Bytt / endre</button>
-          <button data-project-entry-delete-id="${escapeHtml(entry.id)}" type="button" class="iz-workbench-assigned-action-btn danger" title="Fjern tildeling fra prosjektet">Fjern</button>
+          <div class="iz-workbench-assigned-inline-actions" aria-label="Handlinger for tildelt ansatt" style="display:flex;gap:8px;margin-top:10px;width:100%;">
+            <button data-project-entry-edit-id="${escapeHtml(entry.id)}" type="button" class="iz-workbench-assigned-action-btn" title="Bytt ansatt eller endre rolle/periode" style="flex:1;min-width:0;height:34px;border:1px solid rgba(80,240,199,.45);background:rgba(80,240,199,.13);color:#d1fae5;border-radius:6px;font-weight:900;font-size:11px;cursor:pointer;">Bytt / endre</button>
+            <button data-project-entry-delete-id="${escapeHtml(entry.id)}" type="button" class="iz-workbench-assigned-action-btn danger" title="Fjern tildeling fra prosjektet" style="flex:1;min-width:0;height:34px;border:1px solid rgba(248,113,113,.58);background:rgba(248,113,113,.16);color:#fecaca;border-radius:6px;font-weight:900;font-size:11px;cursor:pointer;">Fjern</button>
+          </div>
         </div>
       </div>
     `).join("") : `<div class="iz-workbench-empty">Ingen tildelte ressurser ennå.</div>`;

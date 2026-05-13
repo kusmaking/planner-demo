@@ -5937,6 +5937,28 @@
       visibility: visible !important;
       pointer-events: auto !important;
     }
+
+
+    /* v18.62y: Vis handlinger på tildelte direkte inne i ansattkortet, uten avhengighet av hover/ekstra gridrad. */
+    body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench .iz-workbench-assigned-inline-actions {
+      display: flex !important;
+      gap: 8px !important;
+      margin-top: 10px !important;
+      width: 100% !important;
+    }
+    body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench .iz-workbench-assigned-inline-actions button {
+      flex: 1 1 0 !important;
+      min-width: 0 !important;
+      height: 34px !important;
+      opacity: 1 !important;
+      visibility: visible !important;
+      pointer-events: auto !important;
+      white-space: nowrap !important;
+    }
+    body.iz-compact-ui #calendarPanelCol.iz-project-modal-workbench .iz-workbench-assigned-row {
+      align-items: flex-start !important;
+    }
+
 </style>
 </head>
 <body class="iz-compact-ui text-slate-900">
