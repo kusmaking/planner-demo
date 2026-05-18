@@ -7574,6 +7574,98 @@ async function deleteEditedEntry() {
     const heatClass = (level) => level === "critical" ? "dash27-heat-critical" : level === "low" ? "dash27-heat-low" : "dash27-heat-ok";
     const heatLabel = (level) => level === "critical" ? "Kritisk" : level === "low" ? "Lav" : "OK";
 
+    const capacityStatusClass = (remaining) => remaining <= 0 ? "ok" : remaining <= 2 ? "low" : "critical";
+    const capacityStatusLabel = (remaining) => remaining <= 0 ? "OK" : remaining <= 2 ? "Presset" : "Kritisk";
+    const formatCompactPeriod = (start, end) => {
+      if (!start && !end) return "Dato ikke satt";
+      if (start && end) return `${formatDate(start)} – ${formatDate(end)}`;
+      if (start) return `Fra ${formatDate(start)}`;
+      return `Til ${formatDate(end)}`;
+    };
+
+    function getDemandGroup(resourceType) {
+      return CAPACITY_GROUPS.find(group => group.resourceType === resourceType && group.mode === "demand");
+    }
+
+    function getAssignedRelevantCountForProjectRange(project, startKey, endKey, resourceType) {
+      if (!project?.id) return 0;
+      const resourceNames = new Set(getCapacityEmployees(resourceType).map(employee => employee.name).filter(Boolean));
+      const assigned = new Set();
+      (state.entries || []).forEach(entry => {
+        if (getEntryProject(entry) !== project.id) return;
+        if (!getEntryStart(entry) || !getEntryEnd(entry)) return;
+        if (getEntryStart(entry) > endKey || getEntryEnd(entry) < startKey) return;
+        const name = getEntryEmployee(entry);
+        if (resourceNames.has(name)) assigned.add(name);
+      });
+      return assigned.size;
+    }
+
+    function getCapacityProjectRows(resourceType, startKey, endKey, limit = 7) {
+      const rows = [];
+      activeProjects.forEach(project => {
+        if (!project || isClosedProject(project)) return;
+        const periods = getProjectTimelinePeriodsWithWorkshop(project).filter(period => period?.start && period?.end && period.start <= endKey && period.end >= startKey);
+        periods.forEach(period => {
+          let required = 0;
+          let phaseLabel = period.phase === "workshop" ? "Workshop" : "Felt";
+          if (resourceType === "workshop" && period.phase === "workshop") {
+            required = Math.max(Number(period.required ?? project.workshop_headcount_required ?? 0), 0);
+          } else if (resourceType === "offshore" && period.phase !== "workshop" && String(project.category || "").toLowerCase() === "offshore") {
+            required = Math.max(Number(project.headcount_required || 0), 0);
+          }
+          if (!required) return;
+          const overlapStart = period.start > startKey ? period.start : startKey;
+          const overlapEnd = period.end < endKey ? period.end : endKey;
+          const assigned = getAssignedRelevantCountForProjectRange(project, overlapStart, overlapEnd, resourceType);
+          const remaining = Math.max(required - assigned, 0);
+          rows.push({
+            project,
+            projectName: project.name || "Uten navn",
+            period: formatCompactPeriod(period.start, period.end),
+            required,
+            assigned,
+            remaining,
+            status: capacityStatusLabel(remaining),
+            statusClass: capacityStatusClass(remaining),
+            phaseLabel
+          });
+        });
+      });
+      return rows
+        .sort((a, b) => (b.remaining - a.remaining) || (b.required - a.required) || String(a.projectName).localeCompare(String(b.projectName), "no"))
+        .slice(0, limit);
+    }
+
+    function summarizeResourceCapacity(resourceType, label) {
+      const group = getDemandGroup(resourceType);
+      const dayMetrics = capacityDays.map(day => ({ day, metric: dailyCapacityMetric(group, day) }));
+      const worstDay = dayMetrics.reduce((worst, item) => !worst || item.metric.net < worst.metric.net ? item : worst, null);
+      const criticalDays = dayMetrics.filter(item => item.metric.net < 0);
+      const lowDays = dayMetrics.filter(item => item.metric.net >= 0 && item.metric.net <= getCapacityThreshold(group).low);
+      const peakNeed = dayMetrics.reduce((max, item) => Math.max(max, item.metric.totalNeed || 0), 0);
+      const peakRemainingNeed = dayMetrics.reduce((max, item) => Math.max(max, item.metric.remainingNeed || 0), 0);
+      const lowestAvailable = dayMetrics.reduce((min, item) => Math.min(min, item.metric.available ?? 0), Number.POSITIVE_INFINITY);
+      const lowestAvailableSafe = Number.isFinite(lowestAvailable) ? lowestAvailable : 0;
+      const projectRows = getCapacityProjectRows(resourceType, dashboardRangeStartKey, dashboardRangeEndKey, 7);
+      return {
+        resourceType,
+        label,
+        group,
+        dayMetrics,
+        worstDay,
+        criticalDays,
+        lowDays,
+        peakNeed,
+        peakRemainingNeed,
+        lowestAvailable: lowestAvailableSafe,
+        worstNet: worstDay?.metric?.net ?? lowestAvailableSafe,
+        projectRows,
+        projectCount: projectRows.length
+      };
+    }
+
+
     let lowSituations = 0;
     const lowSituationRows = [];
     const heatmapHtml = `
@@ -7670,6 +7762,88 @@ async function deleteEditedEntry() {
       ["Kansellert", projectTotals.cancelled, "#cbd5e1"]
     ].map(row => `<div class="dash27-list-row flex items-center justify-between gap-3 py-3 px-2"><div class="flex items-center gap-2"><span class="inline-flex h-5 w-5 rounded-full border" style="border-color:${row[2]}; background:${row[2]}22"></span><span class="${row[0] === "Uten bemanning" ? "text-red-300 font-bold" : ""}">${escapeHtml(row[0])}</span></div><strong class="text-xl">${row[1]}</strong></div>`).join("");
 
+    const offshoreResourceSummary = summarizeResourceCapacity("offshore", "Offshore bemanning");
+    const workshopResourceSummary = summarizeResourceCapacity("workshop", "Verkstedkapasitet");
+    const resourceSummaries = [offshoreResourceSummary, workshopResourceSummary];
+    const totalResourceNeed = resourceSummaries.reduce((sum, item) => sum + item.peakNeed, 0);
+    const totalResourceAvailable = resourceSummaries.reduce((sum, item) => sum + item.lowestAvailable, 0);
+    const totalResourceGap = resourceSummaries.reduce((sum, item) => sum + Math.min(item.worstNet, 0), 0);
+    const totalCriticalDays = resourceSummaries.reduce((sum, item) => sum + item.criticalDays.length, 0);
+    const worstResourceDay = resourceSummaries
+      .flatMap(summary => summary.dayMetrics.map(item => ({ ...item, summary })))
+      .sort((a, b) => a.metric.net - b.metric.net)[0];
+
+    function renderResourceSummaryCard(summary) {
+      const isWorkshop = summary.resourceType === "workshop";
+      const accent = isWorkshop ? "#22c55e" : "#2dd4bf";
+      const projectRowsHtml = summary.projectRows.length
+        ? summary.projectRows.map(row => `<div class="dash63-project-row">
+            <div class="dash63-project-name" title="${escapeHtml(row.projectName)}">${escapeHtml(row.projectName)}</div>
+            <div>${escapeHtml(row.period)}</div>
+            <div class="text-right font-black">${row.required}</div>
+            <div><span class="dash63-status dash63-status-${row.statusClass}">${escapeHtml(row.status)}</span></div>
+          </div>`).join("")
+        : `<div class="dash63-empty-row">Ingen ${isWorkshop ? "verkstedprosjekter" : "offshoreprosjekter"} med bemanningsbehov i perioden.</div>`;
+      return `<div class="dash27-panel dash63-resource-card p-5" style="--dash63-accent:${accent}">
+        <div class="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-3 mb-4">
+          <div>
+            <div class="dash27-card-title">${escapeHtml(summary.label)}</div>
+            <div class="dash27-muted text-sm mt-1">Neste 14 dager · ${isWorkshop ? "kun Onshore Workshop Technician og Apprentice" : "Offshore + 3 parts innleie"}</div>
+          </div>
+          <button type="button" data-home-action="project" class="dash63-card-link">Se prosjekter →</button>
+        </div>
+        <div class="dash63-resource-stats">
+          <div class="dash63-mini-stat dash63-mini-ok"><span>Tilgjengelige</span><strong>${summary.lowestAvailable}</strong><small>laveste dag</small></div>
+          <div class="dash63-mini-stat dash63-mini-need"><span>Behov</span><strong>${summary.peakNeed}</strong><small>høyeste dag</small></div>
+          <div class="dash63-mini-stat ${summary.worstNet < 0 ? "dash63-mini-bad" : "dash63-mini-ok"}"><span>Kapasitetsgap</span><strong>${summary.worstNet}</strong><small>${summary.worstDay ? escapeHtml(summary.worstDay.day.toLocaleDateString("no-NO", { day: "numeric", month: "short" })) : "ingen"}</small></div>
+        </div>
+        <div class="dash63-project-table mt-4">
+          <div class="dash63-project-head"><span>Prosjekt</span><span>Periode</span><span class="text-right">Behov</span><span>Status</span></div>
+          ${projectRowsHtml}
+        </div>
+      </div>`;
+    }
+
+    const criticalDaysHtml = `
+      <div class="dash27-panel dash63-critical p-5">
+        <div class="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-3 mb-4">
+          <div>
+            <div class="dash27-card-title">Kritiske dager – neste 14 dager</div>
+            <div class="dash27-muted text-sm mt-1">Netto kapasitet: tilgjengelige ressurser minus gjenstående bemanningsbehov.</div>
+          </div>
+          <button type="button" data-home-action="project" class="dash63-card-link">Se belastning i prosjektplan →</button>
+        </div>
+        <div class="dash63-critical-grid">
+          <div></div>
+          ${capacityDays.map(day => `<div class="dash63-critical-head">${escapeHtml(day.toLocaleDateString("no-NO", { weekday: "short" }).replace(".", ""))}<br><span>${escapeHtml(day.toLocaleDateString("no-NO", { day: "numeric", month: "numeric" }))}</span></div>`).join("")}
+          ${resourceSummaries.map(summary => `
+            <div class="dash63-critical-label">${escapeHtml(summary.label)}</div>
+            ${summary.dayMetrics.map(item => {
+              const level = item.metric.net < 0 ? "critical" : item.metric.net <= getCapacityThreshold(summary.group).low ? "low" : "ok";
+              return `<div class="dash63-critical-cell dash63-critical-${level}" title="${escapeHtml(summary.label)} ${escapeHtml(item.day.toLocaleDateString("no-NO"))}: netto ${item.metric.net}, tilgjengelig ${item.metric.available}, behov ${item.metric.remainingNeed}">${item.metric.net}</div>`;
+            }).join("")}
+          `).join("")}
+        </div>
+      </div>
+    `;
+
+    const resourcePlanningHtml = `
+      <div class="dash63-shell space-y-4">
+        <div class="grid grid-cols-2 xl:grid-cols-5 gap-3">
+          <div class="dash63-topstat"><span>Tilgjengelige ressurser</span><strong>${totalResourceAvailable}</strong><small>laveste dag samlet</small></div>
+          <div class="dash63-topstat"><span>Totalt behov</span><strong>${totalResourceNeed}</strong><small>høyeste dag samlet</small></div>
+          <div class="dash63-topstat ${totalResourceGap < 0 ? "dash63-topstat-danger" : ""}"><span>Kapasitetsgap</span><strong>${totalResourceGap}</strong><small>sum verste gap</small></div>
+          <div class="dash63-topstat ${totalCriticalDays ? "dash63-topstat-danger" : ""}"><span>Kritiske dager</span><strong>${totalCriticalDays}</strong><small>neste 14 dager</small></div>
+          <div class="dash63-topstat dash63-topstat-warn"><span>Toppbelastning</span><strong>${worstResourceDay ? escapeHtml(worstResourceDay.day.toLocaleDateString("no-NO", { day: "numeric", month: "short" })) : "—"}</strong><small>${worstResourceDay ? `${worstResourceDay.metric.net} netto` : "ingen"}</small></div>
+        </div>
+        <div class="grid grid-cols-1 2xl:grid-cols-2 gap-4">
+          ${renderResourceSummaryCard(offshoreResourceSummary)}
+          ${renderResourceSummaryCard(workshopResourceSummary)}
+        </div>
+        ${criticalDaysHtml}
+      </div>
+    `;
+
     els.homeDashboard.innerHTML = `
       <div class="dash27-shell space-y-4">
         <div><h2 class="dash27-title">Oppstart</h2><p class="dash27-subtitle">Operativ oversikt for dagens dato og de neste 14 dagene.</p></div>
@@ -7679,10 +7853,7 @@ async function deleteEditedEntry() {
         </div>
         ${next14ProjectKpiHtml}
         <div class="dash27-panel overflow-hidden"><div class="px-5 pt-4 text-xl font-extrabold">Operativ status – neste 14 dager</div><div class="grid grid-cols-1 lg:grid-cols-4">${kpiCards}</div></div>
-        <div class="grid grid-cols-1 2xl:grid-cols-[1.25fr_.75fr] gap-4">
-          <div class="dash27-panel p-5"><div class="flex items-center justify-between gap-3 mb-4"><div class="dash27-card-title">Kapasitet dag for dag – neste 14 dager <span class="dash27-info">i</span></div><div class="text-sm dash27-muted">Netto kapasitet · Behov vs ledige ressurser</div></div>${capacityOverviewHtml}<div class="mt-3 text-xs dash27-muted">Offshore viser netto kapasitet inkl. 3 parts innleie. Workshop teller kun Onshore Workshop Technician og Apprentice. Engineering er skjult fra kapasitetsradene.</div></div>
-          <div class="dash27-panel p-5"><div class="flex items-center justify-between gap-3 mb-4"><div class="dash27-card-title">Kapasitetsgap – neste uke <span class="dash27-info">i</span></div><button type="button" data-home-action="project" class="text-cyan-300 text-sm font-bold">Se detaljer →</button></div>${heatmapHtml}<div class="mt-4 pt-4 border-t border-white/10 text-sm"><span class="text-orange-300 font-bold">⚠</span> Totalt ${lowSituations} kapasitetsgap/lave marginer i kommende uke</div>${lowSituationSummaryHtml}</div>
-        </div>
+        ${resourcePlanningHtml}
         <div class="grid grid-cols-1 xl:grid-cols-3 gap-4">
           <div class="dash27-panel p-5"><div class="dash27-card-title mb-4">Prosjektfordeling pr gruppe <span class="dash27-info">i</span></div><div class="grid grid-cols-1 md:grid-cols-[190px_1fr] gap-5 items-center"><div class="dash27-donut mx-auto" style="background:${donutBg}"><div class="dash27-donut-inner"><div class="text-sm dash27-muted">Totalt</div><div class="text-4xl font-black">${totalProjectPeople}</div><div class="text-xs dash27-muted">personer</div></div></div><div>${distLegend}</div></div></div>
           <div class="dash27-panel p-5"><div class="dash27-card-title mb-4">Ansatte pr gruppe <span class="dash27-info">i</span></div><div class="grid grid-cols-[150px_1fr_52px_48px] gap-3 pb-2 text-xs uppercase tracking-wider dash27-muted"><div>Gruppe</div><div></div><div class="text-right">Antall</div><div class="text-right">Endr.</div></div>${employeesBars}<div class="flex items-center justify-between pt-4 font-black"><span>Totalt</span><span>${metrics.reduce((sum, row) => sum + row.total, 0)}</span></div></div>
