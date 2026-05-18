@@ -7633,9 +7633,11 @@ async function deleteEditedEntry() {
           const overlapEnd = period.end < endKey ? period.end : endKey;
           const assigned = getAssignedRelevantCountForProjectRange(project, overlapStart, overlapEnd, resourceType);
           const remaining = Math.max(required - assigned, 0);
+          const projectResponsible = project.project_responsible || project.projectResponsible || project.responsible || "Ikke satt";
           rows.push({
             project,
             projectName: project.name || "Uten navn",
+            projectResponsible,
             period: formatCompactPeriod(period.start, period.end),
             required,
             assigned,
@@ -7792,7 +7794,10 @@ async function deleteEditedEntry() {
       const accent = isWorkshop ? "#22c55e" : "#2dd4bf";
       const projectRowsHtml = summary.projectRows.length
         ? summary.projectRows.map(row => `<div class="dash63-project-row">
-            <div class="dash63-project-name" title="${escapeHtml(row.projectName)}">${escapeHtml(row.projectName)}</div>
+            <div class="dash63-project-title-cell">
+              <div class="dash63-project-name" title="${escapeHtml(row.projectName)}">${escapeHtml(row.projectName)}</div>
+              <div class="dash63-project-owner" title="Prosjektleder: ${escapeHtml(row.projectResponsible || "Ikke satt")}">PL: ${escapeHtml(row.projectResponsible || "Ikke satt")}</div>
+            </div>
             <div>${escapeHtml(row.period)}</div>
             <div class="text-right font-black">${row.required}</div>
             <div><span class="dash63-status dash63-status-${row.statusClass}">${escapeHtml(row.status)}</span></div>

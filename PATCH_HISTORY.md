@@ -1,3 +1,8 @@
+## v18.64c-dashboard-resource-project-leader
+- La til prosjektleder/prosjekteier i Offshore bemanning og Verkstedkapasitet på dashboard.
+- Viser prosjektleder som kompakt linje under prosjektnavn, slik at tabellene ikke blir bredere/rotete.
+- Ikke endret kapasitetskalkyle, prosjektbemanning, kalender, Supabase/RLS eller login.
+
 # Patch history
 
 ## v18.63d-dashboard-resource-priority-layout-cleanup

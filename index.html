@@ -7322,6 +7322,24 @@
       padding-bottom: 5px;
       font-size: 10px;
     }
+
+    /* v18.64c: show project leader/project owner in resource capacity tables without adding another wide column. */
+    body.iz-compact-ui #homeDashboard .dash63-project-title-cell {
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    body.iz-compact-ui #homeDashboard .dash63-project-owner {
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+      font-size: 10px;
+      line-height: 1.15;
+      font-weight: 750;
+      color: rgba(172, 219, 230, .72);
+    }
+
     body.iz-compact-ui #homeDashboard .dash63-operational-compact {
       opacity: .96;
     }
