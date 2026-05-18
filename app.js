@@ -1,4 +1,30 @@
 (() => {
+  // v18.49b-employee-crew-layout-fix-safe
+  // v18.48-employee-calendar-layout-v1-safe
+  // v18.54-access-user-management-ui-v1
+  // v18.53-access-one-flow-employee-setup-ui-v1
+  // v18.51-access-setup-checklist-ui-v1-safe
+  // v18.50-access-setup-rpc-ui-v1-safe
+  // v18.43-access-management-v1-safe
+  // v18.42-access-approval-v1-safe
+  // v18.41-access-request-v1-safe
+  // v18.40c-import-workshop-date-only-create-safe
+  // v18.40b-import-workshop-only-no-change-detection-safe
+  // v18.40a-import-selection-summary-and-row-status-safe
+  // v18.39b-clean-project-search-and-phase-filter-safe
+  // v18.39a-project-responsible-customer-fields-safe
+  // v18.38e-import-notes-project-responsible-only-safe
+  // v18.38d-import-duplicate-match-project-code-safe
+  // v18.38c-import-batch-notes-confirmation-safe
+  // v18.38b-import-default-deselected-safe
+  // v18.38a-import-selected-projects-test-mode-safe
+  // v18.37j-import-workshop-only-fleet-delta-preview-safe
+  // v18.37i-import-worklist-norwegian-date-input-safe
+  // v18.37h-import-worklist-responsible-clean-layout-safe
+  // v18.37g-import-worklist-full-width-preview-only-safe
+  // v18.37f-import-approval-list-preview-only-safe
+  // v18.37e-keep-import-preview-state-safe
+  // v18.32b-final-login-startpage-gradient-safe
   // v18.31g-sandbox-project-modal-scroll-safe
   // v18.19-ansattplan-project-focus-toggle-safe
   // v18.11: plain visible available-row render for project inspector.
@@ -12,8 +38,15 @@
     notificationLog: [],
     currentUser: "Ikke innlogget",
     currentUserEmail: "",
+    currentUserId: "",
     currentRole: "",
+    currentUserIsActive: true,
     authReady: false,
+    employeePortalSelectedProjectId: "",
+    employeePortalSelectedEntryId: "",
+    employeePortalProjectDetailsOpen: false,
+    employeePortalCrewByProject: {},
+    employeePortalCrewFetchError: "",
     employeeFilter: "Alle ansatte",
     selectedEmployeeGroups: [],
     groupFilterSearch: "",
@@ -27,6 +60,7 @@
     selectedEntryId: null,
     selectedProjectId: null,
     selectedEmployeeId: null,
+    employeeAdminSelectedId: null,
     focusProjectId: "",
     projectModalPeriods: [],
     selectedAssignPeriodId: "",
@@ -69,7 +103,8 @@
     activeTab: "home",
     calendarPanelOpen: false,
     projectListFilter: "all",
-    projectFilterCategory: "all",
+    projectPhaseFilter: "all",
+    projectSearchReturnStartDate: null,
     dashboardEmployeeFilter: "",
     dashboardEmployeeFilterLabel: "",
     projectInspectorSearch: "",
@@ -80,6 +115,21 @@
     projectInspectorAddUseCustomRange: false,
     projectInspectorAddCustomStart: "",
     projectInspectorAddCustomEnd: "",
+    projectInspectorSelectedNames: [],
+    projectInspectorBatchMode: false,
+    projectInspectorPendingDeleteIds: new Set(),
+    projectWorkbenchWindow: null,
+    projectImportPreview: {
+      fileName: "",
+      rowCount: 0,
+      counts: { total: 0, readyNew: 0, workshopOnly: 0, noChange: 0, dateUpdate: 0, missingOperationDate: 0, missingHeadcount: 0, workshopDateError: 0, notReady: 0 },
+      examples: { readyNew: [], workshopOnly: [], noChange: [], dateUpdate: [], missingOperationDate: [], missingHeadcount: [], workshopDateError: [], notReady: [] },
+      approvalRows: [],
+      selectedIds: [],
+      importResults: {},
+      lastImportSummary: null,
+      statusText: "Ingen fil valgt."
+    },
     contextMenu: {
       visible: false,
       employeeName: "",
@@ -92,7 +142,24 @@
       available: [],
       unavailable: [],
       summary: null
-    }
+    },
+    accessRequests: {
+      rows: [],
+      loading: false,
+      error: "",
+      lastLoadedAt: ""
+    },
+    accessUsers: {
+      rows: [],
+      loading: false,
+      error: "",
+      lastLoadedAt: ""
+    },
+    accessUserDrafts: {
+      passwords: {}
+    },
+    employeeAccessPanelEmployeeId: "",
+    employeeAccessPanelRequestId: ""
   };
 
   const els = {};
@@ -220,6 +287,28 @@
 
     await loadAuthUser();
 
+    if (isLoggedInUser() && state.currentUserIsActive === false) {
+      await supabaseClient?.auth?.signOut?.();
+      state.currentUser = "Ikke innlogget";
+      state.currentUserEmail = "";
+      state.currentUserId = "";
+      state.currentRole = "";
+      state.currentUserIsActive = true;
+      showStartPage();
+      setStartLoginError("Tilgangen din er deaktivert. Kontakt superadmin.");
+      window.izomaxApplyLanguage?.();
+      return;
+    }
+
+    if (!isLoggedInUser()) {
+      showStartPage();
+      window.izomaxApplyLanguage?.();
+      return;
+    }
+
+    showPlannerApp();
+    window.izomaxApplyLanguage?.();
+
     if (supabaseClient?.auth) {
       supabaseClient.auth.onAuthStateChange((event) => {
         if (event === "SIGNED_OUT") {
@@ -231,9 +320,13 @@
     await bootData();
     rebuildDerivedState();
     renderAll();
-    clearAssignForm();
-    clearPersonalBlockForm();
-    applyRoleChrome();
+
+    if (!isEmployeePortalUser()) {
+      clearAssignForm();
+      clearPersonalBlockForm();
+      applyRoleChrome();
+    }
+
     startRemoteSync();
   }
 
@@ -248,11 +341,11 @@
       "saveStatus", "plannerTabs", "tabHomeBtn", "tabProjectPlanBtn", "tabUnstaffedBtn", "tabCalendarBtn", "tabProjectsBtn", "tabEmployeesBtn", "tabAdminBtn", "tabHomeSection", "homeDashboard", "tabCalendarSection", "tabProjectsSection", "tabEmployeesSection", "tabAdminSection", "calendarMainCol", "calendarPanelCol", "calendarPanelHandleBtn", "calendarPanelCloseBtn", "calendarPanelContent", "newProjectBtn", "projectModal", "projectModalTitle", "closeProjectModalBtn",
       "projectName", "projectCategory", "projectStatus", "projectPlannedStart", "projectPlannedEnd", "projectHasMultiplePeriods", "projectPeriodsSection", "projectPeriodsList", "addProjectPeriodBtn",
       "projectWorkshopEnabled", "projectWorkshopStart", "projectWorkshopEnd", "projectWorkshopHeadcount", "projectWorkshopAddBtn", "projectWorkshopRemoveBtn",
-      "projectLocation", "projectHeadcount", "projectNotes", "saveProjectBtn", "deleteProjectBtn",
+      "projectResponsible", "projectLocation", "projectHeadcount", "projectNotes", "saveProjectBtn", "deleteProjectBtn",
       "newEmployeeBtn", "employeeModal", "employeeModalTitle", "closeEmployeeModalBtn",
       "employeeName", "employeeEmail", "employeePhone", "employeeTitle", "employeeGroup", "employeeActive", "saveEmployeeBtn", "deleteEmployeeBtn",
       "calendarContextMenu", "contextMenuEmployee", "contextMenuStart", "contextMenuEnd", "contextMenuType", "contextMenuNotes", "contextMenuAddBtn", "contextMenuCloseBtn",
-      "accountPanel", "accountUserInfo", "changePasswordBtn", "resetPasswordBtn", "logoutBtn", "loginBtn", "loginModal", "closeLoginModalBtn", "loginEmail", "loginPassword", "loginSubmitBtn", "forgotPasswordBtn"
+      "employeePortalShell", "employeePortalContent", "employeePortalTopInitials", "employeePortalTopName", "employeePortalLogoutBtn", "plannerStartPage", "plannerAppShell", "startLoginEmail", "startLoginPassword", "startLoginSubmitBtn", "startForgotPasswordBtn", "startAccessHelpBtn", "startLoginError", "accessRequestModal", "accessRequestCloseBtn", "accessRequestCancelBtn", "accessRequestSubmitBtn", "accessRequestName", "accessRequestEmail", "accessRequestPhone", "accessRequestType", "accessRequestMessage", "accessRequestFeedback", "accessApprovalList", "accessApprovalRefreshBtn", "accessApprovalStatus", "accessUsersList", "accessUsersRefreshBtn", "accessUsersStatus", "accountPanel", "accountUserInfo", "changePasswordBtn", "resetPasswordBtn", "logoutBtn", "loginBtn", "loginModal", "closeLoginModalBtn", "loginEmail", "loginPassword", "loginSubmitBtn", "forgotPasswordBtn"
     ];
 
     ids.forEach(id => els[id] = document.getElementById(id));
@@ -270,6 +363,7 @@
     els.searchInput.setAttribute("spellcheck", "false");
     els.searchInput.setAttribute("name", "planner_search_filter_no_autofill");
     els.searchInput.setAttribute("data-lpignore", "true");
+    els.searchInput.removeAttribute("data-ix-placeholder-key");
     els.searchInput.addEventListener("focus", () => {
       const currentSearchValue = String(els.searchInput.value || "").trim();
       if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(currentSearchValue)) {
@@ -363,18 +457,25 @@
     return !!date && toIsoDate(date) === toIsoDate(new Date());
   }
 
-  // v18.21-ansattplan-today-highlight-safe
+  // v18.62al: clean today marker. No badge text and no blue column fill.
+  // A single vertical overlay line marks today without creating horizontal marks in project bars.
   function getTodayColumnStyle(date, mode = "cell") {
     if (!isTodayDate(date)) return "";
     if (mode === "header") {
-      return "background:linear-gradient(180deg, rgba(219,234,254,0.98), rgba(239,246,255,0.98)); color:#1d4ed8; box-shadow:inset 2px 0 0 #3b82f6, inset -2px 0 0 #3b82f6; position:relative; z-index:5;";
+      return "color:#1d4ed8; font-weight:800; box-shadow:none; outline:none; position:relative; z-index:5;";
     }
-    return "background:rgba(59,130,246,0.10); box-shadow:inset 2px 0 0 rgba(37,99,235,0.85), inset -2px 0 0 rgba(37,99,235,0.35); z-index:1;";
+    return "background:transparent; box-shadow:none; outline:none;";
   }
 
   function getTodayHeaderBadgeHtml(date) {
-    if (!isTodayDate(date)) return "";
-    return `<div style="margin:2px auto 0; width:max-content; border-radius:999px; background:#2563eb; color:#ffffff; padding:1px 6px; font-size:9px; font-weight:800; line-height:1.2;">I dag</div>`;
+    return "";
+  }
+
+  function renderTodayLineOverlay(days, stickyWidth, colWidth) {
+    const todayIndex = days.findIndex(day => isTodayDate(day));
+    if (todayIndex < 0) return "";
+    const left = stickyWidth + (todayIndex * colWidth) + Math.floor(colWidth / 2);
+    return `<div class="today-clean-line" aria-hidden="true" style="left:${left}px;"></div>`;
   }
 
   function getHolidayNamesForYear(year) {
@@ -541,13 +642,145 @@
   }
 
   function getProjectFilterOptions() {
-    const categories = Array.from(new Set(getVisibleProjects().map(project => project.category).filter(Boolean)))
-      .sort((a, b) => a.localeCompare(b, "no"));
     return [
-      { id: "all", name: "Alle prosjekter / kategorier" },
-      ...categories.map(category => ({ id: category, name: category }))
+      { id: "all", name: "Alle prosjektfaser" },
+      { id: "field", name: "Feltperiode" },
+      { id: "workshop", name: "Workshop / mobilisering" },
+      { id: "workshopOnly", name: "Workshop-only" }
     ];
   }
+
+  function projectHasConfiguredWorkshopPhase(project) {
+    return Boolean(
+      project &&
+      project.workshop_enabled !== false &&
+      project.workshop_start_date &&
+      project.workshop_end_date &&
+      String(project.workshop_start_date) <= String(project.workshop_end_date)
+    );
+  }
+
+  function projectHasActiveFieldPhase(project) {
+    if (!project || isSystemPersonalProject(project)) return false;
+    if (isCancelledProject(project)) return true;
+    const fieldNeed = Math.max(Number(project?.headcount_required || 0), 0);
+
+    // Field need = 0 means the project should not create/show a red field period
+    // when a valid workshop phase exists. This supports workshop-only projects where
+    // planned_start/end are kept as reference data, but operational rendering should
+    // only show the green workshop/mobilisation block.
+    if (projectHasConfiguredWorkshopPhase(project) && fieldNeed === 0) return false;
+
+    return Boolean(
+      project?.has_multiple_periods
+        ? normalizeProjectPeriods(project?.project_periods_json || []).some(period => period.start && period.end)
+        : (project?.planned_start_date && project?.planned_end_date)
+    );
+  }
+
+  function getProjectTimelinePhaseTypes(project) {
+    const periods = getProjectTimelinePeriodsWithWorkshop(project);
+    const hasField = periods.some(period => period.phase !== "workshop");
+    const hasWorkshop = periods.some(period => period.phase === "workshop");
+    return { hasField, hasWorkshop, isWorkshopOnly: hasWorkshop && !hasField };
+  }
+
+  function projectMatchesPhaseFilter(project, filter = state.projectPhaseFilter || "all") {
+    if (!filter || filter === "all") return true;
+    const phases = getProjectTimelinePhaseTypes(project);
+    if (filter === "field") return phases.hasField;
+    if (filter === "workshop") return phases.hasWorkshop;
+    if (filter === "workshopOnly") return phases.isWorkshopOnly;
+    return true;
+  }
+
+  function filterProjectPeriodsByPhase(project, periods) {
+    const filter = state.projectPhaseFilter || "all";
+    if (!filter || filter === "all") return periods;
+    if (filter === "field") return periods.filter(period => period.phase !== "workshop");
+    if (filter === "workshop" || filter === "workshopOnly") return periods.filter(period => period.phase === "workshop");
+    return periods;
+  }
+
+  function getProjectSearchableText(project) {
+    return [
+      project?.name,
+      project?.category,
+      project?.location,
+      project?.project_responsible,
+      project?.status,
+      extractProjectImportCode(project?.name || "")
+    ].filter(Boolean).join(" ").toLowerCase();
+  }
+
+  function getProjectPrimaryTimelineDate(project) {
+    const periods = getProjectTimelinePeriodsWithWorkshop(project)
+      .filter(period => period?.start && period?.end)
+      .slice()
+      .sort((a, b) => String(a.start).localeCompare(String(b.start)) || String(a.end).localeCompare(String(b.end)));
+    return periods[0]?.start || project?.planned_start_date || project?.workshop_start_date || "";
+  }
+
+  function setCalendarStartDateForTargetIso(targetIso) {
+    const targetDate = asLocalDate(targetIso);
+    if (!targetDate) return false;
+    if (state.viewMode === "Uke") state.startDate = startOfWeek(targetDate);
+    else if (state.viewMode === "År") state.startDate = new Date(targetDate.getFullYear(), 0, 1);
+    else state.startDate = new Date(targetDate.getFullYear(), targetDate.getMonth(), 1);
+    persistUiState();
+    return true;
+  }
+
+  function isDateInsideCurrentRange(targetIso) {
+    const targetDate = asLocalDate(targetIso);
+    if (!targetDate) return true;
+    const range = getCurrentRange();
+    return targetDate >= range.start && targetDate <= range.end;
+  }
+
+  function resetProjectSearchIfEmpty() {
+    if (state.calendarMode !== "project") return;
+    state.search = "";
+    if (els.searchInput) els.searchInput.value = "";
+    state.focusProjectId = "";
+    state.calendarPanelOpen = false;
+    state.projectSpotlightId = "";
+    if (state.projectSearchReturnStartDate) {
+      const returnDate = asLocalDate(state.projectSearchReturnStartDate);
+      if (returnDate) state.startDate = returnDate;
+      state.projectSearchReturnStartDate = null;
+      persistUiState();
+    }
+  }
+
+  function jumpProjectCalendarToSearchMatch() {
+    if (state.calendarMode !== "project") return;
+    const search = String(state.search || "").trim().toLowerCase();
+    if (!search) {
+      resetProjectSearchIfEmpty();
+      return;
+    }
+    if (search.length < 3) return;
+
+    const project = getVisibleProjects()
+      .slice()
+      .sort((a, b) => compareProjectDates(a, b))
+      .find(item => getProjectSearchableText(item).includes(search));
+
+    if (!project) return;
+
+    const targetIso = getProjectPrimaryTimelineDate(project);
+    if (!targetIso || isDateInsideCurrentRange(targetIso)) return;
+
+    if (!state.projectSearchReturnStartDate) {
+      state.projectSearchReturnStartDate = toIsoDate(state.startDate);
+    }
+
+    state.focusProjectId = project.id;
+    state.calendarPanelOpen = true;
+    setCalendarStartDateForTargetIso(targetIso);
+  }
+
 
   function ensureAccountPanel() {
     if (document.getElementById("accountPanel")) {
@@ -562,6 +795,11 @@
       els.resetPasswordBtn = document.getElementById("resetPasswordBtn");
       els.logoutBtn = document.getElementById("logoutBtn");
       els.loginBtn = document.getElementById("loginBtn");
+      // v18.62u: Guard against accidental workbench controls being rendered in the profile/header area.
+      els.accountPanel?.querySelectorAll?.(".iz-workbench-footer, .iz-workbench-resize-handle, .iz-workbench-control-island, [data-project-workbench-close], [data-project-workbench-resize]")?.forEach(node => {
+        if (node.closest?.("#calendarPanelCol")) return;
+        node.remove();
+      });
       if (els.accountMenuButton && !els.accountMenuButton.dataset.boundAccountMenu) {
         els.accountMenuButton.dataset.boundAccountMenu = "true";
         els.accountMenuButton.addEventListener("click", event => {
@@ -570,6 +808,7 @@
         });
       }
       ensureLoginModal();
+      window.izomaxApplyLanguage?.();
       return;
     }
 
@@ -587,7 +826,16 @@
           </span>
           <span class="account-caret text-xs ml-auto">▾</span>
         </button>
-        <div id="accountMenuDropdown" class="hidden absolute right-0 top-full mt-2 min-w-[170px] rounded-xl border border-slate-200 bg-white shadow-xl overflow-hidden z-[120]">
+        <div id="accountMenuDropdown" class="hidden absolute right-0 top-full mt-2 min-w-[210px] rounded-xl border border-slate-200 bg-white shadow-xl overflow-hidden z-[120]">
+          <div class="iz-language-menu border-b border-slate-200 px-3 py-3">
+            <div id="ixAccountLanguageTitle" class="iz-language-title text-xs font-semibold text-slate-500 mb-2">Språk</div>
+            <div class="iz-language-inline-row">
+              <div class="iz-language-options flex gap-2">
+                <button type="button" data-ix-lang="no" class="iz-language-option">NO</button>
+                <button type="button" data-ix-lang="en" class="iz-language-option">EN</button>
+              </div>
+            </div>
+          </div>
           <button id="changePasswordBtn" class="w-full text-left border-b border-slate-200 bg-white px-3 py-2 text-sm hover:bg-slate-50">Endre passord</button>
           <button id="logoutBtn" class="w-full text-left bg-white px-3 py-2 text-sm hover:bg-slate-50">Logg ut</button>
           <button id="resetPasswordBtn" class="hidden">Send reset-link</button>
@@ -629,6 +877,7 @@
     });
 
     ensureLoginModal();
+    window.izomaxApplyLanguage?.();
   }
 
 
@@ -636,14 +885,7 @@
     const employeeSection = els.tabEmployeesSection;
     if (!employeeSection) return;
 
-    const existingEmployeeCol = employeeSection.firstElementChild;
-    if (existingEmployeeCol) {
-      existingEmployeeCol.className = "xl:col-span-1";
-      const employeeList = existingEmployeeCol.querySelector("#employeeList");
-      if (employeeList) {
-        employeeList.className = "space-y-2 max-h-[760px] overflow-auto scrollbar-thin";
-      }
-    }
+    const target = document.getElementById("employeeAdminAdvancedBody") || employeeSection;
 
     if (document.getElementById("personalBlockCard")) {
       els.personalBlockEmployee = document.getElementById("personalBlockEmployee");
@@ -652,32 +894,32 @@
       els.personalBlockEnd = document.getElementById("personalBlockEnd");
       els.personalBlockNotes = document.getElementById("personalBlockNotes");
       els.personalBlockSaveBtn = document.getElementById("personalBlockSaveBtn");
+      window.izomaxApplyLanguage?.();
       return;
     }
 
     const wrapper = document.createElement("div");
-    wrapper.className = "xl:col-span-3";
     wrapper.innerHTML = `
-      <div id="personalBlockCard" class="rounded-2xl bg-white border border-slate-200 shadow-sm h-full">
+      <div id="personalBlockCard" class="rounded-2xl bg-slate-50 border border-slate-200 shadow-sm h-full">
         <div class="p-4 border-b border-slate-200">
-          <h2 class="font-semibold">Direkte blokk på ansatt</h2>
-          <p class="text-sm text-slate-500 mt-1">Brukes for kurs, ferie, syk og avspasering direkte på personen, uten å gå via prosjektmodulen.</p>
+          <h2 id="personalBlockTitle" class="font-semibold text-slate-950">Direkte blokk på ansatt</h2>
+          <p id="personalBlockDescription" class="text-sm text-slate-500 mt-1">Brukes for kurs, ferie, syk og avspasering direkte på personen, uten å gå via prosjektmodulen.</p>
         </div>
         <div class="p-4 space-y-4">
           <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <select id="personalBlockEmployee" class="w-full rounded-2xl border border-slate-300 px-3 py-2"></select>
-            <select id="personalBlockType" class="w-full rounded-2xl border border-slate-300 px-3 py-2"></select>
+            <select id="personalBlockEmployee" class="w-full rounded-2xl border border-slate-300 bg-white px-3 py-2"></select>
+            <select id="personalBlockType" class="w-full rounded-2xl border border-slate-300 bg-white px-3 py-2"></select>
           </div>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <input id="personalBlockStart" type="date" class="rounded-2xl border border-slate-300 px-3 py-2" />
-            <input id="personalBlockEnd" type="date" class="rounded-2xl border border-slate-300 px-3 py-2" />
+            <input id="personalBlockStart" type="date" class="rounded-2xl border border-slate-300 bg-white px-3 py-2" />
+            <input id="personalBlockEnd" type="date" class="rounded-2xl border border-slate-300 bg-white px-3 py-2" />
           </div>
-          <textarea id="personalBlockNotes" class="w-full rounded-2xl border border-slate-300 px-3 py-2" rows="4" placeholder="Notat"></textarea>
+          <textarea id="personalBlockNotes" class="w-full rounded-2xl border border-slate-300 bg-white px-3 py-2" rows="4" placeholder="Notat"></textarea>
           <button id="personalBlockSaveBtn" class="w-full rounded-2xl bg-slate-900 text-white px-4 py-2">Lagre blokk i kalender</button>
         </div>
       </div>
     `;
-    employeeSection.appendChild(wrapper);
+    target.appendChild(wrapper);
 
     els.personalBlockEmployee = document.getElementById("personalBlockEmployee");
     els.personalBlockType = document.getElementById("personalBlockType");
@@ -685,6 +927,7 @@
     els.personalBlockEnd = document.getElementById("personalBlockEnd");
     els.personalBlockNotes = document.getElementById("personalBlockNotes");
     els.personalBlockSaveBtn = document.getElementById("personalBlockSaveBtn");
+    window.izomaxApplyLanguage?.();
   }
 
 
@@ -876,13 +1119,16 @@
 
       const user = userData?.user || null;
       state.currentUserEmail = user?.email || "";
+      state.currentUserId = user?.id || "";
       state.currentUser = user?.user_metadata?.full_name || user?.email || "Ikke innlogget";
       state.currentRole = "";
+      state.currentUserIsActive = true;
 
       try {
         const { data, error } = await supabaseClient.rpc("get_my_profile");
         if (!error && Array.isArray(data) && data[0]) {
           state.currentRole = normalizeRoleValue(data[0].role || "");
+          state.currentUserIsActive = data[0].is_active !== false;
           if (data[0].full_name) state.currentUser = data[0].full_name;
           if (data[0].email) state.currentUserEmail = data[0].email;
         }
@@ -900,11 +1146,33 @@
   function normalizeRoleValue(role) {
     const normalized = String(role || "").trim().toLowerCase();
     if (normalized === "planlegger") return "planner";
+    if (normalized === "leser") return "reader";
+    if (["ansatt", "employee", "medarbeider", "user"].includes(normalized)) return "employee";
     return normalized;
+  }
+
+  function isEmployeePortalUser() {
+    return normalizeRoleValue(state.currentRole) === "employee";
   }
 
   function isSuperadmin() {
     return normalizeRoleValue(state.currentRole) === "superadmin";
+  }
+
+  function isAdminUser() {
+    return normalizeRoleValue(state.currentRole) === "admin";
+  }
+
+  function isPlannerOnlyUser() {
+    return normalizeRoleValue(state.currentRole) === "planner";
+  }
+
+  function canApproveAccessRequests() {
+    return isSuperadmin() || isAdminUser() || isPlannerOnlyUser();
+  }
+
+  function canManageUserAccess() {
+    return isSuperadmin() || isAdminUser() || isPlannerOnlyUser();
   }
 
   function isPlanner() {
@@ -914,6 +1182,23 @@
 
   function isLoggedInUser() {
     return !!state.currentUserEmail;
+  }
+
+  function showStartPage() {
+    if (els.plannerStartPage) els.plannerStartPage.classList.remove("hidden");
+    if (els.plannerAppShell) els.plannerAppShell.classList.add("hidden");
+  }
+
+  function showPlannerApp() {
+    if (els.plannerStartPage) els.plannerStartPage.classList.add("hidden");
+    if (els.plannerAppShell) els.plannerAppShell.classList.remove("hidden");
+  }
+
+  function setStartLoginError(message) {
+    if (!els.startLoginError) return;
+    const text = String(message || "").trim();
+    els.startLoginError.textContent = text;
+    els.startLoginError.classList.toggle("visible", Boolean(text));
   }
 
   function canPlanApp() {
@@ -977,6 +1262,7 @@
     els.accountUserInfo.textContent = nameText;
     if (els.accountRoleInfo) els.accountRoleInfo.textContent = roleText;
     if (els.accountAvatar) els.accountAvatar.textContent = getAccountInitials(nameText);
+    window.izomaxApplyLanguage?.();
   }
 
   function bindTabEvents() {
@@ -1062,6 +1348,629 @@
     }
   }
 
+
+
+  function showEmployeePortal() {
+    if (!els.employeePortalShell) return;
+    els.employeePortalShell.classList.add("iz-employee-active");
+    const plannerElements = [
+      document.querySelector("#plannerAppShell > header.iz-app-header"),
+      els.statsRow,
+      els.plannerTabs,
+      els.tabHomeSection,
+      els.tabCalendarSection,
+      els.tabProjectsSection,
+      els.tabEmployeesSection,
+      els.tabAdminSection
+    ];
+    plannerElements.forEach(element => {
+      if (!element) return;
+      element.style.display = "none";
+      element.classList.add("hidden");
+    });
+  }
+
+  function hideEmployeePortal() {
+    if (els.employeePortalShell) els.employeePortalShell.classList.remove("iz-employee-active");
+  }
+
+  function normalizeComparableText(value) {
+    return String(value || "").trim().toLowerCase();
+  }
+
+  function getEmployeePortalEmployee() {
+    const email = normalizeComparableText(state.currentUserEmail);
+    const currentName = normalizeComparableText(state.currentUser);
+    const byEmail = (state.employees || []).find(employee => normalizeComparableText(employee.email) === email);
+    if (byEmail) return byEmail;
+    const byName = (state.employees || []).find(employee => normalizeComparableText(employee.name) === currentName);
+    if (byName) return byName;
+    return null;
+  }
+
+  function getProjectDateBounds(project) {
+    const periods = getProjectTimelinePeriodsWithWorkshop(project).filter(period => period.start && period.end);
+    if (periods.length) {
+      const starts = periods.map(period => period.start).sort();
+      const ends = periods.map(period => period.end).sort();
+      return { start: starts[0], end: ends[ends.length - 1] };
+    }
+    return {
+      start: project?.planned_start_date || project?.workshop_start_date || "",
+      end: project?.planned_end_date || project?.workshop_end_date || ""
+    };
+  }
+
+  function getEmployeePortalAssignments(employee) {
+    if (!employee?.name) return [];
+    return (state.entries || [])
+      .filter(entry => entry?.employee_name === employee.name)
+      .map(entry => ({ ...entry, project: getProjectById(entry.project_id) }))
+      .filter(item => item.project && !isSystemPersonalProject(item.project));
+  }
+
+  function getEmployeePortalNextAssignment(assignments) {
+    const todayIso = toIsoDate(new Date());
+    return assignments
+      .filter(item => String(item.end_date || "") >= todayIso)
+      .sort((a, b) => String(a.start_date || "9999-12-31").localeCompare(String(b.start_date || "9999-12-31")) || String(a.end_date || "9999-12-31").localeCompare(String(b.end_date || "9999-12-31")))[0] || null;
+  }
+
+  function getEmployeePortalUpcomingAssignments(assignments) {
+    const todayIso = toIsoDate(new Date());
+    return (assignments || [])
+      .filter(item => String(item.end_date || "") >= todayIso)
+      .sort((a, b) => String(a.start_date || "9999-12-31").localeCompare(String(b.start_date || "9999-12-31")) || String(a.end_date || "9999-12-31").localeCompare(String(b.end_date || "9999-12-31")));
+  }
+
+  function getEmployeePortalHistory(assignments) {
+    const todayIso = toIsoDate(new Date());
+    return assignments
+      .filter(item => String(item.end_date || "") < todayIso)
+      .sort((a, b) => String(b.end_date || "").localeCompare(String(a.end_date || "")))
+      .slice(0, 3);
+  }
+
+  function extractProjectCode(name) {
+    const text = String(name || "").trim();
+    const match = text.match(/\b(?:PRJ|IZO)[-\s]?\d+[A-Z0-9-]*\b/i);
+    return match ? match[0].replace(/\s+/, "-").toUpperCase() : "";
+  }
+
+  function getProjectNameWithoutCode(name) {
+    const code = extractProjectCode(name);
+    let text = String(name || "").trim();
+    if (code) text = text.replace(new RegExp(code.replace("-", "[-\\s]?"), "i"), "").trim();
+    return text.replace(/^[-–—:|\s]+/, "") || text || "Prosjekt";
+  }
+
+  function getExplicitProjectCode(project, name) {
+    const candidates = [
+      project?.project_code,
+      project?.izo_code,
+      project?.izo,
+      project?.code,
+      project?.projectCode,
+      name
+    ];
+    for (const candidate of candidates) {
+      const code = extractProjectCode(candidate);
+      if (code) return code;
+    }
+    return "";
+  }
+
+  function getEmployeePortalProjectTitle(project) {
+    const name = displayProjectName(project) || "Prosjekt";
+    const code = getExplicitProjectCode(project, name);
+    let cleanName = getProjectNameWithoutCode(name);
+
+    // Avoid exposing internal UUID/id fragments as project title fallback in the employee portal.
+    cleanName = String(cleanName || "").replace(/^([0-9a-f]{8})(?:[-\s]+)?/i, "").trim();
+
+    const fallbackName = cleanName || name || "Prosjekt";
+    return {
+      code,
+      cleanName: fallbackName,
+      full: code ? `${code} ${fallbackName}`.trim() : fallbackName
+    };
+  }
+
+  function getEmployeePortalProjectPhaseText(project) {
+    const phases = getProjectTimelinePhaseTypes(project);
+    if (phases.isWorkshopOnly) return "Workshop-only";
+    if (phases.hasField && phases.hasWorkshop) return "Workshop + feltperiode";
+    if (phases.hasWorkshop) return "Workshop / mobilisering";
+    if (phases.hasField) return "Feltperiode";
+    return project?.category || "Ikke satt";
+  }
+
+  function getEmployeePortalCustomerText(project) {
+    return project?.location || project?.customer || project?.company || "Ikke satt";
+  }
+
+  function getEmployeePortalResponsibleText(project) {
+    return project?.project_responsible || project?.projectResponsible || project?.responsible || "Ikke satt";
+  }
+
+  function getEmployeePortalStatusText(project) {
+    return project?.status || "Ikke satt";
+  }
+
+  function getWorkshopText(project) {
+    const workshop = getDefaultWorkshopPeriodForProject(project, getProjectTimelinePeriods(project));
+    if (workshop?.start && workshop?.end) return `${formatDate(workshop.start)} – ${formatDate(workshop.end)}`;
+    if (project?.workshop_start_date && project?.workshop_end_date) return `${formatDate(project.workshop_start_date)} – ${formatDate(project.workshop_end_date)}`;
+    return "Ikke satt";
+  }
+
+  function getEmployeePortalCrewRows(projectId) {
+    if (!projectId) return [];
+    const rows = state.employeePortalCrewByProject?.[projectId];
+    if (Array.isArray(rows)) return rows;
+    return (state.entries || []).filter(entry => entry?.project_id === projectId);
+  }
+
+  function getEmployeePortalCrewSummary(project, crewRows = []) {
+    const required = Number(project?.headcount_required || 0);
+    const byName = new Map();
+    (crewRows || []).forEach(row => {
+      const name = String(row?.employee_name || "").trim();
+      if (name && !byName.has(name)) byName.set(name, row);
+    });
+    const assigned = byName.size;
+    const missing = required > 0 ? Math.max(required - assigned, 0) : 0;
+    return {
+      required,
+      assigned,
+      missing,
+      label: required > 0 ? `${assigned} / ${required} satt opp` : `${assigned} satt opp`,
+      status: required > 0 ? (missing > 0 ? `Mangler ${missing}` : "Fullt crew") : "Krav ikke satt",
+      complete: required > 0 && missing === 0
+    };
+  }
+
+  function renderEmployeePortalProjectDetails(selectedAssignment, employee, crewRows) {
+    if (!selectedAssignment) return "";
+    const project = selectedAssignment.project;
+    const title = getEmployeePortalProjectTitle(project);
+    const bounds = getProjectDateBounds(project);
+    const assignmentPeriodText = selectedAssignment.start_date && selectedAssignment.end_date ? `${formatDate(selectedAssignment.start_date)} – ${formatDate(selectedAssignment.end_date)}` : "Ikke satt";
+    const projectPeriodText = bounds.start && bounds.end ? `${formatDate(bounds.start)} – ${formatDate(bounds.end)}` : assignmentPeriodText;
+    const roleText = selectedAssignment.role || employee?.title || "Ikke satt";
+    const crewSummary = getEmployeePortalCrewSummary(project, crewRows);
+    const crewItems = (crewRows || []).slice(0, 12);
+    const crewStatusClass = crewSummary.missing > 0 ? "iz-emp-chip-warning" : (crewSummary.complete ? "iz-emp-chip-ok" : "");
+    return `
+      <section class="iz-emp-card iz-emp-section-card iz-emp-project-detail-card">
+        <div class="iz-emp-section-head">
+          <div class="iz-emp-section-icon">▣</div>
+          <div>
+            <div class="iz-emp-section-title">Prosjektinfo</div>
+            <div class="iz-emp-section-subtitle">Lesende detaljvisning for valgt prosjekt.</div>
+          </div>
+        </div>
+        <div class="iz-emp-detail-title">${title.code ? `<span>${escapeHtml(title.code)}</span> ` : ""}${escapeHtml(title.cleanName)}</div>
+        <div class="iz-emp-detail-grid">
+          <div><span>Din rolle</span><strong>${escapeHtml(roleText)}</strong></div>
+          <div><span>Din periode</span><strong>${escapeHtml(assignmentPeriodText)}</strong></div>
+          <div><span>Prosjektperiode</span><strong>${escapeHtml(projectPeriodText)}</strong></div>
+          <div><span>Prosjektleder</span><strong>${escapeHtml(getEmployeePortalResponsibleText(project))}</strong></div>
+          <div><span>Kunde</span><strong>${escapeHtml(getEmployeePortalCustomerText(project))}</strong></div>
+          <div><span>Workshop / feltperiode</span><strong>${escapeHtml(getWorkshopText(project))}</strong></div>
+          <div><span>Status</span><strong>${escapeHtml(getEmployeePortalStatusText(project))}</strong></div>
+          <div><span>Bemanning</span><strong>${escapeHtml(crewSummary.label)} · ${escapeHtml(crewSummary.status)}</strong></div>
+        </div>
+        <div class="iz-emp-detail-crew-head">Crew på prosjektet <span class="iz-emp-chip ${crewStatusClass}">${escapeHtml(crewSummary.status)}</span></div>
+        ${crewItems.length ? `<div class="iz-emp-detail-crew-list">${crewItems.map(row => `
+          <div class="iz-emp-detail-crew-row">
+            <span>${escapeHtml(getInitials(row.employee_name))}</span>
+            <strong>${escapeHtml(row.employee_name || "Ukjent")}</strong>
+            <em>${escapeHtml(row.role || "Tildelt")}</em>
+            <small>${escapeHtml(row.start_date && row.end_date ? `${formatDate(row.start_date)} – ${formatDate(row.end_date)}` : "Dato ikke satt")}</small>
+          </div>
+        `).join("")}</div>` : `<div class="iz-emp-empty iz-emp-empty-dark">Crewdata er ikke tilgjengelig for valgt prosjekt. Dette krever at RPC-funksjonen for crew er opprettet i Supabase.</div>`}
+      </section>
+    `;
+  }
+
+  function getEmployeePortalTeam(projectId, currentEmployeeName) {
+    const byName = new Map();
+    getEmployeePortalCrewRows(projectId)
+      .filter(entry => entry?.employee_name && entry.employee_name !== currentEmployeeName)
+      .forEach(entry => {
+        if (!byName.has(entry.employee_name)) byName.set(entry.employee_name, entry);
+      });
+    return [...byName.values()].slice(0, 4);
+  }
+
+  function getTimelineMonths(startIso, endIso) {
+    const fallbackStart = startIso || endIso || toIsoDate(new Date());
+    const startDate = asLocalDate(fallbackStart) || new Date();
+    const months = [];
+    const base = new Date(startDate.getFullYear(), Math.max(0, startDate.getMonth()), 1);
+    for (let i = 0; i < 7; i += 1) {
+      const date = new Date(base.getFullYear(), base.getMonth() + i, 1);
+      months.push({ date, label: capitalize(monthShort(date)).replace(".", "") });
+    }
+    return months;
+  }
+
+  function getTimelinePercent(dateIso, months) {
+    if (!dateIso || !months?.length) return 0;
+    const start = months[0].date;
+    const end = new Date(months[months.length - 1].date.getFullYear(), months[months.length - 1].date.getMonth() + 1, 0);
+    const target = asLocalDate(dateIso) || start;
+    const total = Math.max(end.getTime() - start.getTime(), 1);
+    const pct = ((target.getTime() - start.getTime()) / total) * 100;
+    return Math.max(0, Math.min(100, pct));
+  }
+
+  function getIsoWeekNumber(date) {
+    const target = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+    const dayNumber = target.getUTCDay() || 7;
+    target.setUTCDate(target.getUTCDate() + 4 - dayNumber);
+    const yearStart = new Date(Date.UTC(target.getUTCFullYear(), 0, 1));
+    return Math.ceil((((target - yearStart) / 86400000) + 1) / 7);
+  }
+
+  function getTimelineMonthSegments(startDate, endDate) {
+    const segments = [];
+    const current = new Date(startDate.getFullYear(), startDate.getMonth(), 1);
+    while (current <= endDate) {
+      const monthStart = new Date(current.getFullYear(), current.getMonth(), 1);
+      const monthEnd = new Date(current.getFullYear(), current.getMonth() + 1, 0);
+      const weeks = [];
+      let weekCursor = startOfWeekMonday(monthStart);
+      while (weekCursor <= monthEnd) {
+        const weekLabelDate = weekCursor < monthStart ? monthStart : weekCursor;
+        weeks.push({
+          label: `U${getIsoWeekNumber(weekLabelDate)}`,
+          day: `${weekLabelDate.getDate()}. ${capitalize(monthShort(weekLabelDate)).replace(".", "")}`
+        });
+        weekCursor = addDays(weekCursor, 7);
+      }
+      segments.push({
+        label: `${capitalize(monthShort(monthStart)).replace(".", "")} ${monthStart.getFullYear()}`,
+        weeks
+      });
+      current.setMonth(current.getMonth() + 1);
+    }
+    return segments;
+  }
+
+  function getTimelineDatePercent(dateIso, startDate, endDate) {
+    const target = asLocalDate(dateIso) || startDate;
+    const total = Math.max(endDate.getTime() - startDate.getTime(), 1);
+    const pct = ((target.getTime() - startDate.getTime()) / total) * 100;
+    return Math.max(0, Math.min(100, pct));
+  }
+
+  function renderEmployeePortalTimeline(assignments, selectedEntryId) {
+    const timelineAssignments = (assignments || [])
+      .filter(item => item?.start_date && item?.end_date)
+      .sort((a, b) => String(a.start_date).localeCompare(String(b.start_date)) || String(a.end_date).localeCompare(String(b.end_date)));
+
+    if (!timelineAssignments.length) {
+      return `
+        <section class="iz-emp-card iz-emp-section-card">
+          <div class="iz-emp-section-head">
+            <div class="iz-emp-section-icon">▣</div>
+            <div>
+              <div class="iz-emp-section-title">Prosjektkalender</div>
+              <div class="iz-emp-section-subtitle">Ingen kommende perioder registrert.</div>
+            </div>
+          </div>
+          <div class="iz-emp-empty">Når du får kommende prosjekt-tildelinger, vises de her på måned, uke og dag.</div>
+        </section>
+      `;
+    }
+
+    const minStart = timelineAssignments.reduce((min, item) => String(item.start_date) < String(min) ? item.start_date : min, timelineAssignments[0].start_date);
+    const maxEnd = timelineAssignments.reduce((max, item) => String(item.end_date) > String(max) ? item.end_date : max, timelineAssignments[0].end_date);
+    const rangeStart = asLocalDate(minStart) || new Date();
+    const rangeEndRaw = asLocalDate(maxEnd) || rangeStart;
+    const startDate = new Date(rangeStart.getFullYear(), rangeStart.getMonth(), 1);
+    const endDate = new Date(rangeEndRaw.getFullYear(), rangeEndRaw.getMonth() + 1, 0);
+    const monthSegments = getTimelineMonthSegments(startDate, endDate);
+    const timelineWidth = Math.max(820, monthSegments.length * 160);
+    const trackHeight = Math.max(76, timelineAssignments.length * 42 + 24);
+
+    return `
+      <section class="iz-emp-card iz-emp-section-card iz-emp-plan-card">
+        <div class="iz-emp-section-head">
+          <div class="iz-emp-section-icon">▣</div>
+          <div>
+            <div class="iz-emp-section-title">Prosjektkalender</div>
+            <div class="iz-emp-section-subtitle">Alle kommende prosjekter vist på måned, uke og dag. Trykk på en linje for detaljer.</div>
+          </div>
+        </div>
+        <div class="iz-emp-plan-scroll" aria-label="Prosjektkalender for kommende prosjekter">
+          <div class="iz-emp-plan-timeline" style="width:${timelineWidth}px;">
+            <div class="iz-emp-plan-months" style="grid-template-columns: repeat(${monthSegments.length}, minmax(160px, 1fr));">
+              ${monthSegments.map(segment => `
+                <div class="iz-emp-plan-month">
+                  <div class="iz-emp-plan-month-label">${escapeHtml(segment.label)}</div>
+                  <div class="iz-emp-plan-weeks">${segment.weeks.map(week => `<span><strong>${escapeHtml(week.label)}</strong><em>${escapeHtml(week.day || "")}</em></span>`).join("")}</div>
+                </div>
+              `).join("")}
+            </div>
+            <div class="iz-emp-plan-track" style="height:${trackHeight}px;">
+              ${monthSegments.map((_, index) => `<div class="iz-emp-plan-month-grid" style="left:${(index / monthSegments.length) * 100}%; width:${100 / monthSegments.length}%;"></div>`).join("")}
+              ${timelineAssignments.map((item, index) => {
+                const title = getEmployeePortalProjectTitle(item.project);
+                const left = getTimelineDatePercent(item.start_date, startDate, endDate);
+                const right = getTimelineDatePercent(item.end_date, startDate, endDate);
+                const width = Math.max(right - left, 1.8);
+                const isSelected = String(item.id || "") === String(selectedEntryId || "");
+                const label = `${title.full || title.cleanName} · ${formatDate(item.start_date)}–${formatDate(item.end_date)}`;
+                return `<button type="button" class="iz-emp-plan-bar ${isSelected ? "iz-emp-plan-bar-active" : ""}" data-employee-portal-select-assignment="${escapeHtml(item.id || "")}" style="left:${left}%; width:${width}%; top:${index * 42 + 16}px;" title="${escapeHtml(label)}">
+                  <span>${escapeHtml(title.full || title.cleanName)}</span>
+                  <small>${escapeHtml(formatDate(item.start_date))}–${escapeHtml(formatDate(item.end_date))}</small>
+                </button>`;
+              }).join("")}
+            </div>
+          </div>
+        </div>
+      </section>
+    `;
+  }
+
+  function renderEmployeePortalEmpty(message) {
+    return `
+      <div class="iz-emp-topbar">
+        <div class="iz-emp-brand"><div class="iz-emp-brand-main">IZOMAX</div><div class="iz-emp-brand-sub">Planner</div></div>
+      </div>
+      <div class="iz-emp-page"><div class="iz-emp-empty">${escapeHtml(message)}</div></div>
+    `;
+  }
+
+
+  function renderEmployeePortalProfileCard(employee, displayName) {
+    const title = employee?.title || employee?.employee_type || "Ansatt";
+    const email = employee?.email || state.currentUserEmail || "";
+    const phone = employee?.phone || "";
+    return `
+      <section class="iz-emp-card iz-emp-profile-card">
+        <div class="iz-emp-section-head iz-emp-section-head-compact">
+          <div class="iz-emp-section-icon">♙</div>
+          <div class="iz-emp-section-title">Min profil</div>
+        </div>
+        <div class="iz-emp-profile-body">
+          <div class="iz-emp-profile-avatar">${escapeHtml(getInitials(displayName))}</div>
+          <div class="iz-emp-profile-info">
+            <div class="iz-emp-profile-name">${escapeHtml(displayName)}</div>
+            <div class="iz-emp-profile-role">${escapeHtml(title)}</div>
+            ${email ? `<div class="iz-emp-profile-line">✉ ${escapeHtml(email)}</div>` : ""}
+            ${phone ? `<div class="iz-emp-profile-line">☎ ${escapeHtml(phone)}</div>` : ""}
+          </div>
+        </div>
+      </section>
+    `;
+  }
+
+  function renderEmployeePortalSelectedProjectCard(selectedAssignment, employee, upcomingAssignments) {
+    if (!selectedAssignment) {
+      return `
+        <section class="iz-emp-card iz-emp-next-card">
+          <div class="iz-emp-section-head iz-emp-section-head-compact">
+            <div class="iz-emp-section-icon">▣</div>
+            <div class="iz-emp-section-title">Neste prosjekt</div>
+          </div>
+          <div class="iz-emp-empty iz-emp-empty-dark">Ingen kommende prosjekter registrert.</div>
+        </section>
+      `;
+    }
+    const project = selectedAssignment.project;
+    const title = getEmployeePortalProjectTitle(project);
+    const assignmentPeriodText = selectedAssignment.start_date && selectedAssignment.end_date ? `${formatDate(selectedAssignment.start_date)} – ${formatDate(selectedAssignment.end_date)}` : "Ikke satt";
+    const roleText = selectedAssignment.role || employee?.title || "Ikke satt";
+    const responsibleText = getEmployeePortalResponsibleText(project);
+    const customerText = getEmployeePortalCustomerText(project);
+    const isNext = selectedAssignment.id === upcomingAssignments[0]?.id;
+    return `
+      <section class="iz-emp-card iz-emp-next-card">
+        <div class="iz-emp-section-head iz-emp-section-head-compact">
+          <div class="iz-emp-section-icon">▣</div>
+          <div class="iz-emp-section-title">${isNext ? "Neste prosjekt" : "Valgt prosjekt"}</div>
+        </div>
+        <div class="iz-emp-next-body">
+          <div class="iz-emp-project-icon iz-emp-project-icon-small">♒</div>
+          <div class="iz-emp-next-title">${title.code ? `<span>${escapeHtml(title.code)}</span> ` : ""}${escapeHtml(title.cleanName)}</div>
+          <div class="iz-emp-next-meta">
+            <div><span>Prosjektleder</span><strong>${escapeHtml(responsibleText)}</strong></div>
+            <div><span>Kunde</span><strong>${escapeHtml(customerText)}</strong></div>
+            <div><span>Din rolle</span><strong>${escapeHtml(roleText)}</strong></div>
+            <div><span>Periode</span><strong>${escapeHtml(assignmentPeriodText)}</strong></div>
+            <div><span>Workshop / feltperiode</span><strong>${escapeHtml(getWorkshopText(project))}</strong></div>
+          </div>
+          <button type="button" class="iz-emp-open-project iz-emp-open-project-wide" data-employee-portal-toggle-project-details="true">Åpne prosjekt →</button>
+        </div>
+      </section>
+    `;
+  }
+
+  function renderEmployeePortal() {
+    if (!els.employeePortalContent) return;
+    const employee = getEmployeePortalEmployee();
+    const displayName = employee?.name || getAccountDisplayName();
+    const initials = getInitials(displayName);
+    if (els.employeePortalTopInitials) els.employeePortalTopInitials.textContent = initials;
+    if (els.employeePortalTopName) els.employeePortalTopName.textContent = displayName;
+
+    if (!employee) {
+      els.employeePortalContent.innerHTML = `
+        <div class="iz-emp-dashboard iz-emp-dashboard-single">
+          <section class="iz-emp-card iz-emp-project-card iz-emp-empty-state-card">
+            <div class="iz-emp-project-icon iz-emp-muted-icon">!</div>
+            <div>
+              <div class="iz-emp-eyebrow">Min side</div>
+              <div class="iz-emp-title">Ansattprofil mangler</div>
+              <div class="iz-emp-empty">Fant ikke ansattprofil koblet til ${escapeHtml(state.currentUserEmail || "innlogget bruker")}. Be administrator koble brukeren til riktig ansattprofil.</div>
+            </div>
+          </section>
+        </div>
+      `;
+      return;
+    }
+
+    const assignments = getEmployeePortalAssignments(employee);
+    const upcomingAssignments = getEmployeePortalUpcomingAssignments(assignments);
+    const selectedEntryId = String(state.employeePortalSelectedEntryId || "");
+    let selectedAssignment = selectedEntryId ? upcomingAssignments.find(item => String(item.id || "") === selectedEntryId) : null;
+    if (!selectedAssignment) {
+      selectedAssignment = upcomingAssignments[0] || null;
+      state.employeePortalSelectedEntryId = selectedAssignment?.id || "";
+    }
+    const history = getEmployeePortalHistory(assignments);
+
+    if (!selectedAssignment) {
+      els.employeePortalContent.innerHTML = `
+        <div class="iz-emp-dashboard">
+          <aside class="iz-emp-left-col">
+            ${renderEmployeePortalProfileCard(employee, displayName)}
+            ${renderEmployeePortalSelectedProjectCard(null, employee, upcomingAssignments)}
+          </aside>
+          <section class="iz-emp-main-col">
+            ${renderEmployeePortalTimeline([], "")}
+            <div class="iz-emp-content-grid">
+              ${renderEmployeePortalUpcoming([], "")}
+              ${renderEmployeePortalHistory(history)}
+            </div>
+          </section>
+        </div>
+      `;
+      return;
+    }
+
+    const project = selectedAssignment.project;
+    const title = getEmployeePortalProjectTitle(project);
+    const bounds = getProjectDateBounds(project);
+    const crewRows = getEmployeePortalCrewRows(project.id);
+    const team = getEmployeePortalTeam(project.id, employee.name);
+    const assignmentPeriodText = selectedAssignment.start_date && selectedAssignment.end_date ? `${formatDate(selectedAssignment.start_date)} – ${formatDate(selectedAssignment.end_date)}` : "Ikke satt";
+    const projectPeriodText = bounds.start && bounds.end ? `${formatDate(bounds.start)} – ${formatDate(bounds.end)}` : assignmentPeriodText;
+    const roleText = selectedAssignment.role || employee.title || "Ikke satt";
+    const responsibleText = getEmployeePortalResponsibleText(project);
+    const customerText = getEmployeePortalCustomerText(project);
+    const phaseText = getEmployeePortalProjectPhaseText(project);
+    const statusText = getEmployeePortalStatusText(project);
+    const hasCode = Boolean(title.code);
+
+    els.employeePortalContent.innerHTML = `
+      <div class="iz-emp-dashboard">
+        <aside class="iz-emp-left-col">
+          ${renderEmployeePortalProfileCard(employee, displayName)}
+          ${renderEmployeePortalSelectedProjectCard(selectedAssignment, employee, upcomingAssignments)}
+          ${state.employeePortalProjectDetailsOpen ? renderEmployeePortalProjectDetails(selectedAssignment, employee, crewRows) : ""}
+        </aside>
+        <section class="iz-emp-main-col">
+          ${renderEmployeePortalTimeline(upcomingAssignments, selectedAssignment.id)}
+          ${renderEmployeePortalTeam(employee, project, crewRows)}
+          <div class="iz-emp-content-grid">
+            ${renderEmployeePortalUpcoming(upcomingAssignments, selectedAssignment.id)}
+            ${renderEmployeePortalHistory(history)}
+          </div>
+        </section>
+      </div>
+    `;
+  }
+
+  function renderEmployeePortalUpcoming(assignments, selectedEntryId) {
+    const upcoming = assignments || [];
+    return `
+      <section class="iz-emp-card iz-emp-section-card iz-emp-upcoming-card">
+        <div class="iz-emp-section-head">
+          <div class="iz-emp-section-icon">▦</div>
+          <div>
+            <div class="iz-emp-section-title">Kommende prosjekter</div>
+            <div class="iz-emp-section-subtitle">Trykk på et prosjekt for å vise detaljene øverst.</div>
+          </div>
+        </div>
+        ${upcoming.length ? `<div class="iz-emp-upcoming-list">${upcoming.map(item => {
+          const title = getEmployeePortalProjectTitle(item.project);
+          const period = item.start_date && item.end_date ? `${formatDate(item.start_date)} – ${formatDate(item.end_date)}` : "Dato ikke satt";
+          const customer = getEmployeePortalCustomerText(item.project);
+          const responsible = getEmployeePortalResponsibleText(item.project);
+          const isSelected = String(item.id || "") === String(selectedEntryId || "");
+          return `<button type="button" class="iz-emp-upcoming-row ${isSelected ? "iz-emp-upcoming-row-active" : ""}" data-employee-portal-select-assignment="${escapeHtml(item.id || "")}" aria-current="${isSelected ? "true" : "false"}">
+            <div class="iz-emp-upcoming-date">${escapeHtml(period)}</div>
+            <div class="iz-emp-upcoming-main">
+              <div class="iz-emp-upcoming-title">${title.code ? `<span>${escapeHtml(title.code)}</span> ` : ""}${escapeHtml(title.cleanName)}</div>
+              <div class="iz-emp-upcoming-meta">${escapeHtml(item.role || "Rolle ikke satt")}${customer !== "Ikke satt" ? ` · ${escapeHtml(customer)}` : ""}${responsible !== "Ikke satt" ? ` · PL: ${escapeHtml(responsible)}` : ""}</div>
+            </div>
+            <div class="iz-emp-upcoming-action">${isSelected ? "Vises" : "Vis"}</div>
+          </button>`;
+        }).join("")}</div>` : `<div class="iz-emp-empty">Ingen kommende prosjekter registrert.</div>`}
+      </section>
+    `;
+  }
+
+  function renderEmployeePortalTeam(employee, project, crewRows = []) {
+    const currentName = String(employee?.name || "").trim().toLowerCase();
+    const uniqueCrew = [];
+    const seen = new Set();
+    (crewRows || []).forEach(entry => {
+      const name = String(entry?.employee_name || "").trim();
+      const key = name.toLowerCase();
+      if (!name || seen.has(key)) return;
+      seen.add(key);
+      uniqueCrew.push(entry);
+    });
+    uniqueCrew.sort((a, b) => {
+      const aIsMe = String(a?.employee_name || "").trim().toLowerCase() === currentName;
+      const bIsMe = String(b?.employee_name || "").trim().toLowerCase() === currentName;
+      if (aIsMe !== bIsMe) return aIsMe ? -1 : 1;
+      return String(a?.employee_name || "").localeCompare(String(b?.employee_name || ""), "no");
+    });
+    const crewSummary = getEmployeePortalCrewSummary(project, uniqueCrew);
+    const statusClass = crewSummary.missing > 0 ? "iz-emp-chip-warning" : (crewSummary.complete ? "iz-emp-chip-ok" : "");
+    const missingText = crewSummary.required > 0
+      ? (crewSummary.missing > 0 ? `${crewSummary.missing} rolle${crewSummary.missing === 1 ? "" : "r"} mangler` : "Crew er komplett")
+      : "Bemanningskrav er ikke satt på prosjektet";
+    return `
+      <section class="iz-emp-card iz-emp-section-card iz-emp-crew-card">
+        <div class="iz-emp-section-head iz-emp-crew-head">
+          <div class="iz-emp-section-icon">♙</div>
+          <div>
+            <div class="iz-emp-section-title">Prosjektteam</div>
+            <div class="iz-emp-section-subtitle">${escapeHtml(crewSummary.label)} · ${escapeHtml(missingText)}</div>
+          </div>
+          <span class="iz-emp-chip ${statusClass}">${escapeHtml(crewSummary.status)}</span>
+        </div>
+        ${uniqueCrew.length ? `<div class="iz-emp-crew-list">${uniqueCrew.map(entry => {
+          const isMe = String(entry?.employee_name || "").trim().toLowerCase() === currentName;
+          const period = entry.start_date && entry.end_date ? `${formatDate(entry.start_date)} – ${formatDate(entry.end_date)}` : "Dato ikke satt";
+          return `
+            <div class="iz-emp-crew-row ${isMe ? "iz-emp-crew-row-current" : ""}">
+              <div class="iz-emp-crew-avatar">${escapeHtml(getInitials(entry.employee_name))}</div>
+              <div class="iz-emp-crew-person">
+                <div class="iz-emp-crew-name">${escapeHtml(entry.employee_name || "Ukjent")}${isMe ? ` <span class="iz-emp-crew-you">Deg</span>` : ""}</div>
+                <div class="iz-emp-crew-role">${escapeHtml(entry.role || "Tildelt")}</div>
+              </div>
+              <div class="iz-emp-crew-period">${escapeHtml(period)}</div>
+            </div>
+          `;
+        }).join("")}</div>` : `<div class="iz-emp-empty">Crewdata er ikke tilgjengelig for valgt prosjekt. Kontroller at RPC-funksjonen er opprettet og at prosjektet har tildelinger.</div>`}
+      </section>
+    `;
+  }
+
+  function renderEmployeePortalHistory(history) {
+    const rows = (history || []).slice(0, 3);
+    return `
+      <section class="iz-emp-card iz-emp-history-card">
+        <div>
+          <div class="iz-emp-section-head"><div class="iz-emp-section-icon">◴</div><div class="iz-emp-section-title">Siste aktivitet</div></div>
+          ${rows.length ? `<div class="iz-emp-history-list">${rows.map(item => {
+            const title = getEmployeePortalProjectTitle(item.project);
+            return `<div class="iz-emp-history-row"><div class="iz-emp-history-code">${escapeHtml(title.code)}</div><div class="iz-emp-history-name">${escapeHtml(title.cleanName)}</div><div class="iz-emp-history-date">${escapeHtml(formatDate(item.start_date))} – ${escapeHtml(formatDate(item.end_date))}</div></div>`;
+          }).join("")}</div>` : `<div class="iz-emp-empty">Ingen historikk registrert.</div>`}
+        </div>
+        <button type="button" class="iz-emp-view-all">Se all historikk ›</button>
+      </section>
+    `;
+  }
 
   function applyRoleChrome() {
     updateAccountPanel();
@@ -1155,6 +2064,7 @@
 
       state.currentUser = "Ikke innlogget";
       state.currentUserEmail = "";
+      state.currentUserId = "";
       state.currentRole = "";
       closeLoginModal();
       if (els.loginEmail) els.loginEmail.value = "";
@@ -1183,6 +2093,1623 @@
     if (els.loginEmail) els.loginEmail.value = "";
     if (els.loginPassword) els.loginPassword.value = "";
     flushPendingRemoteRefresh();
+  }
+
+  async function handleStartLogin() {
+    if (!supabaseClient?.auth) {
+      setStartLoginError("Innlogging er ikke konfigurert i denne versjonen.");
+      return;
+    }
+
+    const email = els.startLoginEmail?.value?.trim() || "";
+    const password = els.startLoginPassword?.value || "";
+
+    if (!email || !password) {
+      setStartLoginError("Legg inn e-post og passord.");
+      return;
+    }
+
+    setStartLoginError("");
+    if (els.startLoginSubmitBtn) {
+      els.startLoginSubmitBtn.disabled = true;
+      els.startLoginSubmitBtn.textContent = "Logger inn...";
+    }
+
+    try {
+      const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
+      if (error) throw error;
+      window.location.reload();
+    } catch (error) {
+      setStartLoginError(`Kunne ikke logge inn: ${error?.message || "Ukjent feil"}`);
+      if (els.startLoginSubmitBtn) {
+        els.startLoginSubmitBtn.disabled = false;
+        els.startLoginSubmitBtn.textContent = "Logg inn";
+      }
+    }
+  }
+
+  async function handleStartForgotPassword() {
+    if (!supabaseClient?.auth) {
+      setStartLoginError("Passordreset er ikke konfigurert i denne versjonen.");
+      return;
+    }
+
+    const email = els.startLoginEmail?.value?.trim() || "";
+    if (!email) {
+      setStartLoginError("Legg inn e-postadressen din først.");
+      return;
+    }
+
+    const { error } = await supabaseClient.auth.resetPasswordForEmail(email, {
+      redirectTo: window.location.origin
+    });
+
+    if (error) {
+      setStartLoginError(`Kunne ikke sende reset-link: ${error.message}`);
+      return;
+    }
+
+    setStartLoginError("Reset-link er sendt hvis e-postadressen finnes i systemet.");
+  }
+
+  function setAccessRequestFeedback(message = "", variant = "neutral") {
+    if (!els.accessRequestFeedback) return;
+    els.accessRequestFeedback.textContent = message;
+    els.accessRequestFeedback.classList.toggle("visible", Boolean(message));
+    els.accessRequestFeedback.classList.toggle("success", variant === "success");
+    els.accessRequestFeedback.classList.toggle("error", variant === "error");
+  }
+
+  function openAccessRequestModal() {
+    if (!els.accessRequestModal) return;
+    setStartLoginError("");
+    setAccessRequestFeedback("");
+    if (els.accessRequestName) els.accessRequestName.value = "";
+    if (els.accessRequestEmail) els.accessRequestEmail.value = els.startLoginEmail?.value?.trim() || "";
+    if (els.accessRequestPhone) els.accessRequestPhone.value = "";
+    if (els.accessRequestType) els.accessRequestType.value = "employee";
+    if (els.accessRequestMessage) els.accessRequestMessage.value = "";
+    if (els.accessRequestSubmitBtn) {
+      els.accessRequestSubmitBtn.disabled = false;
+      els.accessRequestSubmitBtn.textContent = "Send søknad";
+    }
+    els.accessRequestModal.classList.add("visible");
+    els.accessRequestModal.setAttribute("aria-hidden", "false");
+    setTimeout(() => els.accessRequestName?.focus(), 0);
+  }
+
+  function closeAccessRequestModal() {
+    if (!els.accessRequestModal) return;
+    els.accessRequestModal.classList.remove("visible");
+    els.accessRequestModal.setAttribute("aria-hidden", "true");
+    setAccessRequestFeedback("");
+  }
+
+  function handleStartAccessHelp() {
+    openAccessRequestModal();
+  }
+
+  async function submitAccessRequest() {
+    if (!supabaseClient) {
+      setAccessRequestFeedback("Supabase er ikke konfigurert i denne versjonen.", "error");
+      return;
+    }
+
+    const fullName = els.accessRequestName?.value?.trim() || "";
+    const email = els.accessRequestEmail?.value?.trim().toLowerCase() || "";
+    const phone = els.accessRequestPhone?.value?.trim() || "";
+    const requestedAccess = els.accessRequestType?.value || "employee";
+    const message = els.accessRequestMessage?.value?.trim() || "";
+
+    if (!fullName) {
+      setAccessRequestFeedback("Legg inn navn.", "error");
+      els.accessRequestName?.focus();
+      return;
+    }
+
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setAccessRequestFeedback("Legg inn en gyldig e-postadresse.", "error");
+      els.accessRequestEmail?.focus();
+      return;
+    }
+
+    if (!["employee", "planner", "admin"].includes(requestedAccess)) {
+      setAccessRequestFeedback("Velg ønsket tilgang.", "error");
+      els.accessRequestType?.focus();
+      return;
+    }
+
+    const row = {
+      full_name: fullName,
+      email,
+      phone: phone || null,
+      requested_access: requestedAccess,
+      message: message || null,
+      status: "pending"
+    };
+
+    if (els.accessRequestSubmitBtn) {
+      els.accessRequestSubmitBtn.disabled = true;
+      els.accessRequestSubmitBtn.textContent = "Sender...";
+    }
+
+    setAccessRequestFeedback("");
+
+    try {
+      const { error } = await supabaseClient.from("access_requests").insert(row);
+      if (error) throw error;
+
+      setAccessRequestFeedback("Søknad sendt. Superadmin må godkjenne tilgangen før brukeren kan åpne systemet.", "success");
+      if (els.accessRequestSubmitBtn) {
+        els.accessRequestSubmitBtn.textContent = "Sendt";
+      }
+      if (els.startLoginEmail) els.startLoginEmail.value = email;
+    } catch (error) {
+      setAccessRequestFeedback(`Kunne ikke sende søknad: ${error?.message || "Ukjent feil"}`, "error");
+      if (els.accessRequestSubmitBtn) {
+        els.accessRequestSubmitBtn.disabled = false;
+        els.accessRequestSubmitBtn.textContent = "Send søknad";
+      }
+    }
+  }
+
+  function formatAccessRequestDate(value) {
+    if (!value) return "-";
+    try {
+      return new Intl.DateTimeFormat("no-NO", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit"
+      }).format(new Date(value));
+    } catch (_) {
+      return String(value || "-");
+    }
+  }
+
+  function formatAccessRequestStatus(status) {
+    const normalized = String(status || "pending").toLowerCase();
+    if (normalized === "approved") return "Godkjent";
+    if (normalized === "rejected") return "Avslått";
+    return "Venter";
+  }
+
+  function formatRequestedAccess(value) {
+    const normalized = String(value || "").toLowerCase();
+    if (normalized === "employee") return "Ansatt / Min side";
+    if (normalized === "reader") return "Lesetilgang";
+    if (normalized === "planner") return "Planlegger";
+    if (normalized === "admin") return "Admin";
+    return value || "Ikke valgt";
+  }
+
+  async function fetchAccessRequests(options = {}) {
+    const silent = Boolean(options.silent);
+    if (!supabaseClient || !canApproveAccessRequests()) {
+      state.accessRequests.rows = [];
+      state.accessRequests.error = "";
+      return;
+    }
+
+    state.accessRequests.loading = true;
+    if (!silent) renderAccessRequests();
+
+    try {
+      const { data, error } = await supabaseClient
+        .from("access_requests")
+        .select("id, full_name, email, phone, requested_access, message, status, created_at, reviewed_at, reviewed_by, review_note, setup_completed_at, setup_completed_by, approved_role, linked_employee_id")
+        .order("created_at", { ascending: false })
+        .limit(100);
+
+      if (error) throw error;
+      state.accessRequests.rows = data || [];
+      state.accessRequests.error = "";
+      state.accessRequests.lastLoadedAt = new Date().toISOString();
+    } catch (error) {
+      state.accessRequests.error = error?.message || "Kunne ikke hente tilgangssøknader.";
+    } finally {
+      state.accessRequests.loading = false;
+      renderAccessRequests();
+      renderEmployees();
+    }
+  }
+
+  function refreshAccessRequests() {
+    return fetchAccessRequests({ silent: false });
+  }
+
+  function getAccessRequestBadgeClass(status) {
+    const normalized = String(status || "pending").toLowerCase();
+    if (normalized === "approved") return "border-emerald-200 bg-emerald-50 text-emerald-700";
+    if (normalized === "rejected") return "border-rose-200 bg-rose-50 text-rose-700";
+    return "border-amber-200 bg-amber-50 text-amber-700";
+  }
+
+  function renderAccessRequests() {
+    if (!els.accessApprovalList) return;
+
+    const allowed = canApproveAccessRequests();
+    const card = els.accessApprovalList.closest(".rounded-2xl");
+    if (card) card.style.display = allowed ? "" : "none";
+    if (!allowed) return;
+
+    const focusedEmployee = getEmployeeAdminAccessPanelEmployee();
+    const allRows = state.accessRequests.rows || [];
+    const rows = focusedEmployee ? getAccessRequestsForEmployee(focusedEmployee, allRows) : allRows;
+    updateEmployeeAccessPanelHeader(focusedEmployee);
+    const pendingCount = rows.filter(row => String(row.status || "pending").toLowerCase() === "pending").length;
+    const readyForSetupCount = rows.filter(row => String(row.status || "pending").toLowerCase() === "approved" && !row.setup_completed_at).length;
+    const completedCount = rows.filter(row => row.setup_completed_at || ["rejected", "declined"].includes(String(row.status || "").toLowerCase())).length;
+
+    if (els.accessApprovalStatus) {
+      const loadedText = state.accessRequests.lastLoadedAt ? `Sist hentet ${formatAccessRequestDate(state.accessRequests.lastLoadedAt)}` : "Ikke hentet ennå";
+      const scopeText = focusedEmployee ? `${focusedEmployee.name || "Valgt ansatt"} • ` : "";
+      els.accessApprovalStatus.textContent = state.accessRequests.loading ? "Henter søknader..." : `${scopeText}${pendingCount} ventende • ${readyForSetupCount} klar for oppsett • ${completedCount} i historikk • ${loadedText}`;
+    }
+
+    if (state.accessRequests.loading && !rows.length) {
+      els.accessApprovalList.innerHTML = `<div class="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">Henter tilgangssøknader...</div>`;
+      return;
+    }
+
+    if (state.accessRequests.error) {
+      els.accessApprovalList.innerHTML = `<div class="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">Kunne ikke hente tilgangssøknader: ${escapeHtml(state.accessRequests.error)}</div>`;
+      return;
+    }
+
+    if (!rows.length) {
+      const emptyText = focusedEmployee
+        ? `Ingen tilgangssøknader funnet for ${escapeHtml(focusedEmployee.name || "valgt ansatt")}.`
+        : "Ingen tilgangssøknader ennå.";
+      els.accessApprovalList.innerHTML = `<div class="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">${emptyText}</div>`;
+      return;
+    }
+
+    const displayRows = rows.slice().sort((a, b) => {
+      const rank = row => {
+        const status = String(row.status || "pending").toLowerCase();
+        if (status === "pending") return 0;
+        if (status === "approved" && !row.setup_completed_at) return 1;
+        if (status === "approved" && row.setup_completed_at) return 2;
+        return 3;
+      };
+      const r = rank(a) - rank(b);
+      if (r !== 0) return r;
+      return new Date(b.created_at || 0) - new Date(a.created_at || 0);
+    });
+
+    const activeRequestRows = displayRows.filter(row => {
+      const status = String(row.status || "pending").toLowerCase();
+      return status === "pending" || (status === "approved" && !row.setup_completed_at);
+    });
+    const historyRequestRows = displayRows.filter(row => !activeRequestRows.some(activeRow => activeRow.id === row.id));
+    const activeRequestsIntro = activeRequestRows.length
+      ? ""
+      : `<div class="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">Ingen åpne tilgangssøknader. Fullførte/avslåtte søknader ligger kompakt i historikken under.</div>`;
+
+    const activeRequestsHtml = activeRequestRows.map(row => {
+      const status = String(row.status || "pending").toLowerCase();
+      const isPending = status === "pending";
+      const isApproved = status === "approved";
+      const isSetupCompleted = Boolean(row.setup_completed_at);
+      const matchingProfile = findAccessUserProfileByEmail(row.email);
+      const canSetup = isApproved && !isSetupCompleted && canManageUserAccess();
+      const setupInfo = renderAccessSetupBlock(row, matchingProfile, canSetup);
+      return `
+        <div class="rounded-2xl border border-slate-200 bg-white shadow-sm ring-1 ring-slate-100" data-access-request-row-id="${escapeHtml(row.id)}">
+          <div class="p-5">
+          <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+            <div class="min-w-0 space-y-1">
+              <div class="flex flex-wrap items-center gap-2">
+                <div class="font-semibold text-slate-900">${escapeHtml(row.full_name || "Uten navn")}</div>
+                <span class="rounded-full border px-2.5 py-1 text-xs font-semibold ${getAccessRequestBadgeClass(status)}">${escapeHtml(formatAccessRequestStatus(status))}</span>
+                ${isSetupCompleted ? `<span class="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">Tilgang satt opp</span>` : ""}
+              </div>
+              <div class="text-sm text-slate-600">${escapeHtml(row.email || "Ingen e-post")}${row.phone ? ` • ${escapeHtml(row.phone)}` : ""}</div>
+              <div class="text-sm text-slate-700"><span class="font-medium">Ønsket tilgang:</span> ${escapeHtml(formatRequestedAccess(row.requested_access))}</div>
+              ${row.message ? `<div class="mt-2 rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-700">${escapeHtml(row.message)}</div>` : ""}
+              <div class="text-xs text-slate-500">Sendt ${escapeHtml(formatAccessRequestDate(row.created_at))}${row.reviewed_at ? ` • Behandlet ${escapeHtml(formatAccessRequestDate(row.reviewed_at))}` : ""}${row.setup_completed_at ? ` • Oppsatt ${escapeHtml(formatAccessRequestDate(row.setup_completed_at))}` : ""}</div>
+            </div>
+            <div class="flex shrink-0 flex-wrap gap-2">
+              <button type="button" data-access-action="approved" data-access-request-id="${escapeHtml(row.id)}" class="rounded-xl bg-slate-900 px-3 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-40" ${isPending ? "" : "disabled"}>Godkjenn</button>
+              <button type="button" data-access-action="rejected" data-access-request-id="${escapeHtml(row.id)}" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 disabled:cursor-not-allowed disabled:opacity-40" ${isPending ? "" : "disabled"}>Avslå</button>
+            </div>
+          </div>
+          </div>
+          ${setupInfo}
+        </div>
+      `;
+    }).join("");
+
+    const historyHtml = historyRequestRows.length
+      ? `<details class="rounded-2xl border border-slate-200 bg-white shadow-sm ring-1 ring-slate-100">
+          <summary class="cursor-pointer px-5 py-4 text-sm font-semibold text-slate-700 hover:bg-slate-50">Historikk: ${historyRequestRows.length} fullførte/avslåtte søknader</summary>
+          <div class="divide-y divide-slate-100 border-t border-slate-100">
+            ${historyRequestRows.slice(0, 25).map(row => {
+              const status = String(row.status || "pending").toLowerCase();
+              return `<div class="flex flex-col gap-1 px-5 py-3 text-sm md:flex-row md:items-center md:justify-between">
+                <div class="min-w-0">
+                  <div class="truncate font-semibold text-slate-800">${escapeHtml(row.full_name || row.email || "Uten navn")}</div>
+                  <div class="truncate text-xs text-slate-500">${escapeHtml(row.email || "Ingen e-post")} • ${escapeHtml(formatRequestedAccess(row.approved_role || row.requested_access))}</div>
+                </div>
+                <div class="flex shrink-0 flex-wrap items-center gap-2 text-xs text-slate-500">
+                  <span class="rounded-full border px-2 py-0.5 font-semibold ${getAccessRequestBadgeClass(status)}">${escapeHtml(formatAccessRequestStatus(status))}</span>
+                  ${row.setup_completed_at ? `<span>Oppsatt ${escapeHtml(formatAccessRequestDate(row.setup_completed_at))}</span>` : `<span>Sendt ${escapeHtml(formatAccessRequestDate(row.created_at))}</span>`}
+                </div>
+              </div>`;
+            }).join("")}
+            ${historyRequestRows.length > 25 ? `<div class="px-5 py-3 text-xs text-slate-500">Viser de 25 siste historikkradene.</div>` : ""}
+          </div>
+        </details>`
+      : "";
+
+    els.accessApprovalList.innerHTML = `${activeRequestsIntro}${activeRequestsHtml}${historyHtml}`;
+  }
+
+  function findAccessUserProfileByEmail(email) {
+    const normalized = normalizeComparableText(email);
+    if (!normalized) return null;
+    return (state.accessUsers.rows || []).find(row => normalizeComparableText(row.email) === normalized) || null;
+  }
+
+  const ACCESS_CREATE_NEW_EMPLOYEE_VALUE = "__create_new_employee__";
+
+  function normalizeAccessPhone(value) {
+    return String(value || "").replace(/\D/g, "");
+  }
+
+  function getAccessEmployeeMatchReasons(row, employee) {
+    if (!row || !employee) return [];
+    const reasons = [];
+    const requestedEmail = normalizeComparableText(row.email || "");
+    const employeeEmail = normalizeComparableText(employee.email || "");
+    if (requestedEmail && employeeEmail && requestedEmail === employeeEmail) reasons.push("e-post");
+
+    const requestedPhone = normalizeAccessPhone(row.phone || "");
+    const employeePhone = normalizeAccessPhone(employee.phone || "");
+    if (requestedPhone && employeePhone && (requestedPhone === employeePhone || requestedPhone.endsWith(employeePhone) || employeePhone.endsWith(requestedPhone))) reasons.push("telefon");
+
+    const requestedName = normalizeComparableText(row.full_name || "");
+    const employeeName = normalizeComparableText(employee.name || "");
+    if (requestedName && employeeName && requestedName === employeeName) reasons.push("navn");
+    return reasons;
+  }
+
+  function getAccessEmployeeMatches(row) {
+    const employees = (state.employees || []).filter(employee => employee?.id && employee.active !== false);
+    return employees
+      .map(employee => ({ employee, reasons: getAccessEmployeeMatchReasons(row, employee) }))
+      .filter(item => item.reasons.length)
+      .sort((a, b) => {
+        const score = item => {
+          if (item.reasons.includes("e-post")) return 0;
+          if (item.reasons.includes("telefon")) return 1;
+          if (item.reasons.includes("navn")) return 2;
+          return 3;
+        };
+        const rank = score(a) - score(b);
+        if (rank !== 0) return rank;
+        return String(a.employee.name || "").localeCompare(String(b.employee.name || ""), "no");
+      });
+  }
+
+  function getAccessCompletePreferredEmployeeId(row) {
+    const linkedId = row?.linked_employee_id ? String(row.linked_employee_id) : "";
+    if (linkedId) {
+      const linkedEmployee = (state.employees || []).find(employee => String(employee?.id || "") === linkedId && employee.active !== false);
+      if (linkedEmployee) return linkedEmployee.id;
+    }
+    const firstMatch = getAccessEmployeeMatches(row)[0]?.employee;
+    return firstMatch?.id || "";
+  }
+
+  function getAccessCompleteEmployeeLinkOptions(selectedEmployeeId, row = null) {
+    const selected = String(selectedEmployeeId || "");
+    const matches = getAccessEmployeeMatches(row);
+    const matchMap = new Map(matches.map(item => [String(item.employee.id), item.reasons]));
+    const employees = (state.employees || [])
+      .filter(employee => employee?.id && employee.active !== false)
+      .slice()
+      .sort((a, b) => {
+        const aMatched = matchMap.has(String(a.id)) ? 0 : 1;
+        const bMatched = matchMap.has(String(b.id)) ? 0 : 1;
+        if (aMatched !== bMatched) return aMatched - bMatched;
+        return String(a.name || "").localeCompare(String(b.name || ""), "no");
+      });
+
+    const options = [`<option value="">Velg eksisterende ansatt eller opprett ny</option>`];
+    employees.forEach(employee => {
+      const reasons = matchMap.get(String(employee.id)) || [];
+      const matchLabel = reasons.length ? `MATCH: ${reasons.join("+")}` : "";
+      const label = [employee.name, employee.title, employee.employee_group, employee.email, matchLabel].filter(Boolean).join(" • ");
+      options.push(`<option value="${escapeHtml(employee.id)}" ${String(employee.id) === selected ? "selected" : ""}>${escapeHtml(label || employee.id)}</option>`);
+    });
+    options.push(`<option value="${ACCESS_CREATE_NEW_EMPLOYEE_VALUE}" ${selected === ACCESS_CREATE_NEW_EMPLOYEE_VALUE ? "selected" : ""}>Opprett ny ansatt – kun hvis personen ikke finnes fra før</option>`);
+    return options.join("");
+  }
+
+  function getAccessCompleteSelectedEmployee(row) {
+    const employeeId = getAccessCompletePreferredEmployeeId(row);
+    if (!employeeId) return null;
+    return (state.employees || []).find(employee => String(employee?.id || "") === String(employeeId)) || null;
+  }
+
+  function renderAccessCompleteEmployeeLinkBlock(row, selectedRole) {
+    const isEmployeeRole = String(selectedRole || "").toLowerCase() === "employee";
+    const matches = getAccessEmployeeMatches(row);
+    const selectedEmployeeId = isEmployeeRole ? getAccessCompletePreferredEmployeeId(row) : "";
+    const selectedEmployee = selectedEmployeeId ? (state.employees || []).find(employee => String(employee?.id || "") === String(selectedEmployeeId)) : null;
+    const matchedText = matches.length
+      ? `Fant ${matches.length} mulig eksisterende ansatt. Standard er å koble til eksisterende ansatt for å hindre duplikat.`
+      : "Ingen sikker match funnet. Velg eksisterende ansatt manuelt, eller velg opprett ny hvis personen faktisk ikke finnes fra før.";
+    const selectedText = selectedEmployee
+      ? `${selectedEmployee.name || "Ansatt"}${selectedEmployee.title ? ` • ${selectedEmployee.title}` : ""}${selectedEmployee.employee_group ? ` • ${selectedEmployee.employee_group}` : ""}`
+      : "Ingen ansatt valgt ennå.";
+
+    return `
+      <div class="mt-4 rounded-xl border ${matches.length ? "border-amber-300 bg-amber-50" : "border-slate-200 bg-slate-50"} p-4" data-access-complete-employee-link-box="${escapeHtml(row.id)}">
+        <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+          <div class="min-w-0">
+            <div class="text-sm font-bold text-slate-900">Ansattkobling / duplikatkontroll</div>
+            <div class="mt-1 text-xs leading-relaxed ${matches.length ? "text-amber-800" : "text-slate-600"}">${escapeHtml(matchedText)}</div>
+            <div class="mt-1 text-xs text-slate-600">Valgt: ${escapeHtml(selectedText)}</div>
+          </div>
+          ${matches.length ? `<span class="inline-flex w-fit rounded-md border border-amber-400 bg-white px-3 py-1.5 text-xs font-bold text-amber-800">Mulig match funnet</span>` : `<span class="inline-flex w-fit rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-bold text-slate-700">Manuelt valg kreves</span>`}
+        </div>
+        <label class="mt-3 block text-sm text-slate-700">
+          <span class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Koble til ansattprofil</span>
+          <select data-access-complete-existing-employee="${escapeHtml(row.id)}" class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm" ${isEmployeeRole ? "" : "disabled"}>
+            ${getAccessCompleteEmployeeLinkOptions(selectedEmployeeId, row)}
+          </select>
+        </label>
+        <div class="mt-2 text-xs leading-relaxed text-slate-600">
+          Bruk <span class="font-semibold">Opprett ny ansatt</span> bare når personen ikke allerede finnes i ansattlisten. Dette hindrer at ansatte som allerede er planlagt på jobber blir opprettet på nytt.
+        </div>
+      </div>
+    `;
+  }
+
+  function getAccessEmployeeAutoMatch(row) {
+    const linkedId = row?.linked_employee_id ? String(row.linked_employee_id) : "";
+    if (linkedId) {
+      const linked = (state.employees || []).find(employee => String(employee?.id || "") === linkedId);
+      if (linked) return linked;
+    }
+
+    const requestedEmail = normalizeComparableText(row?.email || "");
+    if (requestedEmail) {
+      const emailMatch = (state.employees || []).find(employee => normalizeComparableText(employee?.email || "") === requestedEmail);
+      if (emailMatch) return emailMatch;
+    }
+
+    const requestedName = normalizeComparableText(row?.full_name || "");
+    if (requestedName) {
+      const nameMatch = (state.employees || []).find(employee => normalizeComparableText(employee?.name || "") === requestedName);
+      if (nameMatch) return nameMatch;
+    }
+
+    return null;
+  }
+
+  function getAccessSetupChecklistHtml(row, matchingProfile, autoMatchedEmployee, selectedRole) {
+    const normalizedRole = String(selectedRole || row?.requested_access || "").toLowerCase();
+    const isEmployeeRole = normalizedRole === "employee";
+    const roleIsValid = ["employee", "planner", "admin"].includes(normalizedRole);
+    const employeeReady = !isEmployeeRole || Boolean(autoMatchedEmployee || row?.linked_employee_id);
+    const profileReady = Boolean(matchingProfile);
+    const requestApproved = String(row?.status || "pending").toLowerCase() === "approved";
+    const readyForSetup = requestApproved && roleIsValid && employeeReady;
+
+    const statusChip = (ok, labelOk, labelMissing) => ok
+      ? `<span class="inline-flex items-center rounded-md border border-emerald-300 bg-white px-2.5 py-1 text-xs font-semibold text-emerald-800">✓ ${escapeHtml(labelOk)}</span>`
+      : `<span class="inline-flex items-center rounded-md border border-amber-400 bg-white px-2.5 py-1 text-xs font-semibold text-amber-800">Mangler: ${escapeHtml(labelMissing)}</span>`;
+
+    return `
+      <div class="rounded-xl border border-slate-300 bg-white p-4 shadow-sm">
+        <div class="mb-3 flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <div class="text-sm font-bold text-slate-950">Status for oppsett</div>
+            <div class="text-xs text-slate-600">Følg stegene under fra venstre mot høyre. Fargene er kun statusmarkører, ikke egne arbeidsbokser.</div>
+          </div>
+          <span class="inline-flex w-fit items-center rounded-md border px-3 py-1.5 text-xs font-bold ${readyForSetup ? "border-emerald-500 bg-emerald-700 text-white" : "border-amber-500 bg-amber-600 text-white"}">${readyForSetup ? "Klar til fullføring" : "Mangler steg"}</span>
+        </div>
+        <div class="grid gap-2 text-sm lg:grid-cols-5">
+          <div class="rounded-lg border border-slate-200 bg-slate-50 p-3">
+            <div class="text-xs font-bold uppercase tracking-wide text-slate-500">1. Søknad</div>
+            <div class="mt-2">${statusChip(requestApproved, "Godkjent", "Godkjenning")}</div>
+          </div>
+          <div class="rounded-lg border border-slate-200 bg-slate-50 p-3">
+            <div class="text-xs font-bold uppercase tracking-wide text-slate-500">2. Auth / profil</div>
+            <div class="mt-2">${statusChip(profileReady, "Bruker finnes", "Opprett Auth-bruker")}</div>
+            <div class="mt-2 truncate text-xs text-slate-600">${escapeHtml(profileReady ? (matchingProfile.email || row.email || "OK") : "Opprettes via knappen under")}</div>
+          </div>
+          <div class="rounded-lg border border-slate-200 bg-slate-50 p-3">
+            <div class="text-xs font-bold uppercase tracking-wide text-slate-500">3. Rolle</div>
+            <div class="mt-2">${statusChip(roleIsValid, formatRequestedAccess(normalizedRole), "Velg rolle")}</div>
+          </div>
+          <div class="rounded-lg border border-slate-200 bg-slate-50 p-3">
+            <div class="text-xs font-bold uppercase tracking-wide text-slate-500">4. Ansatt</div>
+            <div class="mt-2">${statusChip(employeeReady, isEmployeeRole ? "Koblet" : "Ikke relevant", "Koble ansatt")}</div>
+            <div class="mt-2 truncate text-xs text-slate-600">${escapeHtml(!isEmployeeRole ? "Kun for employee" : autoMatchedEmployee ? autoMatchedEmployee.name || "Ansatt valgt" : "Velg i listen under")}</div>
+          </div>
+          <div class="rounded-lg border border-slate-200 bg-slate-50 p-3">
+            <div class="text-xs font-bold uppercase tracking-wide text-slate-500">5. Fullføring</div>
+            <div class="mt-2">${statusChip(readyForSetup, "Klar", "Steg over")}</div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  function getAllowedAccessRoleOptions() {
+    const role = normalizeRoleValue(state.currentRole);
+    if (role === "superadmin" || role === "admin") {
+      return [
+        ["employee", "Ansatt / Min side"],
+        ["planner", "Planlegger"],
+        ["admin", "Admin"]
+      ];
+    }
+    if (role === "planner") {
+      return [
+        ["employee", "Ansatt / Min side"],
+        ["planner", "Planlegger"]
+      ];
+    }
+    return [];
+  }
+
+  function getAccessSetupRoleOptions(selectedValue) {
+    const selected = String(selectedValue || "").toLowerCase();
+    const options = getAllowedAccessRoleOptions();
+    return options.map(([value, label]) => `<option value="${value}" ${selected === value ? "selected" : ""}>${escapeHtml(label)}</option>`).join("");
+  }
+
+  function canAssignAccessRole(role) {
+    const normalized = normalizeRoleValue(role);
+    return Boolean(normalized) && getAllowedAccessRoleOptions().some(([value]) => value === normalized);
+  }
+
+  function getDefaultAssignableAccessRole(preferredRole = "employee") {
+    const normalized = normalizeRoleValue(preferredRole);
+    if (canAssignAccessRole(normalized)) return normalized;
+    const first = getAllowedAccessRoleOptions()[0];
+    return first?.[0] || "employee";
+  }
+
+  function getAccessSetupEmployeeOptions(selectedEmployeeId, row = null) {
+    const selected = String(selectedEmployeeId || "");
+    const requestedEmail = normalizeComparableText(row?.email || "");
+    const employees = (state.employees || [])
+      .filter(employee => employee?.id && employee.active !== false)
+      .slice()
+      .sort((a, b) => {
+        const aEmailMatch = requestedEmail && normalizeComparableText(a.email || "") === requestedEmail ? 0 : 1;
+        const bEmailMatch = requestedEmail && normalizeComparableText(b.email || "") === requestedEmail ? 0 : 1;
+        if (aEmailMatch !== bEmailMatch) return aEmailMatch - bEmailMatch;
+        return String(a.name || "").localeCompare(String(b.name || ""), "no");
+      });
+
+    const options = [`<option value="">Velg ansattprofil</option>`];
+    employees.forEach(employee => {
+      const emailMatch = requestedEmail && normalizeComparableText(employee.email || "") === requestedEmail;
+      const label = [employee.name, employee.title, employee.employee_group, emailMatch ? "matcher e-post" : ""].filter(Boolean).join(" • ");
+      options.push(`<option value="${escapeHtml(employee.id)}" ${String(employee.id) === selected ? "selected" : ""}>${escapeHtml(label || employee.id)}</option>`);
+    });
+    return options.join("");
+  }
+
+  function generateTemporaryAccessPassword(length = 14) {
+    const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789";
+    const symbols = "!#%?";
+    const random = new Uint32Array(length);
+    crypto.getRandomValues(random);
+    let password = "";
+    for (let i = 0; i < length; i += 1) {
+      password += alphabet[random[i] % alphabet.length];
+    }
+    return `${password}${symbols[random[0] % symbols.length]}`;
+  }
+
+  function getAccessCompleteEmployeeTypeOptions(selectedValue) {
+    const selected = String(selectedValue || "");
+    const options = [
+      ["", "Velg type"],
+      ["Offshore", "Offshore"],
+      ["Onshore", "Onshore"],
+      ["Engineering", "Engineering"],
+      ["Lager og logistikk", "Lager og logistikk"],
+      ["3 parts innleie", "3 parts innleie"],
+      ["Management", "Management"],
+      ["Prosjektledelse / planlegging", "Prosjektledelse / planlegging"]
+    ];
+    return options.map(([value, label]) => `<option value="${escapeHtml(value)}" ${selected === value ? "selected" : ""}>${escapeHtml(label)}</option>`).join("");
+  }
+
+  function getAccessCompleteGroupOptions(selectedValue) {
+    const selected = normalizeEmployeeGroup(selectedValue || "");
+    return EMPLOYEE_GROUP_OPTIONS.map(value => {
+      const label = value ? getEmployeeGroupLabel(value) : "Velg gruppe";
+      return `<option value="${escapeHtml(value)}" ${selected === value ? "selected" : ""}>${escapeHtml(label)}</option>`;
+    }).join("");
+  }
+
+  function getAccessCompleteDefaultGroup(row) {
+    const requested = normalizeEmployeeGroup(row?.requested_access || "");
+    if (requested) return requested;
+    return "Offshore arbeider";
+  }
+
+  function getAccessCompleteDefaultType(row) {
+    const group = getAccessCompleteDefaultGroup(row);
+    if (group === "Offshore arbeider") return "Offshore";
+    if (group === "Onshore arbeider") return "Onshore";
+    if (group === "Engineering") return "Engineering";
+    if (group === "Lager og logistikk") return "Lager og logistikk";
+    if (group === "3 parts innleie") return "3 parts innleie";
+    if (group === "Management") return "Management";
+    if (group === "Prosjektledelse / planlegging") return "Prosjektledelse / planlegging";
+    return "Offshore";
+  }
+
+  function renderAccessCompleteSetupBlock(row, matchingProfile) {
+    const status = String(row.status || "pending").toLowerCase();
+    const canComplete = canApproveAccessRequests();
+    if (!["pending", "approved"].includes(status) || row.setup_completed_at || !canComplete) return "";
+
+    const selectedRole = String(row.approved_role || row.requested_access || "employee").toLowerCase();
+    const safeRole = getDefaultAssignableAccessRole(selectedRole);
+    const selectedEmployee = safeRole === "employee" ? getAccessCompleteSelectedEmployee(row) : null;
+    const defaultTitle = selectedEmployee?.title || (row.full_name ? "Ansatt" : "");
+    const defaultType = selectedEmployee?.employee_type || getAccessCompleteDefaultType(row);
+    const defaultGroup = selectedEmployee?.employee_group || getAccessCompleteDefaultGroup(row);
+    const adminNote = isSuperadmin()
+      ? "Superadmin kan sette employee, planner og admin."
+      : isAdminUser()
+        ? "Admin kan sette employee, planner og admin."
+        : "Planner kan sette employee og planner. Admin-rolle krever admin/superadmin.";
+
+    return `
+      <div class="border-t border-slate-200 bg-slate-50 p-5" data-access-complete-panel="${escapeHtml(row.id)}">
+        <div class="rounded-2xl border border-emerald-200 bg-white p-5 shadow-sm ring-1 ring-emerald-100">
+          <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+            <div class="min-w-0">
+              <div class="text-xs font-bold uppercase tracking-wide text-emerald-700">v18.53 samlet flyt</div>
+              <div class="mt-1 text-base font-bold text-slate-950">Godkjenn og opprett komplett tilgang</div>
+              <div class="mt-1 text-sm text-slate-600">Denne knappen bruker Edge Function <span class="font-mono">admin-complete-access-request</span>. Den godkjenner søknaden, oppretter/gjenbruker Auth-bruker, oppretter/oppdaterer brukerprofil og oppretter/kobler ansattprofil når rollen er Ansatt.</div>
+            </div>
+            <span class="inline-flex w-fit items-center rounded-md border border-slate-300 bg-slate-900 px-3 py-1.5 text-xs font-bold text-white">${escapeHtml(status === "pending" ? "Kan kjøres direkte fra pending" : "Godkjent – klar")}</span>
+          </div>
+
+          <div class="mt-4 grid gap-3 xl:grid-cols-4">
+            <label class="block text-sm text-slate-700">
+              <span class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Endelig rolle</span>
+              <select data-access-complete-role="${escapeHtml(row.id)}" class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm">
+                ${getAccessSetupRoleOptions(safeRole)}
+              </select>
+            </label>
+            <label class="block text-sm text-slate-700 xl:col-span-2">
+              <span class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Midlertidig passord</span>
+              <input data-access-complete-password="${escapeHtml(row.id)}" type="text" autocomplete="off" class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm" placeholder="Skriv eller generer midlertidig passord" />
+            </label>
+            <button type="button" data-access-action="generate-temp-password" data-access-request-id="${escapeHtml(row.id)}" class="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50 xl:self-end">Generer passord</button>
+          </div>
+
+          ${renderAccessCompleteEmployeeLinkBlock(row, safeRole)}
+
+          <div class="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4" data-access-complete-new-employee-fields="${escapeHtml(row.id)}">
+            <div class="text-sm font-bold text-slate-900">Ansattdata ved ny ansatt</div>
+            <div class="mt-1 text-xs text-slate-600">Brukes kun hvis du eksplisitt velger “Opprett ny ansatt”. Ved eksisterende ansatt hentes tittel/type/gruppe fra ansattprofilen.</div>
+            <div class="mt-3 grid gap-3 lg:grid-cols-3">
+              <label class="block text-sm text-slate-700">
+                <span class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Stilling / tittel</span>
+                <input data-access-complete-title="${escapeHtml(row.id)}" type="text" class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm" value="${escapeHtml(defaultTitle)}" placeholder="F.eks. Supervisor" ${selectedEmployee ? "disabled" : ""} />
+              </label>
+              <label class="block text-sm text-slate-700">
+                <span class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Employee type</span>
+                <select data-access-complete-employee-type="${escapeHtml(row.id)}" class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm" ${selectedEmployee ? "disabled" : ""}>
+                  ${getAccessCompleteEmployeeTypeOptions(defaultType)}
+                </select>
+              </label>
+              <label class="block text-sm text-slate-700">
+                <span class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Employee group</span>
+                <select data-access-complete-employee-group="${escapeHtml(row.id)}" class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm" ${selectedEmployee ? "disabled" : ""}>
+                  ${getAccessCompleteGroupOptions(defaultGroup)}
+                </select>
+              </label>
+            </div>
+          </div>
+
+          <div class="mt-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div class="text-xs leading-relaxed text-slate-600">
+              ${escapeHtml(adminNote)} ${matchingProfile ? "Brukerprofil finnes allerede og blir oppdatert." : "Auth-bruker og brukerprofil opprettes hvis de mangler."}
+              Passord sendes ikke på e-post automatisk.
+            </div>
+            <button type="button" data-access-action="complete-access" data-access-request-id="${escapeHtml(row.id)}" class="rounded-xl bg-emerald-700 px-5 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-40">Godkjenn og opprett komplett tilgang</button>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  function renderAccessSetupBlock(row, matchingProfile, canSetup) {
+    const status = String(row.status || "pending").toLowerCase();
+    if (row.setup_completed_at) return renderLegacyAccessSetupBlock(row, matchingProfile, canSetup);
+
+    const completeBlock = renderAccessCompleteSetupBlock(row, matchingProfile);
+    if (!["pending", "approved"].includes(status)) return "";
+
+    const legacyBlock = status === "approved" && canManageUserAccess()
+      ? `<details class="border-t border-slate-200 bg-white px-5 py-4"><summary class="cursor-pointer text-sm font-semibold text-slate-700">Vis gammel todelt fallback-flyt</summary><div class="mt-4">${renderLegacyAccessSetupBlock(row, matchingProfile, canSetup)}</div></details>`
+      : "";
+
+    return `${completeBlock}${legacyBlock}`;
+  }
+
+  function renderLegacyAccessSetupBlock(row, matchingProfile, canSetup) {
+    const status = String(row.status || "pending").toLowerCase();
+    if (status !== "approved") return "";
+
+    if (row.setup_completed_at) {
+      const employee = row.linked_employee_id ? (state.employees || []).find(item => item.id === row.linked_employee_id) : null;
+      return `
+        <div class="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">
+          <div class="font-semibold">Tilgang er satt opp</div>
+          <div class="mt-1">Rolle: ${escapeHtml(formatRequestedAccess(row.approved_role || row.requested_access))}${employee ? ` • Ansatt: ${escapeHtml(employee.name)}` : ""}</div>
+        </div>
+      `;
+    }
+
+    if (!canManageUserAccess()) {
+      return `
+        <div class="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
+          <div class="font-semibold">Godkjent søknad</div>
+          <div class="mt-1">Kun superadmin kan sette opp faktisk brukertilgang og rolle.</div>
+        </div>
+      `;
+    }
+
+    const selectedRole = String(row.approved_role || row.requested_access || "employee").toLowerCase();
+    const isEmployeeRole = selectedRole === "employee";
+    const autoMatchedEmployee = getAccessEmployeeAutoMatch(row);
+    const selectedEmployeeId = row.linked_employee_id || (isEmployeeRole && autoMatchedEmployee ? autoMatchedEmployee.id : "");
+    const needsEmployee = isEmployeeRole && !selectedEmployeeId;
+
+    return `
+      <div class="border-t border-slate-200 bg-slate-50 p-5" data-access-setup-panel="${escapeHtml(row.id)}">
+        <div class="mb-4 flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+          <div>
+            <div class="text-sm font-semibold text-slate-900">Sett opp tilgang</div>
+            <div class="text-xs text-slate-500">Følg rekkefølgen fra venstre mot høyre: Auth-bruker → rolle → ansattkobling → fullfør.</div>
+          </div>
+          <div class="text-xs font-medium ${matchingProfile ? "text-emerald-700" : "text-amber-700"}">${matchingProfile ? "Brukerprofil finnes" : "Auth/profil mangler – bruk Opprett Auth-bruker"}</div>
+        </div>
+        <div class="mb-4 rounded-xl border border-slate-300 bg-white p-4 shadow-sm">
+          <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div class="min-w-0">
+              <div class="text-xs font-bold uppercase tracking-wide text-slate-500">Steg 1 — Auth-bruker</div>
+              <div class="mt-1 text-base font-bold text-slate-950">${matchingProfile ? "Auth / brukerprofil finnes" : "Opprett Auth-bruker"}</div>
+              <div class="mt-1 text-sm text-slate-600">${matchingProfile ? "Brukeren finnes allerede i systemet. Gå videre til rolle, ansattkobling og fullføring." : "Oppretter login-bruker via Edge Function. Bruk et midlertidig passord for test."}</div>
+            </div>
+            <button type="button" data-access-action="create-auth-user" data-access-request-id="${escapeHtml(row.id)}" class="rounded-xl border border-slate-900 bg-slate-900 px-5 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-slate-800 disabled:cursor-not-allowed disabled:border-slate-300 disabled:bg-slate-200 disabled:text-slate-500" ${canSetup && !matchingProfile ? "" : "disabled"}>Opprett Auth-bruker</button>
+          </div>
+        </div>
+        ${getAccessSetupChecklistHtml(row, matchingProfile, autoMatchedEmployee, selectedRole)}
+        <div class="mt-4 grid gap-3 lg:grid-cols-[240px_minmax(280px,1fr)_auto] lg:items-end">
+          <label class="block text-sm text-slate-700">
+            <span class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Endelig rolle</span>
+            <select data-access-setup-role="${escapeHtml(row.id)}" class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm">
+              ${getAccessSetupRoleOptions(selectedRole)}
+            </select>
+          </label>
+          <label class="block text-sm text-slate-700">
+            <span class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Koble til ansattprofil</span>
+            <select data-access-setup-employee="${escapeHtml(row.id)}" class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm" ${isEmployeeRole ? "" : "disabled"}>
+              ${getAccessSetupEmployeeOptions(selectedEmployeeId, row)}
+            </select>
+          </label>
+          <button type="button" data-access-action="setup" data-access-request-id="${escapeHtml(row.id)}" class="rounded-xl bg-emerald-700 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-40" ${canSetup && !needsEmployee ? "" : "disabled"}>Fullfør oppsett</button>
+        </div>
+        <div class="mt-4 rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-xs leading-relaxed text-blue-800">
+          Kort flyt: Godkjenn søknad → Opprett Auth-bruker → Velg rolle → Koble ansattprofil ved employee → Fullfør oppsett.
+        </div>
+      </div>
+    `;
+  }
+
+  async function updateAccessRequestStatus(requestId, status) {
+    const nextStatus = String(status || "").toLowerCase();
+    if (!canApproveAccessRequests()) {
+      alert("Kun superadmin/admin kan behandle tilgangssøknader.");
+      return;
+    }
+    if (!["approved", "rejected"].includes(nextStatus)) return;
+
+    const request = (state.accessRequests.rows || []).find(row => row.id === requestId);
+    const label = nextStatus === "approved" ? "godkjenne" : "avslå";
+    const name = request?.full_name || request?.email || "denne søknaden";
+    const ok = window.confirm(`Vil du ${label} tilgangssøknaden for ${name}?\n\nDette endrer kun søknadsstatus. Det oppretter ikke bruker, rolle eller ansattkobling.`);
+    if (!ok) return;
+
+    try {
+      const { error } = await supabaseClient
+        .from("access_requests")
+        .update({
+          status: nextStatus,
+          reviewed_at: new Date().toISOString(),
+          reviewed_by: state.currentUserId || null,
+          review_note: nextStatus === "approved" ? "Godkjent i access approval v1. Bruker/rolle må settes opp manuelt i neste steg." : "Avslått i access approval v1."
+        })
+        .eq("id", requestId)
+        .eq("status", "pending");
+
+      if (error) throw error;
+      await fetchAccessRequests({ silent: true });
+    } catch (error) {
+      alert(`Kunne ikke oppdatere søknad: ${error?.message || "Ukjent feil"}`);
+    }
+  }
+
+  function updateAccessCompleteEmployeeFields(requestId) {
+    const panel = els.accessApprovalList?.querySelector?.(`[data-access-complete-panel="${CSS.escape(requestId)}"]`);
+    if (!panel) return;
+
+    const role = panel.querySelector?.(`[data-access-complete-role="${CSS.escape(requestId)}"]`)?.value || "employee";
+    const employeeSelect = panel.querySelector?.(`[data-access-complete-existing-employee="${CSS.escape(requestId)}"]`);
+    const titleField = panel.querySelector?.(`[data-access-complete-title="${CSS.escape(requestId)}"]`);
+    const typeField = panel.querySelector?.(`[data-access-complete-employee-type="${CSS.escape(requestId)}"]`);
+    const groupField = panel.querySelector?.(`[data-access-complete-employee-group="${CSS.escape(requestId)}"]`);
+    const employeeFields = [titleField, typeField, groupField].filter(Boolean);
+    const newEmployeeBox = panel.querySelector?.(`[data-access-complete-new-employee-fields="${CSS.escape(requestId)}"]`);
+
+    const isEmployee = role === "employee";
+    if (employeeSelect) employeeSelect.disabled = !isEmployee;
+
+    const employeeChoice = employeeSelect?.value || "";
+    const isCreatingNewEmployee = isEmployee && employeeChoice === ACCESS_CREATE_NEW_EMPLOYEE_VALUE;
+    const selectedEmployee = isEmployee && employeeChoice && !isCreatingNewEmployee
+      ? (state.employees || []).find(employee => String(employee?.id || "") === String(employeeChoice))
+      : null;
+
+    if (selectedEmployee) {
+      if (titleField) titleField.value = selectedEmployee.title || titleField.value || "Ansatt";
+      if (typeField && selectedEmployee.employee_type) typeField.value = selectedEmployee.employee_type;
+      if (groupField && selectedEmployee.employee_group) groupField.value = normalizeEmployeeGroup(selectedEmployee.employee_group || "");
+    }
+
+    employeeFields.forEach(field => {
+      field.disabled = !isCreatingNewEmployee;
+      field.closest?.("label")?.classList.toggle("opacity-50", !isCreatingNewEmployee);
+    });
+    if (newEmployeeBox) {
+      newEmployeeBox.classList.toggle("opacity-60", !isCreatingNewEmployee);
+    }
+  }
+
+  function generateTemporaryPasswordForAccessRequest(requestId) {
+    const panel = els.accessApprovalList?.querySelector?.(`[data-access-complete-panel="${CSS.escape(requestId)}"]`);
+    const input = panel?.querySelector?.(`[data-access-complete-password="${CSS.escape(requestId)}"]`);
+    if (!input) return;
+    input.value = generateTemporaryAccessPassword();
+    setAccessUserDraftPassword(userId, input.value);
+    input.focus();
+    input.select?.();
+  }
+
+  async function completeAccessRequestFromAdmin(requestId) {
+    if (!canApproveAccessRequests()) {
+      alert("Kun superadmin/admin/planner kan opprette komplett tilgang fra tilgangssøknad.");
+      return;
+    }
+
+    const row = (state.accessRequests.rows || []).find(item => item.id === requestId);
+    if (!row) return;
+
+    const status = String(row.status || "pending").toLowerCase();
+    if (!["pending", "approved"].includes(status)) {
+      alert("Denne søknaden kan ikke fullføres fra nåværende status.");
+      return;
+    }
+
+    if (row.setup_completed_at) {
+      alert("Tilgang er allerede satt opp for denne søknaden.");
+      return;
+    }
+
+    const panel = els.accessApprovalList?.querySelector?.(`[data-access-complete-panel="${CSS.escape(requestId)}"]`);
+    if (!panel) {
+      alert("Fant ikke oppsettsfelt for denne søknaden. Oppdater siden og prøv igjen.");
+      return;
+    }
+
+    const role = panel.querySelector?.(`[data-access-complete-role="${CSS.escape(requestId)}"]`)?.value || row.requested_access || "employee";
+    const normalizedRole = String(role || "").toLowerCase();
+    const temporaryPassword = panel.querySelector?.(`[data-access-complete-password="${CSS.escape(requestId)}"]`)?.value?.trim() || "";
+    const employeeChoice = panel.querySelector?.(`[data-access-complete-existing-employee="${CSS.escape(requestId)}"]`)?.value || "";
+    const createNewEmployee = normalizedRole === "employee" && employeeChoice === ACCESS_CREATE_NEW_EMPLOYEE_VALUE;
+    const existingEmployee = normalizedRole === "employee" && employeeChoice && !createNewEmployee
+      ? (state.employees || []).find(employee => String(employee?.id || "") === String(employeeChoice) && employee.active !== false)
+      : null;
+    const existingEmployeeId = existingEmployee?.id || "";
+    const title = (createNewEmployee
+      ? panel.querySelector?.(`[data-access-complete-title="${CSS.escape(requestId)}"]`)?.value?.trim()
+      : existingEmployee?.title || panel.querySelector?.(`[data-access-complete-title="${CSS.escape(requestId)}"]`)?.value?.trim()) || "";
+    const employeeType = (createNewEmployee
+      ? panel.querySelector?.(`[data-access-complete-employee-type="${CSS.escape(requestId)}"]`)?.value?.trim()
+      : existingEmployee?.employee_type || panel.querySelector?.(`[data-access-complete-employee-type="${CSS.escape(requestId)}"]`)?.value?.trim()) || "";
+    const employeeGroup = normalizeEmployeeGroup((createNewEmployee
+      ? panel.querySelector?.(`[data-access-complete-employee-group="${CSS.escape(requestId)}"]`)?.value
+      : existingEmployee?.employee_group || panel.querySelector?.(`[data-access-complete-employee-group="${CSS.escape(requestId)}"]`)?.value) || "");
+
+    if (!["employee", "planner", "admin"].includes(normalizedRole) || !canAssignAccessRole(normalizedRole)) {
+      alert("Du har ikke tilgang til å sette denne rollen.");
+      return;
+    }
+
+    if (!temporaryPassword || temporaryPassword.length < 8) {
+      alert("Midlertidig passord må være minst 8 tegn. Skriv inn passord eller bruk Generer passord.");
+      return;
+    }
+
+    if (normalizedRole === "employee") {
+      if (!existingEmployeeId && !createNewEmployee) {
+        alert("Velg eksisterende ansattprofil, eller velg 'Opprett ny ansatt' hvis personen ikke finnes fra før.");
+        return;
+      }
+      if (existingEmployeeId && createNewEmployee) {
+        alert("Velg enten eksisterende ansatt eller opprett ny ansatt – ikke begge deler.");
+        return;
+      }
+      if (!existingEmployeeId) {
+        if (!title) {
+          alert("Legg inn stilling/tittel for ny ansatt.");
+          return;
+        }
+        if (!employeeType) {
+          alert("Velg employee type for ny ansatt.");
+          return;
+        }
+        if (!employeeGroup) {
+          alert("Velg employee group for ny ansatt.");
+          return;
+        }
+      }
+    }
+
+    const existingProfile = findAccessUserProfileByEmail(row.email);
+    if (existingProfile?.id === state.currentUserId) {
+      alert("Ikke bruk denne flyten til å endre din egen bruker.");
+      return;
+    }
+
+    const employeeLines = normalizedRole === "employee"
+      ? existingEmployeeId
+        ? `
+Ansattkobling: Koble til eksisterende ansatt
+Ansatt: ${existingEmployee?.name || existingEmployeeId}
+Stilling: ${title || "Ikke satt"}
+Employee type: ${employeeType || "Ikke satt"}
+Employee group: ${employeeGroup || "Ikke satt"}`
+        : `
+Ansattkobling: OPPRETT NY ANSATT
+Stilling: ${title}
+Employee type: ${employeeType}
+Employee group: ${employeeGroup}`
+      : "";
+
+    const ok = window.confirm(`Opprette komplett tilgang for:
+
+${row.full_name || row.email}
+${row.email}
+
+Rolle: ${formatRequestedAccess(normalizedRole)}${employeeLines}
+
+Dette kan opprette/gjenbruke Auth-bruker og user_profile. For employee skal eksisterende ansatt kobles når den er valgt. Passord sendes ikke automatisk på e-post.`);
+    if (!ok) return;
+
+    const button = panel.querySelector?.(`[data-access-action="complete-access"][data-access-request-id="${CSS.escape(requestId)}"]`);
+    const oldText = button?.textContent || "";
+    if (button) {
+      button.disabled = true;
+      button.textContent = "Oppretter...";
+    }
+
+    try {
+      if (normalizedRole === "employee" && existingEmployeeId) {
+        const { error: linkError } = await supabaseClient
+          .from("access_requests")
+          .update({
+            linked_employee_id: existingEmployeeId,
+            approved_role: normalizedRole,
+            review_note: "Koblet til eksisterende ansatt i v18.58b duplikatkontroll."
+          })
+          .eq("id", requestId);
+        if (linkError) {
+          throw new Error(`Kunne ikke lagre ansattkobling før fullføring: ${linkError.message || linkError}`);
+        }
+      }
+
+      const payload = {
+        request_id: requestId,
+        role: normalizedRole,
+        temporary_password: temporaryPassword,
+        employee_id: normalizedRole === "employee" && existingEmployeeId ? existingEmployeeId : undefined,
+        linked_employee_id: normalizedRole === "employee" && existingEmployeeId ? existingEmployeeId : undefined,
+        create_new_employee: normalizedRole === "employee" ? createNewEmployee : undefined,
+        employee_type: normalizedRole === "employee" ? employeeType : undefined,
+        employee_group: normalizedRole === "employee" ? employeeGroup : undefined,
+        title: normalizedRole === "employee" ? title : undefined
+      };
+
+      const { data, error } = await supabaseClient.functions.invoke("admin-complete-access-request", {
+        body: payload
+      });
+
+      if (error) {
+        throw new Error(error.message || "Edge Function returnerte feil.");
+      }
+
+      if (!data?.ok) {
+        const code = data?.code ? `${data.code}: ` : "";
+        throw new Error(`${code}${data?.message || "Kunne ikke opprette komplett tilgang."}`);
+      }
+
+      alert(data.message || "Komplett tilgang er opprettet.");
+      await fetchFromSupabase();
+      await fetchAccessUsers({ silent: true });
+      await fetchAccessRequests({ silent: true });
+      rebuildDerivedState();
+      renderAll();
+    } catch (error) {
+      const message = error?.message || "Ukjent feil";
+      if (message.includes("ROLE_NOT_ALLOWED_FOR_CALLER") || message.includes("ADMIN_ROLE_REQUIRES_SUPERADMIN")) {
+        alert("Du har ikke tilgang til å sette denne rollen.");
+      } else if (message.includes("TEMPORARY_PASSWORD_REQUIRED")) {
+        alert("Midlertidig passord må være minst 8 tegn.");
+      } else if (message.includes("EMPLOYEE_TYPE_REQUIRED") || message.includes("EMPLOYEE_GROUP_REQUIRED") || message.includes("TITLE_REQUIRED")) {
+        alert("Employee-oppsett mangler type, gruppe eller tittel.");
+      } else if (message.includes("ACCESS_REQUEST_ALREADY_COMPLETED")) {
+        alert("Denne søknaden er allerede satt opp. Oppdater listen.");
+        await fetchAccessRequests({ silent: true });
+        renderAll();
+      } else if (message.includes("NOT_ALLOWED") || message.includes("403")) {
+        alert("Du har ikke tilgang til å utføre denne handlingen.");
+      } else {
+        alert(`Kunne ikke opprette komplett tilgang: ${message}`);
+      }
+    } finally {
+      if (button && !row.setup_completed_at) {
+        button.disabled = false;
+        button.textContent = oldText || "Godkjenn og opprett komplett tilgang";
+      }
+    }
+  }
+
+
+
+
+  async function createAuthUserForAccessRequest(requestId) {
+    if (!canManageUserAccess()) {
+      alert("Kun superadmin/admin kan opprette Auth-bruker fra tilgangssøknad.");
+      return;
+    }
+
+    const row = (state.accessRequests.rows || []).find(item => item.id === requestId);
+    if (!row) return;
+
+    const status = String(row.status || "pending").toLowerCase();
+    if (status !== "approved") {
+      alert("Søknaden må være godkjent før Auth-bruker kan opprettes.");
+      return;
+    }
+
+    if (row.setup_completed_at) {
+      alert("Tilgang er allerede satt opp for denne søknaden.");
+      return;
+    }
+
+    const existingProfile = findAccessUserProfileByEmail(row.email);
+    if (existingProfile) {
+      alert("Brukerprofil finnes allerede. Du kan gå videre med Fullfør oppsett.");
+      return;
+    }
+
+    const email = row.email || "";
+    const tempPassword = window.prompt(
+      `Midlertidig passord for ${email}\n\nBruk minst 8 tegn. Dette er kun for test/pre-go-live.`,
+      "Test1234!"
+    );
+    if (tempPassword === null) return;
+    if (!tempPassword || tempPassword.length < 8) {
+      alert("Midlertidig passord må være minst 8 tegn.");
+      return;
+    }
+
+    const ok = window.confirm(
+      `Opprette Supabase Auth-bruker for:\n\n${email}\n\nDette oppretter kun Auth-brukeren. Rolle og ansattkobling settes etterpå med Fullfør oppsett.`
+    );
+    if (!ok) return;
+
+    try {
+      const { data, error } = await supabaseClient.functions.invoke("create-approved-auth-user", {
+        body: {
+          request_id: requestId,
+          temporary_password: tempPassword
+        }
+      });
+
+      if (error) {
+        throw new Error(error.message || "Edge Function returnerte feil.");
+      }
+
+      if (!data?.ok) {
+        const code = data?.code ? `${data.code}: ` : "";
+        throw new Error(`${code}${data?.message || "Kunne ikke opprette Auth-bruker."}`);
+      }
+
+      alert(data.message || "Auth-bruker er opprettet. Fortsett med Fullfør oppsett.");
+      await fetchAccessUsers({ silent: true });
+      await fetchAccessRequests({ silent: true });
+      renderAll();
+    } catch (error) {
+      const message = error?.message || "Ukjent feil";
+      if (message.includes("NOT_ALLOWED") || message.includes("403")) {
+        alert("Du har ikke tilgang til å opprette Auth-bruker. Logg inn som superadmin/admin og prøv igjen.");
+      } else if (message.includes("REQUEST_NOT_APPROVED")) {
+        alert("Søknaden må være godkjent før Auth-bruker kan opprettes.");
+      } else if (message.includes("AUTH_USER_ALREADY_EXISTS")) {
+        alert("Auth-brukeren finnes allerede. Fortsett med Fullfør oppsett.");
+        await fetchAccessUsers({ silent: true });
+        await fetchAccessRequests({ silent: true });
+        renderAll();
+      } else {
+        alert(`Kunne ikke opprette Auth-bruker: ${message}`);
+      }
+    }
+  }
+
+
+  async function setupApprovedAccessRequest(requestId) {
+    if (!canManageUserAccess()) {
+      alert("Kun superadmin kan sette opp godkjente tilgangssøknader.");
+      return;
+    }
+
+    const row = (state.accessRequests.rows || []).find(item => item.id === requestId);
+    if (!row) return;
+
+    const status = String(row.status || "pending").toLowerCase();
+    if (status !== "approved") {
+      alert("Søknaden må være godkjent før tilgang kan settes opp.");
+      return;
+    }
+
+    if (row.setup_completed_at) {
+      alert("Denne søknaden er allerede satt opp.");
+      return;
+    }
+
+    const panel = els.accessApprovalList?.querySelector?.(`[data-access-setup-panel="${CSS.escape(requestId)}"]`);
+    const role = panel?.querySelector?.(`[data-access-setup-role="${CSS.escape(requestId)}"]`)?.value || row.requested_access || "employee";
+    const normalizedRole = String(role || "").toLowerCase();
+    const employeeId = panel?.querySelector?.(`[data-access-setup-employee="${CSS.escape(requestId)}"]`)?.value || "";
+
+    if (!["employee", "planner", "admin"].includes(normalizedRole)) {
+      alert("Velg en gyldig rolle.");
+      return;
+    }
+
+    const profile = findAccessUserProfileByEmail(row.email);
+    if (profile?.id === state.currentUserId) {
+      alert("Ikke bruk denne flyten til å endre din egen superadmin-bruker.");
+      return;
+    }
+
+    if (normalizedRole === "employee" && !employeeId) {
+      alert("Velg hvilken ansattprofil brukeren skal kobles til.");
+      return;
+    }
+
+    const employee = employeeId ? (state.employees || []).find(item => item.id === employeeId) : null;
+    const profileText = profile ? "Brukerprofil finnes og oppdateres." : "Brukerprofil mangler. RPC oppretter den hvis Auth-brukeren finnes.";
+    const employeeText = employee ? `
+Ansattprofil: ${employee.name}` : "";
+    const ok = window.confirm(`Vil du fullføre tilgang for ${row.full_name || row.email}?
+
+Rolle: ${formatRequestedAccess(normalizedRole)}${employeeText}
+${profileText}
+
+Dette oppretter ikke Auth-bruker. Hvis Auth-brukeren mangler, får du en tydelig feilmelding.`);
+    if (!ok) return;
+
+    try {
+      const { data, error } = await supabaseClient.rpc("admin_setup_access_request", {
+        p_request_id: requestId,
+        p_role: normalizedRole,
+        p_employee_id: normalizedRole === "employee" ? employeeId : null
+      });
+      if (error) throw error;
+
+      const result = Array.isArray(data) ? data[0] : data;
+      if (result && result.ok === false) {
+        throw new Error(result.message || "RPC returnerte feil ved oppsett av tilgang.");
+      }
+
+      await fetchFromSupabase();
+      await fetchAccessUsers({ silent: true });
+      await fetchAccessRequests({ silent: true });
+      rebuildDerivedState();
+      renderAll();
+    } catch (error) {
+      const message = error?.message || "Ukjent feil";
+      if (message.includes("AUTH_USER_MISSING")) {
+        alert(`Auth-bruker mangler. Opprett brukeren først i Supabase Authentication med e-post ${row.email}, og prøv deretter Fullfør oppsett igjen.`);
+      } else if (message.includes("EMPLOYEE_REQUIRED")) {
+        alert("Velg ansattprofil før du fullfører employee-tilgang.");
+      } else if (message.includes("NOT_ALLOWED")) {
+        alert("Du har ikke tilgang til å fullføre denne handlingen.");
+      } else {
+        alert(`Kunne ikke sette opp tilgang: ${message}`);
+      }
+    }
+  }
+
+
+
+
+  async function fetchAccessUsers(options = {}) {
+    const silent = Boolean(options.silent);
+    if (!supabaseClient || !canManageUserAccess()) {
+      state.accessUsers.rows = [];
+      state.accessUsers.error = "";
+      return;
+    }
+
+    state.accessUsers.loading = true;
+    if (!silent) renderAccessUsers();
+
+    try {
+      const { data, error } = await supabaseClient
+        .from("user_profiles")
+        .select("id, email, full_name, role, is_active, created_at, updated_at")
+        .order("email", { ascending: true });
+
+      if (error) throw error;
+      state.accessUsers.rows = data || [];
+      state.accessUsers.error = "";
+      state.accessUsers.lastLoadedAt = new Date().toISOString();
+    } catch (error) {
+      state.accessUsers.error = error?.message || "Kunne ikke hente brukertilganger.";
+    } finally {
+      state.accessUsers.loading = false;
+      renderAccessUsers();
+      renderAccessRequests();
+      renderEmployees();
+    }
+  }
+
+  function refreshAccessUsers() {
+    return fetchAccessUsers({ silent: false });
+  }
+
+  function getAccessUserStatusBadgeClass(isActive) {
+    return isActive === false
+      ? "border-rose-200 bg-rose-50 text-rose-700"
+      : "border-emerald-200 bg-emerald-50 text-emerald-700";
+  }
+
+  function canCurrentUserManageAccessTarget(row) {
+    if (!row?.id) return false;
+    if (row.id === state.currentUserId) return false;
+    const currentRole = normalizeRoleValue(state.currentRole);
+    const targetRole = normalizeRoleValue(row.role);
+    if (targetRole === "superadmin") return false;
+    if (currentRole === "superadmin" || currentRole === "admin") return true;
+    if (currentRole === "planner") return ["employee", "planner"].includes(targetRole);
+    return false;
+  }
+
+  function getAccessUserRoleOptions(selectedValue) {
+    const selected = normalizeRoleValue(selectedValue || "");
+    const options = getAllowedAccessRoleOptions().slice();
+
+    if (selected === "reader") {
+      return [
+        `<option value="" selected disabled>Legacy: Lesetilgang - velg ny rolle</option>`,
+        ...options.map(([value, label]) => `<option value="${escapeHtml(value)}">${escapeHtml(label)}</option>`)
+      ].join("");
+    }
+
+    if (selected && !options.some(([value]) => value === selected) && selected !== "reader") {
+      options.unshift([selected, formatRoleLabel(selected) || selected]);
+    }
+
+    return options
+      .map(([value, label]) => `<option value="${escapeHtml(value)}" ${selected === value ? "selected" : ""}>${escapeHtml(label)}</option>`)
+      .join("");
+  }
+
+  function captureAccessUserDrafts() {
+    if (!els.accessUsersList) return;
+    els.accessUsersList.querySelectorAll("[data-access-user-password]").forEach(input => {
+      const userId = input?.dataset?.accessUserPassword || "";
+      if (!userId) return;
+      const value = input.value || "";
+      state.accessUserDrafts.passwords[userId] = value;
+    });
+  }
+
+  function setAccessUserDraftPassword(userId, value) {
+    if (!userId) return;
+    state.accessUserDrafts.passwords[userId] = value || "";
+  }
+
+  function clearAccessUserDraftPassword(userId) {
+    if (!userId) return;
+    delete state.accessUserDrafts.passwords[userId];
+  }
+
+  function getAccessUserDraftPassword(userId) {
+    return state.accessUserDrafts.passwords[userId] || "";
+  }
+
+  function renderAccessUsers() {
+    if (!els.accessUsersList) return;
+
+    const allowed = canManageUserAccess();
+    const card = els.accessUsersList.closest(".rounded-2xl");
+    if (card) card.style.display = allowed ? "" : "none";
+    if (!allowed) return;
+
+    const focusedEmployee = getEmployeeAdminAccessPanelEmployee();
+    const allRows = state.accessUsers.rows || [];
+    const rows = focusedEmployee ? getAccessUsersForEmployee(focusedEmployee, allRows) : allRows;
+    updateEmployeeAccessPanelHeader(focusedEmployee);
+    const activeCount = rows.filter(row => row.is_active !== false).length;
+    const inactiveCount = rows.filter(row => row.is_active === false).length;
+
+    if (els.accessUsersStatus) {
+      const loadedText = state.accessUsers.lastLoadedAt ? `Sist hentet ${formatAccessRequestDate(state.accessUsers.lastLoadedAt)}` : "Ikke hentet ennå";
+      const scopeText = focusedEmployee ? `${focusedEmployee.name || "Valgt ansatt"} • ` : "";
+      els.accessUsersStatus.textContent = state.accessUsers.loading ? "Henter brukere..." : `${scopeText}${activeCount} aktive • ${inactiveCount} deaktivert • ${loadedText}`;
+    }
+
+    if (state.accessUsers.loading && !rows.length) {
+      els.accessUsersList.innerHTML = `<div class="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">Henter brukertilganger...</div>`;
+      return;
+    }
+
+    if (state.accessUsers.error) {
+      els.accessUsersList.innerHTML = `<div class="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">Kunne ikke hente brukertilganger: ${escapeHtml(state.accessUsers.error)}</div>`;
+      return;
+    }
+
+    if (!rows.length) {
+      const emptyText = focusedEmployee
+        ? `Ingen brukertilgang funnet for ${escapeHtml(focusedEmployee.name || "valgt ansatt")}.`
+        : "Ingen brukere funnet.";
+      els.accessUsersList.innerHTML = `<div class="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">${emptyText}</div>`;
+      return;
+    }
+
+    captureAccessUserDrafts();
+
+    els.accessUsersList.innerHTML = rows.map(row => {
+      const isCurrentUser = row.id === state.currentUserId;
+      const isActive = row.is_active !== false;
+      const targetRole = normalizeRoleValue(row.role);
+      const isProtectedSuperadmin = targetRole === "superadmin";
+      const canManageTarget = canCurrentUserManageAccessTarget(row);
+      const actionLabel = isActive ? "Deaktiver" : "Aktiver";
+      const nextAction = isActive ? "deactivate" : "activate";
+      const disabled = canManageTarget ? "" : "disabled";
+      const disabledReason = isCurrentUser
+        ? "Du kan ikke endre eller deaktivere egen bruker."
+        : isProtectedSuperadmin
+          ? "Superadmin er låst i vanlig UI."
+          : !canManageTarget
+            ? "Din rolle kan ikke administrere denne brukeren."
+            : "";
+      const passwordInputId = `access-user-password-${row.id}`;
+      const passwordDraft = getAccessUserDraftPassword(String(row.id || ""));
+      return `
+        <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm" data-access-user-row-id="${escapeHtml(row.id)}">
+          <div class="flex flex-col gap-4">
+            <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+              <div class="min-w-0 space-y-1">
+                <div class="flex flex-wrap items-center gap-2">
+                  <div class="font-semibold text-slate-900">${escapeHtml(row.full_name || row.email || "Uten navn")}</div>
+                  <span class="rounded-full border px-2.5 py-1 text-xs font-semibold ${getAccessUserStatusBadgeClass(row.is_active)}">${isActive ? "Aktiv" : "Deaktivert"}</span>
+                  <span class="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-semibold text-slate-600">${escapeHtml(formatRoleLabel(row.role))}</span>
+                </div>
+                <div class="text-sm text-slate-600">${escapeHtml(row.email || "Ingen e-post")}</div>
+                <div class="text-xs text-slate-500">Opprettet ${escapeHtml(formatAccessRequestDate(row.created_at))}${row.updated_at ? ` • Sist endret ${escapeHtml(formatAccessRequestDate(row.updated_at))}` : ""}</div>
+                ${disabledReason ? `<div class="text-xs font-medium text-slate-400">${escapeHtml(disabledReason)}</div>` : ""}
+              </div>
+              <div class="flex shrink-0 flex-wrap gap-2">
+                <button type="button" data-access-user-action="toggle-active" data-access-user-id="${escapeHtml(row.id)}" data-access-user-next-action="${escapeHtml(nextAction)}" class="rounded-xl ${isActive ? "border border-rose-200 bg-rose-50 text-rose-700" : "border border-emerald-200 bg-emerald-50 text-emerald-700"} px-3 py-2 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-40" ${disabled}>${actionLabel}</button>
+              </div>
+            </div>
+
+            <div class="grid gap-3 border-t border-slate-100 pt-4 xl:grid-cols-[minmax(180px,240px)_auto_minmax(260px,1fr)_auto_auto] xl:items-end">
+              <label class="block text-sm text-slate-700">
+                <span class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Rolle</span>
+                <select data-access-user-role="${escapeHtml(row.id)}" class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm disabled:bg-slate-100 disabled:text-slate-400" ${disabled || isProtectedSuperadmin ? "disabled" : ""}>
+                  ${getAccessUserRoleOptions(row.role)}
+                </select>
+              </label>
+              <button type="button" data-access-user-action="set-role" data-access-user-id="${escapeHtml(row.id)}" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40" ${disabled || isProtectedSuperadmin ? "disabled" : ""}>Lagre rolle</button>
+
+              <label class="block text-sm text-slate-700">
+                <span class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Midlertidig passord</span>
+                <input id="${escapeHtml(passwordInputId)}" data-access-user-password="${escapeHtml(row.id)}" type="text" autocomplete="off" value="${escapeHtml(passwordDraft)}" class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm disabled:bg-slate-100 disabled:text-slate-400" placeholder="Skriv/generer nytt midlertidig passord" ${disabled ? "disabled" : ""} />
+              </label>
+              <button type="button" data-access-user-action="generate-password" data-access-user-id="${escapeHtml(row.id)}" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40" ${disabled ? "disabled" : ""}>Generer</button>
+              <button type="button" data-access-user-action="set-password" data-access-user-id="${escapeHtml(row.id)}" class="rounded-xl bg-slate-900 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-40" ${disabled ? "disabled" : ""}>Sett passord</button>
+            </div>
+          </div>
+        </div>
+      `;
+    }).join("");
+  }
+
+  async function invokeManageUserAccess(payload) {
+    const { data, error } = await supabaseClient.functions.invoke("admin-manage-user-access", {
+      body: payload
+    });
+
+    if (error) {
+      throw new Error(error.message || "Edge Function returnerte feil.");
+    }
+
+    if (!data?.ok) {
+      const code = data?.code ? `${data.code}: ` : "";
+      throw new Error(`${code}${data?.message || "Kunne ikke oppdatere brukertilgang."}`);
+    }
+
+    return data;
+  }
+
+  function getAccessUserById(userId) {
+    return (state.accessUsers.rows || []).find(row => row.id === userId) || null;
+  }
+
+  function getAccessUserControlRow(userId, sourceRow = null) {
+    if (sourceRow) return sourceRow;
+    if (!userId) return null;
+    const selector = `[data-access-user-row-id="${CSS.escape(userId)}"]`;
+    return document.getElementById("employeeAdminDetail")?.querySelector?.(selector)
+      || els.accessUsersList?.querySelector?.(selector)
+      || document.querySelector?.(selector)
+      || null;
+  }
+
+  async function updateAccessUserActive(userId, action) {
+    if (!canManageUserAccess()) {
+      alert("Du har ikke tilgang til å administrere brukertilganger.");
+      return;
+    }
+    if (!userId) return;
+
+    const user = getAccessUserById(userId);
+    if (!user) return;
+    if (!canCurrentUserManageAccessTarget(user)) {
+      alert("Du kan ikke endre denne brukeren fra vanlig UI.");
+      return;
+    }
+
+    const normalizedAction = action === "activate" ? "activate" : "deactivate";
+    const name = user.full_name || user.email || "denne brukeren";
+    const actionText = normalizedAction === "activate" ? "aktivere" : "deaktivere";
+    const ok = window.confirm(`Vil du ${actionText} tilgangen for ${name}?\n\nDette sletter ikke Auth-brukeren. Det endrer kun user_profiles.is_active.`);
+    if (!ok) return;
+
+    try {
+      await invokeManageUserAccess({
+        action: normalizedAction,
+        target_user_id: userId
+      });
+      await fetchAccessUsers({ silent: true });
+      renderAccessUsers();
+      renderEmployees();
+    } catch (error) {
+      alert(`Kunne ikke oppdatere brukertilgang: ${error?.message || "Ukjent feil"}`);
+    }
+  }
+
+  async function updateAccessUserRole(userId, sourceRow = null) {
+    if (!canManageUserAccess()) {
+      alert("Du har ikke tilgang til å administrere brukertilganger.");
+      return;
+    }
+
+    const user = getAccessUserById(userId);
+    if (!user) return;
+    if (!canCurrentUserManageAccessTarget(user)) {
+      alert("Du kan ikke endre denne brukeren fra vanlig UI.");
+      return;
+    }
+
+    const row = getAccessUserControlRow(userId, sourceRow);
+    const role = normalizeRoleValue(row?.querySelector?.(`[data-access-user-role="${CSS.escape(userId)}"]`)?.value || "");
+
+    if (!canAssignAccessRole(role)) {
+      alert("Du har ikke tilgang til å sette denne rollen.");
+      return;
+    }
+
+    const ok = window.confirm(`Endre rolle for ${user.full_name || user.email}?\n\nNy rolle: ${formatRequestedAccess(role)}`);
+    if (!ok) return;
+
+    try {
+      await invokeManageUserAccess({
+        action: "set_role",
+        target_user_id: userId,
+        role
+      });
+      await fetchAccessUsers({ silent: true });
+      renderAccessUsers();
+      renderEmployees();
+    } catch (error) {
+      const message = error?.message || "Ukjent feil";
+      if (message.includes("EMPLOYEE_PROFILE_REQUIRED")) {
+        alert("Kan ikke sette employee-rolle fordi det ikke finnes ansattprofil med samme e-post.");
+      } else if (message.includes("ROLE_NOT_ALLOWED_FOR_CALLER")) {
+        alert("Din rolle kan ikke sette denne rollen.");
+      } else {
+        alert(`Kunne ikke endre rolle: ${message}`);
+      }
+    }
+  }
+
+  function generatePasswordForAccessUser(userId, sourceRow = null) {
+    const row = getAccessUserControlRow(userId, sourceRow);
+    const input = row?.querySelector?.(`[data-access-user-password="${CSS.escape(userId)}"]`);
+    if (!input) return;
+    input.value = generateTemporaryAccessPassword();
+    input.focus();
+    input.select?.();
+  }
+
+  async function setTemporaryPasswordForAccessUser(userId, sourceRow = null) {
+    if (!canManageUserAccess()) {
+      alert("Du har ikke tilgang til å administrere brukertilganger.");
+      return;
+    }
+
+    const user = getAccessUserById(userId);
+    if (!user) return;
+    if (!canCurrentUserManageAccessTarget(user)) {
+      alert("Du kan ikke endre denne brukeren fra vanlig UI.");
+      return;
+    }
+
+    const row = getAccessUserControlRow(userId, sourceRow);
+    const input = row?.querySelector?.(`[data-access-user-password="${CSS.escape(userId)}"]`);
+    const temporaryPassword = (input?.value || getAccessUserDraftPassword(userId) || "").trim();
+
+    if (!temporaryPassword || temporaryPassword.length < 8) {
+      alert("Midlertidig passord må være minst 8 tegn. Skriv inn passord eller bruk Generer.");
+      input?.focus?.();
+      return;
+    }
+
+    const ok = window.confirm(`Sette nytt midlertidig passord for ${user.full_name || user.email}?\n\nPassord sendes ikke automatisk på e-post.`);
+    if (!ok) return;
+
+    try {
+      await invokeManageUserAccess({
+        action: "set_temporary_password",
+        target_user_id: userId,
+        temporary_password: temporaryPassword
+      });
+      if (input) input.value = "";
+      clearAccessUserDraftPassword(userId);
+      alert("Midlertidig passord er oppdatert.");
+    } catch (error) {
+      alert(`Kunne ikke sette midlertidig passord: ${error?.message || "Ukjent feil"}`);
+    }
   }
 
   async function handleLogin() {
@@ -1369,7 +3896,7 @@
   }
 
   function setupStaticOptions() {
-    fillSelect(els.projectCategory, [{ id: "Offshore", name: "Feltoppdrag" }], "Offshore", "name", "id");
+    if (els.projectCategory) els.projectCategory.value = "Offshore";
     fillSelect(els.projectStatus, PROJECT_STATUS_OPTIONS, "Planlagt");
     fillSelect(els.editRole, ROLE_OPTIONS, "Supervisor");
     fillSelect(els.personalBlockType, getPersonalBlockTypeOptions());
@@ -1396,8 +3923,48 @@
     toggleEmployeeGroupFilter(false);
   }
 
+  function isPointerInsideCalendarWrap(event) {
+    if (!els.calendarWrap || typeof event.clientX !== "number" || typeof event.clientY !== "number") return false;
+    const rect = els.calendarWrap.getBoundingClientRect();
+    return event.clientX >= rect.left && event.clientX <= rect.right && event.clientY >= rect.top && event.clientY <= rect.bottom;
+  }
+
+  function isCalendarMenuBlockedTarget(target) {
+    if (!(target instanceof Element)) return false;
+    return Boolean(target.closest([
+      "button",
+      "a",
+      "input",
+      "select",
+      "textarea",
+      "label",
+      "summary",
+      "[role='button']",
+      "[role='menu']",
+      "[role='menuitem']",
+      "[role='dialog']",
+      "#calendarContextMenu",
+      "#groupFilterControl",
+      "#groupFilterPanel",
+      "#calendarSidePanel",
+      "#calendarPanel",
+      "#projectInspector",
+      "#projectInspectorPanel",
+      "#editModal",
+      "#projectModal",
+      "#employeeModal",
+      "#loginModal",
+      "#accessRequestModal",
+      ".modal",
+      ".dropdown",
+      ".menu",
+      ".filter-panel"
+    ].join(",")));
+  }
+
   function getCalendarDropRowFromPointer(event) {
     if (!els.calendarWrap) return null;
+    if (!isPointerInsideCalendarWrap(event)) return null;
     const target = event.target;
 
     // First try the normal DOM path. This works when the pointer event lands directly on a calendar row/cell.
@@ -1415,12 +3982,17 @@
     }
 
     // Final fallback after employee grouping/expand-collapse:
-    // find the visible employee row by Y-position only. The clicked element can be a sticky/name/layout
-    // layer even when the pointer is visually over the calendar row.
+    // keep it bounded to the actual row rectangle. Earlier fallback used Y-position only,
+    // which caused clicks on menus beside/above the calendar to open "Legg til direkte blokk".
     const rows = Array.from(els.calendarWrap.querySelectorAll(".drop-row"));
     for (const row of rows) {
       const rect = row.getBoundingClientRect();
-      if (event.clientY >= rect.top && event.clientY <= rect.bottom) {
+      if (
+        event.clientX >= rect.left &&
+        event.clientX <= rect.right &&
+        event.clientY >= rect.top &&
+        event.clientY <= rect.bottom
+      ) {
         return row;
       }
     }
@@ -1432,6 +4004,8 @@
     if (state.calendarMode !== "personal" || state.viewMode === "År") return false;
     if (!canEditApp()) return false;
     if (!els.calendarWrap) return false;
+    if (!isPointerInsideCalendarWrap(event)) return false;
+    if (isCalendarMenuBlockedTarget(event.target)) return false;
     if (event.target?.closest?.(".entry-bar")) return false;
     if (event.target?.closest?.("[data-resize-handle]")) return false;
     if (event.target?.closest?.("#calendarContextMenu")) return false;
@@ -1475,6 +4049,50 @@
   function handleCalendarDocumentClick(event) {
     if (event.button !== 0) return;
     openCalendarContextMenuFromEvent(event);
+  }
+
+
+  function normalizeCalendarWheelDelta(value, mode, referenceSize) {
+    const numeric = Number(value) || 0;
+    if (!numeric) return 0;
+    if (mode === 1) return numeric * 32;
+    if (mode === 2) return numeric * Math.max(240, Number(referenceSize) || 0);
+    return numeric;
+  }
+
+  function handleCalendarWrapWheelScroll(event) {
+    const wrap = els.calendarWrap;
+    if (!wrap) return;
+    if (event.target?.closest?.("#calendarPanelCol, #calendarContextMenu, #projectModal, #editModal, #employeeModal, #loginModal, select, option")) return;
+
+    const maxX = Math.max(0, wrap.scrollWidth - wrap.clientWidth);
+    if (maxX <= 1) return;
+
+    const dy = normalizeCalendarWheelDelta(event.deltaY, event.deltaMode, wrap.clientHeight);
+    const dx = normalizeCalendarWheelDelta(event.deltaX, event.deltaMode, wrap.clientWidth);
+    if (!dy && !dx) return;
+
+    // v18.62ao: the calendar must only own horizontal scrolling.
+    // Plain mouse wheel over the calendar should move the outer page/frame, not an internal calendar scrollbar.
+    const wantsHorizontal = event.shiftKey || Math.abs(dx) > Math.abs(dy);
+    if (!wantsHorizontal) {
+      const outer = document.scrollingElement || document.documentElement || document.body;
+      if (outer && dy) {
+        event.preventDefault();
+        event.stopPropagation();
+        outer.scrollTop += dy;
+      }
+      return;
+    }
+
+    const beforeLeft = wrap.scrollLeft;
+    const horizontalDelta = dx || dy;
+    wrap.scrollLeft = Math.max(0, Math.min(maxX, wrap.scrollLeft + horizontalDelta));
+
+    if (wrap.scrollLeft !== beforeLeft) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
   }
 
   function getEmployeeGroupBadgeClass(group) {
@@ -1664,6 +4282,20 @@
     renderCalendar();
   }
 
+  function getEmployeeGroupAccentColor(group) {
+    const normalized = normalizeEmployeeGroup(group || "");
+    const accents = {
+      "Offshore arbeider": "#14b8a6",
+      "Onshore arbeider": "#3b82f6",
+      "Lager og logistikk": "#f59e0b",
+      "Engineering": "#8b5cf6",
+      "3 parts innleie": "#06b6d4",
+      "Management": "#64748b",
+      "Prosjektledelse / planlegging": "#22c55e"
+    };
+    return accents[normalized] || "#94a3b8";
+}
+
   function getEmployeeCalendarCellClass(employee) {
     const group = normalizeEmployeeGroup(employee?.employee_group || "");
     return EMPLOYEE_GROUP_CALENDAR_CELL_STYLES[group] || "bg-white text-slate-900";
@@ -1674,14 +4306,43 @@
     return `
       <div class="flex items-center gap-2 min-w-0">
         ${getEmployeeGroupIconHtml(group, "inline-flex h-5 w-5 items-center justify-center text-slate-600 shrink-0 opacity-90")}
-        <div class="min-w-0 text-sm font-semibold leading-tight truncate">${escapeHtml(employee?.name || "")}</div>
+        <div class="employee-plan-name-main min-w-0 text-sm font-semibold leading-tight truncate">${escapeHtml(employee?.name || "")}</div>
       </div>
     `;
   }
 
+  function refreshCalendarModeControls() {
+    // v18.54 safety guard: older language hook calls this helper, but this build has no separate calendar mode control renderer.
+  }
+
   function bindEvents() {
+    window.addEventListener("izomax-language-changed", () => {
+      // v18.56c: Do not call izomaxApplyLanguage from inside the language-changed event.
+      // index.html dispatches this event after language has already been applied.
+      // Calling applyLanguage here re-entered setLanguage() and caused a maximum call stack loop.
+      refreshCalendarModeControls();
+      renderLegend();
+      if (state.activeTab === "calendar") {
+        renderCalendarPanel();
+        renderCalendar();
+      }
+    });
+
     els.searchInput.addEventListener("input", e => {
-      state.search = e.target.value.trim().toLowerCase();
+      state.search = String(e.target.value || "").trim().toLowerCase();
+      if (state.calendarMode === "project") {
+        if (state.search) jumpProjectCalendarToSearchMatch();
+        else resetProjectSearchIfEmpty();
+      }
+      updateCalendarSearchControls();
+      renderStats();
+      renderCalendar();
+    });
+
+    els.searchInput.addEventListener("search", e => {
+      state.search = String(e.target.value || "").trim().toLowerCase();
+      if (state.calendarMode === "project" && !state.search) resetProjectSearchIfEmpty();
+      updateCalendarSearchControls();
       renderStats();
       renderCalendar();
     });
@@ -1714,6 +4375,7 @@
     document.addEventListener("click", handleEmployeeGroupFilterOutsideClick);
     if (els.calendarWrap) {
       els.calendarWrap.addEventListener("contextmenu", handleCalendarWrapContextMenu, true);
+      els.calendarWrap.addEventListener("wheel", handleCalendarWrapWheelScroll, { passive: false });
       els.calendarWrap.addEventListener("pointerdown", event => {
         if (event.button === 2) openCalendarContextMenuFromEvent(event);
       }, true);
@@ -1750,7 +4412,7 @@
 
     if (els.projectFilterControl) {
       els.projectFilterControl.addEventListener("change", e => {
-        state.projectFilterCategory = e.target.value || "all";
+        state.projectPhaseFilter = e.target.value || "all";
         renderStats();
         renderCalendar();
       });
@@ -1771,6 +4433,7 @@
       els.calendarMode.addEventListener("change", e => {
         state.calendarMode = e.target.value;
         if (state.calendarMode !== "personal") state.projectSpotlightId = "";
+        state.projectSearchReturnStartDate = null;
         if (state.calendarMode === "personal") {
           state.projectListFilter = "all";
           state.calendarPanelOpen = false;
@@ -1970,6 +4633,160 @@
       els.logoutBtn.addEventListener("click", handleLogout);
     }
 
+    if (els.employeePortalLogoutBtn) {
+      els.employeePortalLogoutBtn.addEventListener("click", event => {
+        event.preventDefault();
+        event.stopPropagation();
+        handleLogout();
+      });
+    }
+
+    if (els.employeePortalContent) {
+      els.employeePortalContent.addEventListener("click", event => {
+        const detailButton = event.target?.closest?.("[data-employee-portal-toggle-project-details]");
+        if (detailButton) {
+          event.preventDefault();
+          state.employeePortalProjectDetailsOpen = !state.employeePortalProjectDetailsOpen;
+          renderEmployeePortal();
+          return;
+        }
+        const selectButton = event.target?.closest?.("[data-employee-portal-select-assignment]");
+        if (!selectButton) return;
+        event.preventDefault();
+        const entryId = selectButton.dataset.employeePortalSelectAssignment || "";
+        if (!entryId) return;
+        state.employeePortalSelectedEntryId = entryId;
+        state.employeePortalProjectDetailsOpen = false;
+        renderEmployeePortal();
+      });
+    }
+
+    if (els.startLoginSubmitBtn) {
+      els.startLoginSubmitBtn.addEventListener("click", handleStartLogin);
+    }
+
+    if (els.startForgotPasswordBtn) {
+      els.startForgotPasswordBtn.addEventListener("click", handleStartForgotPassword);
+    }
+
+    if (els.startAccessHelpBtn) {
+      els.startAccessHelpBtn.addEventListener("click", handleStartAccessHelp);
+    }
+
+    if (els.accessRequestCloseBtn) {
+      els.accessRequestCloseBtn.addEventListener("click", closeAccessRequestModal);
+    }
+
+    if (els.accessRequestCancelBtn) {
+      els.accessRequestCancelBtn.addEventListener("click", closeAccessRequestModal);
+    }
+
+    if (els.accessRequestSubmitBtn) {
+      els.accessRequestSubmitBtn.addEventListener("click", submitAccessRequest);
+    }
+
+    if (els.accessRequestModal) {
+      els.accessRequestModal.addEventListener("click", event => {
+        if (event.target === els.accessRequestModal) closeAccessRequestModal();
+      });
+    }
+
+    if (els.accessRequestMessage) {
+      els.accessRequestMessage.addEventListener("keydown", event => {
+        if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
+          submitAccessRequest();
+        }
+      });
+    }
+
+    if (els.accessApprovalRefreshBtn) {
+      els.accessApprovalRefreshBtn.addEventListener("click", () => refreshAccessRequests());
+    }
+
+    if (els.accessApprovalList) {
+      els.accessApprovalList.addEventListener("click", event => {
+        const button = event.target?.closest?.("[data-access-action]");
+        if (!button) return;
+        const requestId = button.dataset.accessRequestId || "";
+        const action = button.dataset.accessAction || "";
+        if (!requestId || !action) return;
+        if (action === "setup") setupApprovedAccessRequest(requestId);
+        else if (action === "create-auth-user") createAuthUserForAccessRequest(requestId);
+        else if (action === "complete-access") completeAccessRequestFromAdmin(requestId);
+        else if (action === "generate-temp-password") generateTemporaryPasswordForAccessRequest(requestId);
+        else updateAccessRequestStatus(requestId, action);
+      });
+      els.accessApprovalList.addEventListener("change", event => {
+        const select = event.target?.closest?.("[data-access-complete-role]");
+        if (!select) return;
+        const requestId = select.dataset.accessCompleteRole || "";
+        if (requestId) updateAccessCompleteEmployeeFields(requestId);
+      });
+      els.accessApprovalList.addEventListener("change", event => {
+        const select = event.target?.closest?.("[data-access-complete-existing-employee]");
+        if (!select) return;
+        const requestId = select.dataset.accessCompleteExistingEmployee || "";
+        if (requestId) updateAccessCompleteEmployeeFields(requestId);
+      });
+      els.accessApprovalList.addEventListener("change", event => {
+        const select = event.target?.closest?.("[data-access-setup-role]");
+        if (!select) return;
+        const requestId = select.dataset.accessSetupRole || "";
+        const panel = requestId ? els.accessApprovalList.querySelector(`[data-access-setup-panel="${CSS.escape(requestId)}"]`) : null;
+        const employeeSelect = panel?.querySelector?.(`[data-access-setup-employee="${CSS.escape(requestId)}"]`);
+        if (employeeSelect) employeeSelect.disabled = select.value !== "employee";
+        const button = panel?.querySelector?.(`[data-access-action="setup"]`);
+        if (button && select.value === "employee") button.disabled = !employeeSelect?.value;
+        if (button && select.value !== "employee") button.disabled = false;
+      });
+      els.accessApprovalList.addEventListener("change", event => {
+        const select = event.target?.closest?.("[data-access-setup-employee]");
+        if (!select) return;
+        const requestId = select.dataset.accessSetupEmployee || "";
+        const panel = requestId ? els.accessApprovalList.querySelector(`[data-access-setup-panel="${CSS.escape(requestId)}"]`) : null;
+        const roleSelect = panel?.querySelector?.(`[data-access-setup-role="${CSS.escape(requestId)}"]`);
+        const button = panel?.querySelector?.(`[data-access-action="setup"]`);
+        if (button && roleSelect?.value === "employee") button.disabled = !select.value;
+      });
+    }
+
+    if (els.accessUsersRefreshBtn) {
+      els.accessUsersRefreshBtn.addEventListener("click", () => refreshAccessUsers());
+    }
+
+    if (els.accessUsersList) {
+      els.accessUsersList.addEventListener("click", event => {
+        const button = event.target?.closest?.("[data-access-user-action]");
+        if (!button) return;
+        const userId = button.dataset.accessUserId || "";
+        const action = button.dataset.accessUserAction || "";
+        if (!userId || !action) return;
+        const sourceRow = button.closest("[data-access-user-row-id]");
+        if (action === "toggle-active") updateAccessUserActive(userId, button.dataset.accessUserNextAction || "");
+        else if (action === "set-role") updateAccessUserRole(userId, sourceRow);
+        else if (action === "generate-password") generatePasswordForAccessUser(userId, sourceRow);
+        else if (action === "set-password") setTemporaryPasswordForAccessUser(userId, sourceRow);
+      });
+      els.accessUsersList.addEventListener("input", event => {
+        const input = event.target?.closest?.("[data-access-user-password]");
+        if (!input) return;
+        const userId = input.dataset.accessUserPassword || "";
+        setAccessUserDraftPassword(userId, input.value || "");
+      });
+    }
+
+    if (els.startLoginPassword) {
+      els.startLoginPassword.addEventListener("keydown", e => {
+        if (e.key === "Enter") handleStartLogin();
+      });
+    }
+
+    if (els.startLoginEmail) {
+      els.startLoginEmail.addEventListener("keydown", e => {
+        if (e.key === "Enter") handleStartLogin();
+      });
+    }
+
     if (els.loginBtn) {
       els.loginBtn.addEventListener("click", openLoginModal);
     }
@@ -2007,10 +4824,13 @@
       const option = document.createElement("option");
       if (typeof item === "object") {
         option.value = valueKey ? item[valueKey] : item.id;
-        option.textContent = labelKey ? item[labelKey] : item.name;
+        {
+          const labelText = labelKey ? item[labelKey] : item.name;
+          option.textContent = window.izomaxTranslateValue?.(labelText) || labelText;
+        }
       } else {
         option.value = item;
-        option.textContent = item;
+        option.textContent = window.izomaxTranslateValue?.(item) || item;
       }
       if (selected !== null && option.value === selected) option.selected = true;
       selectEl.appendChild(option);
@@ -2044,9 +4864,11 @@
     }
 
     await fetchFromSupabase();
+    await fetchAccessRequests({ silent: true });
+    await fetchAccessUsers({ silent: true });
 
     const hasMainData = state.employees.length || state.projects.length || state.entries.length;
-    if (!hasMainData) {
+    if (!isEmployeePortalUser() && !hasMainData) {
       state.employees = normalizeEmployees(structuredClone(DEFAULT_EMPLOYEES));
       state.projects = normalizeProjects(structuredClone(DEFAULT_PROJECTS));
       state.entries = structuredClone(DEFAULT_ENTRIES);
@@ -2098,10 +4920,70 @@
     }
   }
 
+  async function fetchEmployeePortalCrewForProjects(projectIds = []) {
+    state.employeePortalCrewByProject = {};
+    state.employeePortalCrewFetchError = "";
+    if (!supabaseClient || !isEmployeePortalUser()) return;
+    const ids = [...new Set((projectIds || []).filter(Boolean))];
+    if (!ids.length) return;
+
+    const results = await Promise.all(ids.map(async projectId => {
+      const { data, error } = await supabaseClient.rpc("get_employee_project_crew", { p_project_id: projectId });
+      if (error) return { projectId, error };
+      return { projectId, data: data || [] };
+    }));
+
+    results.forEach(result => {
+      if (result.error) {
+        state.employeePortalCrewFetchError = state.employeePortalCrewFetchError || result.error.message || "Kunne ikke hente prosjektteam.";
+        return;
+      }
+      state.employeePortalCrewByProject[result.projectId] = result.data || [];
+    });
+  }
+
+  function getProjectInspectorPendingDeleteIds() {
+    if (!(state.projectInspectorPendingDeleteIds instanceof Set)) {
+      state.projectInspectorPendingDeleteIds = new Set();
+    }
+    return state.projectInspectorPendingDeleteIds;
+  }
+
+  function filterPendingDeletedEntries(rows = []) {
+    const pendingDeleteIds = getProjectInspectorPendingDeleteIds();
+    if (!pendingDeleteIds.size) return rows || [];
+    return (rows || []).filter(row => !pendingDeleteIds.has(row?.id));
+  }
+
   async function fetchFromSupabase() {
     if (!state.supabaseReady) return;
 
     try {
+      if (isEmployeePortalUser()) {
+        const [employeesRes, projectsRes, entriesRes] = await Promise.all([
+          supabaseClient.from("planner_employees").select("*").order("name"),
+          supabaseClient.from("planner_projects").select("*").order("planned_start_date", { ascending: true }),
+          supabaseClient.from("planner_entries").select("*").order("start_date")
+        ]);
+
+        [employeesRes, projectsRes, entriesRes].forEach(r => {
+          if (r.error) throw r.error;
+        });
+
+        state.employees = normalizeEmployees(employeesRes.data || []);
+        state.projects = normalizeProjects(projectsRes.data || []);
+        state.entries = filterPendingDeletedEntries(entriesRes.data || []);
+        state.auditLog = [];
+        state.notificationLog = [];
+        await fetchEmployeePortalCrewForProjects((state.entries || []).map(entry => entry.project_id));
+
+        saveAllLocal();
+        state.storageMode = "supabase";
+        state.supabaseError = null;
+        updateBadge();
+        return;
+      }
+
       const [
         employeesRes,
         projectsRes,
@@ -2122,7 +5004,7 @@
 
       state.employees = normalizeEmployees(employeesRes.data || []);
       state.projects = normalizeProjects(projectsRes.data || []);
-      state.entries = entriesRes.data || [];
+      state.entries = filterPendingDeletedEntries(entriesRes.data || []);
       state.auditLog = auditRes.data || [];
       state.notificationLog = notificationRes.data || [];
 
@@ -2175,6 +5057,7 @@
       status: normalizeProjectStatus(project?.status || "Planlagt"),
       has_multiple_periods: Boolean(project?.has_multiple_periods),
       project_periods_json: normalizeProjectPeriods(project?.project_periods_json || []),
+      project_responsible: project?.project_responsible || "",
       workshop_enabled: project?.workshop_enabled !== false,
       workshop_start_date: project?.workshop_start_date || null,
       workshop_end_date: project?.workshop_end_date || null,
@@ -2754,7 +5637,8 @@
           <div class="text-base font-semibold text-slate-950">${escapeHtml(project.name)}</div>
           <div class="mt-1 flex flex-wrap gap-2 text-xs">
             <span class="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-slate-600">${escapeHtml(project.category || "Uten kategori")}</span>
-            ${project.location ? `<span class="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-slate-600">${escapeHtml(project.location)}</span>` : ""}
+            ${project.location ? `<span class="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-slate-600">Kunde: ${escapeHtml(project.location)}</span>` : ""}
+            ${project.project_responsible ? `<span class="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-slate-600">Prosjektleder: ${escapeHtml(project.project_responsible)}</span>` : ""}
             <span class="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-slate-600">${escapeHtml(project.status || "Uten status")}</span>
           </div>
         </div>
@@ -3182,6 +6066,7 @@
     state.calendarMode = "project";
     state.projectListFilter = filter === "unstaffed" ? "unstaffed" : "all";
     state.projectSpotlightId = "";
+    state.projectSearchReturnStartDate = null;
     state.calendarPanelOpen = false;
     state.focusProjectId = "";
     if (els.calendarMode) els.calendarMode.value = "project";
@@ -3203,6 +6088,7 @@
     state.dashboardEmployeeFilter = filterType;
     state.dashboardEmployeeFilterLabel = label || "";
     state.calendarMode = "personal";
+    state.projectSearchReturnStartDate = null;
     state.projectListFilter = "all";
     state.calendarPanelOpen = false;
     state.focusProjectId = "";
@@ -3239,12 +6125,10 @@
       : getVisibleProjects().slice();
 
     return baseProjects.filter(project => {
-      const categoryMatch = !state.projectFilterCategory || state.projectFilterCategory === "all" || project.category === state.projectFilterCategory;
+      const phaseMatch = projectMatchesPhaseFilter(project);
       const search = String(state.search || "").trim().toLowerCase();
-      const searchMatch = !search || [project.name, project.category, project.location, project.status]
-        .filter(Boolean)
-        .some(value => String(value).toLowerCase().includes(search));
-      return categoryMatch && searchMatch;
+      const searchMatch = !search || getProjectSearchableText(project).includes(search);
+      return phaseMatch && searchMatch;
     });
   }
 
@@ -3568,6 +6452,11 @@ async function deleteEditedEntry() {
 
   function getProjectTimelinePeriods(project) {
     if (!project) return [];
+
+    if (!projectHasActiveFieldPhase(project)) {
+      return [];
+    }
+
     const periods = normalizeProjectPeriods(project?.project_periods_json || []);
     if (project?.has_multiple_periods && periods.length) {
       return periods
@@ -3766,9 +6655,9 @@ async function deleteEditedEntry() {
     state.selectedProjectId = projectId;
     const project = state.projects.find(p => p.id === projectId);
 
-    els.projectModalTitle.textContent = project ? "Rediger prosjekt" : "Nytt prosjekt";
+    els.projectModalTitle.textContent = project ? (window.izomaxTranslateKey?.("editProject") || "Rediger prosjekt") : (window.izomaxTranslateKey?.("newProject") || "Nytt prosjekt");
     els.projectName.value = project?.name || "";
-    fillSelect(els.projectCategory, [{ id: "Offshore", name: "Feltoppdrag" }], "Offshore", "name", "id");
+    if (els.projectCategory) els.projectCategory.value = "Offshore";
     fillSelect(els.projectStatus, PROJECT_STATUS_OPTIONS, normalizeProjectStatus(project?.status || "Planlagt"));
     els.projectPlannedStart.value = project?.planned_start_date || "";
     els.projectPlannedEnd.value = project?.planned_end_date || "";
@@ -3784,6 +6673,7 @@ async function deleteEditedEntry() {
     if (els.projectWorkshopHeadcount) els.projectWorkshopHeadcount.value = project?.workshop_headcount_required ?? 2;
     setWorkshopModalEnabled(project?.workshop_enabled !== false, false);
     state.projectModalPeriods = normalizeProjectPeriods(project?.project_periods_json || []);
+    if (els.projectResponsible) els.projectResponsible.value = project?.project_responsible || "";
     els.projectLocation.value = project?.location || "";
     els.projectHeadcount.value = project?.headcount_required ?? "";
     els.projectNotes.value = project?.notes || "";
@@ -3793,6 +6683,7 @@ async function deleteEditedEntry() {
 
     els.projectModal.classList.remove("hidden");
     els.projectModal.classList.add("flex");
+    window.izomaxApplyLanguage?.();
   }
 
   function closeProjectModal() {
@@ -3800,6 +6691,9 @@ async function deleteEditedEntry() {
     state.projectModalPeriods = [];
     els.projectModal.classList.add("hidden");
     els.projectModal.classList.remove("flex");
+    els.projectModal.classList.remove("iz-workbench-project-edit");
+    els.projectModal.removeAttribute("data-opened-from-workbench");
+    ["position", "z-index", "inset"].forEach(prop => els.projectModal.style.removeProperty(prop));
     flushPendingRemoteRefresh();
   }
 
@@ -3811,6 +6705,7 @@ async function deleteEditedEntry() {
     const singlePlannedStart = els.projectPlannedStart.value;
     const singlePlannedEnd = els.projectPlannedEnd.value;
     const hasMultiplePeriods = Boolean(els.projectHasMultiplePeriods?.checked);
+    const projectResponsible = els.projectResponsible?.value?.trim() || "";
     const location = els.projectLocation.value.trim();
     const headcountRequired = Number(els.projectHeadcount.value || 0);
     const workshopEnabled = els.projectWorkshopEnabled ? Boolean(els.projectWorkshopEnabled.checked) : true;
@@ -3893,6 +6788,7 @@ async function deleteEditedEntry() {
       project.has_multiple_periods = hasMultiplePeriods;
       project.project_periods_json = hasMultiplePeriods ? projectPeriods : [];
       project.location = location;
+      project.project_responsible = projectResponsible;
       project.headcount_required = headcountRequired;
       project.workshop_enabled = workshopEnabled;
       project.workshop_start_date = workshopEnabled ? (workshopStartDate || null) : null;
@@ -3910,6 +6806,7 @@ async function deleteEditedEntry() {
         has_multiple_periods: hasMultiplePeriods,
         project_periods_json: hasMultiplePeriods ? projectPeriods : [],
         location,
+        project_responsible: projectResponsible,
         headcount_required: headcountRequired,
         workshop_enabled: workshopEnabled,
         workshop_start_date: workshopEnabled ? (workshopStartDate || null) : null,
@@ -4184,6 +7081,13 @@ async function deleteEditedEntry() {
   }
 
   function renderAll() {
+    if (isEmployeePortalUser()) {
+      renderEmployeePortal();
+      showEmployeePortal();
+      return;
+    }
+
+    hideEmployeePortal();
     populateDynamicSelects();
     renderStats();
     renderHomeDashboard();
@@ -4196,10 +7100,13 @@ async function deleteEditedEntry() {
     renderNotifications();
     renderAudit();
     renderSystemStatus();
+    renderAccessRequests();
+    renderAccessUsers();
     updateBadge();
     updateAvailabilityAnalysis();
     applyRoleChrome();
     updateAvailabilityAnalysis();
+    window.izomaxApplyLanguage?.();
   }
 
   function populateDynamicSelects() {
@@ -4218,7 +7125,7 @@ async function deleteEditedEntry() {
 
     fillSelect(els.employeeFilter, employeeFilterItems, state.employeeFilter, "name", "id");
     if (els.projectFilterControl) {
-      fillSelect(els.projectFilterControl, getProjectFilterOptions(), state.projectFilterCategory || "all", "name", "id");
+      fillSelect(els.projectFilterControl, getProjectFilterOptions(), state.projectPhaseFilter || "all", "name", "id");
     }
     updateCalendarSearchControls();
     renderEmployeeGroupFilterControl();
@@ -4372,6 +7279,133 @@ async function deleteEditedEntry() {
       return { total: employees.length, unavailable, onProject, available: Math.max(employees.length - unavailable - onProject, 0) };
     }
 
+
+    const normalizeCapacityText = (value) => String(value || "")
+      .toLowerCase()
+      .normalize("NFKD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .trim();
+
+    function isWorkshopCapacityEmployee(employee) {
+      if (!employee || employee.active === false) return false;
+      const title = normalizeCapacityText(employee.title);
+      const type = normalizeCapacityText(employee.employee_type);
+      const group = normalizeCapacityText(employee.employee_group);
+      const combined = `${title} ${type} ${group}`;
+
+      if (combined.includes("management") || combined.includes("manager") || combined.includes("projectledelse")) return false;
+      if (combined.includes("3 part") || combined.includes("3 parts") || combined.includes("innleie")) return false;
+      if (combined.includes("lager") || combined.includes("logistikk") || combined.includes("warehouse") || combined.includes("logistics")) return false;
+      if (combined.includes("offshore") && !combined.includes("onshore workshop")) return false;
+
+      const isOnshoreWorkshopTechnician = title.includes("onshore workshop technician") || title.includes("workshop technician");
+      const isApprentice = title === "apprentice" || title.includes("apprentice");
+      return isOnshoreWorkshopTechnician || isApprentice;
+    }
+
+    function isOffshoreCapacityEmployee(employee) {
+      if (!employee || employee.active === false) return false;
+      const group = normalizeEmployeeGroup(employee.employee_group || "");
+      return group === "Offshore arbeider" || group === "3 parts innleie";
+    }
+
+    function getCapacityEmployees(resourceType) {
+      if (resourceType === "workshop") return activeEmployees.filter(isWorkshopCapacityEmployee);
+      if (resourceType === "offshore") return activeEmployees.filter(isOffshoreCapacityEmployee);
+      if (resourceType === "engineering") return activeEmployees.filter(employee => normalizeEmployeeGroup(employee.employee_group || "") === "Engineering");
+      if (resourceType === "thirdParty") return activeEmployees.filter(employee => normalizeEmployeeGroup(employee.employee_group || "") === "3 parts innleie");
+      return [];
+    }
+
+    function isEmployeeBlockedOnDate(employee, date) {
+      const key = dayKey(date);
+      const entries = entriesForRange(date, date).filter(entry => getEntryEmployee(entry) === employee.name && getEntryStart(entry) <= key && getEntryEnd(entry) >= key);
+      const unavailable = entries.some(isUnavailable);
+      const onProject = entries.some(isRealProject);
+      return { unavailable, onProject, blocked: unavailable || onProject };
+    }
+
+    function getAssignedRelevantCountForProjectOnDate(project, date, resourceType) {
+      if (!project?.id) return 0;
+      const key = dayKey(date);
+      const resourceNames = new Set(getCapacityEmployees(resourceType).map(employee => employee.name).filter(Boolean));
+      const assigned = new Set();
+      (state.entries || []).forEach(entry => {
+        if (getEntryProject(entry) !== project.id) return;
+        if (!getEntryStart(entry) || !getEntryEnd(entry)) return;
+        if (!(getEntryStart(entry) <= key && getEntryEnd(entry) >= key)) return;
+        const name = getEntryEmployee(entry);
+        if (resourceNames.has(name)) assigned.add(name);
+      });
+      return assigned.size;
+    }
+
+    function getCapacityDemandForDate(resourceType, date) {
+      const key = dayKey(date);
+      const demandProjects = [];
+      let totalNeed = 0;
+      let remainingNeed = 0;
+
+      activeProjects.forEach(project => {
+        if (!project || isClosedProject(project)) return;
+        const periods = getProjectTimelinePeriodsWithWorkshop(project).filter(period => period?.start && period?.end && period.start <= key && period.end >= key);
+        periods.forEach(period => {
+          let required = 0;
+          if (resourceType === "workshop" && period.phase === "workshop") {
+            required = Math.max(Number(period.required ?? project.workshop_headcount_required ?? 0), 0);
+          } else if (resourceType === "offshore" && period.phase !== "workshop" && String(project.category || "").toLowerCase() === "offshore") {
+            required = Math.max(Number(project.headcount_required || 0), 0);
+          }
+          if (!required) return;
+          const assigned = getAssignedRelevantCountForProjectOnDate(project, date, resourceType);
+          const remaining = Math.max(required - assigned, 0);
+          totalNeed += required;
+          remainingNeed += remaining;
+          demandProjects.push({ project, phase: period.phase || "field", required, assigned, remaining });
+        });
+      });
+
+      return { totalNeed, remainingNeed, projectCount: demandProjects.length, demandProjects };
+    }
+
+    function dailyCapacityMetric(capacityGroup, date) {
+      if (capacityGroup.mode === "legacy") {
+        const legacy = dailyGroupMetric(capacityGroup.legacyGroup, date);
+        return {
+          ...legacy,
+          totalNeed: 0,
+          remainingNeed: 0,
+          net: legacy.available,
+          projectCount: legacy.onProject,
+          resourceTotal: legacy.total
+        };
+      }
+
+      const employees = getCapacityEmployees(capacityGroup.resourceType);
+      let unavailable = 0;
+      let onProject = 0;
+      employees.forEach(employee => {
+        const blocked = isEmployeeBlockedOnDate(employee, date);
+        if (blocked.unavailable) unavailable += 1;
+        else if (blocked.onProject) onProject += 1;
+      });
+      const available = Math.max(employees.length - unavailable - onProject, 0);
+      const demand = getCapacityDemandForDate(capacityGroup.resourceType, date);
+      const net = available - demand.remainingNeed;
+      return {
+        total: employees.length,
+        resourceTotal: employees.length,
+        unavailable,
+        onProject,
+        available,
+        totalNeed: demand.totalNeed,
+        remainingNeed: demand.remainingNeed,
+        net,
+        projectCount: demand.projectCount,
+        demandProjects: demand.demandProjects
+      };
+    }
+
     const today = new Date();
     const analysisStart = new Date(today);
     analysisStart.setHours(0, 0, 0, 0);
@@ -4396,6 +7430,53 @@ async function deleteEditedEntry() {
     const unstaffedCount = getUnstaffedProjectsForCurrentCalendarRange().length;
     const completedPct = projectTotals.total ? Math.round((projectTotals.completed / projectTotals.total) * 100) : 0;
 
+    const dashboardRangeStart = analysisStart;
+    const dashboardRangeEnd = analysisEnd;
+    const dashboardRangeStartKey = dayKey(dashboardRangeStart);
+    const dashboardRangeEndKey = dayKey(dashboardRangeEnd);
+    const getProjectRequiredForDashboard = (project) => Math.max(
+      Number(project?.headcount_required || 0),
+      Number(project?.workshop_headcount_required || 0),
+      0
+    );
+    const getProjectAssignedForDashboard = (project) => {
+      if (!project?.id) return 0;
+      return (state.entries || []).filter(entry =>
+        entry?.project_id === project.id &&
+        entry?.start_date &&
+        entry?.end_date &&
+        overlaps(entry, dashboardRangeStartKey, dashboardRangeEndKey)
+      ).length;
+    };
+    const next14Projects = allProjects
+      .filter(project => project && !isClosedProject(project))
+      .filter(project => getProjectTimelinePeriodsWithWorkshop(project).some(period =>
+        period?.start &&
+        period?.end &&
+        period.start <= dashboardRangeEndKey &&
+        period.end >= dashboardRangeStartKey
+      ));
+    const next14ProjectSummary = next14Projects.reduce((acc, project) => {
+      const required = getProjectRequiredForDashboard(project);
+      const assigned = getProjectAssignedForDashboard(project);
+      acc.total += 1;
+
+      if (required <= 0) {
+        acc.noRequirement += 1;
+      } else if (assigned >= required) {
+        acc.full += 1;
+      } else if (assigned > 0) {
+        acc.partial += 1;
+      } else {
+        acc.unstaffed += 1;
+      }
+
+      return acc;
+    }, { total: 0, full: 0, partial: 0, unstaffed: 0, noRequirement: 0 });
+    const next14StaffingTotal = next14ProjectSummary.full + next14ProjectSummary.partial + next14ProjectSummary.unstaffed;
+    const next14StaffedPct = next14StaffingTotal ? Math.round((next14ProjectSummary.full / next14StaffingTotal) * 100) : 0;
+    const next14AttentionCount = next14ProjectSummary.partial + next14ProjectSummary.unstaffed;
+
     const actionIcon = (key) => {
       const attrs = 'viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"';
       const icons = {
@@ -4412,15 +7493,21 @@ async function deleteEditedEntry() {
     };
 
     const shortcuts = [
-      { key: "calendar", title: "Ansattplan", text: "Planlegg bemanning og kapasitet.", action: "personal" },
-      { key: "project", title: "Prosjektplan", text: "Planlegg prosjekter og tildel oppdrag.", action: "project" },
-      { key: "warning", title: "Uten bemanning", text: "Se prosjekter som mangler bemanning.", action: "unstaffed" },
-      { key: "gear", title: "Prosjektadmin", text: "Administrer prosjekter, faser og oppdrag.", action: "projects" },
-      { key: "people", title: "Ansattadmin", text: "Legg til og oppdater ansatte og kompetanse.", action: "employees" }
+      { key: "calendar", title: "Ansattplan", text: "Bemanning og kapasitet.", action: "personal" },
+      { key: "project", title: "Prosjektplan", text: "Prosjekter og oppdrag.", action: "project" },
+      { key: "warning", title: "Uten bemanning", text: "Prosjekter som mangler crew.", action: "unstaffed" },
+      { key: "gear", title: "Prosjektadmin", text: "Prosjekter og faser.", action: "projects" },
+      { key: "people", title: "Ansattadmin", text: "Ansatte og kompetanse.", action: "employees" }
     ];
 
     const displayName = String(getAccountDisplayName() || state.currentUser || "Planlegger").trim();
     const firstName = displayName && displayName !== "Ikke innlogget" ? displayName.split(/\s+/)[0] : "Planlegger";
+    const todayUnavailable = new Set(
+      entriesForRange(analysisStart, analysisStart)
+        .filter(isUnavailable)
+        .map(entry => getEntryEmployee(entry))
+        .filter(Boolean)
+    ).size;
 
     const shortcutHtml = shortcuts.map(card => `
       <button type="button" data-home-action="${card.action}" class="dash27-white-card dash27-shortcut text-left">
@@ -4430,11 +7517,50 @@ async function deleteEditedEntry() {
       </button>
     `).join("");
 
+    const next14ProjectKpiHtml = `
+      <div class="dash27-panel dash57-projects14 p-5">
+        <div class="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4">
+          <div>
+            <div class="dash27-card-title">Prosjekter neste 14 dager</div>
+            <div class="mt-1 text-sm dash27-muted">Bemanning oppsummert for prosjekter som starter eller pågår i perioden.</div>
+          </div>
+          <button type="button" data-home-action="project" class="dash57-open-link">Se prosjektplan →</button>
+        </div>
+        <div class="mt-4 grid grid-cols-2 lg:grid-cols-5 gap-3">
+          <button type="button" data-home-action="project" class="dash57-stat text-left">
+            <div class="dash57-stat-label">Totalt</div>
+            <div class="dash57-stat-value">${next14ProjectSummary.total}</div>
+            <div class="dash57-stat-sub">aktive prosjekter</div>
+          </button>
+          <button type="button" data-home-action="project" class="dash57-stat dash57-stat-ok text-left">
+            <div class="dash57-stat-label">Fullbemannet</div>
+            <div class="dash57-stat-value">${next14ProjectSummary.full}</div>
+            <div class="dash57-stat-sub">${next14StaffedPct}% av bemannede krav</div>
+          </button>
+          <button type="button" data-home-action="unstaffed" class="dash57-stat dash57-stat-warn text-left">
+            <div class="dash57-stat-label">Delvis bemannet</div>
+            <div class="dash57-stat-value">${next14ProjectSummary.partial}</div>
+            <div class="dash57-stat-sub">trenger oppfølging</div>
+          </button>
+          <button type="button" data-home-action="unstaffed" class="dash57-stat dash57-stat-danger text-left">
+            <div class="dash57-stat-label">Uten bemanning</div>
+            <div class="dash57-stat-value">${next14ProjectSummary.unstaffed}</div>
+            <div class="dash57-stat-sub">kritisk bemanningsgap</div>
+          </button>
+          <button type="button" data-home-action="unstaffed" class="dash57-stat ${next14AttentionCount ? "dash57-stat-danger" : "dash57-stat-ok"} text-left">
+            <div class="dash57-stat-label">Må følges opp</div>
+            <div class="dash57-stat-value">${next14AttentionCount}</div>
+            <div class="dash57-stat-sub">delvis + uten crew</div>
+          </button>
+        </div>
+      </div>
+    `;
+
     const kpiCards = [
       { label: "På prosjekt", value: totalProjectPeople, icon: "people", color: "#2dd4bf", text: `${overallUtilization}% neste 14 dager`, action: "dash-on-project", actionText: "Vis disse" },
       { label: "Tilgjengelige", value: totalAvailable, icon: "check", color: "#86efac", text: "ikke brukt i perioden", action: "dash-available", actionText: "Vis disse" },
       { label: "Borte / fravær", value: totalUnavailable, icon: "bag", color: "#fb923c", text: "ferie, syk, kurs, travel", action: "dash-away", actionText: "Vis disse" },
-      { label: "Uten bemanning", value: unstaffedCount, icon: "warning", color: "#fb7185", text: `${unstaffedCount} prosjekter berørt`, action: "unstaffed", actionText: "Se prosjekter" }
+      { label: "Uten bemanning", value: next14ProjectSummary.unstaffed, icon: "warning", color: "#fb7185", text: `${next14ProjectSummary.unstaffed} prosjekter neste 14 dager`, action: "unstaffed", actionText: "Se prosjekter" }
     ].map(card => `
       <button type="button" data-home-action="${card.action}" class="dash27-kpi text-left w-full">
         <span class="dash27-kpi-icon" style="color:${card.color}">${actionIcon(card.icon)}</span>
@@ -4444,30 +7570,144 @@ async function deleteEditedEntry() {
           <div class="mt-1 text-sm dash27-muted">${escapeHtml(card.text)}</div>
           <div class="dash27-kpi-action">${escapeHtml(card.actionText)} <span>→</span></div>
         </div>
-        <div class="text-right"><div class="text-green-300 font-black">↑</div><div class="text-xs dash27-muted">periode</div></div>
       </button>
     `).join("");
 
     const weekDays = Array.from({ length: 5 }, (_, i) => addDays(today, i + 1));
     const capacityDays = Array.from({ length: 14 }, (_, i) => addDays(today, i));
 
-    const GROUP_THRESHOLDS = {
-      "Offshore arbeider": { critical: 2, low: 4, note: "Lav ≤4 · Kritisk ≤2" },
-      "Onshore arbeider": { critical: 2, low: 4, note: "Lav ≤4 · Kritisk ≤2" },
-      "Engineering": { critical: 0, low: 1, note: "Lav 1 · Kritisk 0" },
-      "3 parts innleie": { critical: 0, low: 2, note: "Lav ≤2 · Kritisk 0" }
-    };
+    const CAPACITY_GROUPS = [
+      {
+        value: "Offshore",
+        label: "Offshore",
+        color: "#2dd4bf",
+        resourceType: "offshore",
+        threshold: { critical: -1, low: 1, note: "Inkl. 3 parts innleie · Gap <0 · Lav 0–1" },
+        mode: "demand"
+      },
+      {
+        value: "Workshop",
+        label: "Workshop",
+        color: "#22c55e",
+        resourceType: "workshop",
+        threshold: { critical: -1, low: 1, note: "Kun Onshore Workshop Technician + Apprentice" },
+        mode: "demand"
+      },
+      {
+        value: "3 parts innleie",
+        label: "3 parts innleie",
+        color: "#c084fc",
+        legacyGroup: GROUPS.find(group => group.value === "3 parts innleie"),
+        threshold: { critical: 0, low: 2, note: "Tilgjengelighet" },
+        mode: "legacy"
+      }
+    ];
 
-    const getThreshold = (group) => GROUP_THRESHOLDS[group.value] || { critical: 1, low: 3, note: "Lav terskel" };
-    const heatLevel = (group, metric) => {
-      const threshold = getThreshold(group);
-      if (!metric.total) return "ok";
-      if (metric.available <= threshold.critical) return "critical";
-      if (metric.available <= threshold.low) return "low";
+    const getCapacityThreshold = (group) => group.threshold || { critical: -1, low: 1, note: "Gap <0 · Lav 0–1" };
+    const capacityHeatLevel = (group, metric) => {
+      const threshold = getCapacityThreshold(group);
+      if (!metric.total && !metric.remainingNeed) return "ok";
+      const value = group.mode === "legacy" ? metric.available : metric.net;
+      if (value <= threshold.critical) return "critical";
+      if (value <= threshold.low) return "low";
       return "ok";
     };
     const heatClass = (level) => level === "critical" ? "dash27-heat-critical" : level === "low" ? "dash27-heat-low" : "dash27-heat-ok";
     const heatLabel = (level) => level === "critical" ? "Kritisk" : level === "low" ? "Lav" : "OK";
+
+    const capacityStatusClass = (remaining) => remaining <= 0 ? "ok" : remaining <= 2 ? "low" : "critical";
+    const capacityStatusLabel = (remaining) => remaining <= 0 ? "OK" : remaining <= 2 ? "Presset" : "Kritisk";
+    const formatCompactPeriod = (start, end) => {
+      if (!start && !end) return "Dato ikke satt";
+      if (start && end) return `${formatDate(start)} – ${formatDate(end)}`;
+      if (start) return `Fra ${formatDate(start)}`;
+      return `Til ${formatDate(end)}`;
+    };
+
+    function getDemandGroup(resourceType) {
+      return CAPACITY_GROUPS.find(group => group.resourceType === resourceType && group.mode === "demand");
+    }
+
+    function getAssignedRelevantCountForProjectRange(project, startKey, endKey, resourceType) {
+      if (!project?.id) return 0;
+      const resourceNames = new Set(getCapacityEmployees(resourceType).map(employee => employee.name).filter(Boolean));
+      const assigned = new Set();
+      (state.entries || []).forEach(entry => {
+        if (getEntryProject(entry) !== project.id) return;
+        if (!getEntryStart(entry) || !getEntryEnd(entry)) return;
+        if (getEntryStart(entry) > endKey || getEntryEnd(entry) < startKey) return;
+        const name = getEntryEmployee(entry);
+        if (resourceNames.has(name)) assigned.add(name);
+      });
+      return assigned.size;
+    }
+
+    function getCapacityProjectRows(resourceType, startKey, endKey, limit = 7) {
+      const rows = [];
+      activeProjects.forEach(project => {
+        if (!project || isClosedProject(project)) return;
+        const periods = getProjectTimelinePeriodsWithWorkshop(project).filter(period => period?.start && period?.end && period.start <= endKey && period.end >= startKey);
+        periods.forEach(period => {
+          let required = 0;
+          let phaseLabel = period.phase === "workshop" ? "Workshop" : "Felt";
+          if (resourceType === "workshop" && period.phase === "workshop") {
+            required = Math.max(Number(period.required ?? project.workshop_headcount_required ?? 0), 0);
+          } else if (resourceType === "offshore" && period.phase !== "workshop" && String(project.category || "").toLowerCase() === "offshore") {
+            required = Math.max(Number(project.headcount_required || 0), 0);
+          }
+          if (!required) return;
+          const overlapStart = period.start > startKey ? period.start : startKey;
+          const overlapEnd = period.end < endKey ? period.end : endKey;
+          const assigned = getAssignedRelevantCountForProjectRange(project, overlapStart, overlapEnd, resourceType);
+          const remaining = Math.max(required - assigned, 0);
+          const projectResponsible = project.project_responsible || project.projectResponsible || project.responsible || "Ikke satt";
+          rows.push({
+            project,
+            projectName: project.name || "Uten navn",
+            projectResponsible,
+            period: formatCompactPeriod(period.start, period.end),
+            required,
+            assigned,
+            remaining,
+            status: capacityStatusLabel(remaining),
+            statusClass: capacityStatusClass(remaining),
+            phaseLabel
+          });
+        });
+      });
+      return rows
+        .sort((a, b) => (b.remaining - a.remaining) || (b.required - a.required) || String(a.projectName).localeCompare(String(b.projectName), "no"))
+        .slice(0, limit);
+    }
+
+    function summarizeResourceCapacity(resourceType, label) {
+      const group = getDemandGroup(resourceType);
+      const dayMetrics = capacityDays.map(day => ({ day, metric: dailyCapacityMetric(group, day) }));
+      const worstDay = dayMetrics.reduce((worst, item) => !worst || item.metric.net < worst.metric.net ? item : worst, null);
+      const criticalDays = dayMetrics.filter(item => item.metric.net < 0);
+      const lowDays = dayMetrics.filter(item => item.metric.net >= 0 && item.metric.net <= getCapacityThreshold(group).low);
+      const peakNeed = dayMetrics.reduce((max, item) => Math.max(max, item.metric.totalNeed || 0), 0);
+      const peakRemainingNeed = dayMetrics.reduce((max, item) => Math.max(max, item.metric.remainingNeed || 0), 0);
+      const lowestAvailable = dayMetrics.reduce((min, item) => Math.min(min, item.metric.available ?? 0), Number.POSITIVE_INFINITY);
+      const lowestAvailableSafe = Number.isFinite(lowestAvailable) ? lowestAvailable : 0;
+      const projectRows = getCapacityProjectRows(resourceType, dashboardRangeStartKey, dashboardRangeEndKey, 7);
+      return {
+        resourceType,
+        label,
+        group,
+        dayMetrics,
+        worstDay,
+        criticalDays,
+        lowDays,
+        peakNeed,
+        peakRemainingNeed,
+        lowestAvailable: lowestAvailableSafe,
+        worstNet: worstDay?.metric?.net ?? lowestAvailableSafe,
+        projectRows,
+        projectCount: projectRows.length
+      };
+    }
+
 
     let lowSituations = 0;
     const lowSituationRows = [];
@@ -4475,21 +7715,25 @@ async function deleteEditedEntry() {
       <div class="grid grid-cols-[116px_repeat(5,1fr)] gap-2 items-center">
         <div></div>
         ${weekDays.map(day => `<div class="text-center text-xs font-bold dash27-muted">${escapeHtml(day.toLocaleDateString("no-NO", { weekday: "short" }).replace(".", ""))}<br><span class="text-[11px]">${escapeHtml(day.toLocaleDateString("no-NO", { day: "numeric", month: "numeric" }))}</span></div>`).join("")}
-        ${GROUPS.map(group => `
+        ${CAPACITY_GROUPS.map(group => `
           <div>
             <div class="text-sm font-bold text-white">${escapeHtml(group.label)}</div>
-            <div class="dash27-threshold-note">${escapeHtml(getThreshold(group).note)}</div>
+            <div class="dash27-threshold-note">${escapeHtml(getCapacityThreshold(group).note)}</div>
           </div>
           ${weekDays.map(day => {
-            const m = dailyGroupMetric(group, day);
-            const level = heatLevel(group, m);
+            const m = dailyCapacityMetric(group, day);
+            const level = capacityHeatLevel(group, m);
             if (level !== "ok") {
               lowSituations += 1;
-              if (lowSituationRows.length < 4) {
-                lowSituationRows.push({ group: group.label, day, metric: m, level });
+              if (lowSituationRows.length < 5) {
+                lowSituationRows.push({ group: group.label, day, metric: m, level, mode: group.mode });
               }
             }
-            return `<div class="dash27-heatcell ${heatClass(level)}" title="${escapeHtml(group.label)} ${escapeHtml(day.toLocaleDateString("no-NO"))}: ledig ${m.available}, prosjekt ${m.onProject}, borte ${m.unavailable}">${m.available}<span class="block text-[10px] font-medium">${heatLabel(level)}</span></div>`;
+            const mainValue = group.mode === "legacy" ? m.available : m.net;
+            const sub = group.mode === "legacy"
+              ? `${heatLabel(level)}`
+              : `Behov ${m.remainingNeed}`;
+            return `<div class="dash27-heatcell ${heatClass(level)}" title="${escapeHtml(group.label)} ${escapeHtml(day.toLocaleDateString("no-NO"))}: netto ${m.net}, tilgjengelig ${m.available}, gjenstående behov ${m.remainingNeed}, på prosjekt ${m.onProject}, borte ${m.unavailable}">${mainValue}<span class="block text-[10px] font-medium">${escapeHtml(sub)}</span></div>`;
           }).join("")}
         `).join("")}
       </div>
@@ -4500,20 +7744,27 @@ async function deleteEditedEntry() {
         <div class="dash27-capacity-table">
           <div></div>
           ${capacityDays.map(day => `<div class="dash27-capacity-head">${escapeHtml(day.toLocaleDateString("no-NO", { weekday: "short" }).replace(".", ""))}<br>${escapeHtml(day.toLocaleDateString("no-NO", { day: "numeric", month: "numeric" }))}</div>`).join("")}
-          ${GROUPS.map(group => `
+          ${CAPACITY_GROUPS.map(group => `
             <div class="dash27-capacity-group">
               <div class="flex items-center gap-2">
                 <span class="inline-flex h-2.5 w-2.5 rounded-full" style="background:${group.color}"></span>
                 <strong>${escapeHtml(group.label)}</strong>
               </div>
-              <div class="dash27-threshold-note">${escapeHtml(getThreshold(group).note)}</div>
+              <div class="dash27-threshold-note">${escapeHtml(getCapacityThreshold(group).note)}</div>
             </div>
             ${capacityDays.map(day => {
-              const metric = dailyGroupMetric(group, day);
-              const level = heatLevel(group, metric);
-              return `<div class="dash27-capacity-cell ${heatClass(level)}" title="${escapeHtml(group.label)} ${escapeHtml(day.toLocaleDateString("no-NO"))}: ledig ${metric.available}, på prosjekt ${metric.onProject}, borte ${metric.unavailable}">
-                <strong>${metric.available}</strong>
-                <span>P:${metric.onProject} · B:${metric.unavailable}</span>
+              const metric = dailyCapacityMetric(group, day);
+              const level = capacityHeatLevel(group, metric);
+              const mainValue = group.mode === "legacy" ? metric.available : metric.net;
+              const subText = group.mode === "legacy"
+                ? `P:${metric.onProject} · B:${metric.unavailable}`
+                : `Behov:${metric.remainingNeed} · Ledig:${metric.available}`;
+              const title = group.mode === "legacy"
+                ? `${group.label} ${day.toLocaleDateString("no-NO")}: ledig ${metric.available}, på prosjekt ${metric.onProject}, borte ${metric.unavailable}`
+                : `${group.label} ${day.toLocaleDateString("no-NO")}: netto ${metric.net}, tilgjengelig ${metric.available}, gjenstående behov ${metric.remainingNeed}, totalbehov ${metric.totalNeed}, på jobb ${metric.onProject}, borte ${metric.unavailable}, aktive faser ${metric.projectCount}`;
+              return `<div class="dash27-capacity-cell ${heatClass(level)}" title="${escapeHtml(title)}">
+                <strong>${mainValue}</strong>
+                <span>${escapeHtml(subText)}</span>
               </div>`;
             }).join("")}
           `).join("")}
@@ -4522,7 +7773,13 @@ async function deleteEditedEntry() {
     `;
 
     const lowSituationSummaryHtml = lowSituationRows.length
-      ? `<div class="dash27-why-low">${lowSituationRows.map(item => `<div class="dash27-alert-line"><strong>${escapeHtml(item.group)}</strong> · ${escapeHtml(item.day.toLocaleDateString("no-NO", { weekday: "short", day: "numeric", month: "numeric" }))}: ${item.metric.available} ledig · ${item.metric.onProject} på prosjekt · ${item.metric.unavailable} borte</div>`).join("")}</div>`
+      ? `<div class="dash27-why-low">${lowSituationRows.map(item => {
+          const metric = item.metric || {};
+          const detail = item.mode === "legacy"
+            ? `${metric.available} ledig · ${metric.onProject} på prosjekt · ${metric.unavailable} borte`
+            : `netto ${metric.net} · behov ${metric.remainingNeed} · tilgjengelig ${metric.available}`;
+          return `<div class="dash27-alert-line"><strong>${escapeHtml(item.group)}</strong> · ${escapeHtml(item.day.toLocaleDateString("no-NO", { weekday: "short", day: "numeric", month: "numeric" }))}: ${escapeHtml(detail)}</div>`;
+        }).join("")}</div>`
       : `<div class="dash27-why-low"><div class="dash27-alert-line">Ingen lave kapasitetsdager i denne ukevisningen.</div></div>`;
 
     let deg = 0;
@@ -4548,19 +7805,102 @@ async function deleteEditedEntry() {
       ["Kansellert", projectTotals.cancelled, "#cbd5e1"]
     ].map(row => `<div class="dash27-list-row flex items-center justify-between gap-3 py-3 px-2"><div class="flex items-center gap-2"><span class="inline-flex h-5 w-5 rounded-full border" style="border-color:${row[2]}; background:${row[2]}22"></span><span class="${row[0] === "Uten bemanning" ? "text-red-300 font-bold" : ""}">${escapeHtml(row[0])}</span></div><strong class="text-xl">${row[1]}</strong></div>`).join("");
 
+    const offshoreResourceSummary = summarizeResourceCapacity("offshore", "Offshore bemanning");
+    const workshopResourceSummary = summarizeResourceCapacity("workshop", "Verkstedkapasitet");
+    const resourceSummaries = [offshoreResourceSummary, workshopResourceSummary];
+    const totalResourceNeed = resourceSummaries.reduce((sum, item) => sum + item.peakNeed, 0);
+    const totalResourceAvailable = resourceSummaries.reduce((sum, item) => sum + item.lowestAvailable, 0);
+    const totalResourceGap = resourceSummaries.reduce((sum, item) => sum + Math.min(item.worstNet, 0), 0);
+    const totalCriticalDays = resourceSummaries.reduce((sum, item) => sum + item.criticalDays.length, 0);
+    const worstResourceDay = resourceSummaries
+      .flatMap(summary => summary.dayMetrics.map(item => ({ ...item, summary })))
+      .sort((a, b) => a.metric.net - b.metric.net)[0];
+
+    function renderResourceSummaryCard(summary) {
+      const isWorkshop = summary.resourceType === "workshop";
+      const accent = isWorkshop ? "#22c55e" : "#2dd4bf";
+      const projectRowsHtml = summary.projectRows.length
+        ? summary.projectRows.map(row => `<div class="dash63-project-row">
+            <div class="dash63-project-title-cell">
+              <div class="dash63-project-name" title="${escapeHtml(row.projectName)}">${escapeHtml(row.projectName)}</div>
+              <div class="dash63-project-owner" title="Prosjektleder: ${escapeHtml(row.projectResponsible || "Ikke satt")}">PL: ${escapeHtml(row.projectResponsible || "Ikke satt")}</div>
+            </div>
+            <div>${escapeHtml(row.period)}</div>
+            <div class="text-right font-black">${row.required}</div>
+            <div><span class="dash63-status dash63-status-${row.statusClass}">${escapeHtml(row.status)}</span></div>
+          </div>`).join("")
+        : `<div class="dash63-empty-row">Ingen ${isWorkshop ? "verkstedprosjekter" : "offshoreprosjekter"} med bemanningsbehov i perioden.</div>`;
+      return `<div class="dash27-panel dash63-resource-card p-5" style="--dash63-accent:${accent}">
+        <div class="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-3 mb-4">
+          <div>
+            <div class="dash27-card-title">${escapeHtml(summary.label)}</div>
+            <div class="dash27-muted text-sm mt-1">Neste 14 dager · ${isWorkshop ? "kun Onshore Workshop Technician og Apprentice" : "Offshore + 3 parts innleie"}</div>
+          </div>
+          <button type="button" data-home-action="project" class="dash63-card-link">Se prosjekter →</button>
+        </div>
+        <div class="dash63-resource-stats">
+          <div class="dash63-mini-stat dash63-mini-ok"><span>Tilgjengelige</span><strong>${summary.lowestAvailable}</strong><small>laveste dag</small></div>
+          <div class="dash63-mini-stat dash63-mini-need"><span>Behov</span><strong>${summary.peakNeed}</strong><small>høyeste dag</small></div>
+          <div class="dash63-mini-stat ${summary.worstNet < 0 ? "dash63-mini-bad" : "dash63-mini-ok"}"><span>Kapasitetsgap</span><strong>${summary.worstNet}</strong><small>${summary.worstDay ? escapeHtml(summary.worstDay.day.toLocaleDateString("no-NO", { day: "numeric", month: "short" })) : "ingen"}</small></div>
+        </div>
+        <div class="dash63-project-table mt-4">
+          <div class="dash63-project-head"><span>Prosjekt</span><span>Periode</span><span class="text-right">Behov</span><span>Status</span></div>
+          ${projectRowsHtml}
+        </div>
+      </div>`;
+    }
+
+    const criticalDaysHtml = `
+      <div class="dash27-panel dash63-critical p-5">
+        <div class="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-3 mb-4">
+          <div>
+            <div class="dash27-card-title">Kritiske dager – neste 14 dager</div>
+            <div class="dash27-muted text-sm mt-1">Netto kapasitet: tilgjengelige ressurser minus gjenstående bemanningsbehov.</div>
+          </div>
+          <button type="button" data-home-action="project" class="dash63-card-link">Se belastning i prosjektplan →</button>
+        </div>
+        <div class="dash63-critical-grid">
+          <div></div>
+          ${capacityDays.map(day => `<div class="dash63-critical-head">${escapeHtml(day.toLocaleDateString("no-NO", { weekday: "short" }).replace(".", ""))}<br><span>${escapeHtml(day.toLocaleDateString("no-NO", { day: "numeric", month: "numeric" }))}</span></div>`).join("")}
+          ${resourceSummaries.map(summary => `
+            <div class="dash63-critical-label">${escapeHtml(summary.label)}</div>
+            ${summary.dayMetrics.map(item => {
+              const level = item.metric.net < 0 ? "critical" : item.metric.net <= getCapacityThreshold(summary.group).low ? "low" : "ok";
+              return `<div class="dash63-critical-cell dash63-critical-${level}" title="${escapeHtml(summary.label)} ${escapeHtml(item.day.toLocaleDateString("no-NO"))}: netto ${item.metric.net}, tilgjengelig ${item.metric.available}, behov ${item.metric.remainingNeed}">${item.metric.net}</div>`;
+            }).join("")}
+          `).join("")}
+        </div>
+      </div>
+    `;
+
+    const resourcePlanningHtml = `
+      <div class="dash63-shell dash63-priority-resource space-y-4">
+        <div class="grid grid-cols-1 2xl:grid-cols-2 gap-4">
+          ${renderResourceSummaryCard(offshoreResourceSummary)}
+          ${renderResourceSummaryCard(workshopResourceSummary)}
+        </div>
+        ${criticalDaysHtml}
+      </div>
+    `;
+
     els.homeDashboard.innerHTML = `
-      <div class="dash27-shell space-y-4">
-        <div><h2 class="dash27-title">Oppstart</h2><p class="dash27-subtitle">Operativ oversikt for dagens dato og de neste 14 dagene.</p></div>
-        <div class="grid grid-cols-1 xl:grid-cols-[320px_1fr] gap-4">
-          <div class="dash27-panel p-5 flex items-center gap-4"><span class="inline-flex h-16 w-16 items-center justify-center rounded-full bg-cyan-400/10 text-cyan-300 border border-cyan-300/20 shrink-0">${actionIcon("sun")}</span><div><div class="text-xl font-extrabold">God morgen, ${escapeHtml(firstName)}!</div><div class="mt-2 text-sm dash27-muted">Her er hvem som er opptatt og tilgjengelig de neste 14 dagene.</div><div class="mt-3 text-xs dash27-muted">Oppdatert ${escapeHtml(today.toLocaleDateString("no-NO"))}</div></div></div>
-          <div class="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-5 gap-3">${shortcutHtml}</div>
+      <div class="dash27-shell dash63-dashboard-clean space-y-4">
+        <div class="dash63-dashboard-head">
+          <div>
+            <h2 class="dash27-title">Oppstart</h2>
+            <p class="dash27-subtitle">Ressurs- og bemanningsstatus for de neste 14 dagene.</p>
+          </div>
+          <div class="dash27-panel dash63-greeting-compact">
+            <span class="dash63-greeting-icon">${actionIcon("sun")}</span>
+            <div>
+              <div class="dash63-greeting-title">God morgen, ${escapeHtml(firstName)}!</div>
+              <div class="dash63-greeting-text">${next14AttentionCount} prosjekter trenger oppfølging · ${todayUnavailable} borte/fravær i dag</div>
+            </div>
+          </div>
         </div>
-        <div class="dash27-panel overflow-hidden"><div class="px-5 pt-4 text-xl font-extrabold">Operativ status – neste 14 dager</div><div class="grid grid-cols-1 lg:grid-cols-4">${kpiCards}</div></div>
-        <div class="grid grid-cols-1 2xl:grid-cols-[1.25fr_.75fr] gap-4">
-          <div class="dash27-panel p-5"><div class="flex items-center justify-between gap-3 mb-4"><div class="dash27-card-title">Kapasitet dag for dag – neste 14 dager <span class="dash27-info">i</span></div><div class="text-sm dash27-muted">Ledig kapasitet · P = prosjekt · B = borte</div></div>${capacityOverviewHtml}<div class="mt-3 text-xs dash27-muted">Viser antall ledige per gruppe per dag. Farge følger egne terskler per gruppe, slik at Engineering ikke vurderes likt som Offshore/Onshore.</div></div>
-          <div class="dash27-panel p-5"><div class="flex items-center justify-between gap-3 mb-4"><div class="dash27-card-title">Lav kapasitet – neste uke <span class="dash27-info">i</span></div><button type="button" data-home-action="project" class="text-cyan-300 text-sm font-bold">Se detaljer →</button></div>${heatmapHtml}<div class="mt-4 pt-4 border-t border-white/10 text-sm"><span class="text-orange-300 font-bold">⚠</span> Totalt ${lowSituations} lav-kapasitetssituasjoner i kommende uke</div>${lowSituationSummaryHtml}</div>
-        </div>
-        <div class="grid grid-cols-1 xl:grid-cols-3 gap-4">
+        ${resourcePlanningHtml}
+        <div class="dash27-panel dash63-operational-compact overflow-hidden"><div class="px-4 pt-3 text-base font-extrabold">Operativ status – neste 14 dager</div><div class="grid grid-cols-2 xl:grid-cols-4">${kpiCards}</div></div>
+        <div class="grid grid-cols-1 xl:grid-cols-3 gap-4 dash63-dashboard-secondary">
           <div class="dash27-panel p-5"><div class="dash27-card-title mb-4">Prosjektfordeling pr gruppe <span class="dash27-info">i</span></div><div class="grid grid-cols-1 md:grid-cols-[190px_1fr] gap-5 items-center"><div class="dash27-donut mx-auto" style="background:${donutBg}"><div class="dash27-donut-inner"><div class="text-sm dash27-muted">Totalt</div><div class="text-4xl font-black">${totalProjectPeople}</div><div class="text-xs dash27-muted">personer</div></div></div><div>${distLegend}</div></div></div>
           <div class="dash27-panel p-5"><div class="dash27-card-title mb-4">Ansatte pr gruppe <span class="dash27-info">i</span></div><div class="grid grid-cols-[150px_1fr_52px_48px] gap-3 pb-2 text-xs uppercase tracking-wider dash27-muted"><div>Gruppe</div><div></div><div class="text-right">Antall</div><div class="text-right">Endr.</div></div>${employeesBars}<div class="flex items-center justify-between pt-4 font-black"><span>Totalt</span><span>${metrics.reduce((sum, row) => sum + row.total, 0)}</span></div></div>
           <div class="dash27-panel p-5 grid grid-cols-1 md:grid-cols-[1fr_150px] gap-4 items-center"><div><div class="dash27-card-title mb-4">Prosjektoversikt <span class="dash27-info">i</span></div>${projectRows}</div><div class="dash27-donut mx-auto" style="width:140px;height:140px;background:conic-gradient(#2dd4bf 0 ${completedPct}%, rgba(148,163,184,.38) ${completedPct}% 100%)"><div class="dash27-donut-inner"><div class="text-4xl font-black">${completedPct}%</div><div class="text-[11px] font-bold tracking-wider">AVSLUTTET</div><div class="text-xs dash27-muted">${projectTotals.completed} prosjekter</div></div></div></div>
@@ -4591,22 +7931,24 @@ async function deleteEditedEntry() {
     if (els.personalPlanQuickBtn) {
       const active = state.calendarMode === "personal";
       els.personalPlanQuickBtn.classList.toggle("is-active", active);
-      els.personalPlanQuickBtn.textContent = "Ansattplan";
-      els.personalPlanQuickBtn.title = "Vis ansattplan i kalenderen";
+      els.personalPlanQuickBtn.textContent = window.izomaxTranslateKey?.("employeePlan") || "Ansattplan";
+      els.personalPlanQuickBtn.title = window.izomaxTranslateKey?.("employeePlanTitle") || "Vis ansattplan i kalenderen";
     }
 
     if (els.projectPlanQuickBtn) {
       const active = state.calendarMode === "project" && state.projectListFilter !== "unstaffed";
       els.projectPlanQuickBtn.classList.toggle("is-active", active);
-      els.projectPlanQuickBtn.textContent = `Prosjektplan (${totalProjects})`;
-      els.projectPlanQuickBtn.title = "Åpne prosjektplan i kalenderen";
+      const projectPlanLabel = window.izomaxTranslateKey?.("projectPlan") || "Prosjektplan";
+      els.projectPlanQuickBtn.textContent = `${projectPlanLabel} (${totalProjects})`;
+      els.projectPlanQuickBtn.title = window.izomaxTranslateKey?.("projectPlanTitle") || "Åpne prosjektplan i kalenderen";
     }
 
     if (els.unstaffedProjectsQuickBtn) {
       const active = state.calendarMode === "project" && state.projectListFilter === "unstaffed";
       els.unstaffedProjectsQuickBtn.classList.toggle("is-active", active);
-      els.unstaffedProjectsQuickBtn.innerHTML = `Uten bemanning <span class="quick-count">${escapeHtml(String(missingStaffCount))}</span>`;
-      els.unstaffedProjectsQuickBtn.title = "Vis prosjekter som mangler bemanning i prosjektplanen for valgt periode";
+      const unstaffedLabel = window.izomaxTranslateKey?.("unstaffed") || "Uten bemanning";
+      els.unstaffedProjectsQuickBtn.innerHTML = `${escapeHtml(unstaffedLabel)} <span class="quick-count">${escapeHtml(String(missingStaffCount))}</span>`;
+      els.unstaffedProjectsQuickBtn.title = window.izomaxTranslateKey?.("unstaffedTitle") || "Vis prosjekter som mangler bemanning i prosjektplanen for valgt periode";
     }
   }
 
@@ -4618,20 +7960,20 @@ async function deleteEditedEntry() {
     ].map(item => `
       <div class="flex items-center gap-2">
         <span class="inline-block w-4 h-4 rounded ${item.color}"></span>
-        <span>${escapeHtml(item.name)}</span>
+        <span>${escapeHtml(window.izomaxTranslateValue?.(item.name) || item.name)}</span>
       </div>
     `).join("");
 
     const personalCategoryHtml = getVisiblePersonalBlockTypes().map(name => `
       <div class="flex items-center gap-2">
         <span class="inline-block w-4 h-4 rounded ${getLegendDotClasses(name)}"></span>
-        <span>${escapeHtml(name)}</span>
+        <span>${escapeHtml(window.izomaxTranslateValue?.(name) || name)}</span>
       </div>
     `).join("");
 
     const statusHtml = Object.keys(STATUS_COLORS).map(name => `
       <div class="flex items-center gap-2">
-        <span class="inline-block rounded-full border px-2 py-0.5 ${STATUS_COLORS[name]}">${escapeHtml(name)}</span>
+        <span class="inline-block rounded-full border px-2 py-0.5 ${STATUS_COLORS[name]}">${escapeHtml(window.izomaxTranslateValue?.(name) || name)}</span>
       </div>
     `).join("");
 
@@ -4699,21 +8041,48 @@ async function deleteEditedEntry() {
     return getEmployeeGroupLabel(normalized) || "Annet";
   }
 
+  function getProjectInspectorConflictLabel(entry) {
+    const conflictProject = getProjectById(entry?.project_id);
+    const title = displayProjectName(conflictProject) || entry?.project_name || entry?.project || entry?.type || "Ukjent aktivitet";
+    const period = entry?.start_date && entry?.end_date ? `${formatDate(entry.start_date)} – ${formatDate(entry.end_date)}` : "Dato ikke satt";
+    return `${title} · ${period}`;
+  }
+
+  function entryFullyCoversPeriod(entry, period) {
+    const entryStart = asLocalDate(entry?.start_date);
+    const entryEnd = asLocalDate(entry?.end_date);
+    const periodStart = asLocalDate(period?.start);
+    const periodEnd = asLocalDate(period?.end);
+    if (!entryStart || !entryEnd || !periodStart || !periodEnd) return false;
+    return entryStart <= periodStart && entryEnd >= periodEnd;
+  }
+
   function getProjectInspectorAvailability(employee, project) {
     const periods = getProjectInspectorPeriods(project);
-    if (!periods.length) return { label: "Ukjent", tone: "text-slate-500", rank: 3 };
+    if (!periods.length) return { label: "Ukjent", tone: "text-slate-500", rank: 3, conflicts: [] };
 
+    const entries = (state.derived.entriesByEmployee.get(employee.name) || [])
+      .filter(entry => entry.project_id !== project.id);
+    const conflictMap = new Map();
     let conflictPeriods = 0;
+    let hasPartialConflict = false;
+
     for (const period of periods) {
-      const conflicts = (state.derived.entriesByEmployee.get(employee.name) || [])
-        .filter(entry => overlaps(entry.start_date, entry.end_date, period.start, period.end))
-        .filter(entry => entry.project_id !== project.id);
-      if (conflicts.length) conflictPeriods += 1;
+      const periodConflicts = entries.filter(entry => overlaps(entry.start_date, entry.end_date, period.start, period.end));
+      if (periodConflicts.length) {
+        conflictPeriods += 1;
+        periodConflicts.forEach(entry => conflictMap.set(entry.id || `${entry.project_id}-${entry.start_date}-${entry.end_date}`, entry));
+        const periodFullyCovered = periodConflicts.some(entry => entryFullyCoversPeriod(entry, period));
+        if (!periodFullyCovered) hasPartialConflict = true;
+      } else {
+        hasPartialConflict = true;
+      }
     }
 
-    if (conflictPeriods === 0) return { label: "Ledig", tone: "text-green-700", rank: 1 };
-    if (conflictPeriods < periods.length) return { label: "Delvis ledig", tone: "text-amber-700", rank: 2 };
-    return { label: "Opptatt", tone: "text-red-700", rank: 3 };
+    const conflicts = Array.from(conflictMap.values());
+    if (conflictPeriods === 0) return { label: "Ledig", tone: "text-green-700", rank: 1, conflicts: [] };
+    if (hasPartialConflict || conflictPeriods < periods.length) return { label: "Delvis ledig", tone: "text-amber-700", rank: 2, conflicts };
+    return { label: "Opptatt", tone: "text-red-700", rank: 3, conflicts };
   }
 
   function getProjectInspectorEmployees(project) {
@@ -4811,6 +8180,8 @@ async function deleteEditedEntry() {
     state.projectInspectorAddUseCustomRange = false;
     state.projectInspectorAddCustomStart = "";
     state.projectInspectorAddCustomEnd = "";
+    state.projectInspectorSelectedNames = [];
+    state.projectInspectorBatchMode = false;
   }
 
   function getProjectInspectorProjectBounds(project) {
@@ -4881,102 +8252,135 @@ async function deleteEditedEntry() {
     } catch (_) {}
   }
 
-  async function createProjectInspectorAssignment(projectId) {
-    projectPanelDebug("createProjectInspectorAssignment called", {
-      projectId,
-      selectedCandidateName: state.projectInspectorAddCandidateName,
-      selectedRole: state.projectInspectorAddRole,
-      useCustomRange: state.projectInspectorAddUseCustomRange,
-      customStart: state.projectInspectorAddCustomStart,
-      customEnd: state.projectInspectorAddCustomEnd,
-      canEdit: canEditApp()
-    });
-    if (!canEditApp()) {
-      projectPanelDebug("create blocked: canEditApp false");
-      return;
-    }
+  function getProjectInspectorSelectableEmployee(project, employeeName) {
+    const name = String(employeeName || "").trim();
+    if (!project || !name) return null;
+    const assignedNames = new Set(state.entries.filter(entry => entry.project_id === project.id).map(entry => entry.employee_name));
+    if (assignedNames.has(name)) return null;
+    return getProjectInspectorEmployees(project).find(employee => employee.name === name) || null;
+  }
+
+  function getProjectInspectorSelectedNames(project) {
+    const raw = Array.isArray(state.projectInspectorSelectedNames) ? state.projectInspectorSelectedNames : [];
+    const seen = new Set();
+    return raw
+      .map(name => String(name || "").trim())
+      .filter(name => {
+        if (!name || seen.has(name)) return false;
+        seen.add(name);
+        return !!getProjectInspectorSelectableEmployee(project, name);
+      });
+  }
+
+  function toggleProjectInspectorSelectedName(project, employeeName, checked = null) {
+    const name = String(employeeName || "").trim();
+    if (!name || !getProjectInspectorSelectableEmployee(project, name)) return;
+    const current = new Set(getProjectInspectorSelectedNames(project));
+    const shouldSelect = checked === null ? !current.has(name) : !!checked;
+    if (shouldSelect) current.add(name);
+    else current.delete(name);
+    state.projectInspectorSelectedNames = Array.from(current);
+  }
+
+  function getProjectInspectorRoleForBatch(project) {
+    const current = String(state.projectInspectorAddRole || "").trim();
+    if (current && ROLE_OPTIONS.includes(current)) return current;
+    const first = getProjectInspectorSelectedNames(project)[0];
+    const employee = first ? getProjectInspectorSelectableEmployee(project, first) : null;
+    return getProjectInspectorAddRole(employee) || getDefaultRoleForIndex(0);
+  }
+
+  function validateProjectInspectorRange(project) {
+    const range = getProjectInspectorAddRange(project);
+    if (!range.start || !range.end) return { ok: false, message: "Velg en gyldig periode." };
+    if (range.start > range.end) return { ok: false, message: "Fra-dato kan ikke være senere enn til-dato." };
+    if (range.bounds.start && range.start < range.bounds.start) return { ok: false, message: "Fra-dato må være innenfor prosjektperioden." };
+    if (range.bounds.end && range.end > range.bounds.end) return { ok: false, message: "Til-dato må være innenfor prosjektperioden." };
+    return { ok: true, range };
+  }
+
+  async function createProjectInspectorAssignments(projectId, employeeNames, options = {}) {
+    projectPanelDebug("createProjectInspectorAssignments called", { projectId, employeeNames, options });
+    if (!canEditApp()) return;
     const project = getProjectById(projectId);
-    if (!project) {
-      projectPanelDebug("create blocked: project not found", { projectId });
+    if (!project) return;
+
+    const requestedNames = Array.isArray(employeeNames) ? employeeNames : [employeeNames];
+    const uniqueNames = [...new Set(requestedNames.map(name => String(name || "").trim()).filter(Boolean))];
+    const employees = uniqueNames.map(name => getProjectInspectorSelectableEmployee(project, name)).filter(Boolean);
+    if (!employees.length) {
+      alert(window.izomaxTranslateKey?.("selectEmployeeFirst") || "Velg minst én ansatt fra listen først.");
       return;
     }
 
     const assigned = state.entries.filter(entry => entry.project_id === project.id).length;
     const required = Math.max(Number(project.headcount_required || 0), 0);
-    if (required > 0 && assigned >= required) {
-      projectPanelDebug("create blocked: project fully staffed", { assigned, required });
-      alert("Prosjektet er allerede fullbemannet.");
-      return;
+    if (required > 0 && assigned + employees.length > required) {
+      const overBy = assigned + employees.length - required;
+      const ok = confirm(`Dette gir ${overBy} person(er) mer enn bemanningsbehovet. Vil du fortsette?`);
+      if (!ok) return;
     }
 
-    const employee = getProjectInspectorAddCandidate(project);
-    projectPanelDebug("create candidate resolved", {
-      candidateName: state.projectInspectorAddCandidateName,
-      found: !!employee,
-      employeeName: employee?.name || "",
-      availability: employee?.availability?.label || ""
-    });
-    if (!employee) {
-      alert("Velg en ansatt fra listen først.");
+    const validation = validateProjectInspectorRange(project);
+    if (!validation.ok) {
+      alert(validation.message);
       return;
     }
-    if (employee.availability?.label === "Opptatt") {
-      projectPanelDebug("create blocked: employee busy", { employee: employee.name });
-      alert("Denne personen er opptatt i prosjektperioden.");
-      return;
+    const { range } = validation;
+
+    const role = options.role || getProjectInspectorRoleForBatch(project) || getDefaultRoleForIndex(0);
+    const newEntries = [];
+    const overbookWarnings = [];
+
+    for (const employee of employees) {
+      const entry = {
+        id: crypto.randomUUID(),
+        project_id: project.id,
+        employee_name: employee.name,
+        role,
+        start_date: range.start,
+        end_date: range.end,
+        notes: ""
+      };
+      const conflicts = getEntryOverlapConflicts(entry);
+      const isPanelOverbook = employee.availability?.label === "Opptatt" || conflicts.length > 0;
+      if (isPanelOverbook) {
+        const conflictText = conflicts.length
+          ? getEntryConflictSummary(entry, conflicts)
+          : `${employee.name} er markert som opptatt i prosjektperioden.`;
+        overbookWarnings.push(conflictText);
+        entry.notes = "OVERBOOKET fra prosjektpanel - kontroller i Ansattplan";
+      }
+      newEntries.push(entry);
     }
 
-    const range = getProjectInspectorAddRange(project);
-    projectPanelDebug("create range resolved", range);
-    if (!range.start || !range.end) {
-      alert("Velg en gyldig periode.");
-      return;
-    }
-    if (range.start > range.end) {
-      alert("Fra-dato kan ikke være senere enn til-dato.");
-      return;
-    }
-    if (range.bounds.start && range.start < range.bounds.start) {
-      alert("Fra-dato må være innenfor prosjektperioden.");
-      return;
-    }
-    if (range.bounds.end && range.end > range.bounds.end) {
-      alert("Til-dato må være innenfor prosjektperioden.");
-      return;
+    if (overbookWarnings.length) {
+      const warningText = `${overbookWarnings.slice(0, 5).join("\n\n")}${overbookWarnings.length > 5 ? `\n\n+${overbookWarnings.length - 5} flere konflikt(er).` : ""}\n\nOverbooking blir lagret og skal vises som konflikt i Ansattplan. Fortsette?`;
+      if (!confirm(warningText)) return;
     }
 
-    const role = getProjectInspectorAddRole(employee);
-    const entry = {
-      id: crypto.randomUUID(),
-      project_id: project.id,
-      employee_name: employee.name,
-      role,
-      start_date: range.start,
-      end_date: range.end,
-      notes: ""
-    };
-
-    const conflicts = getEntryOverlapConflicts(entry);
-    if (conflicts.length) {
-      projectPanelDebug("create blocked: conflicts", { conflictCount: conflicts.length, conflicts });
-      alert(getEntryConflictSummary(entry, conflicts));
-      return;
-    }
-
-    projectPanelDebug("create pushing entry", entry);
-    state.entries.push(entry);
+    state.entries.push(...newEntries);
+    const addedNames = new Set(newEntries.map(entry => entry.employee_name));
+    state.projectInspectorSelectedNames = getProjectInspectorSelectedNames(project).filter(name => !addedNames.has(name));
+    if (!state.projectInspectorSelectedNames.length) state.projectInspectorBatchMode = false;
     state.projectInspectorAddCandidateName = "";
     state.projectInspectorAddRole = "";
     state.projectInspectorAddUseCustomRange = false;
     state.projectInspectorAddCustomStart = "";
     state.projectInspectorAddCustomEnd = "";
     rebuildDerivedState();
-    renderAll();
+    renderProjectInspectorPanel(project);
+    renderCalendar();
+    renderHomeDashboard();
+    updateBadge();
+    updateAvailabilityAnalysis();
 
-    const result = await saveRow("planner_entries", entry);
-    projectPanelDebug("saveRow result", { ok: result?.ok, error: result?.error?.message || result?.error || null });
+    const result = newEntries.length === 1
+      ? await saveRow("planner_entries", newEntries[0])
+      : await saveRows("planner_entries", newEntries);
     if (!result.ok) {
-      state.entries = state.entries.filter(item => item.id !== entry.id);
+      const ids = new Set(newEntries.map(entry => entry.id));
+      state.entries = state.entries.filter(item => !ids.has(item.id));
       rebuildDerivedState();
       renderAll();
       return;
@@ -4986,12 +8390,393 @@ async function deleteEditedEntry() {
     state.focusProjectId = project.id;
     state.calendarPanelOpen = true;
     renderAll();
-    void addAudit(`La til ${employee.name} på ${project.name} fra prosjektpanelet`);
-    void addNotification(employee.name, project.name);
+    void addAudit(`La til ${newEntries.length} tildeling${newEntries.length > 1 ? "er" : ""} på ${project.name} fra prosjektpanelet`);
+    newEntries.forEach(entry => void addNotification(entry.employee_name, project.name));
+  }
+
+  async function createProjectInspectorAssignment(projectId) {
+    const project = getProjectById(projectId);
+    const employee = getProjectInspectorAddCandidate(project);
+    return createProjectInspectorAssignments(projectId, employee?.name || state.projectInspectorAddCandidateName || "");
+  }
+
+
+  function getProjectWorkbenchDefaultRect() {
+    // v18.62l: Default skal oppleves som et flyttbart Outlook-vindu, ikke som sidepanel/fullskjerm.
+    // Ca. 1/4-1/3 av arbeidsflaten, med tydelig kalender synlig bak.
+    const margin = 24;
+    const viewportWidth = Math.max(window.innerWidth || 1280, 360);
+    const viewportHeight = Math.max(window.innerHeight || 760, 360);
+    const maxWidth = Math.max(320, viewportWidth - margin * 2);
+    const maxHeight = Math.max(300, viewportHeight - margin * 2);
+    const width = Math.min(Math.max(620, Math.round(viewportWidth * 0.48)), Math.min(980, maxWidth));
+    const height = Math.min(Math.max(420, Math.round(viewportHeight * 0.54)), Math.min(680, maxHeight));
+    const left = Math.min(Math.max(margin + 80, Math.round(viewportWidth * 0.20)), Math.max(margin, viewportWidth - width - margin));
+    const top = Math.min(Math.max(margin + 76, Math.round(viewportHeight * 0.16)), Math.max(margin, viewportHeight - height - margin));
+    return {
+      left,
+      top,
+      width,
+      height,
+      maximized: false,
+      restore: null
+    };
+  }
+
+  function normalizeProjectWorkbenchRect(rect = {}) {
+    const margin = 12;
+    const viewportWidth = Math.max(window.innerWidth || 1280, 360);
+    const viewportHeight = Math.max(window.innerHeight || 760, 360);
+    const minWidth = Math.min(460, Math.max(300, viewportWidth - margin * 2));
+    const minHeight = Math.min(330, Math.max(260, viewportHeight - margin * 2));
+    const maxWidth = Math.max(minWidth, viewportWidth - margin * 2);
+    const maxHeight = Math.max(minHeight, viewportHeight - margin * 2);
+    const width = Math.min(Math.max(Number(rect.width) || minWidth, minWidth), maxWidth);
+    const height = Math.min(Math.max(Number(rect.height) || minHeight, minHeight), maxHeight);
+    const maxLeft = Math.max(margin, viewportWidth - width - margin);
+    const maxTop = Math.max(margin, viewportHeight - height - margin);
+    const rawLeft = Number.isFinite(Number(rect.left)) ? Number(rect.left) : Math.round((viewportWidth - width) / 2);
+    const rawTop = Number.isFinite(Number(rect.top)) ? Number(rect.top) : Math.round((viewportHeight - height) / 2);
+    return {
+      left: Math.min(Math.max(margin, rawLeft), maxLeft),
+      top: Math.min(Math.max(margin, rawTop), maxTop),
+      width,
+      height,
+      maximized: !!rect.maximized,
+      restore: rect.restore || null
+    };
+  }
+
+  function getCurrentProjectWorkbenchRect() {
+    const shell = els.calendarPanelCol;
+    const rect = shell?.getBoundingClientRect?.();
+    if (!rect || !rect.width || !rect.height) {
+      return normalizeProjectWorkbenchRect(state.projectWorkbenchWindow || getProjectWorkbenchDefaultRect());
+    }
+    return normalizeProjectWorkbenchRect({
+      left: rect.left,
+      top: rect.top,
+      width: rect.width,
+      height: rect.height,
+      maximized: !!state.projectWorkbenchWindow?.maximized,
+      restore: state.projectWorkbenchWindow?.restore || null
+    });
+  }
+
+  function applyProjectWorkbenchWindowState() {
+    const shell = els.calendarPanelCol;
+    if (!shell) return;
+    let rect = state.projectWorkbenchWindow || getProjectWorkbenchDefaultRect();
+    rect = normalizeProjectWorkbenchRect(rect);
+    state.projectWorkbenchWindow = rect;
+
+    // Viktig: gamle panelregler brukte `inset/width/height: ... !important`.
+    // Derfor må flytende vindu styres med inline !important, ellers låser CSS det til full bredde.
+    shell.style.setProperty("position", "fixed", "important");
+    shell.style.setProperty("inset", "auto", "important");
+    shell.style.setProperty("left", `${rect.left}px`, "important");
+    shell.style.setProperty("top", `${rect.top}px`, "important");
+    shell.style.setProperty("width", `${rect.width}px`, "important");
+    shell.style.setProperty("height", `${rect.height}px`, "important");
+    shell.style.setProperty("right", "auto", "important");
+    shell.style.setProperty("bottom", "auto", "important");
+    shell.style.setProperty("max-width", "calc(100vw - 24px)", "important");
+    shell.style.setProperty("max-height", "calc(100vh - 24px)", "important");
+    shell.style.setProperty("min-width", "460px", "important");
+    shell.style.setProperty("min-height", "330px", "important");
+    shell.style.setProperty("transform", "none", "important");
+    shell.style.setProperty("z-index", "10000", "important");
+    shell.style.setProperty("display", "block", "important");
+    shell.style.setProperty("pointer-events", "auto", "important");
+    shell.style.setProperty("box-sizing", "border-box", "important");
+    shell.style.setProperty("overflow", "visible", "important");
+  }
+
+  function closeProjectWorkbenchPanel() {
+    state.calendarPanelOpen = false;
+    state.focusProjectId = "";
+    resetProjectInspectorFilters();
+    if (els.calendarPanelCol) {
+      els.calendarPanelCol.querySelectorAll(".iz-workbench-control-island").forEach(node => node.remove());
+      ["position", "inset", "left", "top", "width", "height", "right", "bottom", "min-width", "min-height", "max-width", "max-height", "transform", "z-index", "display", "pointer-events", "box-sizing", "overflow"].forEach(prop => {
+        els.calendarPanelCol.style.removeProperty(prop);
+      });
+    }
+    renderCalendarPanel();
+    renderCalendar();
+  }
+
+  function resetProjectWorkbenchWindow() {
+    state.projectWorkbenchWindow = getProjectWorkbenchDefaultRect();
+    applyProjectWorkbenchWindowState();
+  }
+
+  function toggleProjectWorkbenchMaximize() {
+    const current = getCurrentProjectWorkbenchRect();
+    if (state.projectWorkbenchWindow?.maximized) {
+      state.projectWorkbenchWindow = normalizeProjectWorkbenchRect(state.projectWorkbenchWindow.restore || getProjectWorkbenchDefaultRect());
+    } else {
+      state.projectWorkbenchWindow = normalizeProjectWorkbenchRect({
+        left: 12,
+        top: 12,
+        width: Math.max(740, (window.innerWidth || 1280) - 24),
+        height: Math.max(440, (window.innerHeight || 760) - 24),
+        maximized: true,
+        restore: current
+      });
+    }
+    applyProjectWorkbenchWindowState();
+  }
+
+  function ensureProjectWorkbenchControlIsland(project = null) {
+    const shell = els.calendarPanelCol;
+    if (!shell) return null;
+    const projectId = project?.id || state.focusProjectId || "";
+    let island = shell.querySelector(":scope > .iz-workbench-control-island");
+    if (!island) {
+      island = document.createElement("div");
+      island.className = "iz-workbench-control-island";
+      shell.appendChild(island);
+    }
+    island.innerHTML = `
+      <button data-project-workbench-edit="${escapeHtml(projectId)}" type="button" class="iz-workbench-control-edit" title="Rediger prosjekt">✎ Rediger</button>
+      <button data-project-workbench-reset-window="1" type="button">Nullstill</button>
+      <button data-project-workbench-maximize="1" type="button">Fullvisning</button>
+      <button data-project-workbench-close="1" type="button" class="iz-workbench-control-close" aria-label="Lukk prosjektvindu" title="Lukk prosjektvindu">×</button>
+    `;
+    return island;
+  }
+
+  function getProjectWorkbenchScrollableTarget(target, boundary) {
+    let node = target instanceof Element ? target : null;
+    while (node && node !== boundary && node !== document.body) {
+      const style = window.getComputedStyle ? window.getComputedStyle(node) : null;
+      const overflowY = style?.overflowY || "";
+      const overflowX = style?.overflowX || "";
+      const canScrollY = /(auto|scroll)/.test(overflowY) && node.scrollHeight > node.clientHeight + 1;
+      const canScrollX = /(auto|scroll)/.test(overflowX) && node.scrollWidth > node.clientWidth + 1;
+      if (canScrollY || canScrollX) return node;
+      node = node.parentElement;
+    }
+    return null;
+  }
+
+  function canProjectWorkbenchScrollableMove(element, event) {
+    if (!element) return false;
+    const dx = Number(event.deltaX) || 0;
+    const dy = Number(event.deltaY) || 0;
+    if (Math.abs(dx) > Math.abs(dy)) {
+      if (dx < 0) return element.scrollLeft > 0;
+      if (dx > 0) return element.scrollLeft + element.clientWidth < element.scrollWidth - 1;
+      return false;
+    }
+    if (dy < 0) return element.scrollTop > 0;
+    if (dy > 0) return element.scrollTop + element.clientHeight < element.scrollHeight - 1;
+    return false;
+  }
+
+  function openProjectWorkbenchEditModal(projectId = "") {
+    const id = projectId || state.focusProjectId || "";
+    if (!id) return;
+    openProjectModal(id);
+    // Åpnet fra prosjektvindu: bruk mørk prosjektmodal som matcher bemanningsvinduet.
+    if (els.projectModal) {
+      els.projectModal.classList.add("iz-workbench-project-edit");
+      els.projectModal.dataset.openedFromWorkbench = "1";
+      els.projectModal.style.setProperty("position", "fixed", "important");
+      els.projectModal.style.setProperty("z-index", "30050", "important");
+      els.projectModal.style.setProperty("inset", "0", "important");
+    }
+  }
+
+  function setupProjectWorkbenchWindowControls(project = null) {
+    const shell = els.calendarPanelCol;
+    if (!shell) return;
+    applyProjectWorkbenchWindowState();
+    const controlIsland = ensureProjectWorkbenchControlIsland(project);
+    if (controlIsland && !controlIsland.dataset.pointerGuardBound) {
+      controlIsland.dataset.pointerGuardBound = "true";
+      ["pointerdown", "mousedown", "click"].forEach(type => {
+        controlIsland.addEventListener(type, event => event.stopPropagation());
+      });
+    }
+
+    if (!shell.dataset.workbenchDelegatedActionsBound) {
+      shell.dataset.workbenchDelegatedActionsBound = "true";
+      shell.addEventListener("click", event => {
+        const closeButton = event.target?.closest?.("[data-project-workbench-close]");
+        if (closeButton) {
+          event.preventDefault();
+          event.stopPropagation();
+          closeProjectWorkbenchPanel();
+          return;
+        }
+        const resetButton = event.target?.closest?.("[data-project-workbench-reset-window]");
+        if (resetButton) {
+          event.preventDefault();
+          event.stopPropagation();
+          resetProjectWorkbenchWindow();
+          return;
+        }
+        const maximizeButton = event.target?.closest?.("[data-project-workbench-maximize]");
+        if (maximizeButton) {
+          event.preventDefault();
+          event.stopPropagation();
+          toggleProjectWorkbenchMaximize();
+          return;
+        }
+        const editButton = event.target?.closest?.("[data-project-workbench-edit], [data-calendar-panel-edit-project]");
+        if (editButton) {
+          event.preventDefault();
+          event.stopPropagation();
+          const projectId = editButton.dataset.projectWorkbenchEdit || editButton.dataset.calendarPanelEditProject || state.focusProjectId || "";
+          openProjectWorkbenchEditModal(projectId);
+          return;
+        }
+      });
+    }
+
+    if (!shell.dataset.workbenchWheelGuardBound) {
+      shell.dataset.workbenchWheelGuardBound = "true";
+      shell.addEventListener("wheel", event => {
+        // Når musepeker er over prosjektvinduet skal kalenderen bak aldri scrolle.
+        // Vi stopper default scrolling og flytter kun nærmeste interne scrollområde manuelt.
+        event.preventDefault();
+        event.stopPropagation();
+        if (typeof event.stopImmediatePropagation === "function") event.stopImmediatePropagation();
+        const scrollable = getProjectWorkbenchScrollableTarget(event.target, shell);
+        if (scrollable) {
+          scrollable.scrollTop += Number(event.deltaY) || 0;
+          scrollable.scrollLeft += Number(event.deltaX) || 0;
+        }
+      }, { passive: false, capture: true });
+    }
+
+    if (!window.__izomaxProjectWorkbenchEscapeBound) {
+      window.__izomaxProjectWorkbenchEscapeBound = true;
+      document.addEventListener("keydown", event => {
+        if (event.key !== "Escape") return;
+        if (!state.calendarPanelOpen || state.calendarMode !== "project") return;
+        closeProjectWorkbenchPanel();
+      });
+    }
+
+    shell.querySelectorAll("[data-project-workbench-close]").forEach(btn => {
+      btn.addEventListener("click", event => {
+        event.preventDefault();
+        event.stopPropagation();
+        closeProjectWorkbenchPanel();
+      });
+    });
+
+    shell.querySelectorAll("[data-project-workbench-reset-window]").forEach(btn => {
+      btn.addEventListener("click", event => {
+        event.preventDefault();
+        event.stopPropagation();
+        resetProjectWorkbenchWindow();
+      });
+    });
+
+    shell.querySelectorAll("[data-project-workbench-maximize]").forEach(btn => {
+      btn.addEventListener("click", event => {
+        event.preventDefault();
+        event.stopPropagation();
+        toggleProjectWorkbenchMaximize();
+      });
+    });
+
+    shell.querySelectorAll("[data-project-workbench-edit], [data-calendar-panel-edit-project]").forEach(btn => {
+      btn.addEventListener("click", event => {
+        event.preventDefault();
+        event.stopPropagation();
+        const projectId = btn.dataset.projectWorkbenchEdit || btn.dataset.calendarPanelEditProject || state.focusProjectId || "";
+        openProjectWorkbenchEditModal(projectId);
+      });
+    });
+
+    const dragHandle = shell.querySelector("[data-project-workbench-drag-handle]");
+    if (dragHandle) {
+      dragHandle.addEventListener("pointerdown", event => {
+        if (event.button !== 0) return;
+        if (event.target?.closest?.("button, input, select, textarea, a, [role='button']")) return;
+        const startRect = getCurrentProjectWorkbenchRect();
+        state.projectWorkbenchWindow = { ...startRect, maximized: false, restore: null };
+        const startX = event.clientX;
+        const startY = event.clientY;
+        shell.classList.add("is-dragging");
+        const onMove = moveEvent => {
+          const next = normalizeProjectWorkbenchRect({
+            left: startRect.left + moveEvent.clientX - startX,
+            top: startRect.top + moveEvent.clientY - startY,
+            width: startRect.width,
+            height: startRect.height,
+            maximized: false,
+            restore: null
+          });
+          state.projectWorkbenchWindow = next;
+          shell.style.setProperty("left", `${next.left}px`, "important");
+          shell.style.setProperty("top", `${next.top}px`, "important");
+          shell.style.setProperty("width", `${next.width}px`, "important");
+          shell.style.setProperty("height", `${next.height}px`, "important");
+        };
+        const onUp = () => {
+          shell.classList.remove("is-dragging");
+          document.removeEventListener("pointermove", onMove);
+          document.removeEventListener("pointerup", onUp);
+          document.removeEventListener("pointercancel", onUp);
+        };
+        document.addEventListener("pointermove", onMove);
+        document.addEventListener("pointerup", onUp, { once: true });
+        document.addEventListener("pointercancel", onUp, { once: true });
+        event.preventDefault();
+        event.stopPropagation();
+      });
+    }
+
+    shell.querySelectorAll("[data-project-workbench-resize]").forEach(handle => {
+      handle.addEventListener("pointerdown", event => {
+        if (event.button !== 0) return;
+        const edge = handle.dataset.projectWorkbenchResize || "se";
+        const startRect = getCurrentProjectWorkbenchRect();
+        state.projectWorkbenchWindow = { ...startRect, maximized: false, restore: null };
+        const startX = event.clientX;
+        const startY = event.clientY;
+        shell.classList.add("is-resizing");
+        const onMove = moveEvent => {
+          const dx = moveEvent.clientX - startX;
+          const dy = moveEvent.clientY - startY;
+          let left = startRect.left;
+          let top = startRect.top;
+          let width = startRect.width;
+          let height = startRect.height;
+          if (edge.includes("e")) width = startRect.width + dx;
+          if (edge.includes("s")) height = startRect.height + dy;
+          if (edge.includes("w")) { left = startRect.left + dx; width = startRect.width - dx; }
+          if (edge.includes("n")) { top = startRect.top + dy; height = startRect.height - dy; }
+          const next = normalizeProjectWorkbenchRect({ left, top, width, height, maximized: false, restore: null });
+          state.projectWorkbenchWindow = next;
+          shell.style.setProperty("left", `${next.left}px`, "important");
+          shell.style.setProperty("top", `${next.top}px`, "important");
+          shell.style.setProperty("width", `${next.width}px`, "important");
+          shell.style.setProperty("height", `${next.height}px`, "important");
+        };
+        const onUp = () => {
+          shell.classList.remove("is-resizing");
+          document.removeEventListener("pointermove", onMove);
+          document.removeEventListener("pointerup", onUp);
+          document.removeEventListener("pointercancel", onUp);
+        };
+        document.addEventListener("pointermove", onMove);
+        document.addEventListener("pointerup", onUp, { once: true });
+        document.addEventListener("pointercancel", onUp, { once: true });
+        event.preventDefault();
+        event.stopPropagation();
+      });
+    });
   }
 
   function renderProjectInspectorPanel(project) {
-    // v17.8: Assigned rows render visible Endre and remove buttons directly in this panel.
+    // v18.62e: Project assignment is now a modal workbench, not a narrow side panel.
     if (!els.calendarPanelContent || !project) return;
 
     const assignedEntries = state.entries
@@ -5000,286 +8785,282 @@ async function deleteEditedEntry() {
       .sort((a, b) => a.employee_name.localeCompare(b.employee_name, "no"));
     const assignedNames = new Set(assignedEntries.map(entry => entry.employee_name));
     const assigned = assignedEntries.length;
-    const required = Number(project.headcount_required || 0);
-    const isFullyStaffed = required > 0 && assigned >= required;
-    const needsStaffing = required > 0 && assigned < required;
+    const required = Math.max(Number(project.headcount_required || 0), 0);
     const missingStaffCount = Math.max(required - assigned, 0);
-    const shouldShowAvailable = !isFullyStaffed || state.projectInspectorShowAvailable === true;
-    const staffing = getProjectStaffingLabel(project.id, required);
     const periods = getProjectInspectorPeriods(project);
-    const availabilitySummary = getProjectInspectorAvailabilitySummary(project, assignedNames);
-    const filteredEmployees = shouldShowAvailable ? getProjectInspectorFilteredEmployees(project, assignedNames) : [];
-    const employees = filteredEmployees.slice(0, 10);
+    const projectBounds = getProjectInspectorProjectBounds(project);
+    const projectPeriodText = projectBounds.start && projectBounds.end
+      ? `${formatDate(projectBounds.start)} – ${formatDate(projectBounds.end)}`
+      : (periods.length ? `${periods.length} perioder` : "Ikke satt");
+    const projectOwner = project.project_responsible || project.projectResponsible || project.responsible || "Ikke satt";
     const groupOptions = getProjectInspectorFilterOptions()
       .map(option => `<option value="${escapeHtml(option.id)}" ${state.projectInspectorGroup === option.id ? "selected" : ""}>${escapeHtml(option.label)}</option>`)
       .join("");
-    const staffingTone = staffing.variant.includes("green")
-      ? "text-green-700"
-      : staffing.variant.includes("amber")
-        ? "text-amber-700"
-        : "text-red-700";
-    const addCandidate = getProjectInspectorAddCandidate(project);
-    const addCandidateRole = getProjectInspectorAddRole(addCandidate);
-    const projectBounds = getProjectInspectorProjectBounds(project);
-    const addRange = getProjectInspectorAddRange(project);
-    const showAddFromList = needsStaffing && shouldShowAvailable;
-    projectPanelDebug("renderProjectInspectorPanel", {
-      projectId: project.id,
-      projectName: project.name,
-      assigned,
-      required,
-      needsStaffing,
-      shouldShowAvailable,
-      selectedCandidateName: state.projectInspectorAddCandidateName,
-      addCandidateFound: !!addCandidate,
-      addCandidateName: addCandidate?.name || "",
-      employeesShown: employees.length,
-      filteredEmployees: filteredEmployees.length,
-      stableAddBoxShouldRender: !!addCandidate
-    });
-    const selectedAddPanelHtml = addCandidate ? `
-      <div id="projectInspectorStableAddBox" data-project-inspector-stable-add-box="1" data-v1816-add-box-visible="1" style="display:block !important;width:100% !important;box-sizing:border-box !important;border:1px solid rgba(132,204,222,0.38) !important;background:rgba(15,23,42,0.92) !important;color:#f8fbfd !important;border-radius:4px !important;padding:12px !important;margin-top:10px !important;visibility:visible !important;opacity:1 !important;">
-        <div style="display:flex !important;align-items:flex-start !important;justify-content:space-between !important;gap:10px !important;margin-bottom:10px !important;">
-          <div style="min-width:0 !important;">
-            <div style="font-size:13px !important;font-weight:900 !important;line-height:1.25 !important;color:#f8fbfd !important;">Legg til ${escapeHtml(addCandidate.name)}</div>
-            <div style="margin-top:4px !important;font-size:11px !important;font-weight:600 !important;color:rgba(232,244,248,0.72) !important;">Velg rolle og periode, trykk deretter Legg til prosjekt.</div>
-          </div>
-          <span style="display:inline-flex !important;align-items:center !important;justify-content:center !important;border:1px solid rgba(132,204,222,0.28) !important;background:rgba(255,255,255,0.06) !important;color:#f8fbfd !important;border-radius:4px !important;padding:5px 8px !important;font-size:11px !important;font-weight:900 !important;">${escapeHtml(addCandidate.availability?.label || "Valgt")}</span>
-        </div>
-        <button id="projectInspectorAddConfirmTopBtn" data-project-inspector-confirm-add="1" data-project-inspector-confirm-employee="${escapeHtml(addCandidate.name)}" type="button" style="display:flex !important;align-items:center !important;justify-content:center !important;width:100% !important;box-sizing:border-box !important;border:1px solid rgba(34,197,94,0.45) !important;background:#16a34a !important;color:#ffffff !important;border-radius:4px !important;padding:11px 12px !important;margin:0 0 10px 0 !important;font-size:13px !important;font-weight:950 !important;line-height:1.1 !important;cursor:pointer !important;visibility:visible !important;opacity:1 !important;position:relative !important;z-index:20 !important;">Legg til prosjekt</button>
-        <div style="display:grid !important;gap:10px !important;">
-          <label style="display:grid !important;gap:5px !important;font-size:11px !important;font-weight:800 !important;text-transform:uppercase !important;letter-spacing:.04em !important;color:rgba(232,244,248,0.76) !important;">
-            Rolle
-            <select id="projectInspectorAddRoleSelect" style="width:100% !important;border:1px solid rgba(132,204,222,0.34) !important;background:#ffffff !important;color:#0f172a !important;border-radius:4px !important;padding:9px !important;font-size:12px !important;">${ROLE_OPTIONS.map(role => `<option value="${escapeHtml(role)}" ${role === addCandidateRole ? "selected" : ""}>${escapeHtml(role)}</option>`).join("")}</select>
-          </label>
-          <div style="display:grid !important;gap:8px !important;border:1px solid rgba(132,204,222,0.22) !important;background:rgba(255,255,255,0.08) !important;border-radius:4px !important;padding:10px !important;">
-            <label style="display:flex !important;align-items:flex-start !important;gap:8px !important;color:#f8fbfd !important;font-size:12px !important;">
-              <input id="projectInspectorWholePeriodRadio" type="radio" name="projectInspectorPeriodMode" value="whole" ${state.projectInspectorAddUseCustomRange ? "" : "checked"} style="margin-top:2px !important;" />
-              <span><span style="display:block !important;font-weight:800 !important;color:#f8fbfd !important;">Hele prosjektperioden</span><span style="display:block !important;margin-top:2px !important;font-size:11px !important;color:rgba(232,244,248,0.72) !important;">${escapeHtml(projectBounds.start ? `${formatDate(projectBounds.start)} – ${formatDate(projectBounds.end)}` : "Periode ikke satt")}</span></span>
-            </label>
-            <label style="display:flex !important;align-items:flex-start !important;gap:8px !important;color:#f8fbfd !important;font-size:12px !important;">
-              <input id="projectInspectorCustomPeriodRadio" type="radio" name="projectInspectorPeriodMode" value="custom" ${state.projectInspectorAddUseCustomRange ? "checked" : ""} style="margin-top:2px !important;" />
-              <span><span style="display:block !important;font-weight:800 !important;color:#f8fbfd !important;">Egendefinert periode</span><span style="display:block !important;margin-top:2px !important;font-size:11px !important;color:rgba(232,244,248,0.72) !important;">Velg fra/til innenfor prosjektperioden.</span></span>
-            </label>
-            <div style="display:grid !important;grid-template-columns:repeat(2,minmax(0,1fr)) !important;gap:8px !important;opacity:${state.projectInspectorAddUseCustomRange ? "1" : "0.62"} !important;">
-              <label style="display:grid !important;gap:4px !important;font-size:10px !important;font-weight:800 !important;text-transform:uppercase !important;letter-spacing:.04em !important;color:rgba(232,244,248,0.72) !important;">
-                Fra
-                <input id="projectInspectorCustomStartInput" type="date" value="${escapeHtml(addRange.start || projectBounds.start || "")}" min="${escapeHtml(projectBounds.start || "")}" max="${escapeHtml(projectBounds.end || "")}" ${state.projectInspectorAddUseCustomRange ? "" : "disabled"} style="width:100% !important;border:1px solid rgba(132,204,222,0.34) !important;background:#ffffff !important;color:#0f172a !important;border-radius:4px !important;padding:8px !important;font-size:12px !important;" />
-              </label>
-              <label style="display:grid !important;gap:4px !important;font-size:10px !important;font-weight:800 !important;text-transform:uppercase !important;letter-spacing:.04em !important;color:rgba(232,244,248,0.72) !important;">
-                Til
-                <input id="projectInspectorCustomEndInput" type="date" value="${escapeHtml(addRange.end || projectBounds.end || "")}" min="${escapeHtml(projectBounds.start || "")}" max="${escapeHtml(projectBounds.end || "")}" ${state.projectInspectorAddUseCustomRange ? "" : "disabled"} style="width:100% !important;border:1px solid rgba(132,204,222,0.34) !important;background:#ffffff !important;color:#0f172a !important;border-radius:4px !important;padding:8px !important;font-size:12px !important;" />
-              </label>
-            </div>
-          </div>
-          ${addCandidate.availability?.label === "Delvis ledig" ? `<div style="border:1px solid rgba(245,158,11,0.35) !important;background:rgba(245,158,11,0.12) !important;color:#fde68a !important;border-radius:4px !important;padding:8px !important;font-size:11px !important;line-height:1.35 !important;">Denne personen er delvis tilgjengelig. Velg riktig delperiode før du legger til.</div>` : ""}
-        </div>
-        <div style="display:grid !important;grid-template-columns:repeat(2,minmax(0,1fr)) !important;gap:8px !important;margin-top:12px !important;">
-          <button id="projectInspectorAddCancelBtn" type="button" style="border:1px solid rgba(132,204,222,0.28) !important;background:rgba(255,255,255,0.06) !important;color:#f8fbfd !important;border-radius:4px !important;padding:9px 10px !important;font-size:12px !important;font-weight:800 !important;cursor:pointer !important;">Avbryt</button>
-          <button id="projectInspectorAddConfirmBtn" data-project-inspector-confirm-add="1" data-project-inspector-confirm-employee="${escapeHtml(addCandidate.name)}" type="button" style="border:1px solid rgba(34,197,94,0.38) !important;background:rgba(22,163,74,0.92) !important;color:#ffffff !important;border-radius:4px !important;padding:10px 10px !important;font-size:12px !important;font-weight:900 !important;cursor:pointer !important;">Legg til prosjekt</button>
-        </div>
-      </div>
-    ` : "";
 
-    const assignedHtml = `
-      <section>
-        <div class="mb-2 flex items-center justify-between gap-2">
-          <h3 class="font-semibold text-slate-900">Tildelte (${assigned}${required ? `/${required}` : ""})</h3>
-          ${isFullyStaffed ? `<button id="projectInspectorChangeCrewHeaderBtn" type="button" class="border border-cyan-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-800 hover:bg-slate-50">${shouldShowAvailable ? "Skjul analyse" : "Endre crew"}</button>` : ""}
+    // In the workbench, availability is central and should always be visible.
+    const filteredEmployees = getProjectInspectorFilteredEmployees(project, assignedNames);
+    const availableEmployees = filteredEmployees.filter(employee => employee.availability.label === "Ledig");
+    const partialEmployees = filteredEmployees.filter(employee => employee.availability.label === "Delvis ledig");
+    const busyEmployees = filteredEmployees.filter(employee => employee.availability.label === "Opptatt" || employee.availability.label === "Ukjent");
+    const addCandidate = getProjectInspectorAddCandidate(project);
+    const selectedBatchNames = getProjectInspectorSelectedNames(project);
+    const addCandidateRole = addCandidate ? getProjectInspectorAddRole(addCandidate) : getProjectInspectorRoleForBatch(project);
+    const addRange = getProjectInspectorAddRange(project);
+
+    const renderPeriods = () => {
+      if (!periods.length) {
+        return `<div class="iz-workbench-empty">Ingen periode satt.</div>`;
+      }
+      return periods.map((period, index) => `
+        <div class="iz-workbench-period-row">
+          <span>Periode ${index + 1}</span>
+          <strong>${escapeHtml(formatDate(period.start))} – ${escapeHtml(formatDate(period.end))}</strong>
         </div>
-        <div class="space-y-2">
-          ${assignedEntries.length ? assignedEntries.slice(0, 10).map(entry => `
-            <div
-              class="project-assigned-row"
-              data-project-assigned-row="${escapeHtml(entry.id)}"
-              style="display:flex !important;align-items:center !important;justify-content:space-between !important;gap:10px !important;width:100% !important;min-height:56px !important;box-sizing:border-box !important;border:1px solid rgba(148, 187, 199, 0.26) !important;background:rgba(255,255,255,0.10) !important;padding:10px 12px !important;border-radius:4px !important;overflow:visible !important;"
-            >
-              <div style="min-width:0 !important;flex:1 1 auto !important;overflow:hidden !important;">
-                <div style="font-size:12px !important;font-weight:700 !important;line-height:1.25 !important;color:#f8fbfd !important;white-space:nowrap !important;overflow:hidden !important;text-overflow:ellipsis !important;">${escapeHtml(entry.employee_name)}</div>
-                <div style="margin-top:4px !important;font-size:11px !important;line-height:1.25 !important;color:rgba(232,244,248,0.78) !important;white-space:nowrap !important;overflow:hidden !important;text-overflow:ellipsis !important;">${escapeHtml(entry.role || "Rolle ikke satt")}</div>
-              </div>
-              <div style="display:flex !important;align-items:center !important;justify-content:flex-end !important;gap:6px !important;flex:0 0 auto !important;visibility:visible !important;opacity:1 !important;">
-                <button
-                  data-project-entry-edit-id="${escapeHtml(entry.id)}"
-                  type="button"
-                  class="project-assigned-edit-pencil-btn"
-                  style="display:inline-flex !important;align-items:center !important;justify-content:center !important;width:30px !important;height:30px !important;border:1px solid rgba(132,204,222,0.32) !important;background:rgba(255,255,255,0.06) !important;color:rgba(248,251,253,0.82) !important;border-radius:4px !important;font-size:14px !important;font-weight:700 !important;line-height:1 !important;cursor:pointer !important;visibility:visible !important;opacity:1 !important;position:relative !important;z-index:5 !important;"
-                  title="Endre tildeling"
-                  aria-label="Endre tildeling"
-                >✎</button>
-              </div>
-            </div>
-          `).join("") : `<div class="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-3 py-3 text-xs text-slate-500">Ingen tildelte ressurser.</div>`}
-          ${needsStaffing ? `
-            <button
-              id="projectInspectorAddStaffBtn"
-              type="button"
-              class="project-add-staff-slot"
-              style="display:flex !important;align-items:center !important;justify-content:center !important;gap:8px !important;width:100% !important;min-height:48px !important;box-sizing:border-box !important;border:1px dashed rgba(132,204,222,0.62) !important;background:rgba(255,255,255,0.08) !important;color:#f8fbfd !important;border-radius:4px !important;font-size:13px !important;font-weight:700 !important;cursor:pointer !important;visibility:visible !important;opacity:1 !important;"
-              title="Legg til ansatt på dette prosjektet"
-            >
-              <span style="font-size:18px !important;line-height:1 !important;">+</span>
-              <span>Legg til ansatt</span>
-              <span style="font-size:11px !important;font-weight:600 !important;color:rgba(232,244,248,0.72) !important;">Velg fra tilgjengelige personer under · ${missingStaffCount} mangler</span>
-            </button>
+      `).join("");
+    };
+
+    const renderConflictList = (employee) => {
+      const conflicts = employee?.availability?.conflicts || [];
+      if (!conflicts.length) return "";
+      const rows = conflicts.slice(0, 3).map(conflict => `<div class="iz-workbench-conflict-line">${escapeHtml(getProjectInspectorConflictLabel(conflict))}</div>`).join("");
+      const more = conflicts.length > 3 ? `<div class="iz-workbench-conflict-more">+${conflicts.length - 3} flere konflikter</div>` : "";
+      return `<div class="iz-workbench-conflicts">${rows}${more}</div>`;
+    };
+
+    const renderCandidateCard = (employee, mode) => {
+      const isSelected = addCandidate && addCandidate.name === employee.name;
+      const isBatchSelected = selectedBatchNames.includes(employee.name);
+      const batchMode = !!state.projectInspectorBatchMode;
+      const label = employee.availability.label;
+      const toneClass = label === "Ledig" ? "is-available" : (label === "Delvis ledig" ? "is-partial" : "is-busy");
+      const role = getDefaultRoleForIndex(0);
+      const canQuickAdd = label === "Ledig";
+      const secondaryText = label === "Opptatt" ? "Overbook" : (label === "Delvis ledig" ? "Velg delperiode" : "Velg periode");
+      return `
+        <div
+          class="iz-workbench-person iz-workbench-person-v2 iz-workbench-person-clean ${toneClass} ${isSelected ? "is-selected" : ""} ${isBatchSelected ? "is-batch-selected" : ""}"
+          data-project-available-person-row="${escapeHtml(employee.name)}"
+          data-project-inspector-row-role="${escapeHtml(role)}"
+        >
+          ${batchMode ? `
+            <label class="iz-workbench-person-check" title="Velg for samlet tildeling">
+              <input type="checkbox" data-project-inspector-batch-select="${escapeHtml(employee.name)}" ${isBatchSelected ? "checked" : ""} />
+            </label>
           ` : ""}
+          <div class="iz-workbench-person-main">
+            <div class="iz-workbench-person-icon">${getEmployeeGroupIconHtml(employee.normalizedGroup, "inline-flex h-5 w-5 items-center justify-center text-cyan-100 shrink-0 opacity-90") || "•"}</div>
+            <div class="iz-workbench-person-text">
+              <div class="iz-workbench-person-name" title="${escapeHtml(employee.name)}">${escapeHtml(employee.name)}</div>
+              <div class="iz-workbench-person-meta" title="${escapeHtml((employee.title || "Tittel ikke satt") + " · " + getProjectStaffingGroupLabel(employee.normalizedGroup))}">${escapeHtml(employee.title || "Tittel ikke satt")} · ${escapeHtml(getProjectStaffingGroupLabel(employee.normalizedGroup))}</div>
+              ${renderConflictList(employee)}
+            </div>
+          </div>
+          <div class="iz-workbench-person-actions">
+            <span class="iz-workbench-status-pill ${toneClass}">${escapeHtml(window.izomaxTranslateValue?.(label) || label)}</span>
+            ${canQuickAdd
+              ? `<button type="button" class="iz-workbench-add-btn ${toneClass} iz-workbench-quick-add-main" data-project-inspector-quick-add="${escapeHtml(employee.name)}" data-project-inspector-select-role="${escapeHtml(role)}">+ Legg til</button>`
+              : `<button type="button" class="iz-workbench-add-btn ${toneClass}" data-project-inspector-select-employee="${escapeHtml(employee.name)}" data-project-inspector-select-role="${escapeHtml(role)}">${isSelected ? "Valgt" : secondaryText}</button>`}
+          </div>
+        </div>
+      `;
+    };
+
+    const renderCandidateColumn = (title, subtitle, employees, mode, options = {}) => {
+      const bodyHtml = `
+        <div class="iz-workbench-column-body">
+          ${employees.length ? employees.slice(0, 40).map(employee => renderCandidateCard(employee, mode)).join("") : `<div class="iz-workbench-empty">Ingen treff.</div>`}
+          ${employees.length > 40 ? `<div class="iz-workbench-more">Viser 40 av ${employees.length}. Bruk søk/filter.</div>` : ""}
+        </div>
+      `;
+      const hasSelectedEmployee = !!(addCandidate && employees.some(employee => employee.name === addCandidate.name));
+      const shouldOpen = options.open === true || hasSelectedEmployee;
+      const headHtml = `
+        <div class="iz-workbench-column-head">
+          <div>
+            <h3>${escapeHtml(title)}</h3>
+            <p>${escapeHtml(subtitle)}</p>
+          </div>
+          <span>${employees.length}</span>
+        </div>
+      `;
+      if (options.collapsible) {
+        return `
+          <details class="iz-workbench-column iz-workbench-collapsible-column ${mode}" ${shouldOpen ? "open" : ""}>
+            <summary class="iz-workbench-column-summary">${headHtml}</summary>
+            ${bodyHtml}
+          </details>
+        `;
+      }
+      return `
+        <section class="iz-workbench-column ${mode} is-open-default">
+          ${headHtml}
+          ${bodyHtml}
+        </section>
+      `;
+    };
+
+    const renderAddPanelForm = (title, subTitle, confirmText, confirmAttrs = "") => `
+      <section id="projectInspectorStableAddBox" data-project-inspector-stable-add-box="1" class="iz-workbench-add-panel iz-workbench-add-panel-active">
+        <div class="iz-workbench-add-head">
+          <div>
+            <div class="iz-workbench-add-title">${escapeHtml(title)}</div>
+            <div class="iz-workbench-add-sub">${escapeHtml(subTitle)}</div>
+          </div>
+          <button id="projectInspectorAddCancelBtn" type="button" class="iz-workbench-secondary-btn">Avbryt</button>
+        </div>
+        ${addCandidate?.availability?.label === "Opptatt" ? `<div class="iz-workbench-warning is-busy">Denne personen er opptatt i perioden. Ved overbooking blir konflikten synlig i Ansattplan.</div>` : ""}
+        ${addCandidate?.availability?.label === "Delvis ledig" ? `<div class="iz-workbench-warning is-partial">Denne personen er delvis ledig. Velg riktig delperiode før du legger til.</div>` : ""}
+        <div class="iz-workbench-add-grid iz-workbench-add-grid-v18-62ac">
+          <label>
+            Rolle
+            <select id="projectInspectorAddRoleSelect">${ROLE_OPTIONS.map(role => `<option value="${escapeHtml(role)}" ${role === addCandidateRole ? "selected" : ""}>${escapeHtml(role)}</option>`).join("")}</select>
+          </label>
+          <div class="iz-workbench-period-choice">
+            <label class="iz-workbench-radio-row">
+              <input id="projectInspectorWholePeriodRadio" type="radio" name="projectInspectorPeriodMode" value="whole" ${state.projectInspectorAddUseCustomRange ? "" : "checked"} />
+              <span><strong>Hele prosjektperioden</strong><small>${escapeHtml(projectBounds.start ? `${formatDate(projectBounds.start)} – ${formatDate(projectBounds.end)}` : "Periode ikke satt")}</small></span>
+            </label>
+            <label class="iz-workbench-radio-row">
+              <input id="projectInspectorCustomPeriodRadio" type="radio" name="projectInspectorPeriodMode" value="custom" ${state.projectInspectorAddUseCustomRange ? "checked" : ""} />
+              <span><strong>Delperiode</strong><small>Brukes ved delvis tilgjengelighet eller planlagt split.</small></span>
+            </label>
+          </div>
+          <label>
+            Fra
+            <input id="projectInspectorCustomStartInput" type="date" value="${escapeHtml(addRange.start || projectBounds.start || "")}" min="${escapeHtml(projectBounds.start || "")}" max="${escapeHtml(projectBounds.end || "")}" ${state.projectInspectorAddUseCustomRange ? "" : "disabled"} />
+          </label>
+          <label>
+            Til
+            <input id="projectInspectorCustomEndInput" type="date" value="${escapeHtml(addRange.end || projectBounds.end || "")}" min="${escapeHtml(projectBounds.start || "")}" max="${escapeHtml(projectBounds.end || "")}" ${state.projectInspectorAddUseCustomRange ? "" : "disabled"} />
+          </label>
+        </div>
+        <div class="iz-workbench-add-footer">
+          <button id="projectInspectorAddConfirmBtn" ${confirmAttrs} type="button" class="iz-workbench-primary-btn iz-workbench-primary-btn-large">${escapeHtml(confirmText)}</button>
+          <span>Velg rolle og periode, trykk deretter på knappen for å legge til.</span>
         </div>
       </section>
     `;
 
-    const availableHtml = shouldShowAvailable ? `<!-- v18.16-add-box-moved-up --><!-- v18.12-dark-available-cards -->
-      <section>
-        <div class="mb-2 grid grid-cols-3 gap-1 text-[11px]">
-          <div class="rounded-lg border border-green-200 bg-green-50 px-2 py-1 text-center font-semibold text-green-700"><div>Ledig</div><div class="text-sm">${availabilitySummary.available}</div></div>
-          <div class="rounded-lg border border-amber-200 bg-amber-50 px-2 py-1 text-center font-semibold text-amber-700"><div>Delvis</div><div class="text-sm">${availabilitySummary.partial}</div></div>
-          <div class="rounded-lg border border-red-200 bg-red-50 px-2 py-1 text-center font-semibold text-red-700"><div>Opptatt</div><div class="text-sm">${availabilitySummary.busy}</div></div>
-        </div>
-        <div class="mb-2 grid grid-cols-[1fr_auto] gap-2">
-          <input id="projectInspectorSearchInput" type="text" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs" placeholder="Søk navn, gruppe, tittel eller status" value="${escapeHtml(state.projectInspectorSearch || "")}" />
-          <select id="projectInspectorGroupFilter" class="rounded-xl border border-slate-300 px-2 py-2 text-xs">${groupOptions}</select>
-        </div>
-        <div style="display:grid !important;gap:8px !important;background:transparent !important;border:0 !important;overflow:visible !important;">
-          <div style="display:grid !important;grid-template-columns:1fr auto !important;align-items:center !important;padding:0 2px 2px 2px !important;font-size:11px !important;font-weight:800 !important;text-transform:uppercase !important;letter-spacing:.04em !important;color:rgba(232,244,248,0.78) !important;">
-            <span>Tilgjengelige / øvrige</span><span>Status</span>
-          </div>
-          ${employees.length ? employees.map(employee => {
-            const isSelected = addCandidate && addCandidate.name === employee.name;
-            const canAssign = employee.availability.label !== "Opptatt";
-            const expandedHtml = "";
-            return `
-              <div
-                class="project-available-person-row-v1811"
-                data-project-available-person-row="${escapeHtml(employee.name)}"
-                data-project-inspector-row-role="${escapeHtml(getDefaultRoleForIndex(0))}"
-                style="display:block !important;width:100% !important;box-sizing:border-box !important;border:1px solid rgba(148,187,199,0.26) !important;background:${isSelected ? 'rgba(255,255,255,0.16)' : 'rgba(255,255,255,0.10)'} !important;color:#f8fbfd !important;border-radius:4px !important;visibility:visible !important;opacity:1 !important;overflow:hidden !important;cursor:pointer !important;"
-              >
-                <div style="display:flex !important;align-items:center !important;justify-content:space-between !important;gap:10px !important;width:100% !important;box-sizing:border-box !important;padding:10px 12px !important;color:#f8fbfd !important;visibility:visible !important;opacity:1 !important;">
-                  <div style="display:flex !important;align-items:center !important;gap:9px !important;min-width:0 !important;flex:1 1 auto !important;color:#f8fbfd !important;visibility:visible !important;opacity:1 !important;">
-                    ${getEmployeeGroupIconHtml(employee.normalizedGroup, "inline-flex h-5 w-5 items-center justify-center text-cyan-100 shrink-0 opacity-80") || `<span style="display:inline-flex !important;width:20px !important;height:20px !important;align-items:center !important;justify-content:center !important;color:rgba(232,244,248,0.62) !important;flex:0 0 auto !important;">•</span>`}
-                    <div style="display:block !important;min-width:0 !important;flex:1 1 auto !important;color:#f8fbfd !important;visibility:visible !important;opacity:1 !important;">
-                      <div class="project-available-person-name v1811-visible-name v1812-dark-card-name" style="display:block !important;font-size:13px !important;font-weight:800 !important;line-height:1.2 !important;color:#f8fbfd !important;background:transparent !important;white-space:nowrap !important;overflow:hidden !important;text-overflow:ellipsis !important;visibility:visible !important;opacity:1 !important;position:relative !important;z-index:2 !important;">${escapeHtml(employee.name)}</div>
-                      <div class="project-available-person-title v1811-visible-title v1812-dark-card-title" style="display:block !important;margin-top:3px !important;font-size:11px !important;font-weight:600 !important;line-height:1.2 !important;color:rgba(232,244,248,0.78) !important;background:transparent !important;white-space:nowrap !important;overflow:hidden !important;text-overflow:ellipsis !important;visibility:visible !important;opacity:1 !important;position:relative !important;z-index:2 !important;">${escapeHtml(employee.title || "Tittel ikke satt")}</div>
-                    </div>
-                  </div>
-                  <div style="display:flex !important;align-items:center !important;justify-content:flex-end !important;gap:8px !important;flex:0 0 auto !important;color:#f8fbfd !important;visibility:visible !important;opacity:1 !important;">
-                    <span style="display:inline-flex !important;align-items:center !important;justify-content:center !important;min-width:58px !important;font-size:12px !important;font-weight:850 !important;line-height:1.1 !important;color:${employee.availability.label === 'Ledig' ? '#15803d' : employee.availability.label === 'Delvis ledig' ? '#b45309' : '#b91c1c'} !important;visibility:visible !important;opacity:1 !important;">${escapeHtml(employee.availability.label)}</span>
-                    ${canAssign ? `<button data-project-inspector-select-employee="${escapeHtml(employee.name)}" data-project-inspector-select-role="${escapeHtml(getDefaultRoleForIndex(0))}" type="button" style="display:inline-flex !important;align-items:center !important;justify-content:center !important;border:1px solid rgba(132,204,222,0.32) !important;background:rgba(255,255,255,0.06) !important;color:#f8fbfd !important;border-radius:4px !important;padding:6px 9px !important;font-size:11px !important;font-weight:900 !important;cursor:pointer !important;visibility:visible !important;opacity:1 !important;">${isSelected ? "Valgt" : "Velg"}</button>` : `<span style="display:inline-flex !important;align-items:center !important;justify-content:center !important;border:1px solid #e2e8f0 !important;background:#f8fafc !important;color:#64748b !important;border-radius:4px !important;padding:6px 9px !important;font-size:11px !important;font-weight:900 !important;visibility:visible !important;opacity:1 !important;">Opptatt</span>`}
-                  </div>
-                </div>
-                <button
-                  data-project-inspector-select-employee="${escapeHtml(employee.name)}"
-                  data-project-inspector-select-role="${escapeHtml(getDefaultRoleForIndex(0))}"
-                  type="button"
-                  style="display:block !important;width:100% !important;height:1px !important;min-height:1px !important;padding:0 !important;margin:0 !important;border:0 !important;background:transparent !important;color:transparent !important;overflow:hidden !important;"
-                  aria-label="Velg ${escapeHtml(employee.name)}"
-                  tabindex="-1"
-                ></button>
-                ${expandedHtml}
-              </div>
-            `;
-          }).join("") : `<div class="px-3 py-4 text-xs text-slate-500">Ingen treff i tilgjengelig-listen.</div>`}
-        </div>
-        ${filteredEmployees.length > employees.length ? `<div class="mt-2 text-[11px] text-slate-500">Viser ${employees.length} av ${filteredEmployees.length}. Bruk søk eller gruppefilter for å snevre inn.</div>` : ""}
-      </section>
-    ` : "";
+    const selectedAddPanelHtml = addCandidate
+      ? renderAddPanelForm(
+          `Legg til: ${addCandidate.name}`,
+          "Velg rolle og periode før du legger personen til prosjektet.",
+          addCandidate.availability?.label === "Opptatt" ? "Overbook og legg til" : "Legg til prosjekt",
+          `data-project-inspector-confirm-add="1" data-project-inspector-confirm-employee="${escapeHtml(addCandidate.name)}"`
+        )
+      : state.projectInspectorBatchMode && selectedBatchNames.length
+        ? renderAddPanelForm(
+            `Legg til valgte (${selectedBatchNames.length})`,
+            selectedBatchNames.slice(0, 3).join(", ") + (selectedBatchNames.length > 3 ? ` +${selectedBatchNames.length - 3} flere` : ""),
+            `Legg til ${selectedBatchNames.length} valgt${selectedBatchNames.length > 1 ? "e" : ""}`,
+            `data-project-inspector-confirm-batch="1"`
+          )
+        : `<section class="iz-workbench-add-panel is-empty iz-workbench-add-panel-compact"><strong>Velg ansatte</strong><span>Trykk <b>+ Legg til</b> for rask tildeling. For bytte: fjern tildelt ansatt og legg til ny.</span></section>`;
 
-    const fullStaffedCrewActionHtml = isFullyStaffed ? `
-      <section>
-        <button id="projectInspectorChangeCrewBtn" type="button" class="w-full rounded-xl border border-cyan-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-800 hover:bg-slate-50">
-          ${shouldShowAvailable ? "Skjul tilgjengelige / øvrige" : "Endre crew"}
-        </button>
-        ${!shouldShowAvailable ? `<div class="mt-2 text-xs text-slate-500">Prosjektet er fullt bemannet. Tilgjengelighetsanalyse vises først når du skal endre crew.</div>` : ""}
-      </section>
-    ` : "";
+    const batchToolbarHtml = state.projectInspectorBatchMode
+      ? `<div class="iz-workbench-batch-toolbar is-active"><span>${selectedBatchNames.length} valgt</span><button data-project-inspector-toggle-batch="0" type="button" class="iz-workbench-secondary-btn">Avslutt flervalg</button></div>`
+      : `<div class="iz-workbench-batch-toolbar"><span>Legg til flere ansatte samtidig ved behov.</span><button data-project-inspector-toggle-batch="1" type="button" class="iz-workbench-secondary-btn">Velg flere</button></div>`;
+
+    const assignedHtml = assignedEntries.length ? assignedEntries.map(entry => `
+      <div class="iz-workbench-assigned-row" data-project-assigned-entry-id="${escapeHtml(entry.id)}">
+        <div class="iz-workbench-assigned-avatar">${escapeHtml(getInitials(entry.employee_name))}</div>
+        <div class="iz-workbench-assigned-text">
+          <div>${escapeHtml(entry.employee_name)}</div>
+          <span>${escapeHtml(entry.role || "Rolle ikke satt")} · ${escapeHtml(formatDate(entry.start_date))} – ${escapeHtml(formatDate(entry.end_date))}</span>
+          ${entry.notes ? `<small>${escapeHtml(entry.notes)}</small>` : ""}
+        </div>
+        <div class="iz-workbench-assigned-row-actions" aria-label="Handlinger for ${escapeHtml(entry.employee_name)}">
+          <button data-project-entry-delete-id="${escapeHtml(entry.id)}" type="button" class="iz-workbench-assigned-row-btn danger">Fjern</button>
+        </div>
+      </div>
+    `).join("") : `<div class="iz-workbench-empty">Ingen tildelte ressurser ennå.</div>`;
+
+    const assignedControlsHtml = "";
 
     els.calendarPanelContent.innerHTML = `
-      <!-- v18.18-period-fallback-confirm-safe v18.17-confirm-button-visible-top v18.16-add-box-visible-under-assigned -->
-      <div class="flex h-full flex-col">
-        <div class="flex items-start justify-between gap-3 border-b border-slate-200 p-4">
-          <div class="min-w-0">
-            <h2 class="text-base font-semibold text-slate-950">Prosjektdetaljer</h2>
-            <div class="mt-1 truncate text-sm font-medium text-slate-800">${escapeHtml(project.name)}</div>
-            <div class="mt-1 text-xs font-medium ${staffingTone}">${escapeHtml(staffing.text)}${required ? ` (${assigned}/${required})` : ""}</div>
+      <div class="iz-project-workbench-modal" role="dialog" aria-modal="true" aria-label="Bemanning og prosjektkontroll">
+        <header class="iz-workbench-header" data-project-workbench-drag-handle="1">
+          <div class="iz-workbench-title-block">
+            <div class="iz-workbench-eyebrow">Bemanning og prosjektkontroll</div>
+            <h2>${escapeHtml(project.name || "Prosjekt")}</h2>
+            <div class="iz-workbench-header-meta">
+              <span>Prosjekteier: <strong>${escapeHtml(projectOwner)}</strong></span>
+              <span>Type: <strong>${escapeHtml(window.izomaxTranslateValue?.(project.category || "Ikke satt") || project.category || "Ikke satt")}</strong></span>
+              <span>Status: <strong>${escapeHtml(window.izomaxTranslateValue?.(project.status || "Ikke satt") || project.status || "Ikke satt")}</strong></span>
+            </div>
           </div>
-          <div class="flex items-center gap-2 shrink-0">
-            <button data-calendar-panel-edit-project="${escapeHtml(project.id)}" type="button" class="rounded-xl border border-slate-300 bg-slate-900 px-3 py-1.5 text-sm font-semibold text-white hover:bg-slate-800">Rediger prosjekt</button>
-            <button id="calendarProjectPanelCloseBtn" type="button" class="rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50">×</button>
+          <div class="iz-workbench-header-actions">
+            <button data-project-workbench-edit="${escapeHtml(project.id)}" type="button" class="iz-workbench-secondary-btn iz-workbench-edit-btn">Rediger prosjekt</button>
+            <button data-project-workbench-reset-window="1" type="button" class="iz-workbench-secondary-btn">Nullstill</button>
+            <button data-project-workbench-maximize="1" type="button" class="iz-workbench-secondary-btn">Fullvisning</button>
+            <button data-project-workbench-close="1" type="button" class="iz-workbench-close-text-btn" aria-label="Lukk prosjektvindu">Lukk</button>
           </div>
+          <button data-project-workbench-close="1" type="button" class="iz-workbench-corner-close" aria-label="Lukk prosjektvindu" title="Lukk">×</button>
+        </header>
+
+        <div class="iz-workbench-main">
+          <aside class="iz-workbench-summary">
+            <section class="iz-workbench-card iz-workbench-projectdata-card">
+              <h3>Prosjektdata</h3>
+              <div class="iz-workbench-facts">
+                <div><span>Periode</span><strong>${escapeHtml(projectPeriodText)}</strong></div>
+                <div><span>Bemanningsbehov</span><strong>${required || 0} personer</strong></div>
+                <div><span>Tildelt</span><strong>${assigned}${required ? ` / ${required}` : ""}</strong></div>
+                <div class="${missingStaffCount ? "is-missing" : "is-ok"}"><span>Mangler</span><strong>${missingStaffCount}</strong></div>
+              </div>
+            </section>
+
+            <section class="iz-workbench-card iz-workbench-periods-card">
+              <div class="iz-workbench-card-head">
+                <h3>Periode(r)</h3>
+                <button data-project-workbench-edit="${escapeHtml(project.id)}" type="button">Rediger</button>
+              </div>
+              <div class="iz-workbench-periods">${renderPeriods()}</div>
+            </section>
+
+            <section class="iz-workbench-card iz-workbench-assigned-card">
+              <h3>Tildelte (${assigned}${required ? `/${required}` : ""})</h3>
+              <div class="iz-workbench-assigned-list">${assignedHtml}</div>
+              ${assignedControlsHtml}
+            </section>
+          </aside>
+
+          <main class="iz-workbench-candidates">
+            ${selectedAddPanelHtml}
+            <div class="iz-workbench-filter-row">
+              <input id="projectInspectorSearchInput" type="text" placeholder="Søk navn, gruppe, tittel eller status" value="${escapeHtml(state.projectInspectorSearch || "")}" />
+              <select id="projectInspectorGroupFilter">${groupOptions}</select>
+            </div>
+            ${batchToolbarHtml}
+            <div class="iz-workbench-columns">
+              ${renderCandidateColumn("Ledig hele perioden", "Beste kandidater for hele oppdraget.", availableEmployees, "available", { open: true })}
+              ${renderCandidateColumn("Delvis ledig", "Kan dekke deler av perioden.", partialEmployees, "partial", { collapsible: true })}
+              ${renderCandidateColumn("Opptatt / overbook", "Viser konfliktprosjekt og kan overbookes.", busyEmployees, "busy", { collapsible: true })}
+            </div>
+          </main>
         </div>
-
-        <div class="min-h-0 flex-1 space-y-4 overflow-auto p-4 text-sm">
-          <div style="display:block !important;margin:0 0 14px 0 !important;width:100% !important;">
-            <button
-              id="projectInspectorEditProjectVisibleBtn"
-              data-calendar-panel-edit-project="${escapeHtml(project.id)}"
-              type="button"
-              style="display:flex !important;align-items:center !important;justify-content:space-between !important;gap:12px !important;width:100% !important;min-height:58px !important;box-sizing:border-box !important;border:1px solid rgba(80,240,199,0.58) !important;background:linear-gradient(180deg, rgba(80,240,199,0.20) 0%, rgba(80,240,199,0.12) 100%) !important;color:#f8fbfd !important;border-radius:6px !important;padding:12px 14px !important;font-size:13px !important;font-weight:900 !important;line-height:1.15 !important;cursor:pointer !important;visibility:visible !important;opacity:1 !important;position:relative !important;z-index:30 !important;text-align:left !important;box-shadow:0 0 0 1px rgba(80,240,199,0.10) inset !important;"
-            >
-              <span style="display:flex !important;align-items:center !important;gap:12px !important;min-width:0 !important;">
-                <span style="display:inline-flex !important;align-items:center !important;justify-content:center !important;width:32px !important;height:32px !important;border-radius:6px !important;background:rgba(255,255,255,0.12) !important;border:1px solid rgba(255,255,255,0.16) !important;font-size:16px !important;font-weight:900 !important;color:#50f0c7 !important;flex:0 0 auto !important;">✎</span>
-                <span style="display:block !important;min-width:0 !important;">
-                  <span style="display:block !important;font-size:14px !important;font-weight:900 !important;color:#f8fbfd !important;">Rediger prosjekt</span>
-                  <span style="display:block !important;margin-top:4px !important;font-size:11px !important;font-weight:650 !important;color:rgba(232,244,248,0.76) !important;">Feltperiode · workshop · ressursbehov</span>
-                </span>
-              </span>
-              <span style="display:inline-flex !important;align-items:center !important;justify-content:center !important;color:#50f0c7 !important;font-size:16px !important;font-weight:900 !important;flex:0 0 auto !important;">→</span>
-            </button>
-          </div>
-          <div class="grid grid-cols-2 gap-2">
-            <div class="rounded-2xl border border-slate-200 bg-slate-50 p-3">
-              <div class="text-[11px] uppercase tracking-wide text-slate-500">Kategori</div>
-              <div class="mt-1 font-semibold text-slate-900">${escapeHtml(project.category || "Ikke satt")}</div>
-            </div>
-            <div class="rounded-2xl border border-slate-200 bg-slate-50 p-3">
-              <div class="text-[11px] uppercase tracking-wide text-slate-500">Bemanningsbehov</div>
-              <div class="mt-1 font-semibold text-slate-900">${required || 0} personer</div>
-            </div>
-          </div>
-
-          <section>
-            <div class="mb-2 flex items-center justify-between gap-2">
-              <h3 class="font-semibold text-slate-900">Perioder</h3>
-              <button data-calendar-panel-edit-project="${escapeHtml(project.id)}" type="button" class="rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50">Rediger perioder</button>
-            </div>
-            <div class="space-y-2">
-              ${periods.length ? periods.map((period, index) => `
-                <div class="flex items-center justify-between gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2">
-                  <span class="font-medium text-slate-700">Periode ${index + 1}</span>
-                  <span class="text-xs text-slate-500">${escapeHtml(formatDate(period.start))} – ${escapeHtml(formatDate(period.end))}</span>
-                </div>
-              `).join("") : `<div class="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-3 py-3 text-xs text-slate-500">Ingen periode satt.</div>`}
-            </div>
-          </section>
-
-          <section>
-            <div class="mb-2 flex items-center justify-between gap-2">
-              <h3 class="font-semibold text-slate-900">Bemanning</h3>
-              <button data-calendar-panel-staff-project="${escapeHtml(project.id)}" type="button" class="rounded-xl bg-slate-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-slate-800">Bemann prosjekt</button>
-            </div>
-          </section>
-
-          ${assignedHtml}
-          ${selectedAddPanelHtml}
-          ${fullStaffedCrewActionHtml}
-          ${availableHtml}
-        </div>
-
-        <div class="grid grid-cols-2 gap-2 border-t border-slate-200 p-4">
-          <button data-calendar-panel-edit-project="${escapeHtml(project.id)}" type="button" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">Rediger prosjekt</button>
-          <button data-calendar-panel-staff-project="${escapeHtml(project.id)}" type="button" class="rounded-xl bg-green-600 px-3 py-2 text-sm font-medium text-white hover:bg-green-700">Bemann</button>
-        </div>
+        <footer class="iz-workbench-footer">
+          <span class="iz-workbench-footer-spacer" aria-hidden="true"></span>
+          <button data-project-workbench-close="1" type="button" class="iz-workbench-close-btn">Lukk vindu</button>
+        </footer>
       </div>
+      <span class="iz-workbench-resize-handle iz-workbench-resize-n" data-project-workbench-resize="n" aria-hidden="true"></span>
+      <span class="iz-workbench-resize-handle iz-workbench-resize-e" data-project-workbench-resize="e" aria-hidden="true"></span>
+      <span class="iz-workbench-resize-handle iz-workbench-resize-s" data-project-workbench-resize="s" aria-hidden="true"></span>
+      <span class="iz-workbench-resize-handle iz-workbench-resize-w" data-project-workbench-resize="w" aria-hidden="true"></span>
+      <span class="iz-workbench-resize-handle iz-workbench-resize-ne" data-project-workbench-resize="ne" aria-hidden="true"></span>
+      <span class="iz-workbench-resize-handle iz-workbench-resize-nw" data-project-workbench-resize="nw" aria-hidden="true"></span>
+      <span class="iz-workbench-resize-handle iz-workbench-resize-se" data-project-workbench-resize="se" aria-hidden="true"></span>
+      <span class="iz-workbench-resize-handle iz-workbench-resize-sw" data-project-workbench-resize="sw" aria-hidden="true"></span>
     `;
 
-    projectPanelDebug("after innerHTML", {
-      stableAddBoxExists: !!document.getElementById("projectInspectorStableAddBox"),
+    projectPanelDebug("after modal innerHTML", {
       confirmButtonExists: !!document.getElementById("projectInspectorAddConfirmBtn"),
       selectButtons: els.calendarPanelContent.querySelectorAll("[data-project-inspector-select-employee]").length,
       availableRows: els.calendarPanelContent.querySelectorAll("[data-project-available-person-row]").length
     });
 
     const rerenderPanel = (focusSearch = false) => {
-      projectPanelDebug("rerenderPanel called", { focusSearch });
       renderProjectInspectorPanel(project);
       if (focusSearch) {
         const input = document.getElementById("projectInspectorSearchInput");
@@ -5291,39 +9072,7 @@ async function deleteEditedEntry() {
       }
     };
 
-    const closeBtn = document.getElementById("calendarProjectPanelCloseBtn");
-    if (closeBtn) closeBtn.addEventListener("click", () => {
-      state.calendarPanelOpen = false;
-      state.focusProjectId = "";
-      resetProjectInspectorFilters();
-      renderCalendarPanel();
-      renderCalendar();
-    });
-
-    const wireChangeCrewButton = (button) => {
-      if (!button) return;
-      button.addEventListener("click", () => {
-        state.projectInspectorShowAvailable = !state.projectInspectorShowAvailable;
-        rerenderPanel(false);
-      });
-    };
-    wireChangeCrewButton(document.getElementById("projectInspectorChangeCrewBtn"));
-    wireChangeCrewButton(document.getElementById("projectInspectorChangeCrewHeaderBtn"));
-
-    const addStaffBtn = document.getElementById("projectInspectorAddStaffBtn");
-    if (addStaffBtn) {
-      addStaffBtn.addEventListener("click", () => {
-        projectPanelDebug("add staff slot clicked");
-        state.projectInspectorShowAvailable = true;
-        state.projectInspectorAddCandidateName = "";
-        state.projectInspectorAddRole = "";
-        state.projectInspectorAddUseCustomRange = false;
-        const bounds = getProjectInspectorProjectBounds(project);
-        state.projectInspectorAddCustomStart = bounds.start || "";
-        state.projectInspectorAddCustomEnd = bounds.end || "";
-        rerenderPanel(false);
-      });
-    }
+    setupProjectWorkbenchWindowControls(project);
 
     const searchInput = document.getElementById("projectInspectorSearchInput");
     if (searchInput) {
@@ -5340,35 +9089,18 @@ async function deleteEditedEntry() {
       });
     }
 
-    const visibleEditBtn = document.getElementById("projectInspectorEditProjectVisibleBtn");
-    if (visibleEditBtn) {
-      visibleEditBtn.addEventListener("click", event => {
+    els.calendarPanelContent.querySelectorAll("[data-calendar-panel-edit-project], [data-project-workbench-edit]").forEach(btn => {
+      btn.addEventListener("click", event => {
         event.preventDefault();
         event.stopPropagation();
-        openProjectModal(visibleEditBtn.dataset.calendarPanelEditProject);
+        const projectId = btn.dataset.projectWorkbenchEdit || btn.dataset.calendarPanelEditProject || state.focusProjectId || "";
+        openProjectWorkbenchEditModal(projectId);
       });
-    }
-    els.calendarPanelContent.querySelectorAll("[data-calendar-panel-edit-project]").forEach(btn => {
-      if (btn.dataset.boundProjectEdit === "true") return;
-      btn.dataset.boundProjectEdit = "true";
-      btn.addEventListener("click", () => openProjectModal(btn.dataset.calendarPanelEditProject));
     });
-    els.calendarPanelContent.querySelectorAll("[data-calendar-panel-staff-project]").forEach(btn => {
-      btn.addEventListener("click", () => startProjectStaffing(btn.dataset.calendarPanelStaffProject));
-    });
+
     const selectProjectInspectorCandidate = (employeeName, suggestedRole = "", options = {}) => {
-      projectPanelDebug("selectProjectInspectorCandidate called", {
-        employeeName,
-        suggestedRole,
-        options,
-        previousCandidate: state.projectInspectorAddCandidateName
-      });
-      if (!employeeName) {
-        projectPanelDebug("select blocked: empty employeeName");
-        return;
-      }
+      if (!employeeName) return;
       if (options.toggle && state.projectInspectorAddCandidateName === employeeName) {
-        projectPanelDebug("select toggled off", { employeeName });
         state.projectInspectorAddCandidateName = "";
         state.projectInspectorAddRole = "";
         state.projectInspectorAddUseCustomRange = false;
@@ -5376,12 +9108,6 @@ async function deleteEditedEntry() {
         return;
       }
       primeProjectInspectorCandidate(project, employeeName, suggestedRole || getDefaultRoleForIndex(0));
-      projectPanelDebug("candidate primed", {
-        selectedCandidateName: state.projectInspectorAddCandidateName,
-        selectedRole: state.projectInspectorAddRole,
-        customStart: state.projectInspectorAddCustomStart,
-        customEnd: state.projectInspectorAddCustomEnd
-      });
       state.projectInspectorShowAvailable = true;
       rerenderPanel(false);
       requestAnimationFrame(() => {
@@ -5394,10 +9120,6 @@ async function deleteEditedEntry() {
 
     els.calendarPanelContent.querySelectorAll("[data-project-available-person-row]").forEach(row => {
       row.addEventListener("click", event => {
-        projectPanelDebug("available row clicked", {
-          employeeName: row.dataset.projectAvailablePersonRow || "",
-          ignoredTarget: !!event.target?.closest?.("button, input, select, textarea, label")
-        });
         if (event.target?.closest?.("button, input, select, textarea, label")) return;
         selectProjectInspectorCandidate(row.dataset.projectAvailablePersonRow || "", row.dataset.projectInspectorRowRole || getDefaultRoleForIndex(0), { toggle: true });
       });
@@ -5407,24 +9129,55 @@ async function deleteEditedEntry() {
       btn.addEventListener("click", event => {
         event.preventDefault();
         event.stopPropagation();
-        projectPanelDebug("select button clicked", {
-          employeeName: btn.dataset.projectInspectorSelectEmployee || "",
-          role: btn.dataset.projectInspectorSelectRole || ""
-        });
         selectProjectInspectorCandidate(btn.dataset.projectInspectorSelectEmployee || "", btn.dataset.projectInspectorSelectRole || getDefaultRoleForIndex(0), { toggle: true });
+      });
+    });
+
+    els.calendarPanelContent.querySelectorAll("[data-project-inspector-quick-add]").forEach(btn => {
+      btn.addEventListener("click", event => {
+        event.preventDefault();
+        event.stopPropagation();
+        const employeeName = btn.dataset.projectInspectorQuickAdd || "";
+        btn.disabled = true;
+        btn.textContent = "Legger til…";
+        btn.closest(".iz-workbench-person")?.classList.add("is-pending");
+        state.projectInspectorAddUseCustomRange = false;
+        state.projectInspectorAddRole = btn.dataset.projectInspectorSelectRole || getDefaultRoleForIndex(0);
+        void createProjectInspectorAssignments(project.id, [employeeName], { role: state.projectInspectorAddRole });
+      });
+    });
+
+    els.calendarPanelContent.querySelectorAll("[data-project-inspector-batch-select]").forEach(input => {
+      input.addEventListener("click", event => event.stopPropagation());
+      input.addEventListener("change", event => {
+        event.stopPropagation();
+        toggleProjectInspectorSelectedName(project, input.dataset.projectInspectorBatchSelect || "", input.checked);
+        state.projectInspectorAddCandidateName = "";
+        rerenderPanel(false);
+      });
+    });
+
+    els.calendarPanelContent.querySelectorAll("[data-project-inspector-toggle-batch]").forEach(btn => {
+      btn.addEventListener("click", event => {
+        event.preventDefault();
+        event.stopPropagation();
+        state.projectInspectorBatchMode = btn.dataset.projectInspectorToggleBatch === "1";
+        if (!state.projectInspectorBatchMode) state.projectInspectorSelectedNames = [];
+        state.projectInspectorAddCandidateName = "";
+        rerenderPanel(false);
       });
     });
 
     document.getElementById("projectInspectorAddCancelBtn")?.addEventListener("click", event => {
       event.preventDefault();
       state.projectInspectorAddCandidateName = "";
+      state.projectInspectorSelectedNames = [];
       state.projectInspectorAddRole = "";
       state.projectInspectorAddUseCustomRange = false;
       rerenderPanel(false);
     });
     document.getElementById("projectInspectorAddRoleSelect")?.addEventListener("change", event => {
       state.projectInspectorAddRole = event.target.value || "";
-      projectPanelDebug("role changed", { role: state.projectInspectorAddRole });
     });
     document.getElementById("projectInspectorWholePeriodRadio")?.addEventListener("change", () => {
       state.projectInspectorAddUseCustomRange = false;
@@ -5448,53 +9201,62 @@ async function deleteEditedEntry() {
     document.getElementById("projectInspectorCustomEndInput")?.addEventListener("change", event => {
       state.projectInspectorAddCustomEnd = event.target.value || "";
     });
-    const confirmButtons = Array.from(els.calendarPanelContent.querySelectorAll("[data-project-inspector-confirm-add]"));
-    projectPanelDebug("wire confirm buttons", { count: confirmButtons.length });
-    confirmButtons.forEach(confirmBtn => {
+
+    const captureProjectInspectorAddForm = () => {
+      const roleSelect = document.getElementById("projectInspectorAddRoleSelect");
+      if (roleSelect) state.projectInspectorAddRole = roleSelect.value || state.projectInspectorAddRole || getDefaultRoleForIndex(0);
+      const customPeriodRadio = document.getElementById("projectInspectorCustomPeriodRadio");
+      const bounds = getProjectInspectorProjectBounds(project);
+      const customStart = document.getElementById("projectInspectorCustomStartInput");
+      const customEnd = document.getElementById("projectInspectorCustomEndInput");
+      if (customPeriodRadio?.checked) {
+        state.projectInspectorAddUseCustomRange = true;
+        if (customStart) state.projectInspectorAddCustomStart = customStart.value || state.projectInspectorAddCustomStart || bounds.start || "";
+        if (customEnd) state.projectInspectorAddCustomEnd = customEnd.value || state.projectInspectorAddCustomEnd || bounds.end || "";
+      } else {
+        state.projectInspectorAddUseCustomRange = false;
+        state.projectInspectorAddCustomStart = bounds.start || project?.planned_start_date || state.projectInspectorAddCustomStart || "";
+        state.projectInspectorAddCustomEnd = bounds.end || project?.planned_end_date || state.projectInspectorAddCustomEnd || "";
+      }
+    };
+
+    els.calendarPanelContent.querySelectorAll("[data-project-inspector-confirm-add]").forEach(confirmBtn => {
       confirmBtn.addEventListener("click", event => {
         event.preventDefault();
         event.stopPropagation();
-        projectPanelDebug("confirm button clicked", {
-          stateCandidateBefore: state.projectInspectorAddCandidateName,
-          buttonEmployee: event.currentTarget?.dataset?.projectInspectorConfirmEmployee || ""
-        });
         const btn = event.currentTarget;
         const employeeName = btn?.dataset?.projectInspectorConfirmEmployee || state.projectInspectorAddCandidateName || "";
         if (employeeName && state.projectInspectorAddCandidateName !== employeeName) {
           primeProjectInspectorCandidate(project, employeeName, state.projectInspectorAddRole || getDefaultRoleForIndex(0));
         }
-        const roleSelect = document.getElementById("projectInspectorAddRoleSelect");
-        if (roleSelect) state.projectInspectorAddRole = roleSelect.value || state.projectInspectorAddRole || getDefaultRoleForIndex(0);
-        const wholePeriodRadio = document.getElementById("projectInspectorWholePeriodRadio");
-        const customPeriodRadio = document.getElementById("projectInspectorCustomPeriodRadio");
-        const bounds = getProjectInspectorProjectBounds(project);
-        const customStart = document.getElementById("projectInspectorCustomStartInput");
-        const customEnd = document.getElementById("projectInspectorCustomEndInput");
-        if (customPeriodRadio?.checked) {
-          state.projectInspectorAddUseCustomRange = true;
-          if (customStart) state.projectInspectorAddCustomStart = customStart.value || state.projectInspectorAddCustomStart || bounds.start || "";
-          if (customEnd) state.projectInspectorAddCustomEnd = customEnd.value || state.projectInspectorAddCustomEnd || bounds.end || "";
-        } else {
-          state.projectInspectorAddUseCustomRange = false;
-          state.projectInspectorAddCustomStart = bounds.start || project?.planned_start_date || state.projectInspectorAddCustomStart || "";
-          state.projectInspectorAddCustomEnd = bounds.end || project?.planned_end_date || state.projectInspectorAddCustomEnd || "";
-          if (wholePeriodRadio) wholePeriodRadio.checked = true;
-        }
-        projectPanelDebug("before createProjectInspectorAssignment", {
-          candidate: state.projectInspectorAddCandidateName,
-          role: state.projectInspectorAddRole,
-          useCustomRange: state.projectInspectorAddUseCustomRange,
-          customStart: state.projectInspectorAddCustomStart,
-          customEnd: state.projectInspectorAddCustomEnd
-        });
+        captureProjectInspectorAddForm();
         void createProjectInspectorAssignment(project.id);
       });
     });
+
+    els.calendarPanelContent.querySelectorAll("[data-project-inspector-confirm-batch]").forEach(confirmBtn => {
+      confirmBtn.addEventListener("click", event => {
+        event.preventDefault();
+        event.stopPropagation();
+        captureProjectInspectorAddForm();
+        const names = getProjectInspectorSelectedNames(project);
+        void createProjectInspectorAssignments(project.id, names, { role: state.projectInspectorAddRole || getProjectInspectorRoleForBatch(project) });
+      });
+    });
+
     els.calendarPanelContent.querySelectorAll("[data-project-entry-edit-id]").forEach(btn => {
-      btn.addEventListener("click", () => openEditModal(btn.dataset.projectEntryEditId));
+      btn.addEventListener("click", event => {
+        event.preventDefault();
+        event.stopPropagation();
+        openEditModal(btn.dataset.projectEntryEditId);
+      });
     });
     els.calendarPanelContent.querySelectorAll("[data-project-entry-delete-id]").forEach(btn => {
-      btn.addEventListener("click", () => deleteEntryFromProjectCard(btn.dataset.projectEntryDeleteId));
+      btn.addEventListener("click", event => {
+        event.preventDefault();
+        event.stopPropagation();
+        deleteEntryFromProjectCard(btn.dataset.projectEntryDeleteId);
+      });
     });
   }
 
@@ -5504,20 +9266,32 @@ async function deleteEditedEntry() {
     if (state.calendarMode === "project") {
       const project = state.calendarPanelOpen ? getProjectById(state.focusProjectId || "") : null;
       if (!project) {
+        if (els.calendarPanelCol) {
+          ["position", "inset", "left", "top", "width", "height", "right", "bottom", "min-width", "min-height", "max-width", "max-height", "transform", "z-index", "display", "pointer-events", "box-sizing", "overflow"].forEach(prop => {
+            els.calendarPanelCol.style.removeProperty(prop);
+          });
+        }
         els.calendarPanelCol.className = "hidden";
         els.calendarPanelContent.className = "hidden min-w-0 flex-1";
         return;
       }
-      els.calendarPanelCol.className = "iz-project-inspector-shell w-full shrink-0 bg-white border border-slate-200 shadow-sm overflow-hidden transition-all duration-300";
-      els.calendarPanelHandleBtn.className = "iz-project-panel-tab w-10 shrink-0 border-r border-slate-200 bg-slate-50 text-slate-700 text-xs font-semibold tracking-wide [writing-mode:vertical-rl] rotate-180";
-      els.calendarPanelHandleBtn.textContent = "Panel";
-      els.calendarPanelContent.className = "min-w-0 flex-1";
+      els.calendarPanelCol.className = "iz-project-inspector-shell iz-project-modal-workbench";
+      els.calendarPanelHandleBtn.className = "hidden";
+      els.calendarPanelHandleBtn.textContent = "";
+      els.calendarPanelContent.className = "iz-project-workbench-container min-w-0";
+      if (!state.projectWorkbenchWindow) state.projectWorkbenchWindow = getProjectWorkbenchDefaultRect();
+      applyProjectWorkbenchWindowState();
       renderProjectInspectorPanel(project);
       return;
     }
 
     // v18.31e: Ansattplan skal ikke arve prosjektpanelet.
     // Høyrepanelet skjules helt utenfor Prosjektplan for å unngå tom mørk boks/regresjon.
+    if (els.calendarPanelCol) {
+      ["position", "inset", "left", "top", "width", "height", "right", "bottom", "min-width", "min-height", "max-width", "max-height", "transform", "z-index", "display", "pointer-events", "box-sizing", "overflow"].forEach(prop => {
+        els.calendarPanelCol.style.removeProperty(prop);
+      });
+    }
     els.calendarPanelCol.className = "hidden";
     els.calendarPanelContent.className = "hidden min-w-0 flex-1";
     els.calendarPanelHandleBtn.className = "hidden";
@@ -5628,8 +9402,9 @@ async function deleteEditedEntry() {
       els.projectWorkspaceMeta.innerHTML = `
         <div class="flex flex-wrap gap-2">
           <span class="rounded-full border px-3 py-1 text-xs font-medium ${STATUS_COLORS[project.status] || "bg-slate-100 border-slate-200 text-slate-700"}">${escapeHtml(project.status)}</span>
-          <span class="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-700">${escapeHtml(project.category || "Uten kategori")}</span>
-          ${project.location ? `<span class="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-700">Lokasjon: ${escapeHtml(project.location)}</span>` : ""}
+          <span class="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-700">${escapeHtml(project.category || "Feltoppdrag")}</span>
+          ${project.project_responsible ? `<span class="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-700">Prosjektleder: ${escapeHtml(project.project_responsible)}</span>` : ""}
+          ${project.location ? `<span class="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-700">Kunde: ${escapeHtml(project.location)}</span>` : ""}
           <span class="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-700">Bemanningsbehov: ${required}</span>
           ${periodStatuses.length ? `<span class="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-700">Flere perioder: ${periodStatuses.length}</span>` : ''}
         </div>
@@ -5646,7 +9421,7 @@ async function deleteEditedEntry() {
           <div class="rounded-[22px] border border-slate-200 bg-slate-50 px-4 py-4">
             <div class="text-xs font-semibold uppercase tracking-wide text-slate-500">Status</div>
             <div class="mt-2 text-base font-semibold text-slate-900">${escapeHtml(project.status)}</div>
-            <div class="mt-1 text-sm text-slate-500">${escapeHtml(project.location || 'Lokasjon ikke satt')}</div>
+            <div class="mt-1 text-sm text-slate-500">${escapeHtml(project.location ? `Kunde: ${project.location}` : 'Kunde ikke satt')}</div>
           </div>
         </div>
         ${periodStatuses.length ? `
@@ -5701,8 +9476,8 @@ async function deleteEditedEntry() {
     }
     if (els.projectWorkspaceActions) {
       els.projectWorkspaceActions.innerHTML = `
-        <button data-project-workspace-staff-id="${escapeHtml(project.id)}" class="rounded-2xl bg-slate-900 text-white px-4 py-2.5 text-sm font-medium shadow-sm">Bemann prosjekt</button>
-        <button data-project-workspace-edit-id="${escapeHtml(project.id)}" class="rounded-2xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700">Rediger prosjekt</button>
+        <button data-project-workspace-staff-id="${escapeHtml(project.id)}" class="rounded-2xl bg-slate-900 text-white px-4 py-2.5 text-sm font-medium shadow-sm">${window.izomaxTranslateKey?.("staffProject") || "Bemann prosjekt"}</button>
+        <button data-project-workspace-edit-id="${escapeHtml(project.id)}" class="rounded-2xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700">${window.izomaxTranslateKey?.("editProject") || "Rediger prosjekt"}</button>
       `;
       const staffBtn = els.projectWorkspaceActions.querySelector('[data-project-workspace-staff-id]');
       const editBtn = els.projectWorkspaceActions.querySelector('[data-project-workspace-edit-id]');
@@ -5715,7 +9490,1182 @@ async function deleteEditedEntry() {
   }
 
 
+
+  function renderProjectImportInlineCards() {
+    if (!els.tabProjectsSection) return;
+    const preview = getProjectImportPreviewState();
+
+    els.tabProjectsSection.innerHTML = `
+      <div class="xl:col-span-12">
+        <div class="rounded-[28px] bg-white border border-slate-200 shadow-sm overflow-hidden">
+          <div class="p-5 border-b border-slate-200 bg-slate-50/80">
+            <h2 class="font-semibold text-lg text-slate-900">Prosjektimport</h2>
+            <p class="text-sm text-slate-500 mt-1">CSV-preview og arbeidsliste. Ingen data lagres eller importeres ennå.</p>
+          </div>
+
+          <div class="p-5 grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <div class="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-4">
+              <div class="text-sm font-semibold text-slate-900">1. Last opp fil</div>
+              <p class="mt-1 text-xs text-slate-600">Velg CSV-fil fra PC.</p>
+              <input id="projectImportInlineFile" type="file" accept=".csv,text/csv" class="mt-3 block w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm" />
+              <div id="projectImportInlineFileStatus" class="mt-2 text-xs text-slate-500">${escapeHtml(preview.statusText || "Ingen fil valgt.")}</div>
+              <button id="projectImportInlineClearBtn" type="button" class="mt-2 rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700">Nullstill</button>
+            </div>
+
+            <div class="rounded-2xl border border-slate-200 bg-white p-4">
+              <div class="text-sm font-semibold text-slate-900">2. Analyse / oppsummering</div>
+              <p class="mt-1 text-xs text-slate-600">Statusfordeling etter opplasting.</p>
+              <div id="projectImportInlineSummary" class="mt-3 grid grid-cols-2 md:grid-cols-4 lg:grid-cols-2 gap-2 text-sm">
+                ${renderProjectImportInlineSummaryCards(preview.counts)}
+              </div>
+            </div>
+
+            <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              <div class="text-sm font-semibold text-slate-900">3. Importstatus</div>
+              <p class="mt-1 text-xs text-slate-600">Import/lagring bygges først etter at arbeidslisten er godkjent.</p>
+              <button id="projectImportTestImportBtn" type="button" class="mt-3 w-full rounded-xl bg-slate-900 px-3 py-2 text-sm font-semibold text-white hover:bg-slate-800">Importer valgte</button>
+              <div class="mt-2 text-xs text-slate-500">Safe import: maks 10 valgte rader. Ingen rader er valgt som standard. Skriver til live database.</div>
+              <div id="projectImportTestResult" class="mt-3 text-xs text-slate-600"></div>
+            </div>
+          </div>
+
+          <div class="border-t border-slate-200 bg-white p-5">
+            <div class="mb-4">
+              <h3 class="text-base font-semibold text-slate-900">Arbeidsliste før eventuell import</h3>
+              <div id="projectImportInlineDetails" class="hidden">${renderProjectImportInlineDetailsHtml(preview.examples, preview.rowCount)}</div>
+              <div class="mt-3 flex flex-wrap justify-start gap-2 text-xs">
+                ${renderProjectImportWorklistFilters(preview.worklistFilter || "all", preview)}
+              </div>
+            </div>
+            <div class="mb-4 space-y-3">
+              ${renderSelectedProjectImportSummaryHtml(preview)}
+              ${renderProjectImportLastSummaryHtml(preview)}
+            </div>
+            <div id="projectImportInlineApprovalList">${renderProjectImportApprovalListHtml(preview)}</div>
+          </div>
+        </div>
+      </div>
+    `;
+
+    bindProjectImportInlineControls();
+    bindProjectImportApprovalListControls();
+    bindProjectImportTestControls();
+  }
+
+
+  function getDefaultProjectImportPreviewState() {
+    return {
+      fileName: "",
+      rowCount: 0,
+      counts: { total: 0, readyNew: 0, noChange: 0, dateUpdate: 0, missingOperationDate: 0, missingHeadcount: 0, workshopDateError: 0, notReady: 0 },
+      examples: { readyNew: [], noChange: [], dateUpdate: [], missingOperationDate: [], missingHeadcount: [], workshopDateError: [], notReady: [] },
+      approvalRows: [],
+      worklistRows: [],
+      selectedIds: [],
+      worklistFilter: "all",
+      statusText: "Ingen fil valgt."
+    };
+  }
+
+  function getProjectImportPreviewState() {
+    const current = state.projectImportPreview || {};
+    const fallback = getDefaultProjectImportPreviewState();
+    return {
+      ...fallback,
+      ...current,
+      counts: { ...fallback.counts, ...(current.counts || {}) },
+      examples: { ...fallback.examples, ...(current.examples || {}) },
+      approvalRows: Array.isArray(current.approvalRows) ? current.approvalRows : [],
+      worklistRows: Array.isArray(current.worklistRows) ? current.worklistRows : [],
+      selectedIds: Array.isArray(current.selectedIds) ? current.selectedIds : [],
+      importResults: current.importResults && typeof current.importResults === "object" ? current.importResults : {},
+      lastImportSummary: current.lastImportSummary || null,
+      worklistFilter: current.worklistFilter || "all"
+    };
+  }
+
+  function resetProjectImportPreviewState() {
+    state.projectImportPreview = getDefaultProjectImportPreviewState();
+  }
+
+  function renderProjectImportInlineDetailsHtml(examples = {}, rowCount = 0) {
+    if (!rowCount) return "Ingen preview kjørt.";
+    const labels = [
+      ["readyNew", "Ny – klar"],
+      ["workshopOnly", "Workshop-only"],
+      ["dateUpdate", "Datooppdatering"],
+      ["noChange", "Eksisterer – ingen endring"],
+      ["missingOperationDate", "Mangler operasjonsdato"],
+      ["missingHeadcount", "Mangler ressursbehov"],
+      ["workshopDateError", "Workshop datoavvik"],
+      ["notReady", "Ikke klar"]
+    ];
+    const lines = labels
+      .filter(([key]) => examples[key]?.length)
+      .map(([key, label]) => `${label}: ${examples[key].join(", ")}`);
+    return lines.length
+      ? lines.map(line => `<div class="mb-1">${escapeHtml(line)}</div>`).join("")
+      : "CSV lest, men ingen rader kunne klassifiseres.";
+  }
+
+  function getProjectImportStatusLabel(statusKey) {
+    const labels = {
+      readyNew: "Ny – klar",
+      workshopOnly: "Workshop-only",
+      dateUpdate: "Eksisterer – datooppdatering",
+      noChange: "Eksisterer – ingen endring",
+      missingOperationDate: "Mangler operasjonsdato",
+      missingHeadcount: "Mangler ressursbehov",
+      workshopDateError: "Workshop datoavvik",
+      notReady: "Ikke klar"
+    };
+    return labels[statusKey] || "Ikke klar";
+  }
+
+  function getProjectImportStatusBadgeClass(statusKey) {
+    const classes = {
+      readyNew: "border-green-200 bg-green-50 text-green-700",
+      workshopOnly: "border-emerald-200 bg-emerald-50 text-emerald-700",
+      dateUpdate: "border-blue-200 bg-blue-50 text-blue-700",
+      noChange: "border-slate-200 bg-slate-50 text-slate-700",
+      missingOperationDate: "border-amber-200 bg-amber-50 text-amber-800",
+      missingHeadcount: "border-amber-200 bg-amber-50 text-amber-800",
+      workshopDateError: "border-rose-200 bg-rose-50 text-rose-700",
+      notReady: "border-rose-200 bg-rose-50 text-rose-700"
+    };
+    return classes[statusKey] || classes.notReady;
+  }
+
+  function renderProjectImportWorklistFilters(activeFilter = "all", preview = getProjectImportPreviewState()) {
+    const rows = Array.isArray(preview.worklistRows) ? preview.worklistRows : [];
+    const filterDefs = [
+      ["all", "Alle", rows.length],
+      ["readyNew", "Klar", rows.filter(row => row.statusKey === "readyNew").length],
+      ["workshopOnly", "Workshop-only", rows.filter(row => row.statusKey === "workshopOnly").length],
+      ["dateUpdate", "Datooppdatering", rows.filter(row => row.statusKey === "dateUpdate").length],
+      ["missingOperationDate", "Mangler dato", rows.filter(row => row.statusKey === "missingOperationDate").length],
+      ["missingHeadcount", "Mangler techs", rows.filter(row => row.statusKey === "missingHeadcount").length],
+      ["workshopDateError", "WS-feil", rows.filter(row => row.statusKey === "workshopDateError").length],
+      ["noChange", "Ingen endring", rows.filter(row => row.statusKey === "noChange").length],
+      ["notReady", "Ikke klar", rows.filter(row => row.statusKey === "notReady").length]
+    ];
+
+    return filterDefs.map(([key, label, count]) => `
+      <button type="button" data-project-import-filter="${escapeHtml(key)}" class="rounded-xl border px-3 py-2 font-semibold ${activeFilter === key ? "border-slate-900 bg-slate-900 text-white" : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"}">
+        ${escapeHtml(label)} <span class="opacity-75">${escapeHtml(String(count))}</span>
+      </button>
+    `).join("");
+  }
+
+
+  function formatProjectImportNorwegianDate(value) {
+    const raw = String(value || "").trim();
+    const match = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (!match) return raw || "";
+    return `${match[3]}.${match[2]}.${match[1].slice(2)}`;
+  }
+
+  function parseProjectImportNorwegianDateInput(value) {
+    const raw = String(value || "").trim();
+    if (!raw) return "";
+
+    const digits = raw.replace(/[^\d]/g, "");
+
+    if (/^\d{6}$/.test(digits)) {
+      const day = digits.slice(0, 2);
+      const month = digits.slice(2, 4);
+      const year = `20${digits.slice(4, 6)}`;
+      return isValidProjectImportIsoDate(`${year}-${month}-${day}`) ? `${year}-${month}-${day}` : "";
+    }
+
+    if (/^\d{8}$/.test(digits)) {
+      const day = digits.slice(0, 2);
+      const month = digits.slice(2, 4);
+      const year = digits.slice(4, 8);
+      return isValidProjectImportIsoDate(`${year}-${month}-${day}`) ? `${year}-${month}-${day}` : "";
+    }
+
+    const iso = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (iso) {
+      return isValidProjectImportIsoDate(raw) ? raw : "";
+    }
+
+    const dotted = raw.match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{2}|\d{4})$/);
+    if (dotted) {
+      const day = dotted[1].padStart(2, "0");
+      const month = dotted[2].padStart(2, "0");
+      const year = dotted[3].length === 2 ? `20${dotted[3]}` : dotted[3];
+      const isoValue = `${year}-${month}-${day}`;
+      return isValidProjectImportIsoDate(isoValue) ? isoValue : "";
+    }
+
+    return "";
+  }
+
+  function isValidProjectImportIsoDate(value) {
+    const raw = String(value || "").trim();
+    const match = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (!match) return false;
+    const date = new Date(`${raw}T00:00:00`);
+    return Number.isFinite(date.getTime())
+      && date.getUTCFullYear() === Number(match[1])
+      && date.getUTCMonth() + 1 === Number(match[2])
+      && date.getUTCDate() === Number(match[3]);
+  }
+
+
+  function isProjectImportFleetRow(row) {
+    const name = String(row?.name || "").toLowerCase();
+    return name.includes("fleet");
+  }
+
+  function getProjectImportActionLabel(row) {
+    if (!row) return "Skip";
+    if (row.statusKey === "readyNew" || row.statusKey === "workshopOnly") return "Create";
+    if (row.statusKey === "dateUpdate") return "Update dates only";
+    return "Skip";
+  }
+
+  function getProjectImportActionHint(row) {
+    if (!row) return "";
+    if (row.statusKey === "readyNew") return "nytt feltprosjekt";
+    if (row.statusKey === "workshopOnly") return "grønn workshop only";
+    if (row.statusKey === "dateUpdate") return "kun datoer, ikke techs";
+    if (row.statusKey === "noChange") return "ingen endring";
+    return "ikke klar";
+  }
+
+
+  function getProjectImportRowResult(row, preview = getProjectImportPreviewState()) {
+    return preview.importResults?.[row?.id || ""] || null;
+  }
+
+  function getProjectImportRowResultHtml(row, preview = getProjectImportPreviewState()) {
+    const result = getProjectImportRowResult(row, preview);
+    if (!result) return "";
+    const tone = result.type === "created"
+      ? "border-green-200 bg-green-50 text-green-800"
+      : result.type === "updated"
+        ? "border-blue-200 bg-blue-50 text-blue-800"
+        : result.type === "error"
+          ? "border-rose-200 bg-rose-50 text-rose-800"
+          : "border-slate-200 bg-slate-50 text-slate-700";
+    return `<div class="mt-2 inline-flex rounded-full border px-2 py-1 text-[10px] font-semibold ${tone}">${escapeHtml(result.label || "Behandlet")}</div>`;
+  }
+
+  function getSelectedProjectImportSummary(preview = getProjectImportPreviewState()) {
+    const selected = new Set(preview.selectedIds || []);
+    const rows = (preview.worklistRows || []).filter(row => selected.has(row.id));
+    const plan = getProjectImportExecutionPlan(rows);
+    return { rows, plan };
+  }
+
+  function renderSelectedProjectImportSummaryHtml(preview = getProjectImportPreviewState()) {
+    const { rows, plan } = getSelectedProjectImportSummary(preview);
+    if (!preview.rowCount) return "";
+
+    if (!rows.length) {
+      return `
+        <div class="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-4 text-sm text-slate-600">
+          <div class="font-semibold text-slate-900">Valgt for import: 0</div>
+          <div class="mt-1 text-xs">Huk av rader i arbeidslisten før import. Ingen rader velges automatisk.</div>
+        </div>
+      `;
+    }
+
+    const sampleNames = rows.slice(0, 8).map(row => row.name || "Uten navn");
+    const moreCount = Math.max(rows.length - sampleNames.length, 0);
+
+    return `
+      <div class="rounded-2xl border border-blue-200 bg-blue-50/70 px-4 py-4 text-sm text-blue-950">
+        <div class="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
+          <div>
+            <div class="font-semibold">Valgt for import: ${rows.length}</div>
+            <div class="mt-1 text-xs text-blue-900">
+              Create: ${plan.createRows.length} · Workshop-only: ${plan.workshopRows.length} · Update dates only: ${plan.updateRows.length} · Skip/ikke klar: ${plan.skippedRows.length}
+            </div>
+            <div class="mt-3 grid gap-1 text-xs">
+              ${sampleNames.map(name => `<div>• ${escapeHtml(name)}</div>`).join("")}
+              ${moreCount ? `<div>• +${moreCount} flere valgt</div>` : ""}
+            </div>
+          </div>
+          <div class="shrink-0 rounded-xl border border-blue-200 bg-white/80 px-3 py-2 text-xs font-semibold text-blue-900">
+            Maks 10 handlingsbare rader per import
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  function renderProjectImportLastSummaryHtml(preview = getProjectImportPreviewState()) {
+    const summary = preview.lastImportSummary;
+    if (!summary) return "";
+    return `
+      <div class="rounded-2xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-900">
+        <div class="font-semibold">Siste importstatus</div>
+        <div class="mt-1 text-xs">
+          Opprettet: ${summary.created || 0} · Oppdatert: ${summary.updated || 0} · Hoppet over: ${summary.skipped || 0} · Feil: ${summary.errors || 0}
+        </div>
+      </div>
+    `;
+  }
+
+  function renderProjectImportApprovalListHtml(preview = getProjectImportPreviewState()) {
+    const worklistRows = Array.isArray(preview.worklistRows) ? preview.worklistRows : [];
+    const selectedIds = new Set(preview.selectedIds || []);
+    const activeFilter = preview.worklistFilter || "all";
+
+    if (!preview.rowCount) {
+      return `<div class="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-sm text-slate-500">Last opp CSV for å se prosjektlisten.</div>`;
+    }
+
+    const visibleRows = activeFilter === "all"
+      ? worklistRows
+      : worklistRows.filter(row => row.statusKey === activeFilter);
+
+    if (!visibleRows.length) {
+      return `<div class="rounded-xl border border-dashed border-amber-300 bg-amber-50 px-4 py-6 text-sm text-amber-800">Ingen rader i valgt filter.</div>`;
+    }
+
+    const selectedCount = worklistRows.filter(row => selectedIds.has(row.id)).length;
+
+    return `
+      <div class="rounded-2xl border border-slate-200 bg-white overflow-hidden">
+        <div class="flex flex-col gap-2 border-b border-slate-200 bg-slate-50 px-4 py-3 md:flex-row md:items-center md:justify-between">
+          <div>
+            <div class="text-sm font-semibold text-slate-900">Arbeidsliste før eventuell import</div>
+            <div class="text-xs text-slate-500 mt-1">${selectedCount} av ${worklistRows.length} valgt. Vellykket importerte rader fjernes automatisk fra valgt-listen.</div>
+          </div>
+          <div class="text-xs text-slate-500">Preview only</div>
+        </div>
+        <div class="overflow-auto max-h-[640px]">
+          <table class="min-w-[1840px] w-full text-xs">
+            <thead class="sticky top-0 z-10 bg-slate-100 text-slate-700">
+              <tr>
+                <th class="px-3 py-2 text-left font-semibold w-[56px]">Velg</th>
+                <th class="px-3 py-2 text-left font-semibold w-[170px]">Status</th>
+                <th class="px-3 py-2 text-left font-semibold w-[150px]">Handling</th>
+                <th class="px-3 py-2 text-left font-semibold min-w-[330px]">Project Name</th>
+                <th class="px-3 py-2 text-left font-semibold min-w-[190px]">Project Responsible</th>
+                <th class="px-3 py-2 text-left font-semibold w-[150px]">Operation start</th>
+                <th class="px-3 py-2 text-left font-semibold w-[150px]">Operation stop</th>
+                <th class="px-3 py-2 text-left font-semibold w-[150px]">WS start</th>
+                <th class="px-3 py-2 text-left font-semibold w-[150px]">WS stop</th>
+                <th class="px-3 py-2 text-left font-semibold w-[125px]">Techs<br><span class="font-normal text-slate-500">nye only</span></th>
+                <th class="px-3 py-2 text-left font-semibold min-w-[260px]">Kommentar</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+              ${visibleRows.map(row => {
+                const checked = selectedIds.has(row.id) ? "checked" : "";
+                const rowResult = getProjectImportRowResult(row, preview);
+                const disabled = (row.statusKey === "noChange" || rowResult?.type === "created" || rowResult?.type === "updated") ? "disabled" : "";
+                const rowTone = rowResult?.type === "created" || rowResult?.type === "updated"
+                  ? "bg-green-50/70"
+                  : selectedIds.has(row.id) ? "bg-white" : "bg-slate-50/70";
+                return `
+                  <tr class="${rowTone} hover:bg-slate-50">
+                    <td class="px-3 py-2 align-top">
+                      <input data-project-import-worklist-checkbox type="checkbox" value="${escapeHtml(row.id)}" ${checked} ${disabled} />
+                    </td>
+                    <td class="px-3 py-2 align-top">
+                      <span class="inline-flex rounded-full border px-2 py-1 text-[11px] font-semibold ${getProjectImportStatusBadgeClass(row.statusKey)}">${escapeHtml(getProjectImportStatusLabel(row.statusKey))}</span>
+                      ${getProjectImportRowResultHtml(row, preview)}
+                    </td>
+                    <td class="px-3 py-2 align-top">
+                      <div class="font-semibold text-slate-900">${escapeHtml(getProjectImportActionLabel(row))}</div>
+                      <div class="mt-1 text-[11px] text-slate-500">${escapeHtml(getProjectImportActionHint(row))}</div>
+                    </td>
+                    <td class="px-3 py-2 align-top">
+                      <div class="font-semibold text-slate-900">${escapeHtml(row.name || "-")}</div>
+                      ${row.company ? `<div class="mt-1 text-slate-500">${escapeHtml(row.company)}</div>` : ""}
+                      ${row.projectCode ? `<div class="mt-1 text-[11px] text-slate-500">Kode: ${escapeHtml(row.projectCode)}${row.matchType === "projectCode" ? " · Matchet på kode" : ""}</div>` : ""}
+                    </td>
+                    <td class="px-3 py-2 align-top text-slate-700">
+                      ${escapeHtml(row.projectResponsible || "-")}
+                    </td>
+                    <td class="px-3 py-2 align-top">
+                      <input data-project-import-edit data-date-field="true" data-field="operationStart" data-row-id="${escapeHtml(row.id)}" type="text" inputmode="numeric" placeholder="DDMMYY" value="${escapeHtml(formatProjectImportNorwegianDate(row.operationStart))}" class="w-full rounded-lg border border-slate-300 bg-white px-2 py-1 font-semibold text-slate-950 placeholder:text-slate-400" />
+                    </td>
+                    <td class="px-3 py-2 align-top">
+                      <input data-project-import-edit data-date-field="true" data-field="operationStop" data-row-id="${escapeHtml(row.id)}" type="text" inputmode="numeric" placeholder="DDMMYY" value="${escapeHtml(formatProjectImportNorwegianDate(row.operationStop))}" class="w-full rounded-lg border border-slate-300 bg-white px-2 py-1 font-semibold text-slate-950 placeholder:text-slate-400" />
+                    </td>
+                    <td class="px-3 py-2 align-top">
+                      <input data-project-import-edit data-date-field="true" data-field="wsStart" data-row-id="${escapeHtml(row.id)}" type="text" inputmode="numeric" placeholder="DDMMYY" value="${escapeHtml(formatProjectImportNorwegianDate(row.wsStart))}" class="w-full rounded-lg border border-slate-300 bg-white px-2 py-1 font-semibold text-slate-950 placeholder:text-slate-400" />
+                    </td>
+                    <td class="px-3 py-2 align-top">
+                      <input data-project-import-edit data-date-field="true" data-field="wsStop" data-row-id="${escapeHtml(row.id)}" type="text" inputmode="numeric" placeholder="DDMMYY" value="${escapeHtml(formatProjectImportNorwegianDate(row.wsStop))}" class="w-full rounded-lg border border-slate-300 bg-white px-2 py-1 font-semibold text-slate-950 placeholder:text-slate-400" />
+                    </td>
+                    <td class="px-3 py-2 align-top">
+                      <input data-project-import-edit data-field="techs" data-row-id="${escapeHtml(row.id)}" type="number" min="0" step="1" value="${escapeHtml(String(row.techs ?? ""))}" class="w-full rounded-lg border border-slate-300 bg-white px-2 py-1 font-semibold text-slate-950" />
+                      <div class="mt-1 text-[10px] text-slate-500">${escapeHtml(row.existingProjectId ? "endres ikke ved update" : "brukes ved create")}</div>
+                    </td>
+                    <td class="px-3 py-2 align-top text-slate-600">${escapeHtml(row.comment || "")}</td>
+                  </tr>
+                `;
+              }).join("")}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `;
+  }
+
+  function bindProjectImportApprovalListControls() {
+    const wrap = document.getElementById("projectImportInlineApprovalList");
+    const section = els.tabProjectsSection;
+    if (!section || section.dataset.boundProjectImportWorklist) return;
+    section.dataset.boundProjectImportWorklist = "true";
+
+    section.addEventListener("click", event => {
+      const filterBtn = event.target.closest("[data-project-import-filter]");
+      if (!filterBtn) return;
+      const preview = getProjectImportPreviewState();
+      state.projectImportPreview = {
+        ...preview,
+        worklistFilter: filterBtn.dataset.projectImportFilter || "all"
+      };
+      renderProjectImportInlineCards();
+    });
+
+    section.addEventListener("change", event => {
+      const checkbox = event.target.closest("[data-project-import-worklist-checkbox]");
+      if (checkbox) {
+        const preview = getProjectImportPreviewState();
+        const selected = new Set(preview.selectedIds || []);
+        if (checkbox.checked) selected.add(checkbox.value);
+        else selected.delete(checkbox.value);
+        state.projectImportPreview = {
+          ...preview,
+          selectedIds: Array.from(selected)
+        };
+        renderProjectImportInlineCards();
+        return;
+      }
+
+      const editInput = event.target.closest("[data-project-import-edit]");
+      if (editInput) {
+        const normalizedValue = editInput.dataset.dateField === "true"
+          ? parseProjectImportNorwegianDateInput(editInput.value || "")
+          : (editInput.value || "");
+        updateProjectImportWorklistRow(editInput.dataset.rowId || "", editInput.dataset.field || "", normalizedValue);
+        return;
+      }
+    });
+  }
+
+  function updateProjectImportWorklistRow(rowId, field, value) {
+    if (!rowId || !field) return;
+    const preview = getProjectImportPreviewState();
+    const worklistRows = (preview.worklistRows || []).map(row => {
+      if (row.id !== rowId) return row;
+      return { ...row, [field]: value };
+    });
+
+    const recalculated = recalculateProjectImportPreviewFromWorklist(worklistRows, preview);
+    state.projectImportPreview = recalculated;
+    renderProjectImportInlineCards();
+  }
+
+  function recalculateProjectImportPreviewFromWorklist(worklistRows, previousPreview = getProjectImportPreviewState()) {
+    const existingMaps = buildProjectImportExistingMaps();
+    const counts = { total: worklistRows.length, readyNew: 0, workshopOnly: 0, noChange: 0, dateUpdate: 0, missingOperationDate: 0, missingHeadcount: 0, workshopDateError: 0, notReady: 0 };
+    const examples = { readyNew: [], workshopOnly: [], noChange: [], dateUpdate: [], missingOperationDate: [], missingHeadcount: [], workshopDateError: [], notReady: [] };
+    const selected = new Set(previousPreview.selectedIds || []);
+
+    const nextRows = worklistRows.map(row => {
+      const match = findExistingProjectForImportName(row.name, existingMaps);
+      const existing = match.project;
+      const statusKey = classifyProjectImportWorklistRow(row, existing);
+      const nextRow = {
+        ...row,
+        existingProjectId: existing?.id || "",
+        matchType: match.matchType || "",
+        projectCode: match.code || extractProjectImportCode(row.name),
+        action: statusKey === "dateUpdate" ? "update" : (statusKey === "readyNew" || statusKey === "workshopOnly") ? "create" : "",
+        statusKey,
+        comment: getProjectImportWorklistComment(statusKey, existing, match.matchType)
+      };
+      counts[statusKey] = (counts[statusKey] || 0) + 1;
+      if (examples[statusKey] && examples[statusKey].length < 5) {
+        examples[statusKey].push(nextRow.name || "Uten navn");
+      }
+      // Safety: never auto-select rows for live import.
+      // User must actively tick rows before import.
+      if (statusKey === "noChange") selected.delete(nextRow.id);
+      return nextRow;
+    });
+
+    return {
+      ...previousPreview,
+      rowCount: nextRows.length,
+      counts,
+      examples,
+      worklistRows: nextRows,
+      approvalRows: nextRows.filter(row => row.statusKey === "readyNew" || row.statusKey === "workshopOnly" || row.statusKey === "dateUpdate"),
+      selectedIds: Array.from(selected).filter(id => nextRows.some(row => row.id === id) && !previousPreview.importResults?.[id]),
+      importResults: previousPreview.importResults || {},
+      lastImportSummary: previousPreview.lastImportSummary || null,
+      statusText: previousPreview.statusText || "CSV lest. Ingen data er lagret."
+    };
+  }
+
+  function classifyProjectImportWorklistRow(row, existing = null) {
+    const name = String(row.name || "").trim();
+    const operationStart = String(row.operationStart || "").trim();
+    const operationStop = String(row.operationStop || "").trim();
+    const wsStart = String(row.wsStart || "").trim();
+    const wsStop = String(row.wsStop || "").trim();
+    const techsRaw = String(row.techs ?? "").trim();
+    const techsNumber = techsRaw === "" ? null : Number(techsRaw.replace(",", "."));
+    const hasOperationDates = Boolean(operationStart && operationStop);
+    const hasWorkshopDates = Boolean(wsStart && wsStop);
+    const hasAnyDate = Boolean(operationStart || operationStop || wsStart || wsStop);
+    const hasValidTechs = techsRaw !== "" && Number.isFinite(techsNumber);
+
+    if (!name) return "notReady";
+    if (!hasAnyDate && !hasValidTechs) return "notReady";
+    if ((wsStart || wsStop) && (!wsStart || !wsStop || wsStart > wsStop)) return "workshopDateError";
+
+    if (!hasOperationDates) {
+      if (hasWorkshopDates) {
+        if (!existing) return "workshopOnly";
+
+        const existingWorkshopEnabled = existing.workshop_enabled !== false && Boolean(existing.workshop_start_date || existing.workshop_end_date);
+        const existingWsStart = String(existing.workshop_start_date || "");
+        const existingWsStop = String(existing.workshop_end_date || "");
+        const workshopChanged = !existingWorkshopEnabled
+          || existingWsStart !== String(wsStart || "")
+          || existingWsStop !== String(wsStop || "");
+
+        return workshopChanged ? "dateUpdate" : "noChange";
+      }
+      return "notReady";
+    }
+
+    if (operationStart > operationStop) return "notReady";
+
+    if (!existing && !hasValidTechs) {
+      return "missingHeadcount";
+    }
+
+    if (existing) {
+      const operationChanged = String(existing.planned_start_date || "") !== operationStart || String(existing.planned_end_date || "") !== operationStop;
+      const existingWorkshopEnabled = existing.workshop_enabled !== false && Boolean(existing.workshop_start_date || existing.workshop_end_date);
+      const csvWorkshopEnabled = Boolean(wsStart && wsStop);
+      const workshopChanged = existingWorkshopEnabled !== csvWorkshopEnabled
+        || String(existing.workshop_start_date || "") !== String(wsStart || "")
+        || String(existing.workshop_end_date || "") !== String(wsStop || "");
+      return (operationChanged || workshopChanged) ? "dateUpdate" : "noChange";
+    }
+
+    return "readyNew";
+  }
+
+  function getProjectImportWorklistComment(statusKey, existing = null, matchType = "") {
+    const comments = {
+      readyNew: "Nytt feltprosjekt. Techs brukes kun ved opprettelse.",
+      workshopOnly: "Nytt workshop-only-prosjekt basert på WS start/stop. Ingen rød feltperiode.",
+      dateUpdate: "Eksisterende prosjekt. Kun datoer skal kunne oppdateres senere.",
+      noChange: "Finnes allerede med samme datoer. Ingen import nødvendig.",
+      missingOperationDate: "Mangler Operation start/stop og WS start/stop.",
+      missingHeadcount: "Mangler Techs needed for nytt prosjekt.",
+      workshopDateError: "Workshopdato mangler eller WS start er etter WS stop.",
+      notReady: "Raden er ikke klar for import."
+    };
+    const base = comments[statusKey] || comments.notReady;
+    return matchType === "projectCode" ? `${base} Matchet på prosjektkode.` : base;
+  }
+
+  function getProjectImportStatusTone(statusKey) {
+    const tones = {
+      readyNew: "green",
+      dateUpdate: "blue",
+      noChange: "slate",
+      missingOperationDate: "amber",
+      missingHeadcount: "amber",
+      workshopDateError: "rose",
+      notReady: "rose"
+    };
+    return tones[statusKey] || "slate";
+  }
+
+  function formatImportRangeText(start, end) {
+    if (!start && !end) return "-";
+    return `${start || "?"} → ${end || "?"}`;
+  }
+
+  function buildProjectImportApprovalRow({ rowIndex, name, existing, operationStart, operationStop, wsStart, wsStop, techs, statusKey }) {
+    const isUpdate = statusKey === "dateUpdate";
+    return {
+      id: `${isUpdate ? "update" : "new"}-${rowIndex}-${name}`,
+      action: isUpdate ? "update" : "create",
+      statusKey,
+      statusLabel: isUpdate ? "Eksisterer – datooppdatering" : "Ny – klar",
+      name,
+      operationText: isUpdate && existing
+        ? `${existing.planned_start_date || "?"} / ${existing.planned_end_date || "?"} → ${operationStart || "?"} / ${operationStop || "?"}`
+        : formatImportRangeText(operationStart, operationStop),
+      workshopText: isUpdate && existing
+        ? `${existing.workshop_start_date || "-"} / ${existing.workshop_end_date || "-"} → ${wsStart || "-"} / ${wsStop || "-"}`
+        : formatImportRangeText(wsStart, wsStop),
+      techs,
+      comment: isUpdate ? "Kan senere oppdatere eksisterende prosjekt etter godkjenning." : "Kan senere opprettes som nytt prosjekt."
+    };
+  }
+
+
+
+  function bindProjectImportTestControls() {
+    const btn = document.getElementById("projectImportTestImportBtn");
+    if (!btn || btn.dataset.boundProjectImportTest) return;
+    btn.dataset.boundProjectImportTest = "true";
+    btn.addEventListener("click", () => {
+      void importSelectedProjectsTestMode();
+    });
+  }
+
+  function getSelectedProjectImportRows() {
+    const preview = getProjectImportPreviewState();
+    const selected = new Set(preview.selectedIds || []);
+    const rows = Array.isArray(preview.worklistRows) ? preview.worklistRows : [];
+    return rows.filter(row => selected.has(row.id));
+  }
+
+  function isProjectImportActionable(row) {
+    return row?.statusKey === "readyNew" || row?.statusKey === "workshopOnly" || row?.statusKey === "dateUpdate";
+  }
+
+  function buildCsvImportNotes(row, modeLabel = "Create") {
+    const raw = row?.raw || {};
+    const responsible = String(row?.projectResponsible || raw["Project Responsible"] || "").trim();
+    return responsible ? `Project Responsible: ${responsible}` : "Project Responsible:";
+  }
+
+  
+  function buildProjectFromImportRow(row) {
+    const isWorkshopOnly = row.statusKey === "workshopOnly";
+    const hasWorkshop = Boolean(row.wsStart && row.wsStop);
+    const techsNumber = Number(String(row.techs || "0").replace(",", "."));
+    const safeTechs = Number.isFinite(techsNumber) ? Math.max(techsNumber, 0) : 0;
+
+    return {
+      id: crypto.randomUUID(),
+      name: String(row.name || "").trim(),
+      category: "Offshore",
+      status: isWorkshopOnly ? "Avventer" : "Planlagt",
+      planned_start_date: isWorkshopOnly ? null : (row.operationStart || null),
+      planned_end_date: isWorkshopOnly ? null : (row.operationStop || null),
+      has_multiple_periods: false,
+      project_periods_json: [],
+      location: row.company || "",
+      project_responsible: row.projectResponsible || "",
+      headcount_required: isWorkshopOnly ? 0 : safeTechs,
+      workshop_enabled: hasWorkshop,
+      workshop_start_date: hasWorkshop ? row.wsStart : null,
+      workshop_end_date: hasWorkshop ? row.wsStop : null,
+      workshop_headcount_required: isWorkshopOnly ? safeTechs : 2,
+      notes: buildCsvImportNotes(row, isWorkshopOnly ? "Create workshop-only" : "Create")
+    };
+  }
+
+  function updateExistingProjectDatesFromImportRow(project, row) {
+    if (!project || !row) return null;
+    const updated = { ...project };
+
+    if (row.operationStart && row.operationStop) {
+      updated.planned_start_date = row.operationStart;
+      updated.planned_end_date = row.operationStop;
+    }
+
+    const hasWorkshop = Boolean(row.wsStart && row.wsStop);
+    updated.workshop_enabled = hasWorkshop;
+    updated.workshop_start_date = hasWorkshop ? row.wsStart : null;
+    updated.workshop_end_date = hasWorkshop ? row.wsStop : null;
+
+    // Deliberately NOT updating Techs, notes, Project Responsible, Company, Activity, status or assignments.
+    return updated;
+  }
+
+  function getProjectImportExecutionPlan(rows) {
+    const actionableRows = rows.filter(isProjectImportActionable);
+    const createRows = actionableRows.filter(row => row.statusKey === "readyNew");
+    const workshopRows = actionableRows.filter(row => row.statusKey === "workshopOnly");
+    const updateRows = actionableRows.filter(row => row.statusKey === "dateUpdate");
+    const skippedRows = rows.filter(row => !isProjectImportActionable(row));
+
+    return {
+      actionableRows,
+      createRows,
+      workshopRows,
+      updateRows,
+      skippedRows
+    };
+  }
+
+
+  function setProjectImportRowResult(rowId, type, label, detail = "") {
+    const preview = getProjectImportPreviewState();
+    state.projectImportPreview = {
+      ...preview,
+      importResults: {
+        ...(preview.importResults || {}),
+        [rowId]: { type, label, detail, at: new Date().toISOString() }
+      }
+    };
+  }
+
+  function clearSuccessfulProjectImportSelections() {
+    const preview = getProjectImportPreviewState();
+    const successIds = new Set(
+      Object.entries(preview.importResults || {})
+        .filter(([, result]) => result?.type === "created" || result?.type === "updated")
+        .map(([id]) => id)
+    );
+    if (!successIds.size) return;
+    state.projectImportPreview = {
+      ...preview,
+      selectedIds: (preview.selectedIds || []).filter(id => !successIds.has(id))
+    };
+  }
+
+  async function importSelectedProjectsTestMode() {
+    if (!canEditApp()) {
+      alert("Du har ikke tilgang til å importere prosjekter.");
+      return;
+    }
+
+    const selectedRows = getSelectedProjectImportRows();
+    const plan = getProjectImportExecutionPlan(selectedRows);
+    const selectedActionableCount = plan.actionableRows.length;
+
+    if (!selectedRows.length) {
+      alert("Ingen prosjekter er valgt.");
+      return;
+    }
+
+    if (!selectedActionableCount) {
+      alert("Ingen valgte rader kan importeres. Skip/ikke-klare rader importeres ikke.");
+      return;
+    }
+
+    if (selectedActionableCount > 10) {
+      alert(`Safe import: maks 10 prosjekter per import. Du har valgt ${selectedActionableCount}. Velg færre rader og prøv igjen.`);
+      return;
+    }
+
+    const createNames = plan.createRows.map(row => row.name).slice(0, 10);
+    const workshopNames = plan.workshopRows.map(row => row.name).slice(0, 10);
+    const updateNames = plan.updateRows.map(row => row.name).slice(0, 10);
+
+    const confirmText = [
+      "LIVE DATABASE – SAFE IMPORT",
+      "",
+      "Dette vil skrive til den aktive Supabase-databasen som også brukes av main/production.",
+      "",
+      "Du er i ferd med å:",
+      `- opprette ${plan.createRows.length} nye feltprosjekter`,
+      `- opprette ${plan.workshopRows.length} workshop-only-prosjekter`,
+      `- oppdatere datoer på ${plan.updateRows.length} eksisterende prosjekter`,
+      `- ignorere ${plan.skippedRows.length} valgte Skip/ikke-klare rader`,
+      "",
+      createNames.length ? `Nye feltprosjekter:\\n- ${createNames.join("\\n- ")}` : "",
+      workshopNames.length ? `Workshop-only:\\n- ${workshopNames.join("\\n- ")}` : "",
+      updateNames.length ? `Datooppdateringer:\\n- ${updateNames.join("\\n- ")}` : "",
+      "",
+      "Sikkerhetsregler:",
+      "- kun hukede rader behandles",
+      "- maks 10 handlingsbare rader per import",
+      "- nye prosjekter får Project Responsible i notes",
+      "- eksisterende prosjekter får kun datoer oppdatert",
+      "- Techs, notes, Project Responsible og bemanning overskrives ikke på eksisterende prosjekter",
+      "",
+      "Fortsette import?"
+    ].filter(Boolean).join("\\n");
+
+    if (!confirm(confirmText)) return;
+
+    const result = {
+      created: [],
+      updated: [],
+      skipped: [],
+      errors: []
+    };
+
+    const existingMaps = buildProjectImportExistingMaps();
+
+    for (const row of plan.actionableRows) {
+      const match = findExistingProjectForImportName(row.name, existingMaps);
+      const existing = match.project;
+
+      try {
+        if (row.statusKey === "readyNew" || row.statusKey === "workshopOnly") {
+          if (existing) {
+            result.skipped.push(`${row.name}: finnes allerede${match.matchType === "projectCode" ? ` med prosjektkode ${match.code}` : ""}, opprettet ikke duplikat`);
+            setProjectImportRowResult(row.id, "skipped", "Hoppet over", "Finnes allerede – opprettet ikke duplikat");
+            continue;
+          }
+
+          const project = buildProjectFromImportRow(row);
+          state.projects.push(project);
+          state.projects = normalizeProjects(state.projects);
+          state.projects.sort((a, b) => compareProjectDates(a, b));
+          rebuildDerivedState();
+
+          const saveResult = await saveRow("planner_projects", project);
+          if (!saveResult.ok) {
+            state.projects = state.projects.filter(item => item.id !== project.id);
+            rebuildDerivedState();
+            result.errors.push(`${row.name}: ${saveResult.error?.message || "kunne ikke lagre"}`);
+            setProjectImportRowResult(row.id, "error", "Feil", saveResult.error?.message || "Kunne ikke lagre");
+            continue;
+          }
+
+          const normalizedName = normalizeProjectImportInlineName(project.name);
+          if (normalizedName) existingMaps.byName.set(normalizedName, project);
+          const projectCode = extractProjectImportCode(project.name);
+          if (projectCode) existingMaps.byCode.set(projectCode, project);
+          result.created.push(row.name);
+          setProjectImportRowResult(row.id, "created", "Opprettet", "Nytt prosjekt opprettet");
+          continue;
+        }
+
+        if (row.statusKey === "dateUpdate") {
+          const target = existing || state.projects.find(project => project.id === row.existingProjectId);
+          if (!target) {
+            result.skipped.push(`${row.name}: fant ikke eksisterende prosjekt for datooppdatering`);
+            setProjectImportRowResult(row.id, "skipped", "Hoppet over", "Fant ikke eksisterende prosjekt");
+            continue;
+          }
+
+          const updated = updateExistingProjectDatesFromImportRow(target, row);
+          if (!updated) {
+            result.skipped.push(`${row.name}: kunne ikke bygge datooppdatering`);
+            setProjectImportRowResult(row.id, "skipped", "Hoppet over", "Kunne ikke bygge datooppdatering");
+            continue;
+          }
+
+          const index = state.projects.findIndex(project => project.id === target.id);
+          if (index === -1) {
+            result.skipped.push(`${row.name}: prosjekt ikke funnet i state`);
+            setProjectImportRowResult(row.id, "skipped", "Hoppet over", "Prosjekt ikke funnet i state");
+            continue;
+          }
+
+          const previous = { ...state.projects[index] };
+          state.projects[index] = updated;
+          state.projects = normalizeProjects(state.projects);
+          state.projects.sort((a, b) => compareProjectDates(a, b));
+          rebuildDerivedState();
+
+          const saveResult = await saveRow("planner_projects", updated);
+          if (!saveResult.ok) {
+            const rollbackIndex = state.projects.findIndex(project => project.id === previous.id);
+            if (rollbackIndex >= 0) state.projects[rollbackIndex] = previous;
+            state.projects = normalizeProjects(state.projects);
+            rebuildDerivedState();
+            result.errors.push(`${row.name}: ${saveResult.error?.message || "kunne ikke oppdatere"}`);
+            setProjectImportRowResult(row.id, "error", "Feil", saveResult.error?.message || "Kunne ikke oppdatere");
+            continue;
+          }
+
+          result.updated.push(row.name);
+          setProjectImportRowResult(row.id, "updated", "Oppdatert", "Datoer oppdatert");
+          continue;
+        }
+
+        result.skipped.push(`${row.name}: ikke håndtert status ${row.statusKey}`);
+        setProjectImportRowResult(row.id, "skipped", "Hoppet over", `Ikke håndtert status ${row.statusKey}`);
+      } catch (error) {
+        result.errors.push(`${row.name}: ${error?.message || error}`);
+        setProjectImportRowResult(row.id, "error", "Feil", error?.message || String(error));
+      }
+    }
+
+    for (const row of plan.skippedRows) {
+      setProjectImportRowResult(row.id, "skipped", "Hoppet over", "Skip/ikke klar ble ikke importert");
+    }
+
+    const latestPreview = getProjectImportPreviewState();
+    state.projectImportPreview = {
+      ...latestPreview,
+      lastImportSummary: {
+        created: result.created.length,
+        updated: result.updated.length,
+        skipped: result.skipped.length + plan.skippedRows.length,
+        errors: result.errors.length
+      }
+    };
+    clearSuccessfulProjectImportSelections();
+
+    state.projects = normalizeProjects(state.projects);
+    state.projects.sort((a, b) => compareProjectDates(a, b));
+    rebuildDerivedState();
+    renderAll();
+
+    const resultText = [
+      "Import fullført.",
+      `Opprettet: ${result.created.length}`,
+      `Oppdatert: ${result.updated.length}`,
+      `Hoppet over: ${result.skipped.length + plan.skippedRows.length}`,
+      `Feil: ${result.errors.length}`
+    ].join("\\n");
+
+    const detailText = [
+      result.created.length ? `\\nOpprettet:\\n- ${result.created.join("\\n- ")}` : "",
+      result.updated.length ? `\\nOppdatert:\\n- ${result.updated.join("\\n- ")}` : "",
+      result.skipped.length ? `\\nHoppet over:\\n- ${result.skipped.join("\\n- ")}` : "",
+      result.errors.length ? `\\nFeil:\\n- ${result.errors.join("\\n- ")}` : ""
+    ].filter(Boolean).join("\\n");
+
+    alert(`${resultText}${detailText}`);
+
+    const resultEl = document.getElementById("projectImportTestResult");
+    if (resultEl) {
+      resultEl.textContent = `Import fullført: opprettet ${result.created.length}, oppdatert ${result.updated.length}, hoppet over ${result.skipped.length + plan.skippedRows.length}, feil ${result.errors.length}.`;
+    }
+
+    renderProjectImportInlineCards();
+
+    void addAudit(`CSV safe import: opprettet ${result.created.length}, oppdatert ${result.updated.length}, hoppet over ${result.skipped.length + plan.skippedRows.length}, feil ${result.errors.length}`);
+  }
+
+  function renderProjectImportInlineSummaryCards(counts = {}) {
+    const cards = [
+      ["Totalt", counts.total || 0],
+      ["Ny – klar", counts.readyNew || 0],
+      ["Workshop-only", counts.workshopOnly || 0],
+      ["Datooppdatering", counts.dateUpdate || 0],
+      ["Ingen endring", counts.noChange || 0],
+      ["Mangler dato", counts.missingOperationDate || 0],
+      ["Mangler techs", counts.missingHeadcount || 0],
+      ["WS-feil", counts.workshopDateError || 0],
+      ["Ikke klar", counts.notReady || 0]
+    ];
+    return cards.map(([label, value]) => `
+      <div class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+        <div class="text-[11px] uppercase tracking-wide text-slate-500 font-semibold">${escapeHtml(label)}</div>
+        <div class="text-lg font-black text-slate-950">${escapeHtml(String(value))}</div>
+      </div>
+    `).join("");
+  }
+
+  function bindProjectImportInlineControls() {
+    const input = document.getElementById("projectImportInlineFile");
+    const clearBtn = document.getElementById("projectImportInlineClearBtn");
+
+    if (input && !input.dataset.boundProjectImportInline) {
+      input.dataset.boundProjectImportInline = "true";
+      input.addEventListener("change", event => {
+        const file = event.target.files && event.target.files[0];
+        if (!file) return;
+        readProjectImportInlineCsv(file);
+      });
+    }
+
+    if (clearBtn && !clearBtn.dataset.boundProjectImportInlineClear) {
+      clearBtn.dataset.boundProjectImportInlineClear = "true";
+      clearBtn.addEventListener("click", () => {
+        if (input) input.value = "";
+        resetProjectImportPreviewState();
+        renderProjectImportInlineResult([], "");
+      });
+    }
+  }
+
+  function readProjectImportInlineCsv(file) {
+    const status = document.getElementById("projectImportInlineFileStatus");
+    state.projectImportPreview = {
+      ...getProjectImportPreviewState(),
+      fileName: file.name,
+      statusText: `Leser ${file.name}...`
+    };
+    if (status) status.textContent = state.projectImportPreview.statusText;
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const rows = parseProjectImportInlineCsv(String(reader.result || ""));
+        renderProjectImportInlineResult(rows, file.name);
+      } catch (error) {
+        if (status) status.textContent = `Kunne ikke lese CSV: ${error?.message || error}`;
+      }
+    };
+    reader.onerror = () => {
+      if (status) status.textContent = "Kunne ikke lese filen.";
+    };
+    reader.readAsText(file, "utf-8");
+  }
+
+  function parseProjectImportInlineCsv(text) {
+    const rows = [];
+    let current = [];
+    let field = "";
+    let inQuotes = false;
+
+    for (let i = 0; i < text.length; i++) {
+      const char = text[i];
+      const next = text[i + 1];
+
+      if (char === '"') {
+        if (inQuotes && next === '"') {
+          field += '"';
+          i += 1;
+        } else {
+          inQuotes = !inQuotes;
+        }
+        continue;
+      }
+
+      if (char === "," && !inQuotes) {
+        current.push(field);
+        field = "";
+        continue;
+      }
+
+      if ((char === "\n" || char === "\r") && !inQuotes) {
+        if (char === "\r" && next === "\n") i += 1;
+        current.push(field);
+        field = "";
+        if (current.some(value => String(value || "").trim() !== "")) rows.push(current);
+        current = [];
+        continue;
+      }
+
+      field += char;
+    }
+
+    current.push(field);
+    if (current.some(value => String(value || "").trim() !== "")) rows.push(current);
+
+    if (!rows.length) return [];
+
+    const headers = rows[0].map(header => String(header || "").replace(/^\uFEFF/, "").trim().replace(/\s+/g, " "));
+    return rows.slice(1).map(rawRow => {
+      const obj = {};
+      headers.forEach((header, index) => {
+        obj[header] = String(rawRow[index] || "").trim();
+      });
+      return obj;
+    }).filter(row => Object.values(row).some(value => String(value || "").trim() !== ""));
+  }
+
+  function parseProjectImportInlineDate(value) {
+    const raw = String(value || "").trim();
+    if (!raw) return "";
+    const ddmmyyyy = raw.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
+    if (ddmmyyyy) {
+      return `${ddmmyyyy[3]}-${ddmmyyyy[2].padStart(2, "0")}-${ddmmyyyy[1].padStart(2, "0")}`;
+    }
+    if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+    return "";
+  }
+
+  function normalizeProjectImportInlineName(value) {
+    return String(value || "").trim().replace(/\s+/g, " ").toLowerCase();
+  }
+
+  function extractProjectImportCode(value) {
+    const match = String(value || "").toUpperCase().match(/\bIZO[-\s]?(\d{5})\b/);
+    return match ? `IZO-${match[1]}` : "";
+  }
+
+  function buildProjectImportExistingMaps() {
+    const byName = new Map();
+    const byCode = new Map();
+
+    state.projects.forEach(project => {
+      const normalizedName = normalizeProjectImportInlineName(project.name);
+      if (normalizedName) byName.set(normalizedName, project);
+
+      const code = extractProjectImportCode(project.name);
+      if (code && !byCode.has(code)) byCode.set(code, project);
+    });
+
+    return { byName, byCode };
+  }
+
+  function findExistingProjectForImportName(name, maps = buildProjectImportExistingMaps()) {
+    const code = extractProjectImportCode(name);
+    if (code && maps.byCode.has(code)) {
+      return { project: maps.byCode.get(code), matchType: "projectCode", code };
+    }
+
+    const normalizedName = normalizeProjectImportInlineName(name);
+    if (normalizedName && maps.byName.has(normalizedName)) {
+      return { project: maps.byName.get(normalizedName), matchType: "exactName", code: "" };
+    }
+
+    return { project: null, matchType: "", code };
+  }
+
+
+
+  function renderProjectImportInlineResult(rows, fileName = "") {
+    const status = document.getElementById("projectImportInlineFileStatus");
+    const summary = document.getElementById("projectImportInlineSummary");
+    const details = document.getElementById("projectImportInlineDetails");
+    const approvalWrap = document.getElementById("projectImportInlineApprovalList");
+
+    if (!rows.length) {
+      state.projectImportPreview = getDefaultProjectImportPreviewState();
+      if (status) status.textContent = state.projectImportPreview.statusText;
+      if (summary) summary.innerHTML = renderProjectImportInlineSummaryCards(state.projectImportPreview.counts);
+      if (details) details.innerHTML = renderProjectImportInlineDetailsHtml(state.projectImportPreview.examples, state.projectImportPreview.rowCount);
+      if (approvalWrap) approvalWrap.innerHTML = renderProjectImportApprovalListHtml(state.projectImportPreview);
+      return;
+    }
+
+    const worklistRows = rows.map((row, rowIndex) => {
+      const name = row["Project Name"] || row["Project"] || row["Name"] || "";
+      const operationStart = parseProjectImportInlineDate(row["Operation start"]);
+      const operationStop = parseProjectImportInlineDate(row["Operation stop"]);
+      const wsStart = parseProjectImportInlineDate(row["WS start"] || "");
+      const wsStop = parseProjectImportInlineDate(row["WS stop"] || "");
+      const techs = String(row["Techs needed"] || row["Techs"] || "").trim();
+      return {
+        id: `csv-${rowIndex}-${name || "uten-navn"}`,
+        rowIndex,
+        name,
+        company: row["Company"] || "",
+        projectResponsible: row["Project Responsible"] || row["Project responsible"] || row["Responsible"] || "",
+        operationStart,
+        operationStop,
+        wsStart,
+        wsStop,
+        techs,
+        raw: row,
+        existingProjectId: "",
+        action: "",
+        statusKey: "notReady",
+        comment: ""
+      };
+    });
+
+    const basePreview = {
+      ...getProjectImportPreviewState(),
+      fileName: fileName || "CSV",
+      statusText: `${fileName || "CSV"} lest. ${rows.length} rader funnet. Ingen data er lagret.`,
+      worklistFilter: "all",
+      selectedIds: []
+    };
+
+    state.projectImportPreview = recalculateProjectImportPreviewFromWorklist(worklistRows, basePreview);
+
+    if (status) status.textContent = state.projectImportPreview.statusText;
+    if (summary) summary.innerHTML = renderProjectImportInlineSummaryCards(state.projectImportPreview.counts);
+    if (details) details.innerHTML = renderProjectImportInlineDetailsHtml(state.projectImportPreview.examples, state.projectImportPreview.rowCount);
+    if (approvalWrap) {
+      approvalWrap.innerHTML = renderProjectImportApprovalListHtml(state.projectImportPreview);
+      bindProjectImportApprovalListControls();
+    }
+  }
+
+
   function renderProjects() {
+    renderProjectImportInlineCards();
+    return;
+
     const allActiveProjects = getActiveProjectsForWorkspace();
     const activeProjects = state.projectListFilter === "unstaffed"
       ? allActiveProjects.filter(project => projectNeedsStaffing(project))
@@ -5831,50 +10781,556 @@ async function deleteEditedEntry() {
     const confirmText = `Fjern tildeling for ${entry.employee_name} fra ${project?.name || "prosjekt"}?`;
     if (!confirm(confirmText)) return;
 
+    // v18.62aj: Hold sletting lokalt som "pending" slik at realtime/poll-refresh
+    // ikke kan hente raden tilbake fra Supabase mens delete-kallet fortsatt pågår.
+    const pendingDeleteIds = getProjectInspectorPendingDeleteIds();
+    pendingDeleteIds.add(entryId);
+
+    const previousEntries = state.entries.slice();
     state.entries = state.entries.filter(item => item.id !== entryId);
     rebuildDerivedState();
-    renderAll();
+    saveAllLocal();
+
+    // Vis endringen umiddelbart i prosjektvinduet. Dette er viktigere enn å vente
+    // på tung kalender-/dashboard-rendering og Supabase-latency.
+    if (project && state.focusProjectId === project.id) {
+      renderProjectInspectorPanel(project);
+    } else {
+      renderCalendarPanel();
+    }
 
     const result = await deleteRow("planner_entries", entryId);
     if (!result.ok) {
-      state.entries.push(entry);
+      pendingDeleteIds.delete(entryId);
+      state.entries = previousEntries;
       rebuildDerivedState();
+      saveAllLocal();
       renderAll();
+      alert("Kunne ikke fjerne tildelingen. Prøv igjen.");
       return;
     }
 
     void addAudit(`Slettet tildeling fra prosjektkort: ${entry.employee_name} → ${displayProjectName(project) || "Ukjent prosjekt"}`);
+
+    // Hold ID-en i pending litt etter vellykket delete for å unngå race fra
+    // pågående realtime/poll/visibility-refresh som startet før delete var ferdig.
+    window.setTimeout(() => {
+      pendingDeleteIds.delete(entryId);
+    }, 4000);
+
+    // Oppdater tunge deler etter at brukergrensesnittet allerede har respondert.
+    window.setTimeout(() => {
+      if (project && state.focusProjectId === project.id) {
+        renderProjectInspectorPanel(project);
+      }
+      renderCalendar();
+      renderHomeDashboard();
+      updateBadge();
+      updateAvailabilityAnalysis();
+    }, 0);
+  }
+
+  function bindEmployeeAdminFilters() {
+    const search = document.getElementById("employeeAdminSearch");
+    const groupFilter = document.getElementById("employeeAdminGroupFilter");
+    const statusFilter = document.getElementById("employeeAdminStatusFilter");
+
+    if (groupFilter && !groupFilter.dataset.izOptionsReady) {
+      groupFilter.innerHTML = `<option value="">Alle grupper</option>` + EMPLOYEE_GROUP_DEFINITIONS.map(group => (
+        `<option value="${escapeHtml(group.value)}">${escapeHtml(group.label || group.value)}</option>`
+      )).join("");
+      groupFilter.dataset.izOptionsReady = "true";
+    }
+
+    [search, groupFilter, statusFilter].forEach(control => {
+      if (!control || control.dataset.izEmployeeAdminBound) return;
+      const eventName = control.tagName === "INPUT" ? "input" : "change";
+      control.addEventListener(eventName, () => renderEmployees());
+      control.dataset.izEmployeeAdminBound = "true";
+    });
+  }
+
+  function getEmployeeAdminDuplicateCount() {
+    const byName = new Map();
+    state.employees.forEach(emp => {
+      const key = normalizeComparableText(emp.name || "");
+      if (!key) return;
+      byName.set(key, (byName.get(key) || 0) + 1);
+    });
+    return Array.from(byName.values()).filter(count => count > 1).length;
+  }
+
+  function updateEmployeeAdminMetrics() {
+    const activeCount = state.employees.filter(emp => emp.active !== false).length;
+    const inactiveCount = state.employees.filter(emp => emp.active === false).length;
+    const missingEmailCount = state.employees.filter(emp => emp.active !== false && !String(emp.email || "").trim()).length;
+    const duplicateCount = getEmployeeAdminDuplicateCount();
+
+    const setText = (id, value) => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = String(value);
+    };
+    setText("employeeAdminActiveCount", activeCount);
+    setText("employeeAdminInactiveCount", inactiveCount);
+    setText("employeeAdminMissingEmailCount", missingEmailCount);
+    setText("employeeAdminDuplicateCount", duplicateCount);
+  }
+
+  function getEmployeeAdminInitials(employee) {
+    const source = String(employee?.name || employee?.email || "?").trim();
+    const parts = source.split(/\s+/).filter(Boolean).slice(0, 2);
+    if (!parts.length) return "?";
+    return parts.map(part => part[0] || "").join("").toUpperCase();
+  }
+
+  function normalizeEmployeeAdminPhone(value) {
+    return String(value || "").replace(/\D+/g, "");
+  }
+
+  function getEmployeeAdminById(employeeId) {
+    if (!employeeId) return null;
+    return (state.employees || []).find(emp => String(emp.id || "") === String(employeeId || "")) || null;
+  }
+
+  function getEmployeeAdminAccessPanelEmployee() {
+    return getEmployeeAdminById(state.employeeAccessPanelEmployeeId || state.employeeAdminSelectedId || "");
+  }
+
+  function isAccessUserMatchForEmployee(row, employee) {
+    if (!row || !employee) return false;
+    const employeeEmail = normalizeComparableText(employee.email || "");
+    const employeeName = normalizeComparableText(employee.name || "");
+    const rowEmail = normalizeComparableText(row.email || "");
+    const rowName = normalizeComparableText(row.full_name || row.name || "");
+    return (employeeEmail && rowEmail && employeeEmail === rowEmail)
+      || (employeeName && rowName && employeeName === rowName);
+  }
+
+  function getAccessUsersForEmployee(employee, rows = state.accessUsers?.rows || []) {
+    if (!employee) return rows || [];
+    return (rows || []).filter(row => isAccessUserMatchForEmployee(row, employee));
+  }
+
+  function getAccessRequestsForEmployee(employee, rows = state.accessRequests?.rows || []) {
+    if (!employee) return rows || [];
+    const requestIds = new Set(findEmployeeAdminAccessRequests(employee).map(row => row.id));
+    return (rows || []).filter(row => requestIds.has(row.id));
+  }
+
+  function updateEmployeeAccessPanelHeader(employee = getEmployeeAdminAccessPanelEmployee()) {
+    const title = document.getElementById("employeeAccessAdminTitle");
+    const subtitle = document.getElementById("employeeAccessAdminSubtitle");
+    if (!title && !subtitle) return;
+    if (employee) {
+      const name = employee.name || "valgt ansatt";
+      if (title) title.textContent = `Tilganger: ${name}`;
+      if (subtitle) subtitle.textContent = "Viser kun brukertilgang og tilgangssøknader for valgt ansatt.";
+    } else {
+      if (title) title.textContent = "Tilganger for valgt ansatt";
+      if (subtitle) subtitle.textContent = "Velg en ansatt først. Daglig tilgangskontroll skal ikke vise hele brukerlisten.";
+    }
+  }
+
+  function formatEmployeeAdminEntryRange(start, end) {
+    if (start && end) return `${formatDate(start)} – ${formatDate(end)}`;
+    if (start) return `Fra ${formatDate(start)}`;
+    if (end) return `Til ${formatDate(end)}`;
+    return "Ingen dato";
+  }
+
+  function findEmployeeAdminAccessUser(employee) {
+    const emailKey = normalizeComparableText(employee?.email || "");
+    if (!emailKey) return null;
+    return (state.accessUsers?.rows || []).find(row => normalizeComparableText(row.email || "") === emailKey) || null;
+  }
+
+  function findEmployeeAdminAccessRequests(employee) {
+    const employeeEmail = normalizeComparableText(employee?.email || "");
+    const employeeName = normalizeComparableText(employee?.name || "");
+    const employeePhone = normalizeEmployeeAdminPhone(employee?.phone || "");
+    return (state.accessRequests?.rows || []).filter(row => {
+      const requestEmail = normalizeComparableText(row.email || "");
+      const requestName = normalizeComparableText(row.full_name || row.name || "");
+      const requestPhone = normalizeEmployeeAdminPhone(row.phone || "");
+      return (employeeEmail && requestEmail && employeeEmail === requestEmail)
+        || (employeePhone && requestPhone && employeePhone === requestPhone)
+        || (employeeName && requestName && employeeName === requestName);
+    });
+  }
+
+  function getEmployeeAdminAccessInfo(employee) {
+    const user = findEmployeeAdminAccessUser(employee);
+    if (user) {
+      return {
+        label: formatRoleLabel(user.role || "employee"),
+        state: user.is_active === false ? "inactive" : "active",
+        note: user.is_active === false ? "Tilgang deaktivert" : "Aktiv brukertilgang"
+      };
+    }
+
+    const requests = findEmployeeAdminAccessRequests(employee);
+    const pending = requests.find(row => ["pending", "submitted", "approved", "ready"].includes(String(row.status || "").toLowerCase()));
+    if (pending) {
+      return { label: "Søknad", state: "pending", note: "Tilgangssøknad finnes" };
+    }
+
+    return { label: "Ingen tilgang", state: "missing", note: "Finnes i ansattregister" };
+  }
+
+  function getEmployeeAdminPrimaryAccessRequest(employee) {
+    const rows = findEmployeeAdminAccessRequests(employee);
+    if (!rows.length) return null;
+
+    return rows.slice().sort((a, b) => {
+      const rank = row => {
+        const status = String(row.status || "pending").toLowerCase();
+        if (status === "pending") return 0;
+        if (status === "approved" && !row.setup_completed_at) return 1;
+        if (status === "approved" && row.setup_completed_at) return 2;
+        if (status === "rejected") return 3;
+        return 4;
+      };
+      const diff = rank(a) - rank(b);
+      if (diff !== 0) return diff;
+      return new Date(b.created_at || 0) - new Date(a.created_at || 0);
+    })[0] || null;
+  }
+
+  function renderEmployeeAdminAccessControl(employee, accessInfo) {
+    const accessUser = findEmployeeAdminAccessUser(employee);
+
+    if (accessUser) {
+      const isCurrentUser = accessUser.id === state.currentUserId;
+      const isActive = accessUser.is_active !== false;
+      const targetRole = normalizeRoleValue(accessUser.role);
+      const isProtectedSuperadmin = targetRole === "superadmin";
+      const canManageTarget = canCurrentUserManageAccessTarget(accessUser);
+      const disabled = canManageTarget ? "" : "disabled";
+      const disabledReason = isCurrentUser
+        ? "Du kan ikke endre egen bruker fra ansattkortet."
+        : isProtectedSuperadmin
+          ? "Superadmin er låst i vanlig UI."
+          : !canManageTarget
+            ? "Din rolle kan ikke administrere denne brukeren."
+            : "";
+      const actionLabel = isActive ? "Deaktiver tilgang" : "Aktiver tilgang";
+      const nextAction = isActive ? "deactivate" : "activate";
+      const passwordDraft = getAccessUserDraftPassword(String(accessUser.id || ""));
+
+      return `
+        <div class="iz-employee-admin-access-card" data-access-user-row-id="${escapeHtml(accessUser.id)}" data-employee-card-access="true">
+          <div class="iz-employee-admin-access-head">
+            <div class="min-w-0">
+              <div class="iz-employee-admin-access-title">Brukertilgang</div>
+              <div class="iz-employee-admin-access-sub truncate">${escapeHtml(accessUser.email || employee.email || "Ingen e-post")}</div>
+            </div>
+            <span class="iz-employee-admin-status ${isActive ? "is-active" : "is-inactive"}">${isActive ? "Aktiv" : "Deaktivert"}</span>
+          </div>
+
+          ${disabledReason ? `<div class="iz-employee-admin-notice compact">${escapeHtml(disabledReason)}</div>` : ""}
+
+          <div class="iz-employee-admin-access-grid">
+            <label class="iz-employee-admin-control">
+              <span>Rolle</span>
+              <select data-access-user-role="${escapeHtml(accessUser.id)}" ${disabled || isProtectedSuperadmin ? "disabled" : ""}>
+                ${getAccessUserRoleOptions(accessUser.role)}
+              </select>
+            </label>
+            <button type="button" class="iz-employee-admin-btn" data-access-user-action="set-role" data-access-user-id="${escapeHtml(accessUser.id)}" ${disabled || isProtectedSuperadmin ? "disabled" : ""}>Lagre rolle</button>
+            <button type="button" class="iz-employee-admin-btn ${isActive ? "danger" : "primary"}" data-access-user-action="toggle-active" data-access-user-id="${escapeHtml(accessUser.id)}" data-access-user-next-action="${escapeHtml(nextAction)}" ${disabled}>${escapeHtml(actionLabel)}</button>
+          </div>
+
+          <div class="iz-employee-admin-access-grid password">
+            <label class="iz-employee-admin-control">
+              <span>Midlertidig passord</span>
+              <input data-access-user-password="${escapeHtml(accessUser.id)}" type="text" autocomplete="off" value="${escapeHtml(passwordDraft)}" placeholder="Skriv/generer passord" ${disabled ? "disabled" : ""} />
+            </label>
+            <button type="button" class="iz-employee-admin-btn" data-access-user-action="generate-password" data-access-user-id="${escapeHtml(accessUser.id)}" ${disabled}>Generer</button>
+            <button type="button" class="iz-employee-admin-btn primary" data-access-user-action="set-password" data-access-user-id="${escapeHtml(accessUser.id)}" ${disabled}>Sett passord</button>
+          </div>
+        </div>
+      `;
+    }
+
+    const request = getEmployeeAdminPrimaryAccessRequest(employee);
+    if (request) {
+      const status = String(request.status || "pending").toLowerCase();
+      const isPending = status === "pending";
+      const isApprovedButOpen = status === "approved" && !request.setup_completed_at;
+      const statusLabel = request.setup_completed_at ? "Oppsatt" : formatAccessRequestStatus(status);
+      return `
+        <div class="iz-employee-admin-access-card request" data-employee-card-request-id="${escapeHtml(request.id)}">
+          <div class="iz-employee-admin-access-head">
+            <div class="min-w-0">
+              <div class="iz-employee-admin-access-title">Tilgangssøknad</div>
+              <div class="iz-employee-admin-access-sub truncate">${escapeHtml(request.email || employee.email || "Ingen e-post")} • ${escapeHtml(formatRequestedAccess(request.approved_role || request.requested_access))}</div>
+            </div>
+            <span class="iz-employee-admin-status ${request.setup_completed_at ? "is-active" : ""}">${escapeHtml(statusLabel)}</span>
+          </div>
+          <div class="iz-employee-admin-access-meta">Sendt ${escapeHtml(formatAccessRequestDate(request.created_at))}${request.phone ? ` • ${escapeHtml(request.phone)}` : ""}</div>
+          <div class="iz-employee-admin-access-actions">
+            ${isPending && canApproveAccessRequests() ? `
+              <button type="button" class="iz-employee-admin-btn primary" data-employee-card-access-request-action="approved" data-access-request-id="${escapeHtml(request.id)}">Godkjenn</button>
+              <button type="button" class="iz-employee-admin-btn danger" data-employee-card-access-request-action="rejected" data-access-request-id="${escapeHtml(request.id)}">Avslå</button>
+            ` : ""}
+            ${isApprovedButOpen ? `<button type="button" class="iz-employee-admin-btn primary" data-employee-card-open-request="${escapeHtml(request.id)}">Fullfør tilgang</button>` : ""}
+            <button type="button" class="iz-employee-admin-btn" data-employee-card-open-request="${escapeHtml(request.id)}">Vis i søknader</button>
+          </div>
+        </div>
+      `;
+    }
+
+    return `
+      <div class="iz-employee-admin-access-card missing">
+        <div class="iz-employee-admin-access-head">
+          <div class="min-w-0">
+            <div class="iz-employee-admin-access-title">Ingen brukertilgang</div>
+            <div class="iz-employee-admin-access-sub">Ansatt finnes i registeret, men har ikke innlogging ennå.</div>
+          </div>
+          <span class="iz-employee-admin-status is-inactive">Mangler</span>
+        </div>
+        <div class="iz-employee-admin-notice compact">Når den ansatte søker tilgang, skal søknaden kobles til denne eksisterende ansatte. Ikke opprett ny ansatt hvis personen allerede finnes i registeret.</div>
+        <button type="button" class="iz-employee-admin-btn" data-employee-admin-open-admin>Tilganger</button>
+      </div>
+    `;
+  }
+
+  function renderEmployeeAdminDetail(employee) {
+    const detail = document.getElementById("employeeAdminDetail");
+    if (!detail) return;
+
+    if (!employee) {
+      detail.innerHTML = `<div class="iz-employee-admin-empty">Velg en ansatt i listen for å se detaljer.</div>`;
+      return;
+    }
+
+    const employeeGroup = normalizeEmployeeGroup(employee.employee_group || "");
+    const groupLabel = getEmployeeGroupLabel(employeeGroup) || "Ingen gruppe valgt";
+    const active = employee.active !== false;
+    const title = employee.title || employee.employee_type || "Ikke satt";
+    const accessInfo = getEmployeeAdminAccessInfo(employee);
+    const accessStatusClass = accessInfo.state === "active" ? "is-active" : accessInfo.state === "inactive" ? "is-inactive" : accessInfo.state === "pending" ? "" : "is-inactive";
+    const upcomingEntries = state.entries
+      .filter(entry => normalizeComparableText(entry.employee_name || "") === normalizeComparableText(employee.name || ""))
+      .filter(entry => !entry.end_date || entry.end_date >= toIsoDate(new Date()))
+      .sort((a, b) => String(a.start_date || "").localeCompare(String(b.start_date || "")))
+      .slice(0, 3);
+
+    const nextEntriesHtml = upcomingEntries.length
+      ? upcomingEntries.map(entry => {
+          const project = getProjectById(entry.project_id);
+          return `<div class="iz-employee-admin-linkitem">
+            <div class="iz-employee-admin-linkico">▦</div>
+            <div class="min-w-0">
+              <div class="text-sm font-bold text-slate-100 truncate">${escapeHtml(displayProjectName(project) || "Direkte blokk")}</div>
+              <div class="text-xs text-slate-400 truncate">${escapeHtml(formatEmployeeAdminEntryRange(entry.start_date, entry.end_date))}${entry.role ? ` • ${escapeHtml(entry.role)}` : ""}</div>
+            </div>
+            <span class="iz-employee-admin-status ${project?.status === "Fullført" || project?.status === "Pågår" ? "is-active" : ""}">${escapeHtml(project?.status || "Plan")}</span>
+          </div>`;
+        }).join("")
+      : `<div class="iz-employee-admin-notice">Ingen kommende tildelinger funnet for denne ansatte i nåværende registerdata.</div>`;
+
+    detail.innerHTML = `
+      <div class="iz-employee-admin-detail-hero">
+        <div class="iz-employee-admin-avatar">${escapeHtml(getEmployeeAdminInitials(employee))}</div>
+        <div class="min-w-0">
+          <div class="iz-employee-admin-detail-name truncate">${escapeHtml(employee.name || "Uten navn")}</div>
+          <div class="iz-employee-admin-detail-sub truncate">${escapeHtml(title)} · ${escapeHtml(groupLabel)} · ${active ? "Aktiv" : "Inaktiv"}</div>
+        </div>
+      </div>
+
+      <div class="iz-employee-admin-fieldgrid">
+        <div class="iz-employee-admin-field"><label>Telefon</label><div>${escapeHtml(employee.phone || "Ingen telefon")}</div></div>
+        <div class="iz-employee-admin-field"><label>E-post</label><div>${escapeHtml(employee.email || "Ingen e-post")}</div></div>
+        <div class="iz-employee-admin-field"><label>Stilling</label><div>${escapeHtml(title)}</div></div>
+        <div class="iz-employee-admin-field"><label>Gruppe</label><div>${escapeHtml(groupLabel)}</div></div>
+      </div>
+
+      <div class="iz-employee-admin-section-title">Tilgang på ansattkortet</div>
+      ${renderEmployeeAdminAccessControl(employee, accessInfo)}
+
+      <div class="iz-employee-admin-section-title">Kommende plan</div>
+      ${nextEntriesHtml}
+
+      <div class="mt-4 flex flex-wrap gap-2">
+        <button type="button" class="iz-employee-admin-btn primary" data-employee-admin-edit="${escapeHtml(employee.id)}">Rediger ansatt</button>
+        <button type="button" class="iz-employee-admin-btn" data-employee-admin-open-calendar="${escapeHtml(employee.name || "")}">Åpne i Ansattplan</button>
+        <button type="button" class="iz-employee-admin-btn" data-employee-admin-open-admin>Tilganger</button>
+      </div>
+    `;
+
+    detail.querySelector("[data-employee-admin-edit]")?.addEventListener("click", event => {
+      openEmployeeModal(event.currentTarget.dataset.employeeAdminEdit);
+    });
+    detail.querySelector("[data-employee-admin-open-calendar]")?.addEventListener("click", event => {
+      const employeeName = String(event.currentTarget.dataset.employeeAdminOpenCalendar || "").trim();
+      state.search = employeeName.toLowerCase();
+      state.selectedEmployeeGroups = [];
+      state.employeeFilter = "Alle ansatte";
+      state.dashboardEmployeeFilter = "";
+      state.dashboardEmployeeFilterLabel = "";
+      if (els.searchInput) els.searchInput.value = employeeName;
+      if (els.employeeFilter) els.employeeFilter.value = "Alle ansatte";
+      renderEmployeeGroupFilterControl();
+      openPersonalCalendarView();
+    });
+    detail.querySelectorAll("[data-access-user-action]").forEach(button => {
+      button.addEventListener("click", event => {
+        const sourceRow = event.currentTarget.closest("[data-access-user-row-id]");
+        const userId = event.currentTarget.dataset.accessUserId || "";
+        const action = event.currentTarget.dataset.accessUserAction || "";
+        if (!userId || !action) return;
+        if (action === "toggle-active") updateAccessUserActive(userId, event.currentTarget.dataset.accessUserNextAction || "");
+        else if (action === "set-role") updateAccessUserRole(userId, sourceRow);
+        else if (action === "generate-password") generatePasswordForAccessUser(userId, sourceRow);
+        else if (action === "set-password") setTemporaryPasswordForAccessUser(userId, sourceRow);
+      });
+    });
+
+    detail.querySelectorAll("[data-access-user-password]").forEach(input => {
+      input.addEventListener("input", event => {
+        const userId = event.currentTarget.dataset.accessUserPassword || "";
+        setAccessUserDraftPassword(userId, event.currentTarget.value || "");
+      });
+    });
+
+    detail.querySelectorAll("[data-employee-card-access-request-action]").forEach(button => {
+      button.addEventListener("click", async event => {
+        const requestId = event.currentTarget.dataset.accessRequestId || "";
+        const action = event.currentTarget.dataset.employeeCardAccessRequestAction || "";
+        if (!requestId || !action) return;
+        await updateAccessRequestStatus(requestId, action);
+        renderEmployees();
+      });
+    });
+
+    detail.querySelectorAll("[data-employee-card-open-request]").forEach(button => {
+      button.addEventListener("click", () => openEmployeeAccessPanel(button.dataset.employeeCardOpenRequest || "", employee.id));
+    });
+
+    detail.querySelectorAll("[data-employee-admin-open-admin]").forEach(button => {
+      button.addEventListener("click", () => openEmployeeAccessPanel("", employee.id));
+    });
+  }
+
+  function openEmployeeAccessPanel(requestId = "", employeeId = "") {
+    const accessPanel = document.getElementById("employeeAccessAdmin");
+    const focusEmployeeId = employeeId || state.employeeAdminSelectedId || "";
+    state.employeeAccessPanelEmployeeId = focusEmployeeId;
+    state.employeeAccessPanelRequestId = requestId || "";
+    renderAccessUsers();
+    renderAccessRequests();
+    if (accessPanel) {
+      accessPanel.open = true;
+      const target = requestId
+        ? accessPanel.querySelector(`[data-access-request-row-id="${CSS.escape(requestId)}"]`)
+        : accessPanel;
+      (target || accessPanel).scrollIntoView({ behavior: "smooth", block: "start" });
+    } else {
+      setActiveTab("admin");
+    }
   }
 
   function renderEmployees() {
+    if (!els.employeeList) return;
+    bindEmployeeAdminFilters();
+    updateEmployeeAdminMetrics();
+
+    const searchText = normalizeComparableText(document.getElementById("employeeAdminSearch")?.value || "");
+    const selectedGroup = normalizeEmployeeGroup(document.getElementById("employeeAdminGroupFilter")?.value || "");
+    const statusFilter = document.getElementById("employeeAdminStatusFilter")?.value || "active";
+
     const sortedEmployees = state.employees.slice().sort((a, b) => {
       const groupDiff = getEmployeeGroupSortIndex(a.employee_group) - getEmployeeGroupSortIndex(b.employee_group);
       if (groupDiff !== 0) return groupDiff;
       return (a.name || "").localeCompare(b.name || "", "no");
+    }).filter(emp => {
+      if (statusFilter === "active" && emp.active === false) return false;
+      if (statusFilter === "inactive" && emp.active !== false) return false;
+
+      const employeeGroup = normalizeEmployeeGroup(emp.employee_group || "");
+      if (selectedGroup && employeeGroup !== selectedGroup) return false;
+
+      if (!searchText) return true;
+      const haystack = normalizeComparableText([
+        emp.name,
+        emp.email,
+        emp.phone,
+        emp.title,
+        emp.employee_type,
+        getEmployeeGroupLabel(employeeGroup),
+        emp.employee_group
+      ].filter(Boolean).join(" "));
+      return haystack.includes(searchText);
     });
 
-    els.employeeList.innerHTML = sortedEmployees.map(emp => {
+    if (!sortedEmployees.some(emp => emp.id === state.employeeAdminSelectedId)) {
+      state.employeeAdminSelectedId = sortedEmployees[0]?.id || null;
+    }
+    const selectedEmployee = sortedEmployees.find(emp => emp.id === state.employeeAdminSelectedId) || null;
+
+    const header = `
+      <div class="iz-employee-admin-header-row">
+        <div>Ansatt</div>
+        <div>Stilling</div>
+        <div>Gruppe</div>
+        <div>Kontakt</div>
+        <div class="text-center">Status</div>
+      </div>
+    `;
+
+    const rows = sortedEmployees.map(emp => {
       const employeeGroup = normalizeEmployeeGroup(emp.employee_group || "");
-      const cardClass = getEmployeeGroupCardClass(employeeGroup);
+      const active = emp.active !== false;
+      const selected = emp.id === state.employeeAdminSelectedId;
+      const groupLabel = getEmployeeGroupLabel(employeeGroup) || "Ingen gruppe valgt";
+      const title = emp.title || emp.employee_type || "Ikke satt";
+      const contactEmail = emp.email || "Ingen e-post";
+      const contactPhone = emp.phone || "Ingen telefon";
+      const accessInfo = getEmployeeAdminAccessInfo(emp);
       return `
-      <button data-employee-id="${escapeHtml(emp.id)}" class="w-full text-left rounded-xl border-2 p-3 transition ${cardClass}">
-        <div class="flex items-center justify-between gap-2">
-          <div class="flex items-center gap-2 min-w-0">
-            ${getEmployeeGroupIconHtml(employeeGroup, "inline-flex h-5 w-5 items-center justify-center text-slate-600 shrink-0")}
-            <div class="font-medium truncate">${escapeHtml(emp.name)}</div>
+        <button data-employee-id="${escapeHtml(emp.id)}" class="iz-employee-admin-row ${selected ? "is-selected" : ""} ${active ? "" : "is-inactive"}">
+          <div class="min-w-0">
+            <div class="flex items-center gap-2 min-w-0">
+              ${getEmployeeGroupIconHtml(employeeGroup, "inline-flex h-5 w-5 items-center justify-center text-slate-300 shrink-0")}
+              <div class="iz-employee-admin-name truncate">${escapeHtml(emp.name || "Uten navn")}</div>
+            </div>
+            <div class="iz-employee-admin-sub truncate">${escapeHtml(accessInfo.label)} · ${escapeHtml(emp.employee_type || "Ingen type")}</div>
           </div>
-          <span class="text-xs ${emp.active ? "text-green-700" : "text-amber-700"}">${emp.active ? "Aktiv" : "Inaktiv"}</span>
-        </div>
-        <div class="text-xs text-slate-500 mt-1">${escapeHtml(emp.email || "Ingen e-post")}</div>
-        <div class="text-xs text-slate-500">${escapeHtml(emp.phone || "Ingen telefon")}</div>
-        <div class="text-xs text-slate-500">${escapeHtml(emp.title || "Ingen stillingstittel")}</div>
-        <div class="mt-2 inline-flex items-center gap-1.5 rounded-full border border-current/20 bg-white/80 px-2 py-1 text-xs font-medium text-slate-700">${getEmployeeGroupIconHtml(employeeGroup, "inline-flex h-4 w-4 items-center justify-center text-slate-600 shrink-0")}<span>${escapeHtml(getEmployeeGroupLabel(employeeGroup) || "Ingen gruppe valgt")}</span></div>
-      </button>
-    `}).join("") || `<div class="text-sm text-slate-500">Ingen ansatte enda.</div>`;
+          <div class="iz-employee-admin-cell truncate ${emp.title ? "" : "iz-employee-admin-muted"}">${escapeHtml(title)}</div>
+          <div class="iz-employee-admin-cell min-w-0">
+            <span class="iz-employee-admin-pill">${getEmployeeGroupIconHtml(employeeGroup, "inline-flex h-4 w-4 items-center justify-center text-slate-300 shrink-0")}<span class="truncate">${escapeHtml(groupLabel)}</span></span>
+          </div>
+          <div class="iz-employee-admin-cell min-w-0">
+            <div class="truncate ${emp.email ? "" : "iz-employee-admin-muted"}">${escapeHtml(contactEmail)}</div>
+            <div class="mt-1 truncate ${emp.phone ? "" : "iz-employee-admin-muted"}">${escapeHtml(contactPhone)}</div>
+          </div>
+          <div class="iz-employee-admin-cell text-center">
+            <span class="iz-employee-admin-status ${active ? "is-active" : "is-inactive"}">${active ? "Aktiv" : "Inaktiv"}</span>
+          </div>
+        </button>
+      `;
+    }).join("");
+
+    els.employeeList.innerHTML = header + (rows || `<div class="iz-employee-admin-empty">Ingen ansatte matcher filteret.</div>`);
 
     els.employeeList.querySelectorAll("[data-employee-id]").forEach(btn => {
-      btn.addEventListener("click", () => openEmployeeModal(btn.dataset.employeeId));
+      btn.addEventListener("click", () => {
+        state.employeeAdminSelectedId = btn.dataset.employeeId;
+        const accessPanel = document.getElementById("employeeAccessAdmin");
+        if (accessPanel?.open) {
+          state.employeeAccessPanelEmployeeId = state.employeeAdminSelectedId || "";
+        }
+        renderEmployees();
+        if (accessPanel?.open) {
+          renderAccessUsers();
+          renderAccessRequests();
+        }
+      });
+      btn.addEventListener("dblclick", () => openEmployeeModal(btn.dataset.employeeId));
     });
+
+    renderEmployeeAdminDetail(selectedEmployee);
   }
 
   function renderKanban() {
@@ -6015,6 +11471,11 @@ async function deleteEditedEntry() {
     return " project-spotlight-muted";
   }
 
+  function getProjectPanelFocusClass(projectId) {
+    if (state.calendarMode !== "project" || !state.calendarPanelOpen || !state.focusProjectId) return "";
+    return projectId === state.focusProjectId ? " project-panel-focus-active" : " project-panel-focus-muted";
+  }
+
   function renderCalendar() {
     if (!els.calendarWrap) return;
     const range = getCurrentRange();
@@ -6049,12 +11510,13 @@ async function deleteEditedEntry() {
       : "";
 
     const stickyWidth = 238;
-    const colWidth = Math.max(28, state.viewMode === "Uke" ? 38 : 32);
+    const colWidth = Math.max(26, state.viewMode === "Uke" ? 36 : 30);
     const totalWidth = colWidth * days.length;
 
     let html = dashboardFilterBanner;
-    html += `<div class="calendar-shell" style="width:${stickyWidth + totalWidth}px; min-width:${stickyWidth + totalWidth}px;">`;
-    html += `<div class="day-grid border border-slate-200 rounded-2xl overflow-visible" style="grid-template-columns:${stickyWidth}px repeat(${days.length}, ${colWidth}px);">`;
+    html += `<div class="calendar-shell employee-plan-calendar-shell" style="width:${stickyWidth + totalWidth}px; min-width:${stickyWidth + totalWidth}px; position:relative;">`;
+    html += renderTodayLineOverlay(days, stickyWidth, colWidth);
+    html += `<div class="day-grid employee-plan-day-grid border border-slate-200 rounded-2xl overflow-visible" style="grid-template-columns:${stickyWidth}px repeat(${days.length}, ${colWidth}px);">`;
     html += renderTimelineHeaderRows(days, "Ansatt");
 
     const warnings = [];
@@ -6062,17 +11524,17 @@ async function deleteEditedEntry() {
     for (const group of employeeGroups) {
       const collapsed = isEmployeeGroupCollapsed(group.key);
       html += `
-        <div class="sticky-col border-r border-b border-slate-200 bg-slate-50 px-3 py-2">
-          <button type="button" data-employee-group-toggle="${escapeHtml(group.key)}" class="w-full flex items-center justify-between gap-3 text-left text-slate-800">
-            <span class="min-w-0 flex items-center gap-2">
-              <span class="text-xs text-slate-500">${collapsed ? "▶" : "▼"}</span>
+        <div class="employee-plan-group-header sticky-col border-r border-b border-slate-200 bg-slate-50 px-2 py-1.5" style="--employee-group-accent:${getEmployeeGroupAccentColor(group.group)}; border-left:4px solid var(--employee-group-accent);">
+          <button type="button" data-employee-group-toggle="${escapeHtml(group.key)}" class="w-full flex items-center justify-between gap-2 text-left text-slate-800">
+            <span class="min-w-0 flex items-center gap-1.5">
+              <span class="text-[10px] text-slate-500">${collapsed ? "▶" : "▼"}</span>
               ${group.iconHtml}
-              <span class="font-semibold text-sm truncate">${escapeHtml(group.label)}</span>
-              <span class="rounded-md border border-slate-300 bg-white px-1.5 py-0.5 text-[11px] font-semibold text-slate-600">${group.employees.length}</span>
+              <span class="font-semibold text-[12px] truncate">${escapeHtml(group.label)}</span>
+              <span class="employee-plan-group-count rounded-md border border-slate-300 bg-white px-1.5 py-0.5 text-[10px] font-semibold text-slate-600">${group.employees.length}</span>
             </span>
           </button>
         </div>
-        <div class="border-b border-slate-200 bg-slate-50/70" style="grid-column: span ${days.length}; width:${totalWidth}px; min-height:36px;"></div>
+        <div class="employee-plan-group-fill border-b border-slate-200 bg-slate-50/70" style="grid-column: span ${days.length}; width:${totalWidth}px; min-height:28px; border-left:4px solid ${getEmployeeGroupAccentColor(group.group)};"></div>
       `;
 
       if (collapsed) continue;
@@ -6080,10 +11542,11 @@ async function deleteEditedEntry() {
       for (const employee of group.employees) {
         const employeeEntries = getVisibleEntriesForEmployee(employee.name, range.start, range.end);
 
+        const hasEmployeePlanInRange = employeeEntries.length > 0;
         html += `
-          <div class="sticky-col border-r border-b border-slate-200 px-3 py-2 ${getEmployeeCalendarCellClass(employee)}">
-            <div>${getEmployeeNameTabHtml(employee)}</div>
-            ${employee.title ? `<div class="text-[11px] opacity-80 leading-tight mt-1">${escapeHtml(employee.title)}</div>` : ""}
+          <div class="employee-plan-name-cell sticky-col border-r border-b border-slate-200 px-2 py-1.5 ${getEmployeeCalendarCellClass(employee)}" data-employee-plan-status="${hasEmployeePlanInRange ? "busy" : "free"}" style="--employee-group-accent:${getEmployeeGroupAccentColor(employee.employee_group)};">
+            <div class="employee-plan-name-row">${getEmployeeNameTabHtml(employee)}</div>
+            ${employee.title ? `<div class="employee-plan-title text-[10px] opacity-80 leading-tight mt-0.5">${escapeHtml(employee.title)}</div>` : ""}
           </div>
         `;
 
@@ -6098,7 +11561,7 @@ async function deleteEditedEntry() {
           html += `<div data-drop-slot-index="${i}" data-drop-date="${toIsoDate(day)}" data-today-column="${isTodayDate(day) ? "true" : "false"}" class="day-cell ${redDay ? "red-day" : ""}" style="position:absolute; left:${i * colWidth}px; width:${colWidth}px; border-right:${monthBoundary ? "2px solid #94a3b8" : "1px solid #e2e8f0"}; ${todayCellStyle}"></div>`;
         }
 
-        html += `<div style="position:relative; width:${totalWidth}px; min-height:40px;">`;
+        html += `<div class="employee-plan-row-track" style="position:relative; width:${totalWidth}px; min-height:38px;">`;
 
         for (const entry of employeeEntries) {
           const project = getProjectById(entry.project_id);
@@ -6121,8 +11584,7 @@ async function deleteEditedEntry() {
               title="${escapeHtml(`${employee.name} | ${displayProjectName(project)} | ${entry.role} | ${entry.start_date} - ${entry.end_date}${entry.notes ? ` | ${entry.notes}` : ""}`)}"
             >
               <div class="font-semibold">${escapeHtml(displayProjectName(project))}</div>
-              ${isSystemPersonalProject(project) ? "" : `<div class="text-[11px] opacity-90">${escapeHtml(entry.role)}</div>`}
-              <div data-resize-handle data-resize-type="entry" data-target-id="${escapeHtml(entry.id)}" title="Dra for å endre sluttdato" style="position:absolute; top:0; right:0; bottom:0; width:12px; cursor:ew-resize; border-left:1px solid rgba(255,255,255,0.35); background:linear-gradient(to left, rgba(255,255,255,0.35), rgba(255,255,255,0));"></div>
+              <div data-resize-handle data-resize-type="entry" data-target-id="${escapeHtml(entry.id)}" title="${window.izomaxTranslateKey?.("resizeEndDate") || "Dra for å endre sluttdato"}" style="position:absolute; top:0; right:0; bottom:0; width:12px; cursor:ew-resize; border-left:1px solid rgba(255,255,255,0.35); background:linear-gradient(to left, rgba(255,255,255,0.35), rgba(255,255,255,0));"></div>
             </div>
           `;
 
@@ -6157,13 +11619,13 @@ async function deleteEditedEntry() {
     const months = Array.from({ length: 12 }, (_, i) => new Date(year, i, 1));
 
     const calendarWrapWidth = Math.max(els.calendarWrap.clientWidth - 8, 900);
-    const stickyWidth = 280;
+    const stickyWidth = 238;
     const usableWidth = Math.max(calendarWrapWidth - stickyWidth, 1000);
     const monthWidth = usableWidth / 12;
     const totalWidth = monthWidth * 12;
 
-    let html = `<div class="calendar-shell" style="width:${stickyWidth + totalWidth}px;">`;
-    html += `<div class="month-summary-grid border border-slate-200 rounded-2xl overflow-hidden" style="grid-template-columns:${stickyWidth}px repeat(12, ${monthWidth}px);">`;
+    let html = `<div class="calendar-shell employee-plan-calendar-shell" style="width:${stickyWidth + totalWidth}px;">`;
+    html += `<div class="month-summary-grid employee-plan-year-grid border border-slate-200 rounded-2xl overflow-hidden" style="grid-template-columns:${stickyWidth}px repeat(12, ${monthWidth}px);">`;
     html += `<div class="sticky-col z-30 border-b border-r border-slate-200 bg-slate-50 px-3 py-3 font-semibold">Ansatt</div>`;
 
     for (const month of months) {
@@ -6177,17 +11639,17 @@ async function deleteEditedEntry() {
     for (const group of employeeGroups) {
       const collapsed = isEmployeeGroupCollapsed(group.key);
       html += `
-        <div class="sticky-col border-r border-b border-slate-200 bg-slate-50 px-3 py-2">
-          <button type="button" data-employee-group-toggle="${escapeHtml(group.key)}" class="w-full flex items-center justify-between gap-3 text-left text-slate-800">
-            <span class="min-w-0 flex items-center gap-2">
-              <span class="text-xs text-slate-500">${collapsed ? "▶" : "▼"}</span>
+        <div class="employee-plan-group-header sticky-col border-r border-b border-slate-200 bg-slate-50 px-2 py-1.5" style="--employee-group-accent:${getEmployeeGroupAccentColor(group.group)}; border-left:4px solid var(--employee-group-accent);">
+          <button type="button" data-employee-group-toggle="${escapeHtml(group.key)}" class="w-full flex items-center justify-between gap-2 text-left text-slate-800">
+            <span class="min-w-0 flex items-center gap-1.5">
+              <span class="text-[10px] text-slate-500">${collapsed ? "▶" : "▼"}</span>
               ${group.iconHtml}
-              <span class="font-semibold text-sm truncate">${escapeHtml(group.label)}</span>
-              <span class="rounded-md border border-slate-300 bg-white px-1.5 py-0.5 text-[11px] font-semibold text-slate-600">${group.employees.length}</span>
+              <span class="font-semibold text-[12px] truncate">${escapeHtml(group.label)}</span>
+              <span class="employee-plan-group-count rounded-md border border-slate-300 bg-white px-1.5 py-0.5 text-[10px] font-semibold text-slate-600">${group.employees.length}</span>
             </span>
           </button>
         </div>
-        <div class="border-b border-slate-200 bg-slate-50/70" style="grid-column: span 12; width:${totalWidth}px; min-height:36px;"></div>
+        <div class="employee-plan-group-fill border-b border-slate-200 bg-slate-50/70" style="grid-column: span 12; width:${totalWidth}px; min-height:28px; border-left:4px solid ${getEmployeeGroupAccentColor(group.group)};"></div>
       `;
 
       if (collapsed) continue;
@@ -6195,10 +11657,11 @@ async function deleteEditedEntry() {
       for (const employee of group.employees) {
         const employeeEntries = getVisibleEntriesForEmployee(employee.name, yearStart, yearEnd);
 
+        const hasEmployeePlanInYear = employeeEntries.length > 0;
         html += `
-          <div class="sticky-col border-r border-b border-slate-200 px-3 py-2 ${getEmployeeCalendarCellClass(employee)}">
-            <div>${getEmployeeNameTabHtml(employee)}</div>
-            ${employee.title ? `<div class="text-[11px] text-slate-600 leading-tight mt-1">${escapeHtml(employee.title)}</div>` : ""}
+          <div class="employee-plan-name-cell sticky-col border-r border-b border-slate-200 px-2 py-1.5 ${getEmployeeCalendarCellClass(employee)}" data-employee-plan-status="${hasEmployeePlanInYear ? "busy" : "free"}" style="--employee-group-accent:${getEmployeeGroupAccentColor(employee.employee_group)};">
+            <div class="employee-plan-name-row">${getEmployeeNameTabHtml(employee)}</div>
+            ${employee.title ? `<div class="employee-plan-title text-[10px] text-slate-600 leading-tight mt-0.5">${escapeHtml(employee.title)}</div>` : ""}
           </div>
         `;
 
@@ -6208,7 +11671,7 @@ async function deleteEditedEntry() {
           html += `<div data-drop-slot-index="${i}" data-drop-month-index="${i}" class="month-cell" style="position:absolute; left:${i * monthWidth}px; width:${monthWidth}px;"></div>`;
         }
 
-        html += `<div style="position:relative; width:${totalWidth}px; min-height:56px;">`;
+        html += `<div class="employee-plan-row-track" style="position:relative; width:${totalWidth}px; min-height:40px;">`;
 
         for (const entry of employeeEntries) {
           const project = getProjectById(entry.project_id);
@@ -6234,7 +11697,7 @@ async function deleteEditedEntry() {
             >
               <div class="font-semibold">${escapeHtml(displayProjectName(project))}</div>
               <div class="text-[11px] opacity-90">${escapeHtml(formatYearBarLabel(entry.start_date, entry.end_date))}</div>
-              <div data-resize-handle data-resize-type="entry" data-target-id="${escapeHtml(entry.id)}" title="Dra for å endre sluttdato" style="position:absolute; top:0; right:0; bottom:0; width:12px; cursor:ew-resize; border-left:1px solid rgba(255,255,255,0.35); background:linear-gradient(to left, rgba(255,255,255,0.35), rgba(255,255,255,0));"></div>
+              <div data-resize-handle data-resize-type="entry" data-target-id="${escapeHtml(entry.id)}" title="${window.izomaxTranslateKey?.("resizeEndDate") || "Dra for å endre sluttdato"}" style="position:absolute; top:0; right:0; bottom:0; width:12px; cursor:ew-resize; border-left:1px solid rgba(255,255,255,0.35); background:linear-gradient(to left, rgba(255,255,255,0.35), rgba(255,255,255,0));"></div>
             </div>
           `;
         }
@@ -6271,18 +11734,19 @@ async function deleteEditedEntry() {
     const colWidth = Math.max(28, state.viewMode === "Uke" ? 38 : 32);
     const totalWidth = colWidth * days.length;
 
-    let html = `<div class="calendar-shell" style="width:${stickyWidth + totalWidth}px; min-width:${stickyWidth + totalWidth}px;">`;
-    html += `<div class="day-grid border border-slate-200 rounded-2xl overflow-visible" style="grid-template-columns:${stickyWidth}px repeat(${days.length}, ${colWidth}px);">`;
-    html += renderTimelineHeaderRows(days, "Prosjekt");
+    let html = `<div class="calendar-shell" style="width:${stickyWidth + totalWidth}px; min-width:${stickyWidth + totalWidth}px; position:relative;">`;
+    html += renderTodayLineOverlay(days, stickyWidth, colWidth);
+    html += `<div class="day-grid employee-plan-day-grid border border-slate-200 rounded-2xl overflow-visible" style="grid-template-columns:${stickyWidth}px repeat(${days.length}, ${colWidth}px);">`;
+    html += renderTimelineHeaderRows(days, window.izomaxTranslateKey?.("projectHeader") || "Prosjekt");
 
     for (const project of projects) {
       const assigned = getProjectAssignedCount(project.id);
       const required = Number(project.headcount_required || 0);
       const staffing = getProjectStaffingLabel(project.id, required);
-      const projectPeriods = getProjectTimelinePeriodsWithWorkshop(project);
+      const projectPeriods = filterProjectPeriodsByPhase(project, getProjectTimelinePeriodsWithWorkshop(project));
 
       html += `
-        <button type="button" data-project-list-row-id="${escapeHtml(project.id)}" class="sticky-col project-plan-name-cell border-r border-b border-slate-200 px-3 py-1.5 text-left ${project.id === state.focusProjectId ? "bg-blue-50 ring-2 ring-blue-200" : isClosedProject(project) ? "bg-slate-100" : "bg-white"}">
+        <button type="button" data-project-list-row-id="${escapeHtml(project.id)}" class="sticky-col project-plan-name-cell border-r border-b border-slate-200 px-3 py-1.5 text-left ${project.id === state.focusProjectId ? "bg-blue-50 ring-2 ring-blue-200" : isClosedProject(project) ? "bg-slate-100" : "bg-white"}${getProjectPanelFocusClass(project.id)}">
           <div class="project-plan-title">${escapeHtml(project.name)}</div>
           <div class="project-plan-meta">
             <span class="${staffing.variant}">${escapeHtml(staffing.text)}${required ? ` (${assigned}/${required})` : ""}</span>
@@ -6312,19 +11776,19 @@ async function deleteEditedEntry() {
         const left = startIndex * colWidth + 2;
         const width = Math.max(spanDays * colWidth - 4, 40);
         const periodLabel = period.phase === "workshop"
-          ? `Workshop / mobilisering · behov ${period.required || 2}`
+          ? `${window.izomaxTranslateKey?.("workshopMobilization") || "Workshop / mobilisering"} · ${window.izomaxTranslateKey?.("need") || "behov"} ${period.required || 2}`
           : (project.has_multiple_periods && projectPeriods.filter(item => item.phase !== "workshop").length > 1 ? `${formatDate(period.start)} – ${formatDate(period.end)}` : staffing.text);
         const periodClasses = getProjectPeriodBarClasses(project, period);
 
         html += `
           <div
-            class="entry-bar ${periodClasses} ${(period.phase === "workshop" || (period.phase !== "workshop" && !project.has_multiple_periods)) ? "cursor-move" : ""} ${project.id === state.focusProjectId ? 'ring-2 ring-blue-300 ring-offset-1' : ''}"
+            class="entry-bar ${periodClasses} ${(period.phase === "workshop" || (period.phase !== "workshop" && !project.has_multiple_periods)) ? "cursor-move" : ""} ${project.id === state.focusProjectId ? 'ring-2 ring-blue-300 ring-offset-1' : ''}${getProjectPanelFocusClass(project.id)}"
             style="left:${left}px; width:${width}px;"
             data-project-row-id="${escapeHtml(project.id)}"
             data-project-period-phase="${escapeHtml(period.phase || "field")}"
             ${period.phase === "workshop" ? `data-workshop-project-id="${escapeHtml(project.id)}" draggable="true"` : ""}
             ${period.phase !== "workshop" && !project.has_multiple_periods ? `data-field-project-id="${escapeHtml(project.id)}" draggable="true"` : ""}
-            title="${escapeHtml(`${project.name} | ${period.phaseLabel || "Feltoppdrag"} | ${formatDate(period.start)} – ${formatDate(period.end)} | ${period.phase === "workshop" ? `Workshopbehov ${period.required || 2}` : staffing.text}`)}"
+            title="${escapeHtml(`${project.name} | ${period.phase === "workshop" ? (window.izomaxTranslateKey?.("workshopMobilization") || "Workshop / mobilisering") : (window.izomaxTranslateKey?.("fieldAssignment") || "Feltoppdrag")} | ${formatDate(period.start)} – ${formatDate(period.end)} | ${period.phase === "workshop" ? `${window.izomaxTranslateKey?.("workshopNeed") || "Workshopbehov"} ${period.required || 2}` : staffing.text}`)}"
           >
             <div class="font-semibold">${escapeHtml(project.name)}</div>
             <div class="text-[11px] opacity-90">${escapeHtml(periodLabel)}</div>
@@ -6332,7 +11796,7 @@ async function deleteEditedEntry() {
               data-resize-handle
               data-resize-type="${period.phase === "workshop" ? "workshop" : "project"}"
               data-target-id="${escapeHtml(project.id)}"
-              title="${period.phase === "workshop" ? "Dra for å endre workshop-sluttdato" : "Dra for å endre prosjektsluttdato"}"
+              title="${period.phase === "workshop" ? (window.izomaxTranslateKey?.("resizeWorkshopEndDate") || "Dra for å endre workshop-sluttdato") : (window.izomaxTranslateKey?.("resizeProjectEndDate") || "Dra for å endre prosjektsluttdato")}"
               style="position:absolute; top:0; right:0; bottom:0; width:14px; cursor:ew-resize; border-left:1px solid rgba(255,255,255,0.42); background:linear-gradient(to left, rgba(255,255,255,0.42), rgba(255,255,255,0));"
             ></div>
           </div>
@@ -6370,7 +11834,7 @@ async function deleteEditedEntry() {
 
     let html = `<div class="calendar-shell" style="width:${stickyWidth + totalWidth}px;">`;
     html += `<div class="month-summary-grid border border-slate-200 rounded-2xl overflow-hidden" style="grid-template-columns:${stickyWidth}px repeat(12, ${monthWidth}px);">`;
-    html += `<div class="sticky-col z-30 border-b border-r border-slate-200 bg-slate-50 px-3 py-3 font-semibold">Prosjekt</div>`;
+    html += `<div class="sticky-col z-30 border-b border-r border-slate-200 bg-slate-50 px-3 py-3 font-semibold">${escapeHtml(window.izomaxTranslateKey?.("projectHeader") || "Prosjekt")}</div>`;
 
     for (const month of months) {
       html += `<div class="border-b border-r border-slate-200 px-2 py-3 text-center text-sm bg-white text-slate-700 font-medium">${escapeHtml(capitalize(monthLong(month)))}</div>`;
@@ -6382,7 +11846,7 @@ async function deleteEditedEntry() {
       const staffing = getProjectStaffingLabel(project.id, required);
 
       html += `
-        <div class="sticky-col border-r border-b border-slate-200 px-3 py-3 ${isClosedProject(project) ? "bg-slate-100" : ""}">
+        <div class="sticky-col project-plan-name-cell border-r border-b border-slate-200 px-3 py-3 ${isClosedProject(project) ? "bg-slate-100" : ""}${getProjectPanelFocusClass(project.id)}">
           <div class="font-medium">${escapeHtml(project.name)}</div>
           <div class="text-xs text-slate-500">${escapeHtml(project.location || "")}</div>
           <div class="text-xs ${staffing.variant} mt-1">${escapeHtml(staffing.text)}${required ? ` (${assigned}/${required})` : ""}</div>
@@ -6397,7 +11861,7 @@ async function deleteEditedEntry() {
 
       html += `<div style="position:relative; width:${totalWidth}px; min-height:56px;">`;
 
-      const yearPeriods = getProjectTimelinePeriodsWithWorkshop(project).filter(period => overlaps(period.start, period.end, new Date(year, 0, 1), new Date(year, 11, 31)));
+      const yearPeriods = filterProjectPeriodsByPhase(project, getProjectTimelinePeriodsWithWorkshop(project)).filter(period => overlaps(period.start, period.end, new Date(year, 0, 1), new Date(year, 11, 31)));
       for (const period of yearPeriods) {
         const start = asLocalDate(period.start);
         const end = asLocalDate(period.end);
@@ -6407,18 +11871,18 @@ async function deleteEditedEntry() {
         const spanMonths = (endMonth - startMonth) + 1;
         const left = startMonth * monthWidth + 2;
         const width = Math.max(spanMonths * monthWidth - 4, 40);
-        const periodLabel = period.phase === "workshop" ? `Workshop / mobilisering · behov ${period.required || 2}` : staffing.text;
+        const periodLabel = period.phase === "workshop" ? `${window.izomaxTranslateKey?.("workshopMobilization") || "Workshop / mobilisering"} · ${window.izomaxTranslateKey?.("need") || "behov"} ${period.required || 2}` : staffing.text;
 
         html += `
           <div
-            class="entry-bar ${getProjectPeriodBarClasses(project, period)} ${project.id === state.focusProjectId ? 'ring-2 ring-blue-300 ring-offset-1' : ''}"
+            class="entry-bar ${getProjectPeriodBarClasses(project, period)} ${project.id === state.focusProjectId ? 'ring-2 ring-blue-300 ring-offset-1' : ''}${getProjectPanelFocusClass(project.id)}"
             style="left:${left}px; width:${width}px;"
             data-project-row-id="${escapeHtml(project.id)}"
-            title="${escapeHtml(`${project.name} | ${period.phaseLabel || "Feltoppdrag"} | ${formatDate(period.start)} – ${formatDate(period.end)} | ${period.phase === "workshop" ? `Workshopbehov ${period.required || 2}` : staffing.text}`)}"
+            title="${escapeHtml(`${project.name} | ${period.phase === "workshop" ? (window.izomaxTranslateKey?.("workshopMobilization") || "Workshop / mobilisering") : (window.izomaxTranslateKey?.("fieldAssignment") || "Feltoppdrag")} | ${formatDate(period.start)} – ${formatDate(period.end)} | ${period.phase === "workshop" ? `${window.izomaxTranslateKey?.("workshopNeed") || "Workshopbehov"} ${period.required || 2}` : staffing.text}`)}"
           >
             <div class="font-semibold">${escapeHtml(project.name)}</div>
             <div class="text-[11px] opacity-90">${escapeHtml(periodLabel)}</div>
-            ${period.phase !== "workshop" ? `<div data-resize-handle data-resize-type="project" data-target-id="${escapeHtml(project.id)}" title="Dra for å endre sluttdato" style="position:absolute; top:0; right:0; bottom:0; width:12px; cursor:ew-resize; border-left:1px solid rgba(255,255,255,0.35); background:linear-gradient(to left, rgba(255,255,255,0.35), rgba(255,255,255,0));"></div>` : ""}
+            ${period.phase !== "workshop" ? `<div data-resize-handle data-resize-type="project" data-target-id="${escapeHtml(project.id)}" title="${window.izomaxTranslateKey?.("resizeEndDate") || "Dra for å endre sluttdato"}" style="position:absolute; top:0; right:0; bottom:0; width:12px; cursor:ew-resize; border-left:1px solid rgba(255,255,255,0.35); background:linear-gradient(to left, rgba(255,255,255,0.35), rgba(255,255,255,0));"></div>` : ""}
           </div>
         `;
       }
@@ -7277,24 +12741,34 @@ function getDashboardAnalysisRange() {
   function getProjectStaffingLabel(projectId, required) {
     const project = getProjectById(projectId);
     if (project && isCancelledProject(project)) {
-      return { text: "Kansellert", variant: "text-red-700" };
+      return { text: window.izomaxTranslateKey?.("cancelled") || "Kansellert", variant: "text-red-700" };
     }
 
     const assigned = getProjectAssignedCount(projectId);
+    const phases = project ? getProjectTimelinePhaseTypes(project) : { isWorkshopOnly: false };
+    const requiredCount = Math.max(Number(required || 0), 0);
+
+    if (phases.isWorkshopOnly) {
+      return { text: "Workshop-only", variant: "text-green-700" };
+    }
+
+    if (requiredCount === 0) {
+      return { text: "Ingen feltbemanning", variant: "text-slate-500" };
+    }
 
     if (assigned === 0) {
-      return { text: "Ikke bemannet", variant: "text-red-700" };
+      return { text: window.izomaxTranslateKey?.("notStaffed") || "Ikke bemannet", variant: "text-red-700" };
     }
 
-    if (required > 0 && assigned < required) {
-      return { text: "Delvis bemannet", variant: "text-amber-700" };
+    if (assigned < requiredCount) {
+      return { text: window.izomaxTranslateKey?.("partlyStaffed") || "Delvis bemannet", variant: "text-amber-700" };
     }
 
-    return { text: "Bemannet", variant: "text-green-700" };
+    return { text: window.izomaxTranslateKey?.("staffed") || "Bemannet", variant: "text-green-700" };
   }
 
   function projectOverlapsRange(project, rangeStart, rangeEnd) {
-    const periods = getProjectTimelinePeriodsWithWorkshop(project);
+    const periods = filterProjectPeriodsByPhase(project, getProjectTimelinePeriodsWithWorkshop(project));
     if (!periods.length) return false;
     return periods.some(period => overlaps(period.start, period.end, rangeStart, rangeEnd));
   }
@@ -7311,12 +12785,12 @@ function getDashboardAnalysisRange() {
     if (project?.has_multiple_periods && periods.length) {
       return periods.map(period => `${formatDate(period.start)} – ${formatDate(period.end)}`).join(", ");
     }
-    if (!project.planned_start_date && !project.planned_end_date) return "Ingen planlagt periode";
+    if (!project.planned_start_date && !project.planned_end_date) return window.izomaxTranslateKey?.("noPlannedPeriod") || "Ingen planlagt periode";
     if (project.planned_start_date && project.planned_end_date) {
       return `${formatDate(project.planned_start_date)} – ${formatDate(project.planned_end_date)}`;
     }
-    if (project.planned_start_date) return `Fra ${formatDate(project.planned_start_date)}`;
-    return `Til ${formatDate(project.planned_end_date)}`;
+    if (project.planned_start_date) return `${window.izomaxTranslateKey?.("from") || "Fra"} ${formatDate(project.planned_start_date)}`;
+    return `${window.izomaxTranslateKey?.("to") || "Til"} ${formatDate(project.planned_end_date)}`;
   }
 
   function formatDateTime(value) {
