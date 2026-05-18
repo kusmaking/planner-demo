@@ -1,32 +1,15 @@
 # Patch history
 
-## v18.63c — resource planning dashboard mockup implementation
+## v18.63d-dashboard-resource-priority-layout-cleanup
 
-Base: `Locked-v18.62ap-workshop-only-field-render-scroll-approved` + v18.63a/v18.63b capacity model.
+- Ryddet dashboard slik at Offshore bemanning og Verkstedkapasitet kommer høyere på skjermen.
+- Fjernet toppkortene for Ansattplan/Prosjektplan/Uten bemanning/Prosjektadmin/Ansattadmin fra dashboardet, siden disse finnes i venstremenyen.
+- Fjernet stor KPI-boks for Prosjekter neste 14 dager fra dashboardet.
+- Fjernet egen topp-KPI-rad for Tilgjengelige ressurser/Totalt behov/Kapasitetsgap/Kritiske dager/Toppbelastning, siden nøkkeltallene nå ligger inne i Offshore/Verksted-kortene.
+- Gjort Operativ status mindre og mindre dominerende.
+- Beholdt eksisterende offshore-/workshop-kalkyle fra v18.63b/c.
+- Ikke endret login, prosjektbemanning, kalenderdata, Supabase, RLS, Edge Functions eller main.
 
-Scope:
-- Reworked dashboard capacity section into a resource planning view.
-- Split capacity into two operational panels:
-  - Offshore bemanning
-  - Verkstedkapasitet
-- Offshore includes Offshore workers + 3 parts innleie.
-- Workshop includes only Onshore Workshop Technician / Workshop Technician + Apprentice.
-- Engineering is not shown as a capacity row.
-- Each panel shows:
-  - lowest available resources in the next 14 days
-  - peak need in the next 14 days
-  - worst capacity gap
-  - projects in the period with period, need and status
-- Added critical-days matrix for Offshore and Workshop only.
+## Tidligere viktig base
 
-Not touched:
-- login
-- Supabase schema
-- RLS
-- Edge Functions
-- project staffing add/remove
-- calendar data model
-- main branch
-
-Test:
-- `node --check app.js` OK
+- Bygger videre på Locked-v18.62ap-workshop-only-field-render-scroll-approved og v18.63c-resource-planning-dashboard.

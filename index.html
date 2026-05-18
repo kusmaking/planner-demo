@@ -7056,6 +7056,123 @@
       body.iz-compact-ui #homeDashboard .dash63-project-row { grid-template-columns: 1fr 100px 58px 76px; }
     }
 
+
+    /* v18.63d dashboard cleanup: prioritize Offshore/Workshop capacity and remove duplicate shortcut/KPI clutter. */
+    body.iz-compact-ui #homeDashboard .dash63-dashboard-clean { padding-bottom: 18px; }
+    body.iz-compact-ui #homeDashboard .dash63-dashboard-head {
+      display: grid;
+      grid-template-columns: minmax(220px, 1fr) minmax(280px, 430px);
+      gap: 14px;
+      align-items: end;
+    }
+    body.iz-compact-ui #homeDashboard .dash63-greeting-compact {
+      padding: 12px 14px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-height: 72px;
+      border-left: 3px solid rgba(45,212,191,.76);
+    }
+    body.iz-compact-ui #homeDashboard .dash63-greeting-icon {
+      width: 42px;
+      height: 42px;
+      border-radius: 999px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: #67e8f9;
+      background: rgba(8,145,178,.10);
+      border: 1px solid rgba(103,232,249,.18);
+      flex: 0 0 auto;
+    }
+    body.iz-compact-ui #homeDashboard .dash63-greeting-title {
+      font-size: 16px;
+      font-weight: 900;
+      color: #f8fbfd;
+      line-height: 1.1;
+    }
+    body.iz-compact-ui #homeDashboard .dash63-greeting-text {
+      margin-top: 4px;
+      font-size: 12px;
+      color: rgba(235,248,250,.70);
+      line-height: 1.35;
+    }
+    body.iz-compact-ui #homeDashboard .dash63-priority-resource .dash63-resource-card {
+      min-height: 0;
+      border-left: 0;
+    }
+    body.iz-compact-ui #homeDashboard .dash63-priority-resource .dash63-resource-card .dash27-card-title {
+      font-size: 22px;
+    }
+    body.iz-compact-ui #homeDashboard .dash63-priority-resource .dash63-resource-stats {
+      padding: 9px;
+      gap: 8px;
+    }
+    body.iz-compact-ui #homeDashboard .dash63-priority-resource .dash63-mini-stat {
+      min-height: 64px;
+      padding: 8px 10px;
+    }
+    body.iz-compact-ui #homeDashboard .dash63-priority-resource .dash63-mini-stat strong {
+      font-size: 26px;
+      margin-top: 4px;
+    }
+    body.iz-compact-ui #homeDashboard .dash63-priority-resource .dash63-project-row {
+      min-height: 34px;
+      padding-top: 6px;
+      padding-bottom: 6px;
+      font-size: 12px;
+    }
+    body.iz-compact-ui #homeDashboard .dash63-priority-resource .dash63-project-head {
+      min-height: 30px;
+      padding-top: 6px;
+      padding-bottom: 5px;
+      font-size: 10px;
+    }
+    body.iz-compact-ui #homeDashboard .dash63-operational-compact {
+      opacity: .96;
+    }
+    body.iz-compact-ui #homeDashboard .dash63-operational-compact .dash27-kpi {
+      min-height: 70px !important;
+      padding: 10px 13px !important;
+      gap: 8px !important;
+      grid-template-columns: 1fr !important;
+      border-right: 1px solid rgba(172,219,230,.14);
+    }
+    body.iz-compact-ui #homeDashboard .dash63-operational-compact .dash27-kpi-icon {
+      display: none !important;
+    }
+    body.iz-compact-ui #homeDashboard .dash63-operational-compact .text-4xl {
+      font-size: 1.8rem !important;
+      line-height: 1 !important;
+    }
+    body.iz-compact-ui #homeDashboard .dash63-operational-compact .dash27-kpi-action {
+      display: none !important;
+    }
+    body.iz-compact-ui #homeDashboard .dash63-operational-compact .dash27-muted {
+      font-size: 11px !important;
+    }
+    body.iz-compact-ui #homeDashboard .dash63-critical {
+      padding: 14px !important;
+    }
+    body.iz-compact-ui #homeDashboard .dash63-critical .dash27-card-title {
+      font-size: 17px;
+    }
+    body.iz-compact-ui #homeDashboard .dash63-critical-grid {
+      min-width: 820px;
+      grid-template-columns: 154px repeat(14, minmax(46px, 1fr));
+      gap: 4px;
+    }
+    body.iz-compact-ui #homeDashboard .dash63-critical-head,
+    body.iz-compact-ui #homeDashboard .dash63-critical-label,
+    body.iz-compact-ui #homeDashboard .dash63-critical-cell {
+      min-height: 36px;
+      border-radius: 7px;
+    }
+    @media (max-width: 1100px) {
+      body.iz-compact-ui #homeDashboard .dash63-dashboard-head { grid-template-columns: 1fr; align-items: stretch; }
+      body.iz-compact-ui #homeDashboard .dash63-greeting-compact { max-width: none; }
+    }
+
 </style>
 </head>
 <body class="iz-compact-ui text-slate-900">
