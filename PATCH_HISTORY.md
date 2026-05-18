@@ -13,3 +13,12 @@
 ## Tidligere viktig base
 
 - Bygger videre på Locked-v18.62ap-workshop-only-field-render-scroll-approved og v18.63c-resource-planning-dashboard.
+
+## v18.64a-employee-plan-layout-visibility-cleanup-sandbox
+
+- Ryddet Ansattplan visuelt for å vise flere ansatte på skjermen.
+- Redusert rad-/gruppehøyde og noe luft i venstre ansattkolonne.
+- Gjort gruppeoverskrifter tydeligere med fargeindikator og kompaktere tellebrikke.
+- Lagt inn små statusbrikker i ansattkolonnen for å skille Ledig/Opptatt i valgt visning.
+- Forbedret lesbarhet på prosjektblokker i Ansattplan uten å endre kalenderdata, drag/drop, prosjektbemanning eller Supabase.
+

@@ -4282,6 +4282,20 @@ Dette oppretter ikke Auth-bruker. Hvis Auth-brukeren mangler, får du en tydelig
     renderCalendar();
   }
 
+  function getEmployeeGroupAccentColor(group) {
+    const normalized = normalizeEmployeeGroup(group || "");
+    const accents = {
+      "Offshore arbeider": "#14b8a6",
+      "Onshore arbeider": "#3b82f6",
+      "Lager og logistikk": "#f59e0b",
+      "Engineering": "#8b5cf6",
+      "3 parts innleie": "#06b6d4",
+      "Management": "#64748b",
+      "Prosjektledelse / planlegging": "#22c55e"
+    };
+    return accents[normalized] || "#94a3b8";
+}
+
   function getEmployeeCalendarCellClass(employee) {
     const group = normalizeEmployeeGroup(employee?.employee_group || "");
     return EMPLOYEE_GROUP_CALENDAR_CELL_STYLES[group] || "bg-white text-slate-900";
@@ -11463,14 +11477,14 @@ async function deleteEditedEntry() {
       ? `<div id="dashboardEmployeeFilterBanner"><div><strong>Dashboard-filter:</strong> ${escapeHtml(state.dashboardEmployeeFilterLabel || "Utvalg")} · viser ${employees.length} ansatte · ${escapeHtml(getDashboardAnalysisPeriodLabel())}</div><button type="button" id="clearDashboardEmployeeFilterBtn">Vis alle ansatte</button></div>`
       : "";
 
-    const stickyWidth = 264;
-    const colWidth = Math.max(28, state.viewMode === "Uke" ? 38 : 32);
+    const stickyWidth = 238;
+    const colWidth = Math.max(26, state.viewMode === "Uke" ? 36 : 30);
     const totalWidth = colWidth * days.length;
 
     let html = dashboardFilterBanner;
-    html += `<div class="calendar-shell" style="width:${stickyWidth + totalWidth}px; min-width:${stickyWidth + totalWidth}px; position:relative;">`;
+    html += `<div class="calendar-shell employee-plan-calendar-shell" style="width:${stickyWidth + totalWidth}px; min-width:${stickyWidth + totalWidth}px; position:relative;">`;
     html += renderTodayLineOverlay(days, stickyWidth, colWidth);
-    html += `<div class="day-grid border border-slate-200 rounded-2xl overflow-visible" style="grid-template-columns:${stickyWidth}px repeat(${days.length}, ${colWidth}px);">`;
+    html += `<div class="day-grid employee-plan-day-grid border border-slate-200 rounded-2xl overflow-visible" style="grid-template-columns:${stickyWidth}px repeat(${days.length}, ${colWidth}px);">`;
     html += renderTimelineHeaderRows(days, "Ansatt");
 
     const warnings = [];
@@ -11478,17 +11492,17 @@ async function deleteEditedEntry() {
     for (const group of employeeGroups) {
       const collapsed = isEmployeeGroupCollapsed(group.key);
       html += `
-        <div class="employee-plan-group-header sticky-col border-r border-b border-slate-200 bg-slate-50 px-3 py-2">
-          <button type="button" data-employee-group-toggle="${escapeHtml(group.key)}" class="w-full flex items-center justify-between gap-3 text-left text-slate-800">
-            <span class="min-w-0 flex items-center gap-2">
-              <span class="text-xs text-slate-500">${collapsed ? "▶" : "▼"}</span>
+        <div class="employee-plan-group-header sticky-col border-r border-b border-slate-200 bg-slate-50 px-2 py-1.5" style="--employee-group-accent:${getEmployeeGroupAccentColor(group.group)}; border-left:4px solid var(--employee-group-accent);">
+          <button type="button" data-employee-group-toggle="${escapeHtml(group.key)}" class="w-full flex items-center justify-between gap-2 text-left text-slate-800">
+            <span class="min-w-0 flex items-center gap-1.5">
+              <span class="text-[10px] text-slate-500">${collapsed ? "▶" : "▼"}</span>
               ${group.iconHtml}
-              <span class="font-semibold text-sm truncate">${escapeHtml(group.label)}</span>
-              <span class="employee-plan-group-count rounded-md border border-slate-300 bg-white px-1.5 py-0.5 text-[11px] font-semibold text-slate-600">${group.employees.length}</span>
+              <span class="font-semibold text-[12px] truncate">${escapeHtml(group.label)}</span>
+              <span class="employee-plan-group-count rounded-md border border-slate-300 bg-white px-1.5 py-0.5 text-[10px] font-semibold text-slate-600">${group.employees.length}</span>
             </span>
           </button>
         </div>
-        <div class="employee-plan-group-fill border-b border-slate-200 bg-slate-50/70" style="grid-column: span ${days.length}; width:${totalWidth}px; min-height:34px;"></div>
+        <div class="employee-plan-group-fill border-b border-slate-200 bg-slate-50/70" style="grid-column: span ${days.length}; width:${totalWidth}px; min-height:28px; border-left:4px solid ${getEmployeeGroupAccentColor(group.group)};"></div>
       `;
 
       if (collapsed) continue;
@@ -11496,10 +11510,11 @@ async function deleteEditedEntry() {
       for (const employee of group.employees) {
         const employeeEntries = getVisibleEntriesForEmployee(employee.name, range.start, range.end);
 
+        const hasEmployeePlanInRange = employeeEntries.length > 0;
         html += `
-          <div class="employee-plan-name-cell sticky-col border-r border-b border-slate-200 px-3 py-2 ${getEmployeeCalendarCellClass(employee)}">
-            <div>${getEmployeeNameTabHtml(employee)}</div>
-            ${employee.title ? `<div class="employee-plan-title text-[11px] opacity-80 leading-tight mt-1">${escapeHtml(employee.title)}</div>` : ""}
+          <div class="employee-plan-name-cell sticky-col border-r border-b border-slate-200 px-2 py-1.5 ${getEmployeeCalendarCellClass(employee)}" data-employee-plan-status="${hasEmployeePlanInRange ? "busy" : "free"}" style="--employee-group-accent:${getEmployeeGroupAccentColor(employee.employee_group)};">
+            <div class="employee-plan-name-row">${getEmployeeNameTabHtml(employee)}<span class="employee-plan-status-chip ${hasEmployeePlanInRange ? "employee-plan-status-busy" : "employee-plan-status-free"}">${hasEmployeePlanInRange ? "Opptatt" : "Ledig"}</span></div>
+            ${employee.title ? `<div class="employee-plan-title text-[10px] opacity-80 leading-tight mt-0.5">${escapeHtml(employee.title)}</div>` : ""}
           </div>
         `;
 
@@ -11514,7 +11529,7 @@ async function deleteEditedEntry() {
           html += `<div data-drop-slot-index="${i}" data-drop-date="${toIsoDate(day)}" data-today-column="${isTodayDate(day) ? "true" : "false"}" class="day-cell ${redDay ? "red-day" : ""}" style="position:absolute; left:${i * colWidth}px; width:${colWidth}px; border-right:${monthBoundary ? "2px solid #94a3b8" : "1px solid #e2e8f0"}; ${todayCellStyle}"></div>`;
         }
 
-        html += `<div style="position:relative; width:${totalWidth}px; min-height:40px;">`;
+        html += `<div class="employee-plan-row-track" style="position:relative; width:${totalWidth}px; min-height:38px;">`;
 
         for (const entry of employeeEntries) {
           const project = getProjectById(entry.project_id);
@@ -11573,13 +11588,13 @@ async function deleteEditedEntry() {
     const months = Array.from({ length: 12 }, (_, i) => new Date(year, i, 1));
 
     const calendarWrapWidth = Math.max(els.calendarWrap.clientWidth - 8, 900);
-    const stickyWidth = 280;
+    const stickyWidth = 238;
     const usableWidth = Math.max(calendarWrapWidth - stickyWidth, 1000);
     const monthWidth = usableWidth / 12;
     const totalWidth = monthWidth * 12;
 
-    let html = `<div class="calendar-shell" style="width:${stickyWidth + totalWidth}px;">`;
-    html += `<div class="month-summary-grid border border-slate-200 rounded-2xl overflow-hidden" style="grid-template-columns:${stickyWidth}px repeat(12, ${monthWidth}px);">`;
+    let html = `<div class="calendar-shell employee-plan-calendar-shell" style="width:${stickyWidth + totalWidth}px;">`;
+    html += `<div class="month-summary-grid employee-plan-year-grid border border-slate-200 rounded-2xl overflow-hidden" style="grid-template-columns:${stickyWidth}px repeat(12, ${monthWidth}px);">`;
     html += `<div class="sticky-col z-30 border-b border-r border-slate-200 bg-slate-50 px-3 py-3 font-semibold">Ansatt</div>`;
 
     for (const month of months) {
@@ -11593,17 +11608,17 @@ async function deleteEditedEntry() {
     for (const group of employeeGroups) {
       const collapsed = isEmployeeGroupCollapsed(group.key);
       html += `
-        <div class="employee-plan-group-header sticky-col border-r border-b border-slate-200 bg-slate-50 px-3 py-2">
-          <button type="button" data-employee-group-toggle="${escapeHtml(group.key)}" class="w-full flex items-center justify-between gap-3 text-left text-slate-800">
-            <span class="min-w-0 flex items-center gap-2">
-              <span class="text-xs text-slate-500">${collapsed ? "▶" : "▼"}</span>
+        <div class="employee-plan-group-header sticky-col border-r border-b border-slate-200 bg-slate-50 px-2 py-1.5" style="--employee-group-accent:${getEmployeeGroupAccentColor(group.group)}; border-left:4px solid var(--employee-group-accent);">
+          <button type="button" data-employee-group-toggle="${escapeHtml(group.key)}" class="w-full flex items-center justify-between gap-2 text-left text-slate-800">
+            <span class="min-w-0 flex items-center gap-1.5">
+              <span class="text-[10px] text-slate-500">${collapsed ? "▶" : "▼"}</span>
               ${group.iconHtml}
-              <span class="font-semibold text-sm truncate">${escapeHtml(group.label)}</span>
-              <span class="employee-plan-group-count rounded-md border border-slate-300 bg-white px-1.5 py-0.5 text-[11px] font-semibold text-slate-600">${group.employees.length}</span>
+              <span class="font-semibold text-[12px] truncate">${escapeHtml(group.label)}</span>
+              <span class="employee-plan-group-count rounded-md border border-slate-300 bg-white px-1.5 py-0.5 text-[10px] font-semibold text-slate-600">${group.employees.length}</span>
             </span>
           </button>
         </div>
-        <div class="employee-plan-group-fill border-b border-slate-200 bg-slate-50/70" style="grid-column: span 12; width:${totalWidth}px; min-height:34px;"></div>
+        <div class="employee-plan-group-fill border-b border-slate-200 bg-slate-50/70" style="grid-column: span 12; width:${totalWidth}px; min-height:28px; border-left:4px solid ${getEmployeeGroupAccentColor(group.group)};"></div>
       `;
 
       if (collapsed) continue;
@@ -11611,10 +11626,11 @@ async function deleteEditedEntry() {
       for (const employee of group.employees) {
         const employeeEntries = getVisibleEntriesForEmployee(employee.name, yearStart, yearEnd);
 
+        const hasEmployeePlanInYear = employeeEntries.length > 0;
         html += `
-          <div class="employee-plan-name-cell sticky-col border-r border-b border-slate-200 px-3 py-2 ${getEmployeeCalendarCellClass(employee)}">
-            <div>${getEmployeeNameTabHtml(employee)}</div>
-            ${employee.title ? `<div class="employee-plan-title text-[11px] text-slate-600 leading-tight mt-1">${escapeHtml(employee.title)}</div>` : ""}
+          <div class="employee-plan-name-cell sticky-col border-r border-b border-slate-200 px-2 py-1.5 ${getEmployeeCalendarCellClass(employee)}" data-employee-plan-status="${hasEmployeePlanInYear ? "busy" : "free"}" style="--employee-group-accent:${getEmployeeGroupAccentColor(employee.employee_group)};">
+            <div class="employee-plan-name-row">${getEmployeeNameTabHtml(employee)}<span class="employee-plan-status-chip ${hasEmployeePlanInYear ? "employee-plan-status-busy" : "employee-plan-status-free"}">${hasEmployeePlanInYear ? "Plan" : "Ledig"}</span></div>
+            ${employee.title ? `<div class="employee-plan-title text-[10px] text-slate-600 leading-tight mt-0.5">${escapeHtml(employee.title)}</div>` : ""}
           </div>
         `;
 
@@ -11624,7 +11640,7 @@ async function deleteEditedEntry() {
           html += `<div data-drop-slot-index="${i}" data-drop-month-index="${i}" class="month-cell" style="position:absolute; left:${i * monthWidth}px; width:${monthWidth}px;"></div>`;
         }
 
-        html += `<div style="position:relative; width:${totalWidth}px; min-height:56px;">`;
+        html += `<div class="employee-plan-row-track" style="position:relative; width:${totalWidth}px; min-height:40px;">`;
 
         for (const entry of employeeEntries) {
           const project = getProjectById(entry.project_id);
@@ -11689,7 +11705,7 @@ async function deleteEditedEntry() {
 
     let html = `<div class="calendar-shell" style="width:${stickyWidth + totalWidth}px; min-width:${stickyWidth + totalWidth}px; position:relative;">`;
     html += renderTodayLineOverlay(days, stickyWidth, colWidth);
-    html += `<div class="day-grid border border-slate-200 rounded-2xl overflow-visible" style="grid-template-columns:${stickyWidth}px repeat(${days.length}, ${colWidth}px);">`;
+    html += `<div class="day-grid employee-plan-day-grid border border-slate-200 rounded-2xl overflow-visible" style="grid-template-columns:${stickyWidth}px repeat(${days.length}, ${colWidth}px);">`;
     html += renderTimelineHeaderRows(days, window.izomaxTranslateKey?.("projectHeader") || "Prosjekt");
 
     for (const project of projects) {

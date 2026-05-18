@@ -1304,6 +1304,133 @@
     }
 
 
+
+
+    /* v18.64a: Ansattplan compact layout cleanup.
+       Visual-only: tighter employee rows, clearer group separation and more readable project bars. */
+    body.iz-compact-ui .employee-plan-calendar-shell .employee-plan-day-grid .row-overlay {
+      min-height: 42px !important;
+    }
+
+    body.iz-compact-ui .employee-plan-calendar-shell .employee-plan-day-grid .day-cell,
+    body.iz-compact-ui .employee-plan-calendar-shell .employee-plan-day-grid .month-cell {
+      min-height: 42px !important;
+    }
+
+    body.iz-compact-ui .employee-plan-calendar-shell .employee-plan-row-track {
+      min-height: 38px !important;
+    }
+
+    body.iz-compact-ui .employee-plan-calendar-shell .employee-plan-group-header {
+      min-height: 28px !important;
+      background: linear-gradient(90deg, #e7f1f4 0%, #f6fafb 100%) !important;
+      border-bottom-color: #c0d4dc !important;
+    }
+
+    body.iz-compact-ui .employee-plan-calendar-shell .employee-plan-group-header button {
+      min-height: 22px !important;
+    }
+
+    body.iz-compact-ui .employee-plan-calendar-shell .employee-plan-group-fill {
+      min-height: 28px !important;
+      background: linear-gradient(90deg, rgba(231,241,244,0.96) 0%, rgba(248,251,252,0.92) 100%) !important;
+      border-bottom-color: #c0d4dc !important;
+    }
+
+    body.iz-compact-ui .employee-plan-calendar-shell .employee-plan-name-cell {
+      min-height: 42px !important;
+      padding: 5px 8px !important;
+      border-left: 4px solid var(--employee-group-accent, #94a3b8) !important;
+      background: #ffffff !important;
+    }
+
+    body.iz-compact-ui .employee-plan-name-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+      min-width: 0;
+    }
+
+    body.iz-compact-ui .employee-plan-name-row > .flex {
+      min-width: 0;
+      flex: 1 1 auto;
+    }
+
+    body.iz-compact-ui .employee-plan-name-main {
+      font-size: 12px !important;
+      line-height: 1.05 !important;
+      font-weight: 800 !important;
+    }
+
+    body.iz-compact-ui .employee-plan-title {
+      font-size: 10px !important;
+      line-height: 1.1 !important;
+      margin-top: 2px !important;
+      max-width: 100%;
+    }
+
+    body.iz-compact-ui .employee-plan-status-chip {
+      flex: 0 0 auto;
+      border-radius: 3px;
+      padding: 2px 4px;
+      font-size: 9px;
+      font-weight: 800;
+      line-height: 1;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      border: 1px solid transparent;
+    }
+
+    body.iz-compact-ui .employee-plan-status-free {
+      color: #047857;
+      background: #d1fae5;
+      border-color: #86efac;
+    }
+
+    body.iz-compact-ui .employee-plan-status-busy {
+      color: #9a3412;
+      background: #ffedd5;
+      border-color: #fdba74;
+    }
+
+    body.iz-compact-ui .employee-plan-calendar-shell .entry-bar {
+      top: 4px !important;
+      bottom: 4px !important;
+      padding: 4px 7px !important;
+      font-size: 11px !important;
+      line-height: 1.08 !important;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 1px;
+      min-height: 0;
+    }
+
+    body.iz-compact-ui .employee-plan-calendar-shell .entry-bar .font-semibold {
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-size: 11px !important;
+      line-height: 1.05 !important;
+    }
+
+    body.iz-compact-ui .employee-plan-calendar-shell .entry-bar .text-\[11px\] {
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-size: 9.5px !important;
+      line-height: 1.05 !important;
+      opacity: 0.9 !important;
+    }
+
+    body.iz-compact-ui .employee-plan-calendar-shell .entry-bar [data-resize-handle] {
+      width: 9px !important;
+    }
+
+
     /* v18.62a: Focused project remains clear while the panel is open; other project rows are visually toned down only. */
     .entry-bar.project-panel-focus-muted {
       opacity: 0.20;
