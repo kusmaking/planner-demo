@@ -11513,7 +11513,7 @@ async function deleteEditedEntry() {
         const hasEmployeePlanInRange = employeeEntries.length > 0;
         html += `
           <div class="employee-plan-name-cell sticky-col border-r border-b border-slate-200 px-2 py-1.5 ${getEmployeeCalendarCellClass(employee)}" data-employee-plan-status="${hasEmployeePlanInRange ? "busy" : "free"}" style="--employee-group-accent:${getEmployeeGroupAccentColor(employee.employee_group)};">
-            <div class="employee-plan-name-row">${getEmployeeNameTabHtml(employee)}<span class="employee-plan-status-chip ${hasEmployeePlanInRange ? "employee-plan-status-busy" : "employee-plan-status-free"}">${hasEmployeePlanInRange ? "Opptatt" : "Ledig"}</span></div>
+            <div class="employee-plan-name-row">${getEmployeeNameTabHtml(employee)}</div>
             ${employee.title ? `<div class="employee-plan-title text-[10px] opacity-80 leading-tight mt-0.5">${escapeHtml(employee.title)}</div>` : ""}
           </div>
         `;
@@ -11552,7 +11552,6 @@ async function deleteEditedEntry() {
               title="${escapeHtml(`${employee.name} | ${displayProjectName(project)} | ${entry.role} | ${entry.start_date} - ${entry.end_date}${entry.notes ? ` | ${entry.notes}` : ""}`)}"
             >
               <div class="font-semibold">${escapeHtml(displayProjectName(project))}</div>
-              ${isSystemPersonalProject(project) ? "" : `<div class="text-[11px] opacity-90">${escapeHtml(entry.role)}</div>`}
               <div data-resize-handle data-resize-type="entry" data-target-id="${escapeHtml(entry.id)}" title="${window.izomaxTranslateKey?.("resizeEndDate") || "Dra for å endre sluttdato"}" style="position:absolute; top:0; right:0; bottom:0; width:12px; cursor:ew-resize; border-left:1px solid rgba(255,255,255,0.35); background:linear-gradient(to left, rgba(255,255,255,0.35), rgba(255,255,255,0));"></div>
             </div>
           `;
@@ -11629,7 +11628,7 @@ async function deleteEditedEntry() {
         const hasEmployeePlanInYear = employeeEntries.length > 0;
         html += `
           <div class="employee-plan-name-cell sticky-col border-r border-b border-slate-200 px-2 py-1.5 ${getEmployeeCalendarCellClass(employee)}" data-employee-plan-status="${hasEmployeePlanInYear ? "busy" : "free"}" style="--employee-group-accent:${getEmployeeGroupAccentColor(employee.employee_group)};">
-            <div class="employee-plan-name-row">${getEmployeeNameTabHtml(employee)}<span class="employee-plan-status-chip ${hasEmployeePlanInYear ? "employee-plan-status-busy" : "employee-plan-status-free"}">${hasEmployeePlanInYear ? "Plan" : "Ledig"}</span></div>
+            <div class="employee-plan-name-row">${getEmployeeNameTabHtml(employee)}</div>
             ${employee.title ? `<div class="employee-plan-title text-[10px] text-slate-600 leading-tight mt-0.5">${escapeHtml(employee.title)}</div>` : ""}
           </div>
         `;

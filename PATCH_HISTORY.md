@@ -22,3 +22,12 @@
 - Lagt inn små statusbrikker i ansattkolonnen for å skille Ledig/Opptatt i valgt visning.
 - Forbedret lesbarhet på prosjektblokker i Ansattplan uten å endre kalenderdata, drag/drop, prosjektbemanning eller Supabase.
 
+
+
+## v18.64b - Ansattplan density and block cleanup
+
+- Fjernet Ledig/Opptatt-statusbrikker fra ansattkolonnen i Ansattplan.
+- Gjorde ansattrader mer kompakte for å vise flere ansatte på skjermen.
+- Lot prosjektblokker bruke mer av cellehøyden.
+- Fjernet rolle-/stillingstekst inne i prosjektblokkene i Ansattplan for mindre visuell støy.
+- Ikke endret drag/drop, kalenderdata, prosjektbemanning, Supabase, RLS, Edge Functions eller login.

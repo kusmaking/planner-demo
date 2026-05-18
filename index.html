@@ -1431,6 +1431,73 @@
     }
 
 
+    /* v18.64b: Ansattplan density/readability cleanup.
+       Visual-only: remove noisy free/busy chips, let project bars use more of each row,
+       and keep role text out of the project blocks for a cleaner planning view. */
+    body.iz-compact-ui .employee-plan-calendar-shell .employee-plan-day-grid .row-overlay {
+      min-height: 34px !important;
+    }
+
+    body.iz-compact-ui .employee-plan-calendar-shell .employee-plan-day-grid .day-cell,
+    body.iz-compact-ui .employee-plan-calendar-shell .employee-plan-day-grid .month-cell {
+      min-height: 34px !important;
+    }
+
+    body.iz-compact-ui .employee-plan-calendar-shell .employee-plan-row-track {
+      min-height: 32px !important;
+    }
+
+    body.iz-compact-ui .employee-plan-calendar-shell .employee-plan-name-cell {
+      min-height: 34px !important;
+      padding: 4px 7px !important;
+    }
+
+    body.iz-compact-ui .employee-plan-status-chip {
+      display: none !important;
+    }
+
+    body.iz-compact-ui .employee-plan-name-row {
+      justify-content: flex-start !important;
+    }
+
+    body.iz-compact-ui .employee-plan-name-main {
+      font-size: 12px !important;
+      line-height: 1.05 !important;
+    }
+
+    body.iz-compact-ui .employee-plan-title {
+      font-size: 9.5px !important;
+      line-height: 1.05 !important;
+      margin-top: 1px !important;
+    }
+
+    body.iz-compact-ui .employee-plan-calendar-shell .entry-bar {
+      top: 1px !important;
+      bottom: 1px !important;
+      padding: 3px 7px !important;
+      min-height: 28px !important;
+      justify-content: center !important;
+      gap: 0 !important;
+    }
+
+    body.iz-compact-ui .employee-plan-calendar-shell .entry-bar .font-semibold {
+      font-size: 11px !important;
+      line-height: 1.05 !important;
+      white-space: nowrap !important;
+      overflow: hidden !important;
+      text-overflow: ellipsis !important;
+    }
+
+    body.iz-compact-ui .employee-plan-calendar-shell .entry-bar .text-\[11px\] {
+      display: none !important;
+    }
+
+    body.iz-compact-ui .employee-plan-calendar-shell .employee-plan-group-header,
+    body.iz-compact-ui .employee-plan-calendar-shell .employee-plan-group-fill {
+      min-height: 25px !important;
+    }
+
+
     /* v18.62a: Focused project remains clear while the panel is open; other project rows are visually toned down only. */
     .entry-bar.project-panel-focus-muted {
       opacity: 0.20;
